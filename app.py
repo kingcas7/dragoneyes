@@ -98,7 +98,7 @@ st.markdown("""
 
 /* 데스크탑 전체 컴팩트 */
 .block-container {
-    padding-top: 0.4rem !important;
+    padding-top: 2.5rem !important;
     padding-bottom: 0.4rem !important;
 }
 h1 { font-size: 1.5rem !important; margin: 0 !important; }
@@ -835,7 +835,7 @@ else:
     h1, h2, hf, h6, h7, h8 = st.columns([2.5, 0.8, 2.2, 0.9, 1, 0.9])
     with h1:
         title_text = t("app_title").replace("🐉 ", "").replace("🐉 ", "")
-        st.markdown(f'<div style="font-size:1.3rem; font-weight:700; display:flex; align-items:center; gap:6px; margin:0; padding:4px 0">🐉 {title_text}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="font-size:2rem; font-weight:700; display:flex; align-items:center; gap:6px; margin:0; padding:4px 0">🐉 {title_text}</div>', unsafe_allow_html=True)
     with h2:
         st.metric(t("this_month"), f"{st.session_state.report_count}{t('unit_reports')}")
     with hf:
@@ -1192,18 +1192,18 @@ else:
             month_u = chat_info.get('monthly_used',0)
             month_lim = chat_info.get('monthly_limit', CHAT_MONTHLY_LIMIT)
             st.markdown(f"""
-            <div style="display:flex; gap:4px; align-items:center; justify-content:center; margin:3px 0;">
-                <div style="text-align:center; padding:3px 8px; background:#1e293b; border-radius:5px; min-width:60px;">
-                    <div style="font-size:0.6rem; color:#94a3b8;">오늘</div>
-                    <div style="font-size:0.85rem; font-weight:600; color:#f1f5f9;">{today_u}/{CHAT_DAILY_LIMIT}</div>
+            <div style="display:flex; gap:16px; align-items:center; justify-content:center; margin:6px 0;">
+                <div style="text-align:center; padding:5px 14px;">
+                    <div style="font-size:0.65rem; color:#94a3b8; margin-bottom:2px;">오늘</div>
+                    <div style="font-size:0.95rem; font-weight:600; color:#e2e8f0;">{today_u}/{CHAT_DAILY_LIMIT}</div>
                 </div>
-                <div style="text-align:center; padding:4px 12px; background:#0f3460; border:1px solid #e94560; border-radius:5px; min-width:80px;">
-                    <div style="font-size:0.62rem; color:#94a3b8;">이번주</div>
-                    <div style="font-size:1rem; font-weight:700; color:#ffffff;">{week_u}/{CHAT_WEEKLY_LIMIT}</div>
+                <div style="text-align:center; padding:5px 14px; border-left:1px solid #334155; border-right:1px solid #334155;">
+                    <div style="font-size:0.65rem; color:#94a3b8; margin-bottom:2px;">이번주</div>
+                    <div style="font-size:0.95rem; font-weight:600; color:#e2e8f0;">{week_u}/{CHAT_WEEKLY_LIMIT}</div>
                 </div>
-                <div style="text-align:center; padding:3px 8px; background:#1e293b; border-radius:5px; min-width:60px;">
-                    <div style="font-size:0.6rem; color:#94a3b8;">이번달</div>
-                    <div style="font-size:0.85rem; font-weight:600; color:#f1f5f9;">{month_u}/{month_lim}</div>
+                <div style="text-align:center; padding:5px 14px;">
+                    <div style="font-size:0.65rem; color:#94a3b8; margin-bottom:2px;">이번달</div>
+                    <div style="font-size:0.95rem; font-weight:600; color:#e2e8f0;">{month_u}/{month_lim}</div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
