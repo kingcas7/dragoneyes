@@ -824,6 +824,23 @@ else:
 
     st.divider()
 
+    # ── 서비스 소개 배너 ──
+    st.markdown("""
+    <div style="
+        background: linear-gradient(135deg, #0f3460 0%, #16213e 100%);
+        border-left: 5px solid #e94560;
+        border-radius: 8px;
+        padding: 0.8rem 1.2rem;
+        margin-bottom: 0.5rem;
+        color: white;
+        font-size: 0.95rem;
+        line-height: 1.6;
+    ">
+        🛡️ <strong>여기는 온라인 유해 콘텐츠를 모니터링하는 Agent AI 드래곤파더와 함께 작업하는 곳입니다.</strong><br>
+        어린이 아동학대, 성폭력, 그루밍 등 다양한 불법행위를 감시합니다.
+    </div>
+    """, unsafe_allow_html=True)
+
     # ══════════════════════════════
     # 보고서 작성 페이지
     # ══════════════════════════════
