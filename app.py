@@ -1183,7 +1183,7 @@ else:
             chat_info = can_use_chat(user["id"])
             df_col1, df_col2 = st.columns([3, 1])
             with df_col1:
-                st.markdown('<div style="font-size:1rem; font-weight:700; margin:2px 0">🐲 드래곤파더</div>', unsafe_allow_html=True)
+                st.markdown('<div style="font-size:1.5rem; font-weight:700; margin:2px 0; padding-left:2rem;">🐲 드래곤파더</div>', unsafe_allow_html=True)
             with df_col2:
                 if st.button("🐲 전체화면", key="dragon_fs_btn", use_container_width=True):
                     go_to("dragon_chat"); st.rerun()
@@ -1192,18 +1192,18 @@ else:
             month_u = chat_info.get('monthly_used',0)
             month_lim = chat_info.get('monthly_limit', CHAT_MONTHLY_LIMIT)
             st.markdown(f"""
-            <div style="display:flex; gap:16px; align-items:center; justify-content:center; margin:6px 0;">
+            <div style="display:flex; gap:24px; align-items:center; justify-content:center; margin:6px 0;">
                 <div style="text-align:center; padding:5px 14px;">
                     <div style="font-size:0.65rem; color:#94a3b8; margin-bottom:2px;">오늘</div>
-                    <div style="font-size:0.95rem; font-weight:600; color:#e2e8f0;">{today_u}/{CHAT_DAILY_LIMIT}</div>
+                    <div style="font-size:0.95rem; font-weight:600; color:#60a5fa;">{today_u}/{CHAT_DAILY_LIMIT}</div>
                 </div>
-                <div style="text-align:center; padding:5px 14px; border-left:1px solid #334155; border-right:1px solid #334155;">
+                <div style="text-align:center; padding:5px 14px;">
                     <div style="font-size:0.65rem; color:#94a3b8; margin-bottom:2px;">이번주</div>
-                    <div style="font-size:0.95rem; font-weight:600; color:#e2e8f0;">{week_u}/{CHAT_WEEKLY_LIMIT}</div>
+                    <div style="font-size:0.95rem; font-weight:600; color:#60a5fa;">{week_u}/{CHAT_WEEKLY_LIMIT}</div>
                 </div>
                 <div style="text-align:center; padding:5px 14px;">
                     <div style="font-size:0.65rem; color:#94a3b8; margin-bottom:2px;">이번달</div>
-                    <div style="font-size:0.95rem; font-weight:600; color:#e2e8f0;">{month_u}/{month_lim}</div>
+                    <div style="font-size:0.95rem; font-weight:600; color:#60a5fa;">{month_u}/{month_lim}</div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
