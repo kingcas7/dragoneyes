@@ -1061,8 +1061,8 @@ else:
             with df_col1:
                 st.subheader("🐲 드래곤파더")
             with df_col2:
-                if st.button("🔲 전체화면", key="dragon_fs_btn", use_container_width=True):
-                    st.session_state.dragon_fullscreen = True; st.rerun()
+                if st.button("🐲 전체화면에서 드래곤파더 만나기", key="dragon_fs_btn", use_container_width=True):
+                    go_to("dragon_chat"); st.rerun()
             ct1, ct2, ct3 = st.columns(3)
             ct1.metric("오늘", f"{chat_info.get('today_used',0)}/{CHAT_DAILY_LIMIT}")
             ct2.metric("이번주", f"{chat_info.get('week_used',0)}/{CHAT_WEEKLY_LIMIT}")
