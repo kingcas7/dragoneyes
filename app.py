@@ -832,23 +832,23 @@ else:
     page = st.session_state.current_page
 
     # ── 상단 헤더 ──
-    h1, h2, hf, h6, h7, h8 = st.columns([3, 1, 2, 1, 1, 1])
+    h1, h2, hf, h6, h7, h8 = st.columns([2.5, 0.8, 2.2, 0.9, 1, 0.9])
     with h1:
-        st.title(t("app_title"))
+        st.markdown(f'<div style="font-size:1.3rem; font-weight:700; display:flex; align-items:center; gap:6px; margin:0; padding:4px 0">🐉 {t("app_title")}</div>', unsafe_allow_html=True)
     with h2:
         st.metric(t("this_month"), f"{st.session_state.report_count}{t('unit_reports')}")
     with hf:
         fc1, fc2, fc3 = st.columns(3)
         with fc1:
-            st.markdown('<div style="font-size:2rem; text-align:center; line-height:1.2">🇰🇷</div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-size:1.1rem; text-align:center; line-height:1">🇰🇷</div>', unsafe_allow_html=True)
             if st.button("한국어", use_container_width=True, key="flag_ko"):
                 st.session_state.lang = "ko"; st.rerun()
         with fc2:
-            st.markdown('<div style="font-size:2rem; text-align:center; line-height:1.2">🇺🇸</div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-size:1.1rem; text-align:center; line-height:1">🇺🇸</div>', unsafe_allow_html=True)
             if st.button("English", use_container_width=True, key="flag_en"):
                 st.session_state.lang = "en"; st.rerun()
         with fc3:
-            st.markdown('<div style="font-size:2rem; text-align:center; line-height:1.2">🇯🇵</div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-size:1.1rem; text-align:center; line-height:1">🇯🇵</div>', unsafe_allow_html=True)
             if st.button("日本語", use_container_width=True, key="flag_ja"):
                 st.session_state.lang = "ja"; st.rerun()
     with h6:
