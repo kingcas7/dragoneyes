@@ -1106,16 +1106,37 @@ else:
             df_my = pd.DataFrame(all_my.data) if all_my.data else pd.DataFrame()
             this_month = date.today().strftime("%Y-%m")
 
-            m1, m2 = st.columns(2)
             month_cnt = len(df_my[df_my["created_at"].str[:7] == this_month]) if not df_my.empty else 0
             target = user.get("monthly_target", 10)
             rate = min(int(month_cnt / target * 100), 100) if target > 0 else 0
-            m1.metric(t("month_report"), f"{month_cnt}{t('unit_reports')}", t("goal", target))
-            m2.metric(t("achievement"), f"{rate}%")
-            m3, m4 = st.columns(2)
-            m3.metric(t("dragon_token"), t("token_remain", token_info['monthly_remaining']))
-            m4.metric("📜 " + t("tab_history"), f"{len(st.session_state.search_results) + len(st.session_state.recommend_results)}" + t("pending_list"))
-            st.progress(rate / 100)
+            history_cnt = len(st.session_state.search_results) + len(st.session_state.recommend_results)
+            st.markdown(f"""
+            <div style="display:flex; gap:8px; margin:4px 0;">
+                <div style="flex:1; background:#1e293b; border-radius:6px; padding:6px 10px; text-align:center;">
+                    <div style="font-size:0.68rem; color:#94a3b8;">📅 {t('month_report')}</div>
+                    <div style="font-size:1.1rem; font-weight:700; color:#f1f5f9;">{month_cnt}{t('unit_reports')}</div>
+                    <div style="font-size:0.62rem; color:#22c55e;">↑ {t('goal', target)}</div>
+                </div>
+                <div style="flex:1; background:#1e293b; border-radius:6px; padding:6px 10px; text-align:center;">
+                    <div style="font-size:0.68rem; color:#94a3b8;">🎯 {t('achievement')}</div>
+                    <div style="font-size:1.1rem; font-weight:700; color:#f1f5f9;">{rate}%</div>
+                    <div style="font-size:0.62rem; color:#94a3b8;">목표 {target}건</div>
+                </div>
+                <div style="flex:1; background:#1e293b; border-radius:6px; padding:6px 10px; text-align:center;">
+                    <div style="font-size:0.68rem; color:#94a3b8;">🐉 {t('dragon_token')}</div>
+                    <div style="font-size:1.1rem; font-weight:700; color:#f1f5f9;">{token_info['monthly_remaining']}</div>
+                    <div style="font-size:0.62rem; color:#94a3b8;">회 남음</div>
+                </div>
+                <div style="flex:1; background:#1e293b; border-radius:6px; padding:6px 10px; text-align:center;">
+                    <div style="font-size:0.68rem; color:#94a3b8;">📜 탐색 히스토리</div>
+                    <div style="font-size:1.1rem; font-weight:700; color:#f1f5f9;">{history_cnt}건</div>
+                    <div style="font-size:0.62rem; color:#94a3b8;">대기중</div>
+                </div>
+            </div>
+            <div style="background:#334155; border-radius:4px; height:6px; margin:4px 0;">
+                <div style="background:#22c55e; width:{rate}%; height:6px; border-radius:4px;"></div>
+            </div>
+            """, unsafe_allow_html=True)
 
             st.divider()
             st.subheader(t("shortcut"))
