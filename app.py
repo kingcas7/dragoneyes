@@ -1181,7 +1181,7 @@ else:
             st.markdown('<span id="dragonfather_anchor"></span>', unsafe_allow_html=True)
 
             chat_info = can_use_chat(user["id"])
-            df_col1, df_col2 = st.columns([3, 1])
+            df_col1, df_col2 = st.columns([2, 2])
             with df_col1:
                 st.markdown('''<div style="font-size:1.5rem; font-weight:700; margin:0; padding-left:2rem; line-height:1.2;">🐲 드래곤파더</div>
                 <div style="font-size:1.1rem; color:#94a3b8; padding-left:2rem; margin-bottom:2px;">✨ Agent AI 드래곤파더에게 말을 걸어보세요.</div>''', unsafe_allow_html=True)
