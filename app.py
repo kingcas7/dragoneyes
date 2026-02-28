@@ -1193,19 +1193,21 @@ else:
             month_u = chat_info.get('monthly_used',0)
             month_lim = chat_info.get('monthly_limit', CHAT_MONTHLY_LIMIT)
             st.markdown(f"""
-            <div style="font-size:1.04rem; color:#94a3b8; margin:20px 0 2px 0; padding-left:0; position:relative; left:5rem;">📊 토큰 현황</div>
-            <div style="display:flex; gap:24px; align-items:center; justify-content:center; margin:6px 0;">
-                <div style="text-align:center; padding:5px 14px;">
-                    <div style="font-size:0.65rem; color:#94a3b8; margin-bottom:2px;">오늘</div>
-                    <div style="font-size:0.95rem; font-weight:600; color:#60a5fa;">{today_u}/{CHAT_DAILY_LIMIT}</div>
-                </div>
-                <div style="text-align:center; padding:5px 14px;">
-                    <div style="font-size:0.65rem; color:#94a3b8; margin-bottom:2px;">이번주</div>
-                    <div style="font-size:0.95rem; font-weight:600; color:#60a5fa;">{week_u}/{CHAT_WEEKLY_LIMIT}</div>
-                </div>
-                <div style="text-align:center; padding:5px 14px;">
-                    <div style="font-size:0.65rem; color:#94a3b8; margin-bottom:2px;">이번달</div>
-                    <div style="font-size:0.95rem; font-weight:600; color:#60a5fa;">{month_u}/{month_lim}</div>
+            <div style="margin:6px 0 4px 0;">
+                <div style="font-size:0.8rem; color:#94a3b8; margin-bottom:6px;">📊 토큰 현황</div>
+                <div style="display:flex; gap:12px; align-items:center;">
+                    <div style="text-align:center; padding:4px 10px; background:#1e293b; border-radius:6px; flex:1;">
+                        <div style="font-size:0.6rem; color:#94a3b8; margin-bottom:1px;">오늘</div>
+                        <div style="font-size:0.9rem; font-weight:600; color:#60a5fa;">{today_u}/{CHAT_DAILY_LIMIT}</div>
+                    </div>
+                    <div style="text-align:center; padding:4px 10px; background:#1e293b; border-radius:6px; flex:1;">
+                        <div style="font-size:0.6rem; color:#94a3b8; margin-bottom:1px;">이번주</div>
+                        <div style="font-size:0.9rem; font-weight:600; color:#60a5fa;">{week_u}/{CHAT_WEEKLY_LIMIT}</div>
+                    </div>
+                    <div style="text-align:center; padding:4px 10px; background:#1e293b; border-radius:6px; flex:1;">
+                        <div style="font-size:0.6rem; color:#94a3b8; margin-bottom:1px;">이번달</div>
+                        <div style="font-size:0.9rem; font-weight:600; color:#60a5fa;">{month_u}/{month_lim}</div>
+                    </div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
