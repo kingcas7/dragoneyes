@@ -834,22 +834,20 @@ else:
     # ── 상단 헤더 ──
     h1, h2, hf, h6, h7, h8 = st.columns([2.5, 0.8, 2.2, 0.9, 1, 0.9])
     with h1:
-        st.markdown(f'<div style="font-size:1.3rem; font-weight:700; display:flex; align-items:center; gap:6px; margin:0; padding:4px 0">🐉 {t("app_title")}</div>', unsafe_allow_html=True)
+        title_text = t("app_title").replace("🐉 ", "").replace("🐉 ", "")
+        st.markdown(f'<div style="font-size:1.3rem; font-weight:700; display:flex; align-items:center; gap:6px; margin:0; padding:4px 0">🐉 {title_text}</div>', unsafe_allow_html=True)
     with h2:
         st.metric(t("this_month"), f"{st.session_state.report_count}{t('unit_reports')}")
     with hf:
         fc1, fc2, fc3 = st.columns(3)
         with fc1:
-            st.markdown('<div style="font-size:1.1rem; text-align:center; line-height:1">🇰🇷</div>', unsafe_allow_html=True)
-            if st.button("한국어", use_container_width=True, key="flag_ko"):
+            if st.button("🇰🇷 KO", use_container_width=True, key="flag_ko"):
                 st.session_state.lang = "ko"; st.rerun()
         with fc2:
-            st.markdown('<div style="font-size:1.1rem; text-align:center; line-height:1">🇺🇸</div>', unsafe_allow_html=True)
-            if st.button("English", use_container_width=True, key="flag_en"):
+            if st.button("🇺🇸 EN", use_container_width=True, key="flag_en"):
                 st.session_state.lang = "en"; st.rerun()
         with fc3:
-            st.markdown('<div style="font-size:1.1rem; text-align:center; line-height:1">🇯🇵</div>', unsafe_allow_html=True)
-            if st.button("日本語", use_container_width=True, key="flag_ja"):
+            if st.button("🇯🇵 JP", use_container_width=True, key="flag_ja"):
                 st.session_state.lang = "ja"; st.rerun()
     with h6:
         if st.button(t("home"), use_container_width=True):
@@ -1139,16 +1137,17 @@ else:
             """, unsafe_allow_html=True)
 
             st.divider()
-            st.subheader(t("shortcut"))
-            g1, g2 = st.columns(2)
-            with g1:
+            st.markdown('<div style="font-size:0.8rem; font-weight:600; color:#94a3b8; margin-bottom:4px;">🚀 바로가기</div>', unsafe_allow_html=True)
+            if st.button("🐉 드래곤아이즈 모니터링 자동 추천 리스트 생성", use_container_width=True, type="primary"):
+                st.session_state.current_page = "home"; st.rerun()
+            gb1, gb2, gb3 = st.columns(3)
+            with gb1:
                 if st.button(t("tab_text"), use_container_width=True):
                     st.session_state.current_page = "home"; st.rerun()
-                if st.button(t("tab_dragon"), use_container_width=True):
-                    st.session_state.current_page = "home"; st.rerun()
-            with g2:
+            with gb2:
                 if st.button(t("tab_youtube"), use_container_width=True):
                     st.session_state.current_page = "home"; st.rerun()
+            with gb3:
                 if st.button(t("tab_reports"), use_container_width=True):
                     st.session_state.current_page = "home"; st.rerun()
 
@@ -1184,14 +1183,30 @@ else:
             chat_info = can_use_chat(user["id"])
             df_col1, df_col2 = st.columns([3, 1])
             with df_col1:
-                st.subheader("🐲 드래곤파더")
+                st.markdown('<div style="font-size:1rem; font-weight:700; margin:2px 0">🐲 드래곤파더</div>', unsafe_allow_html=True)
             with df_col2:
-                if st.button("🐲 전체화면에서 드래곤파더 만나기", key="dragon_fs_btn", use_container_width=True):
+                if st.button("🐲 전체화면", key="dragon_fs_btn", use_container_width=True):
                     go_to("dragon_chat"); st.rerun()
-            ct1, ct2, ct3 = st.columns(3)
-            ct1.metric("오늘", f"{chat_info.get('today_used',0)}/{CHAT_DAILY_LIMIT}")
-            ct2.metric("이번주", f"{chat_info.get('week_used',0)}/{CHAT_WEEKLY_LIMIT}")
-            ct3.metric("이번달", f"{chat_info.get('monthly_used',0)}/{chat_info.get('monthly_limit', CHAT_MONTHLY_LIMIT)}")
+            today_u = chat_info.get('today_used',0)
+            week_u = chat_info.get('week_used',0)
+            month_u = chat_info.get('monthly_used',0)
+            month_lim = chat_info.get('monthly_limit', CHAT_MONTHLY_LIMIT)
+            st.markdown(f"""
+            <div style="display:flex; gap:4px; align-items:center; justify-content:center; margin:3px 0;">
+                <div style="text-align:center; padding:3px 8px; background:#1e293b; border-radius:5px; min-width:60px;">
+                    <div style="font-size:0.6rem; color:#94a3b8;">오늘</div>
+                    <div style="font-size:0.85rem; font-weight:600; color:#f1f5f9;">{today_u}/{CHAT_DAILY_LIMIT}</div>
+                </div>
+                <div style="text-align:center; padding:4px 12px; background:#0f3460; border:1px solid #e94560; border-radius:5px; min-width:80px;">
+                    <div style="font-size:0.62rem; color:#94a3b8;">이번주</div>
+                    <div style="font-size:1rem; font-weight:700; color:#ffffff;">{week_u}/{CHAT_WEEKLY_LIMIT}</div>
+                </div>
+                <div style="text-align:center; padding:3px 8px; background:#1e293b; border-radius:5px; min-width:60px;">
+                    <div style="font-size:0.6rem; color:#94a3b8;">이번달</div>
+                    <div style="font-size:0.85rem; font-weight:600; color:#f1f5f9;">{month_u}/{month_lim}</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
             chat_box = st.container(height=320)
             with chat_box:
