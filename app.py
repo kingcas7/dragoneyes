@@ -1110,25 +1110,25 @@ else:
             history_cnt = len(st.session_state.search_results) + len(st.session_state.recommend_results)
             st.markdown(f"""
             <div style="display:flex; gap:8px; margin:4px 0;">
-                <div style="flex:1; background:#1e293b; border-radius:6px; padding:6px 10px; text-align:center;">
-                    <div style="font-size:0.68rem; color:#94a3b8;">📅 {t('month_report')}</div>
-                    <div style="font-size:1.1rem; font-weight:700; color:#f1f5f9;">{month_cnt}{t('unit_reports')}</div>
-                    <div style="font-size:0.62rem; color:#22c55e;">↑ {t('goal', target)}</div>
+                <div style="flex:1; background:linear-gradient(135deg,#0ea5e9,#06b6d4); border-radius:8px; padding:6px 10px; text-align:center; box-shadow:0 2px 8px rgba(14,165,233,0.35);">
+                    <div style="font-size:0.68rem; color:#e0f7ff;">{t('month_report')}</div>
+                    <div style="font-size:1.1rem; font-weight:700; color:#ffffff;">{month_cnt}{t('unit_reports')}</div>
+                    <div style="font-size:0.62rem; color:#bae6fd;">↑ {t('goal', target)}</div>
                 </div>
-                <div style="flex:1; background:#1e293b; border-radius:6px; padding:6px 10px; text-align:center;">
-                    <div style="font-size:0.68rem; color:#94a3b8;">🎯 {t('achievement')}</div>
-                    <div style="font-size:1.1rem; font-weight:700; color:#f1f5f9;">{rate}%</div>
-                    <div style="font-size:0.62rem; color:#94a3b8;">목표 {target}건</div>
+                <div style="flex:1; background:linear-gradient(135deg,#10b981,#34d399); border-radius:8px; padding:6px 10px; text-align:center; box-shadow:0 2px 8px rgba(16,185,129,0.35);">
+                    <div style="font-size:0.68rem; color:#d1fae5;">{t('achievement')}</div>
+                    <div style="font-size:1.1rem; font-weight:700; color:#ffffff;">{rate}%</div>
+                    <div style="font-size:0.62rem; color:#a7f3d0;">목표 {target}건</div>
                 </div>
-                <div style="flex:1; background:#1e293b; border-radius:6px; padding:6px 10px; text-align:center;">
-                    <div style="font-size:0.68rem; color:#94a3b8;">🐉 {t('dragon_token')}</div>
-                    <div style="font-size:1.1rem; font-weight:700; color:#f1f5f9;">{token_info['monthly_remaining']}</div>
-                    <div style="font-size:0.62rem; color:#94a3b8;">회 남음</div>
+                <div style="flex:1; background:linear-gradient(135deg,#f59e0b,#fbbf24); border-radius:8px; padding:6px 10px; text-align:center; box-shadow:0 2px 8px rgba(245,158,11,0.35);">
+                    <div style="font-size:0.68rem; color:#fef3c7;">{t('dragon_token')}</div>
+                    <div style="font-size:1.1rem; font-weight:700; color:#ffffff;">{token_info['monthly_remaining']}</div>
+                    <div style="font-size:0.62rem; color:#fde68a;">회 남음</div>
                 </div>
-                <div style="flex:1; background:#1e293b; border-radius:6px; padding:6px 10px; text-align:center;">
-                    <div style="font-size:0.68rem; color:#94a3b8;">📜 탐색 히스토리</div>
-                    <div style="font-size:1.1rem; font-weight:700; color:#f1f5f9;">{history_cnt}건</div>
-                    <div style="font-size:0.62rem; color:#94a3b8;">대기중</div>
+                <div style="flex:1; background:linear-gradient(135deg,#ec4899,#f472b6); border-radius:8px; padding:6px 10px; text-align:center; box-shadow:0 2px 8px rgba(236,72,153,0.35);">
+                    <div style="font-size:0.68rem; color:#fce7f3;">탐색 히스토리</div>
+                    <div style="font-size:1.1rem; font-weight:700; color:#ffffff;">{history_cnt}건</div>
+                    <div style="font-size:0.62rem; color:#fbcfe8;">대기중</div>
                 </div>
             </div>
             <div style="background:#334155; border-radius:4px; height:6px; margin:4px 0;">
