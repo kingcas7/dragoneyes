@@ -95,6 +95,47 @@ st.markdown("""
         padding: 0.4rem 0.4rem !important;
     }
 }
+
+/* 데스크탑 전체 컴팩트 */
+.block-container {
+    padding-top: 0.4rem !important;
+    padding-bottom: 0.4rem !important;
+}
+h1 { font-size: 1.5rem !important; margin: 0 !important; }
+h2 { font-size: 1.1rem !important; margin: 0 !important; }
+h3 { font-size: 0.95rem !important; margin: 0 !important; }
+hr { margin: 0.25rem 0 !important; }
+
+[data-testid="metric-container"] {
+    padding: 0.15rem 0.25rem !important;
+}
+[data-testid="metric-container"] label {
+    font-size: 0.72rem !important;
+}
+[data-testid="metric-container"] [data-testid="stMetricValue"] {
+    font-size: 1.1rem !important;
+}
+[data-testid="metric-container"] [data-testid="stMetricDelta"] {
+    font-size: 0.68rem !important;
+}
+[data-testid="stHeading"] {
+    margin: 0.1rem 0 !important;
+}
+[data-testid="stVerticalBlock"] > div {
+    gap: 0.25rem !important;
+}
+[data-testid="stHorizontalBlock"] {
+    gap: 0.4rem !important;
+    align-items: center !important;
+}
+[data-testid="stProgressBar"] {
+    margin: 0.15rem 0 !important;
+}
+button[kind="secondary"] {
+    padding: 0.25rem 0.4rem !important;
+    font-size: 0.82rem !important;
+}
+p { margin-bottom: 0.2rem !important; }
 </style>
 """, unsafe_allow_html=True)
 
