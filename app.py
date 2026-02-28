@@ -1195,7 +1195,7 @@ else:
             month_lim = chat_info.get('monthly_limit', CHAT_MONTHLY_LIMIT)
             st.markdown(f"""
             <div style="margin:6px 0 4px 0;">
-                <div style="font-size:0.8rem; color:#94a3b8; margin-bottom:6px;">📊 토큰 현황</div>
+                <div style="font-size:0.8rem; color:#94a3b8; margin-bottom:6px; padding-left:2rem;">📊 토큰 현황</div>
                 <div style="display:flex; gap:12px; align-items:center;">
                     <div style="text-align:center; padding:5px 10px; background:linear-gradient(135deg,#3b82f6,#6366f1); border-radius:8px; flex:1; box-shadow:0 2px 8px rgba(99,102,241,0.4);">
                         <div style="font-size:0.6rem; color:#e0e7ff; margin-bottom:1px;">오늘</div>
