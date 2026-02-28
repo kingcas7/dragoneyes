@@ -986,6 +986,69 @@ else:
                         go_back(); st.rerun()
 
     # ══════════════════════════════
+    # 드래곤파더 전체화면 페이지
+    # ══════════════════════════════
+    elif page == "dragon_chat":
+        lang = st.session_state.get("lang", "ko")
+        col_back, col_title = st.columns([1, 5])
+        with col_back:
+            if st.button("◀ 홈으로"):
+                go_home(); st.rerun()
+        with col_title:
+            st.subheader("🐲 드래곤파더 — 전체화면 대화")
+
+        chat_info = can_use_chat(user["id"])
+        ci1, ci2, ci3 = st.columns(3)
+        ci1.metric("오늘", f"{chat_info.get('today_used',0)}/{CHAT_DAILY_LIMIT}턴")
+        ci2.metric("이번주", f"{chat_info.get('week_used',0)}/{CHAT_WEEKLY_LIMIT}턴")
+        ci3.metric("이번달", f"{chat_info.get('monthly_used',0)}/{chat_info.get('monthly_limit', CHAT_MONTHLY_LIMIT)}턴")
+
+        chat_box = st.container(height=550)
+        with chat_box:
+            if not st.session_state.chat_history:
+                st.caption("💡 예: '이 댓글이 그루밍 패턴인지 분석해줘'")
+                st.caption("💡 예: '보고서 작성할 때 주의사항은?'")
+                st.caption("💡 예: 'Roblox에서 흔한 위험 패턴은?'")
+                st.caption("💡 예: '오늘 점심 뭐 먹을까?' '농담 해줘' 등 자유롭게!")
+            for msg in st.session_state.chat_history:
+                if msg["role"] == "user":
+                    with st.chat_message("user"):
+                        st.write(msg["content"])
+                else:
+                    with st.chat_message("assistant", avatar="🐲"):
+                        st.write(msg["content"])
+
+        if not chat_info["ok"]:
+            reason = chat_info.get("reason")
+            if reason == "daily": st.warning(f"오늘 한도({CHAT_DAILY_LIMIT}턴) 도달")
+            elif reason == "weekly": st.warning(f"이번 주 한도({CHAT_WEEKLY_LIMIT}턴) 도달")
+            elif reason == "monthly": st.warning("이번 달 한도 도달. 관리자에게 추가 요청하세요.")
+
+        ic1, ic2 = st.columns([6, 1])
+        with ic1:
+            fs_input = st.chat_input(
+                "드래곤파더에게 뭐든 물어보세요... (300자)" if chat_info["ok"] else "사용 불가",
+                max_chars=300, disabled=not chat_info["ok"], key="dragon_fs_input"
+            )
+        with ic2:
+            if st.button("🗑️", help="대화 초기화", key="clear_fs"):
+                st.session_state.chat_history = []; st.rerun()
+
+        if fs_input and chat_info["ok"]:
+            st.session_state.chat_history.append({"role": "user", "content": fs_input})
+            with st.spinner("🐲 드래곤파더가 답변 중..."):
+                try:
+                    api_history = [{"role": m["role"], "content": m["content"]} for m in st.session_state.chat_history[:-1]]
+                    response = chat_with_ai(api_history, fs_input, lang)
+                    st.session_state.chat_history.append({"role": "assistant", "content": response})
+                    supabase.table("chat_logs").insert({"user_id": user["id"], "message": fs_input, "response": response, "tokens_used": 1}).execute()
+                    use_chat_token(user["id"])
+                    st.rerun()
+                except Exception as e:
+                    st.session_state.chat_history.pop()
+                    st.error(f"오류: {str(e)}")
+
+    # ══════════════════════════════
     # 홈 랜딩 페이지
     # ══════════════════════════════
     elif page == "home_landing":
