@@ -346,6 +346,7 @@ defaults = {
     "search_results": [],
     "recommend_results": [],
     "chat_history": [],  # 대화형 AI 히스토리
+    "dragon_fullscreen": False,  # 드래곤파더 전체화면
 }
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -1056,7 +1057,12 @@ else:
             st.markdown('<span id="dragonfather_anchor"></span>', unsafe_allow_html=True)
 
             chat_info = can_use_chat(user["id"])
-            st.subheader("🐲 드래곤파더")
+            df_col1, df_col2 = st.columns([3, 1])
+            with df_col1:
+                st.subheader("🐲 드래곤파더")
+            with df_col2:
+                if st.button("🔲 전체화면", key="dragon_fs_btn", use_container_width=True):
+                    st.session_state.dragon_fullscreen = True; st.rerun()
             ct1, ct2, ct3 = st.columns(3)
             ct1.metric("오늘", f"{chat_info.get('today_used',0)}/{CHAT_DAILY_LIMIT}")
             ct2.metric("이번주", f"{chat_info.get('week_used',0)}/{CHAT_WEEKLY_LIMIT}")
