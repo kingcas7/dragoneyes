@@ -1183,7 +1183,8 @@ else:
             chat_info = can_use_chat(user["id"])
             df_col1, df_col2 = st.columns([3, 1])
             with df_col1:
-                st.markdown('<div style="font-size:1.5rem; font-weight:700; margin:2px 0; padding-left:2rem;">🐲 드래곤파더</div>', unsafe_allow_html=True)
+                st.markdown('''<div style="font-size:1.5rem; font-weight:700; margin:0; padding-left:2rem; line-height:1.2;">🐲 드래곤파더</div>
+                <div style="font-size:0.75rem; color:#94a3b8; padding-left:2rem; margin-bottom:2px;">✨ Agent AI 드래곤파더에게 말을 걸어보세요.</div>''', unsafe_allow_html=True)
             with df_col2:
                 if st.button("🐲 전체화면", key="dragon_fs_btn", use_container_width=True):
                     go_to("dragon_chat"); st.rerun()
