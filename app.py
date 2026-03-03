@@ -139,7 +139,7 @@ p { margin-bottom: 0.2rem !important; }
 </style>
 """, unsafe_allow_html=True)
 
-DAILY_DRAGON_LIMIT = 2
+DAILY_DRAGON_LIMIT = 5
 MONTHLY_DRAGON_LIMIT = 20
 
 # 대화형 AI 제한
@@ -506,29 +506,43 @@ def add_chat_extra_tokens(user_id, amount):
     }).eq("user_id", user_id).eq("year_month", ym).execute()
 
 def chat_with_ai(messages_history, user_message, lang="ko"):
-    """대화형 AI 호출 (히스토리 3턴 유지)"""
+    """대화형 AI 호출 (히스토리 3턴 유지 + 웹서치 툴)"""
     system_prompt = {
         "ko": """당신은 Dragon J Holdings의 드래곤파더입니다. DragonEyes 팀의 든든한 AI 동반자입니다.
 아동 온라인 안전, 그루밍 패턴, 보고서 작성 등 업무 질문은 물론, 일상 대화, 고민 상담, 잡담, 유머, 퀴즈 등 어떤 주제든 자유롭게 대화할 수 있습니다.
+최신 정보가 필요한 질문(최근 뉴스, 최신 트렌드, 새로운 법령 등)은 웹 검색을 활용해 답변하세요.
 팀원들이 즐겁고 편안하게 일할 수 있도록 친근하고 따뜻하게 대화해주세요.""",
         "en": """You are DragonFather, the friendly AI companion of Dragon J Holdings DragonEyes team.
 You can help with child safety work, grooming patterns, and reports — but also chat freely about anything: daily life, jokes, trivia, advice, or casual conversation.
+For questions requiring up-to-date information (recent news, trends, new laws), use web search to provide accurate answers.
 Be warm, fun, and supportive. Help the team enjoy their work.""",
         "ja": """あなたはDragon J Holdings DragonEyesチームの頼れるAIコンパニオン、ドラゴンファーザーです。
 子どもの安全業務はもちろん、日常会話、悩み相談、雑談、ユーモア、クイズなど、どんな話題でも自由に話せます。
+最新情報が必要な質問はウェブ検索を活用して回答してください。
 チームメンバーが楽しく快適に仕事できるよう、親しみやすく温かく接してください。"""
     }
+
+    # 웹서치 툴 정의
+    tools = [{"type": "web_search_20250305", "name": "web_search"}]
+
     # 최근 3턴만 유지
     recent = messages_history[-6:] if len(messages_history) > 6 else messages_history
-    recent.append({"role": "user", "content": user_message[:300]})  # 질문 300자 제한
+    recent.append({"role": "user", "content": user_message[:300]})
 
     msg = client.messages.create(
         model="claude-sonnet-4-20250514",
-        max_tokens=600,
+        max_tokens=1024,
         system=system_prompt.get(lang, system_prompt["ko"]),
+        tools=tools,
         messages=recent
     )
-    return msg.content[0].text
+
+    # 텍스트 블록만 추출 (tool_use 블록 제외)
+    response_text = ""
+    for block in msg.content:
+        if hasattr(block, "text"):
+            response_text += block.text
+    return response_text if response_text else "답변을 생성하지 못했습니다."
 
 def translate_to_english(text):
     """한국어/일본어 텍스트를 영어로 자동 번역"""
@@ -677,13 +691,36 @@ def extract_severity(text):
     return 1
 
 def extract_category(text):
-    for cat in ["그루밍", "성인", "부적절", "스팸", "안전"]:
+    for cat in ["섹스토션", "폭력유도", "그루밍", "성인", "부적절", "스팸", "안전"]:
         if cat in text:
             return cat
     return "미분류"
 
 def sev_icon(s):
     return {1:"✅", 2:"🟡", 3:"🟠", 4:"🔴", 5:"🚨"}.get(s, "❓")
+
+# ── 국제기관 가이드라인 뱃지 (공통) ──
+GUIDELINE_BADGE_FULL = """
+<div style="
+    background: linear-gradient(135deg, #0a1628 0%, #0d1f3c 100%);
+    border: 1px solid #1e3a5f;
+    border-radius: 12px;
+    padding: 12px 18px;
+    margin: 8px 0 14px 0;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+">
+    <span style="color:#94a3b8; font-size:0.72rem; font-weight:600; letter-spacing:0.08em; margin-right:4px; white-space:nowrap;">
+        🛡️ 국제기관 가이드라인 준수
+    </span>
+    <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #2563eb55;color:#60a5fa;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:0.03em;white-space:nowrap;">🇺🇸 NCMEC 가이드라인 준수</span>
+    <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #7c3aed55;color:#a78bfa;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:0.03em;white-space:nowrap;">🌍 WeProtect Global Alliance 기준 적용</span>
+    <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #059669aa;color:#34d399;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:0.03em;white-space:nowrap;">🇬🇧 IWF 글로벌 기준 참고</span>
+    <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #d9770655;color:#fb923c;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:0.03em;white-space:nowrap;">⚙️ Tech Coalition Developer Good Practices 준수</span>
+</div>
+"""
 
 def search_type_label(st_val):
     return {
@@ -695,12 +732,15 @@ def search_type_label(st_val):
 
 def go_to(page, from_tab=None):
     st.session_state.prev_page = st.session_state.current_page
+    st.session_state.prev_tab = st.session_state.get("active_tab", 0)
     if from_tab is not None:
         st.session_state.active_tab = from_tab
     st.session_state.current_page = page
 
 def go_back():
     st.session_state.current_page = st.session_state.prev_page
+    # 이전 탭도 복원
+    st.session_state.active_tab = st.session_state.get("prev_tab", 0)
     st.session_state.prev_page = "home"
 
 def go_home():
@@ -727,30 +767,49 @@ def parse_keywords(text):
     return keywords[:10]
 
 def generate_recommend_keywords(platform="general"):
-    prompts = {
-        "general": """아동 안전 모니터링을 위해 유튜브에서 검색할 키워드 10개를 한 줄에 하나씩 출력해주세요.
-아동 그루밍, 미성년자 접촉 시도, 청소년 대상 부적절 콘텐츠를 찾을 수 있는 한국어 키워드여야 합니다.
-설명 없이 키워드만 출력하세요.""",
-        "roblox": """Roblox 게임 플랫폼 아동 안전 모니터링을 위해 유튜브에서 검색할 키워드 10개를 한 줄에 하나씩 출력해주세요.
-Roblox에서 발생하는 아동 그루밍, 미성년자 접촉 시도를 찾을 수 있는 한국어 키워드여야 합니다.
-설명 없이 키워드만 출력하세요.""",
-        "minecraft": """Minecraft 게임 플랫폼 아동 안전 모니터링을 위해 유튜브에서 검색할 키워드 10개를 한 줄에 하나씩 출력해주세요.
-Minecraft에서 발생하는 아동 그루밍, 미성년자 접촉 시도를 찾을 수 있는 한국어 키워드여야 합니다.
-설명 없이 키워드만 출력하세요.""",
+    import random
+    # 고정 키워드 풀 - Claude 거부 없이 실제 유튜브에서 위험 콘텐츠가 검색되는 검색어
+    keyword_pools = {
+        "general": [
+            "미성년자 채팅 만남", "초등학생 온라인 만남", "청소년 개인방송",
+            "어린이 랜덤채팅", "중학생 SNS 만남", "10대 화상채팅",
+            "미성년자 조건만남", "청소년 섹스토션 피해", "어린이 딥페이크 피해",
+            "청소년 사진 협박", "10대 영상통화 위험", "어린이 온라인 성범죄",
+            "미성년자 그루밍", "초등학생 유해 콘텐츠", "청소년 사이버성폭력",
+        ],
+        "roblox": [
+            "로블록스 미성년자 만남", "로블록스 이상한 사람 신고", "로블록스 성인 접근",
+            "로블록스 개인정보 요구", "로블록스 실제 만남 유도", "로블록스 어린이 위험",
+            "로블록스 디스코드 유도", "로블록스 카카오톡 알려달라", "로블록스 사진 요구",
+            "로블록스 나이 속임", "로블록스 선물 조건", "로블록스 협박 피해",
+            "로블록스 성인 게임", "어린이 로블록스 성범죄", "로블록스 그루밍 피해",
+        ],
+        "minecraft": [
+            "마인크래프트 미성년자 만남", "마인크래프트 이상한 서버 신고", "마인크래프트 성인 접근",
+            "마인크래프트 개인정보 요구", "마인크래프트 실제 만남", "마인크래프트 어린이 위험",
+            "마인크래프트 디스코드 유도", "마인크래프트 카카오톡 알려달라", "마인크래프트 사진 요구",
+            "마인크래프트 나이 속임", "마인크래프트 선물 조건", "마인크래프트 협박",
+            "마인크래프트 성인 서버", "어린이 마인크래프트 성범죄", "마인크래프트 그루밍",
+        ],
     }
-    msg = client.messages.create(
-        model="claude-sonnet-4-20250514", max_tokens=512,
-        messages=[{"role": "user", "content": prompts[platform]}]
-    )
-    return parse_keywords(msg.content[0].text)
+    pool = keyword_pools.get(platform, keyword_pools["general"])
+    # 매번 다른 10개 키워드 랜덤 선택
+    return random.sample(pool, min(10, len(pool)))
 
 def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="keyword", assigned_to=None):
     if analyzed_urls is None:
         analyzed_urls = set()
+
+    # ① YouTube 파라미터 강화: 최신순 + 더 많이 가져와서 필터링
     sr = youtube.search().list(
         part="snippet", q=keyword, type="video",
-        maxResults=max_results+3, relevanceLanguage="ko"
+        maxResults=max_results + 10,
+        relevanceLanguage="ko",
+        order="date",            # 최신 영상 우선 (위험 트렌드 반영)
+        regionCode="KR",         # 한국 지역 특화
+        safeSearch="none"        # 안전 필터 해제 (모니터링 목적)
     ).execute()
+
     results = []
     for item in sr.get("items", []):
         if len(results) >= max_results:
@@ -760,27 +819,50 @@ def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="
         if url in analyzed_urls:
             continue
         title = item["snippet"]["title"]
-        desc = item["snippet"].get("description","")[:200]
+        desc = item["snippet"].get("description", "")[:300]
         channel = item["snippet"]["channelTitle"]
+        published = item["snippet"].get("publishedAt", "")[:10]
+
+        # ② 분석 프롬프트: 아동 안전 모니터링 관점
         msg = client.messages.create(
-            model="claude-sonnet-4-20250514", max_tokens=300,
-            messages=[{"role":"user","content":f"""아동 안전 모니터링 전문가로서 분석해주세요.
+            model="claude-sonnet-4-20250514", max_tokens=400,
+            messages=[{"role": "user", "content": f"""아동 온라인 안전 모니터링 전문가로서 다음 유튜브 영상이 아동에게 위험한지 분석해주세요.
+
 제목: {title}
-설명: {desc}
 채널: {channel}
-형식:
+업로드일: {published}
+설명: {desc}
+
+다음 기준으로 위험도를 판단하세요:
+- 어린이/청소년을 대상으로 접근하거나 유인하는 내용
+- 무료 아이템/선물/게임 혜택으로 미성년자를 유혹하는 내용
+- 개인정보 요구, 외부 플랫폼(디스코드/카카오톡 등)으로 이동 유도
+- 사진/영상 협박, 딥페이크 피해 관련 내용
+- 위험한 챌린지, 자해 유도 내용
+
+반드시 아래 형식으로만 답변하세요:
 심각도: (1~5)
-분류: (안전/스팸/부적절/성인/그루밍)
-이유: (한 줄)"""}]
+분류: (안전/스팸/부적절/성인/그루밍/섹스토션/폭력유도)
+위험신호: (발견된 위험 패턴, 없으면 "없음")
+이유: (한 줄 요약)"""}]
         )
         rt = msg.content[0].text
         sev = extract_severity(rt)
         cat = extract_category(rt)
+
+        # ③ 사전 필터링: 심각도 3 미만이거나 안전/스팸 분류면 드래곤 추천에서 제외
+        if search_type in ["dragon_general", "dragon_roblox", "dragon_minecraft"]:
+            if sev < 3 or cat in ["안전", "스팸"]:
+                analyzed_urls.add(url)
+                mark_url_analyzed(url, title, search_type, assigned_to)
+                continue  # 위험하지 않은 영상은 결과에 포함하지 않음
+
         mark_url_analyzed(url, title, search_type, assigned_to)
         results.append({
             "id": vid, "title": title, "channel": channel,
             "url": url, "keyword": keyword, "analysis": rt,
-            "severity": sev, "category": cat, "search_type": search_type
+            "severity": sev, "category": cat, "search_type": search_type,
+            "published": published
         })
         analyzed_urls.add(url)
     return results
@@ -831,6 +913,13 @@ else:
     is_admin = user.get("role") == "admin"
     page = st.session_state.current_page
 
+    # ── 개인 PR 문구 ──
+    st.markdown("""
+    <div style="text-align:left; font-size:1.08rem; color:#aaa; margin-bottom:2px; padding-left:4px;">
+        🐉 <strong style="color:#c8a84b;">최승현</strong> 님이 만드는 드래곤아이즈에 오신 것을 환영합니다.
+    </div>
+    """, unsafe_allow_html=True)
+
     # ── 상단 헤더 ──
     h1, h2, hf, h6, h7, h8 = st.columns([2.5, 0.8, 2.2, 0.9, 1, 0.9])
     with h1:
@@ -876,8 +965,8 @@ else:
         font-size: 0.95rem;
         line-height: 1.6;
     ">
-        🛡️ <strong>여기는 온라인 유해 콘텐츠를 모니터링하는 Agent AI 드래곤파더와 함께 작업하는 곳입니다.</strong><br>
-        어린이 아동학대, 성폭력, 그루밍 등 다양한 불법행위를 감시합니다.
+        🛡️ <strong>이 곳은 온라인 유해 컨텐츠를 모니터링하는 Claude 기반의 Agent AI 드래곤파더와 함께 작업하는 곳입니다.</strong><br>
+        어린이 아동학대, 그루밍, 성폭력, 도박 등과 관련한 다양한 불법 컨텐츠를 감시합니다.
     </div>
     """, unsafe_allow_html=True)
 
@@ -891,6 +980,7 @@ else:
                 go_back(); st.rerun()
         with col_title:
             st.subheader(t("report_title"))
+            st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
         with st.container(border=True):
             rc1, rc2 = st.columns(2)
             with rc1:
@@ -1035,6 +1125,7 @@ else:
                 go_home(); st.rerun()
         with col_title:
             st.subheader("🐲 드래곤파더 — 전체화면 대화")
+            st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
 
         chat_info = can_use_chat(user["id"])
         ci1, ci2, ci3 = st.columns(3)
@@ -1139,7 +1230,9 @@ else:
             st.divider()
             st.markdown('<div style="font-size:0.8rem; font-weight:600; color:#94a3b8; margin-bottom:4px;">🚀 바로가기</div>', unsafe_allow_html=True)
             if st.button("🐉 드래곤아이즈 모니터링 자동 추천 리스트 생성", use_container_width=True, type="primary"):
-                st.session_state.current_page = "home"; st.rerun()
+                st.session_state.current_page = "home"
+                st.session_state.active_tab = 3  # 드래곤아이즈 추천 탭으로 이동
+                st.rerun()
             gb1, gb2, gb3 = st.columns(3)
             with gb1:
                 if st.button(t("tab_text"), use_container_width=True):
@@ -1355,17 +1448,48 @@ else:
 
         st.divider()
 
-        tab_labels = [t("tab_text"), t("tab_youtube"), t("tab_keyword"),
-                      t("tab_dragon"), t("tab_history"), t("tab_reports"), t("tab_stats"), "🐲 드래곤파더"]
+        # active_tab이 3(드래곤 추천)이면 해당 탭을 맨 앞으로 배치
+        active_tab_idx = st.session_state.get("active_tab", 0)
+
+        tab_defs = [
+            ("text",    t("tab_text")),
+            ("youtube", t("tab_youtube")),
+            ("keyword", t("tab_keyword")),
+            ("dragon",  t("tab_dragon")),
+            ("history", t("tab_history")),
+            ("reports", t("tab_reports")),
+            ("stats",   t("tab_stats")),
+            ("chat",    "🐲 드래곤파더"),
+        ]
         if is_admin:
-            tab_labels.append(t("tab_admin"))
+            tab_defs.append(("admin", t("tab_admin")))
+
+        # active_tab=3이면 dragon 탭을 맨 앞으로 이동
+        if active_tab_idx == 3:
+            dragon_item = tab_defs.pop(3)
+            tab_defs.insert(0, dragon_item)
+            st.session_state.active_tab = 0
+
+        tab_keys   = [d[0] for d in tab_defs]
+        tab_labels = [d[1] for d in tab_defs]
+
         tabs = st.tabs(tab_labels)
-        tab1,tab2,tab3,tab4,tab5,tab6,tab7,tab_chat = tabs[0],tabs[1],tabs[2],tabs[3],tabs[4],tabs[5],tabs[6],tabs[7]
-        tab8 = tabs[8] if is_admin else None
+        tab_map = {key: tabs[i] for i, key in enumerate(tab_keys)}
+
+        tab1     = tab_map["text"]
+        tab2     = tab_map["youtube"]
+        tab3     = tab_map["keyword"]
+        tab4     = tab_map["dragon"]
+        tab5     = tab_map["history"]
+        tab6     = tab_map["reports"]
+        tab7     = tab_map["stats"]
+        tab_chat = tab_map["chat"]
+        tab8     = tab_map.get("admin")
 
         # ── 텍스트 분석 ──
         with tab1:
             st.subheader(t("text_title"))
+            st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
             content = st.text_area(t("text_input"), height=150)
             if st.button(t("analyze_start"), key="text_go"):
                 if content:
@@ -1391,6 +1515,7 @@ else:
         # ── 유튜브 분석 ──
         with tab2:
             st.subheader(t("yt_title"))
+            st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
             url = st.text_input(t("yt_url"))
             if st.button(t("analyze_start"), key="yt_go"):
                 if url:
@@ -1486,6 +1611,8 @@ else:
                     st.warning(t("enter_keyword"))
 
             if st.session_state.search_results:
+                st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
+
                 results_to_show = list(st.session_state.search_results)
                 sc1, sc2 = st.columns([3, 1])
                 with sc1:
@@ -1512,6 +1639,7 @@ else:
         # ── 드래곤아이즈 추천 ──
         with tab4:
             st.subheader(t("dragon_title"))
+            st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
             st.caption("AI가 플랫폼별 위험 키워드를 자동 생성하고 유튜브를 탐색합니다. 이미 분석한 영상은 자동 제외됩니다.")
 
             token_info = can_use_dragon(user["id"])
@@ -1580,6 +1708,8 @@ else:
                     st.error(f"오류: {str(e)}")
 
             if st.session_state.recommend_results:
+                st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
+
                 results = list(st.session_state.recommend_results)
                 rc1, rc2 = st.columns([3,1])
                 with rc1:
@@ -1617,6 +1747,7 @@ else:
         with tab5:
             st.subheader(t("history_title"))
             st.caption(t("history_caption"))
+            st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
 
             # 필터
             fc1, fc2, fc3 = st.columns(3)
@@ -1674,6 +1805,7 @@ else:
         # ── 보고서 목록 ──
         with tab6:
             st.subheader(t("report_list"))
+            st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
 
             # 전체 보고서 (모든 사용자 열람 가능)
             all_reps_data = supabase.table("reports").select("*").order("created_at", desc=True).execute()
@@ -1829,6 +1961,7 @@ else:
         # ── 내 성과 ──
         with tab7:
             st.subheader(f"📈 {user['name']}님의 성과 현황")
+            st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
             all_my = supabase.table("reports").select("*").eq("user_id", user["id"]).execute()
             if all_my.data:
                 df = pd.DataFrame(all_my.data)
@@ -1862,6 +1995,7 @@ else:
         # ── 대화형 AI 채팅 ──
         with tab_chat:
             st.subheader("🐲 드래곤파더")
+            st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
             lang = st.session_state.get("lang", "ko")
 
             # 사용 현황
