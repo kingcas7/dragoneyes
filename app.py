@@ -13,8 +13,17 @@ load_dotenv()
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 youtube = build("youtube", "v3", developerKey=os.getenv("YOUTUBE_API_KEY"))
 supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
-NAVER_CLIENT_ID     = os.getenv("NAVER_CLIENT_ID", "")
-NAVER_CLIENT_SECRET = os.getenv("NAVER_CLIENT_SECRET", "")
+def get_naver_keys():
+    cid = os.getenv("NAVER_CLIENT_ID", "")
+    sec = os.getenv("NAVER_CLIENT_SECRET", "")
+    if not cid:
+        try: cid = st.secrets.get("NAVER_CLIENT_ID", "")
+        except: pass
+    if not sec:
+        try: sec = st.secrets.get("NAVER_CLIENT_SECRET", "")
+        except: pass
+    return cid, sec
+NAVER_CLIENT_ID, NAVER_CLIENT_SECRET = get_naver_keys()
 
 st.set_page_config(page_title="DragonEyes / 드래곤아이즈", page_icon="🐉", layout="wide")
 
