@@ -7,11 +7,14 @@ from supabase import create_client
 from datetime import date, datetime, timedelta
 import pandas as pd
 
+import requests
 load_dotenv()
 
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 youtube = build("youtube", "v3", developerKey=os.getenv("YOUTUBE_API_KEY"))
 supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
+NAVER_CLIENT_ID     = os.getenv("NAVER_CLIENT_ID", "")
+NAVER_CLIENT_SECRET = os.getenv("NAVER_CLIENT_SECRET", "")
 
 st.set_page_config(page_title="DragonEyes / 드래곤아이즈", page_icon="🐉", layout="wide")
 
@@ -1456,6 +1459,7 @@ else:
             ("youtube", t("tab_youtube")),
             ("keyword", t("tab_keyword")),
             ("dragon",  t("tab_dragon")),
+            ("naver",   "🟢 네이버 탐색"),
             ("history", t("tab_history")),
             ("reports", t("tab_reports")),
             ("stats",   t("tab_stats")),
@@ -1476,15 +1480,16 @@ else:
         tabs = st.tabs(tab_labels)
         tab_map = {key: tabs[i] for i, key in enumerate(tab_keys)}
 
-        tab1     = tab_map["text"]
-        tab2     = tab_map["youtube"]
-        tab3     = tab_map["keyword"]
-        tab4     = tab_map["dragon"]
-        tab5     = tab_map["history"]
-        tab6     = tab_map["reports"]
-        tab7     = tab_map["stats"]
-        tab_chat = tab_map["chat"]
-        tab8     = tab_map.get("admin")
+        tab1      = tab_map["text"]
+        tab2      = tab_map["youtube"]
+        tab3      = tab_map["keyword"]
+        tab4      = tab_map["dragon"]
+        tab_naver = tab_map["naver"]
+        tab5      = tab_map["history"]
+        tab6      = tab_map["reports"]
+        tab7      = tab_map["stats"]
+        tab_chat  = tab_map["chat"]
+        tab8      = tab_map.get("admin")
 
         # ── 텍스트 분석 ──
         with tab1:
@@ -1990,6 +1995,155 @@ else:
                         st.info(f"📝 {c['content']}\n\n_{str(c['created_at'])[:10]}_")
             else:
                 st.info("아직 보고서가 없습니다!")
+
+        # ── 네이버 탐색 ──
+        with tab_naver:
+            st.subheader("🟢 네이버 카페·블로그·뉴스 탐색")
+            st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
+            if not NAVER_CLIENT_ID:
+                st.error("네이버 API 키가 설정되지 않았습니다. .env 파일에 NAVER_CLIENT_ID와 NAVER_CLIENT_SECRET을 추가하세요.")
+            else:
+                n1, n2 = st.columns([3,1])
+                with n1:
+                    naver_query = st.text_input("🔍 검색어 입력", placeholder="예: 미성년자 채팅 만남, 어린이 온라인 위험")
+                with n2:
+                    naver_type = st.selectbox("검색 대상", ["카페", "블로그", "뉴스", "전체"])
+
+                naver_cols = st.columns(3)
+                with naver_cols[0]:
+                    auto_keywords = st.button("🐉 위험 키워드 자동 생성", use_container_width=True)
+                with naver_cols[1]:
+                    do_search = st.button("🔍 검색 시작", use_container_width=True, type="primary")
+                with naver_cols[2]:
+                    display_count = st.slider("결과 수", 5, 20, 10)
+
+                if auto_keywords:
+                    import random
+                    pool = [
+                        "미성년자 채팅 만남", "초등학생 온라인 만남", "청소년 개인방송",
+                        "어린이 랜덤채팅", "중학생 SNS 만남", "10대 화상채팅",
+                        "청소년 섹스토션 피해", "어린이 딥페이크 피해", "청소년 사진 협박",
+                        "미성년자 그루밍", "초등학생 유해 콘텐츠", "청소년 사이버성폭력",
+                    ]
+                    picked = random.choice(pool)
+                    st.session_state["naver_auto_kw"] = picked
+                    st.info(f"🔑 자동 생성 키워드: **{picked}**  ← 위 검색어 입력창에 복사해서 사용하세요.")
+
+                def naver_search(query, search_type, display=10):
+                    headers = {
+                        "X-Naver-Client-Id": NAVER_CLIENT_ID,
+                        "X-Naver-Client-Secret": NAVER_CLIENT_SECRET,
+                    }
+                    endpoints = {
+                        "카페":  "cafearticle",
+                        "블로그": "blog",
+                        "뉴스":  "news",
+                    }
+                    results = []
+                    types = list(endpoints.keys()) if search_type == "전체" else [search_type]
+                    for t_type in types:
+                        ep = endpoints[t_type]
+                        url = f"https://openapi.naver.com/v1/search/{ep}.json"
+                        params = {"query": query, "display": display, "sort": "date"}
+                        resp = requests.get(url, headers=headers, params=params, timeout=10)
+                        if resp.status_code == 200:
+                            items = resp.json().get("items", [])
+                            for item in items:
+                                item["_type"] = t_type
+                                results.append(item)
+                        else:
+                            st.warning(f"{t_type} 검색 오류: {resp.status_code}")
+                    return results
+
+                def clean_html(text):
+                    import re
+                    return re.sub(r'<[^>]+>', '', text)
+
+                if do_search and naver_query:
+                    with st.spinner(f"네이버 {naver_type} 검색 중..."):
+                        items = naver_search(naver_query, naver_type, display_count)
+
+                    if not items:
+                        st.warning("검색 결과가 없습니다.")
+                    else:
+                        st.success(f"총 {len(items)}개 결과 발견")
+                        # Claude로 위험도 일괄 분석
+                        with st.spinner("🐲 드래곤파더가 위험도 분석 중..."):
+                            analyzed = []
+                            for item in items:
+                                title = clean_html(item.get("title",""))
+                                desc  = clean_html(item.get("description",""))
+                                link  = item.get("link","") or item.get("url","")
+                                src_type = item.get("_type","")
+                                pub_date = item.get("pubDate","") or item.get("postdate","")
+
+                                try:
+                                    msg = client.messages.create(
+                                        model="claude-sonnet-4-20250514", max_tokens=200,
+                                        messages=[{"role":"user","content":f"""아동 온라인 안전 모니터링 전문가로서 다음 게시물이 아동에게 위험한지 분석하세요.
+
+제목: {title}
+내용 요약: {desc}
+출처: 네이버 {src_type}
+
+위험도 판단 기준:
+- 미성년자 대상 만남·채팅·유인
+- 그루밍, 섹스토션, 사진/영상 협박
+- 아동 대상 유해 콘텐츠 유포
+
+반드시 아래 형식으로만 답변:
+심각도: (1~5)
+분류: (안전/스팸/부적절/그루밍/섹스토션/폭력유도)
+이유: (한 줄)"""}]
+                                    )
+                                    resp_text = msg.content[0].text
+                                    sev = 1
+                                    for line in resp_text.splitlines():
+                                        if "심각도:" in line:
+                                            import re
+                                            m = re.search(r'\d', line)
+                                            if m: sev = int(m.group())
+                                    cat = "안전"
+                                    for c in ["섹스토션","폭력유도","그루밍","성인","부적절","스팸"]:
+                                        if c in resp_text: cat = c; break
+                                    reason = ""
+                                    for line in resp_text.splitlines():
+                                        if "이유:" in line:
+                                            reason = line.replace("이유:","").strip()
+                                except Exception:
+                                    sev, cat, reason = 1, "안전", "분석 실패"
+
+                                analyzed.append({
+                                    "title": title, "desc": desc, "link": link,
+                                    "type": src_type, "pubDate": pub_date,
+                                    "severity": sev, "category": cat, "reason": reason
+                                })
+
+                        # 위험도 높은 순 정렬
+                        analyzed.sort(key=lambda x: x["severity"], reverse=True)
+                        risky = [a for a in analyzed if a["severity"] >= 3]
+                        safe  = [a for a in analyzed if a["severity"] < 3]
+
+                        sev_icon = {1:"✅",2:"🟡",3:"🟠",4:"🔴",5:"🚨"}
+
+                        if risky:
+                            st.markdown(f"### 🚨 주의 필요 ({len(risky)}개)")
+                            for a in risky:
+                                with st.expander(f"{sev_icon.get(a['severity'],'⚪')} [{a['type']}] {a['title'][:60]}"):
+                                    st.markdown(f"**심각도:** {a['severity']} | **분류:** {a['category']}")
+                                    st.markdown(f"**이유:** {a['reason']}")
+                                    st.markdown(f"**내용:** {a['desc'][:200]}")
+                                    st.markdown(f"**날짜:** {a['pubDate']}")
+                                    st.markdown(f"[🔗 원문 보기]({a['link']})")
+                        else:
+                            st.success("🟢 주의 필요한 게시물이 없습니다.")
+
+                        if safe:
+                            with st.expander(f"✅ 안전 판정 ({len(safe)}개)"):
+                                for a in safe:
+                                    st.caption(f"{sev_icon.get(a['severity'],'⚪')} [{a['type']}] {a['title'][:60]} — {a['reason']}")
+                elif do_search and not naver_query:
+                    st.warning("검색어를 입력하세요.")
 
         # ── 관리자 ──
         # ── 대화형 AI 채팅 ──
