@@ -789,6 +789,17 @@ def generate_recommend_keywords(platform="general"):
             "청소년 사진 협박", "10대 영상통화 위험", "어린이 온라인 성범죄",
             "미성년자 그루밍", "초등학생 유해 콘텐츠", "청소년 사이버성폭력",
         ],
+        "gambling": [
+            # 불법 온라인 도박 유입 경로
+            "청소년 불법도박 사이트", "초등학생 온라인도박", "미성년자 스포츠토토",
+            "청소년 파워볼 사이트", "중학생 도박 빠짐", "10대 온라인카지노",
+            # 도박 은어/우회 표현 (2024 실태조사 기반)
+            "청소년 달팽이게임", "사다리게임 미성년자", "로하이 초등학생",
+            "소셜그래프 청소년", "청소년 홀짝게임", "미성년자 바카라",
+            # 도박 유인/모집 관련
+            "청소년 도박 알바", "학생 대리베팅 모집", "미성년자 총판 모집",
+            "청소년 도박자금 빌려줌", "학생 도박빚 협박", "10대 도박 사기",
+        ],
         "roblox": [
             "로블록스 미성년자 만남", "로블록스 이상한 사람 신고", "로블록스 성인 접근",
             "로블록스 개인정보 요구", "로블록스 실제 만남 유도", "로블록스 어린이 위험",
@@ -1668,13 +1679,15 @@ else:
                 else:
                     st.warning(f"오늘 추천 한도({DAILY_DRAGON_LIMIT}회)에 도달했습니다. 내일 다시 사용 가능합니다.")
 
-            btn1, btn2, btn3 = st.columns(3)
+            btn1, btn2, btn3, btn4 = st.columns(4)
             with btn1:
                 run_general = st.button(t("dragon_general"), use_container_width=True, disabled=not token_info["ok"])
             with btn2:
                 run_roblox = st.button(t("dragon_roblox"), use_container_width=True, disabled=not token_info["ok"])
             with btn3:
                 run_minecraft = st.button(t("dragon_minecraft"), use_container_width=True, disabled=not token_info["ok"])
+            with btn4:
+                run_gambling = st.button("🎰 도박 추천", use_container_width=True, disabled=not token_info["ok"])
 
             selected_platform = None
             selected_label = ""
@@ -1685,6 +1698,8 @@ else:
                 selected_platform = "roblox"; selected_label = "🎮 Roblox"; selected_type = "dragon_roblox"
             elif run_minecraft:
                 selected_platform = "minecraft"; selected_label = "⛏️ Minecraft"; selected_type = "dragon_minecraft"
+            elif run_gambling:
+                selected_platform = "gambling"; selected_label = "🎰 도박"; selected_type = "dragon_gambling"
 
             if selected_platform and token_info["ok"]:
                 try:
@@ -2029,10 +2044,16 @@ else:
                 if auto_keywords:
                     import random
                     pool = [
+                        # 성범죄/그루밍
                         "미성년자 채팅 만남", "초등학생 온라인 만남", "청소년 개인방송",
                         "어린이 랜덤채팅", "중학생 SNS 만남", "10대 화상채팅",
                         "청소년 섹스토션 피해", "어린이 딥페이크 피해", "청소년 사진 협박",
                         "미성년자 그루밍", "초등학생 유해 콘텐츠", "청소년 사이버성폭력",
+                        # 도박 (2024 실태조사 기반)
+                        "청소년 불법도박 사이트", "초등학생 온라인도박", "미성년자 스포츠토토",
+                        "청소년 파워볼 사이트", "중학생 도박 빠짐", "10대 온라인카지노",
+                        "청소년 달팽이게임", "사다리게임 미성년자", "소셜그래프 청소년",
+                        "학생 대리베팅 모집", "미성년자 총판 모집", "학생 도박빚 협박",
                     ]
                     picked = random.choice(pool)
                     st.session_state["naver_auto_kw"] = picked
