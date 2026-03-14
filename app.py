@@ -6,8 +6,8 @@ from googleapiclient.discovery import build
 from supabase import create_client
 from datetime import date, datetime, timedelta
 import pandas as pd
+
 import requests
-# v2026.03.14-1743 — 공지사항 텍스트 색상, 드래곤파더 버튼 위치 수정
 load_dotenv()
 
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
@@ -108,16 +108,10 @@ st.markdown("""
     }
 }
 
-/* 배너 아래 공백 제거 */
+/* 데스크탑 전체 컴팩트 */
 .block-container {
-    padding-top: 1.2rem !important;
+    padding-top: 2.5rem !important;
     padding-bottom: 0.4rem !important;
-}
-/* Streamlit 기본 요소 간격 최소화 */
-[data-testid="stVerticalBlock"] > [data-testid="stVerticalBlockBorderWrapper"],
-[data-testid="stVerticalBlock"] > div:first-child {
-    margin-top: 0 !important;
-    padding-top: 0 !important;
 }
 h1 { font-size: 1.5rem !important; margin: 0 !important; }
 h2 { font-size: 1.1rem !important; margin: 0 !important; }
@@ -1072,6 +1066,13 @@ else:
                     st.session_state.pop("ann_popup_shown", None)
                     st.rerun()
 
+    # ── 개인 PR 문구 ──
+    st.markdown("""
+    <div style="text-align:left; font-size:1.08rem; color:#aaa; margin-bottom:2px; padding-left:4px;">
+        🐉 <strong style="color:#c8a84b;">최승현</strong> 님이 만드는 드래곤아이즈에 오신 것을 환영합니다.
+    </div>
+    """, unsafe_allow_html=True)
+
     # ── 상단 헤더 ──
     _show_admin_btn = is_admin or is_super
     try:
@@ -1082,110 +1083,84 @@ else:
 
     st.markdown("""
     <style>
-    /* 헤더 버튼 박스 제거 — 텍스트만 표시 */
-    div[data-testid="stHorizontalBlock"] button[kind="secondary"] {
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        padding: 0.25rem 0.3rem !important;
-        font-size: 1.0rem !important;
-        color: #94a3b8 !important;
-        transition: color 0.2s;
-    }
-    div[data-testid="stHorizontalBlock"] button[kind="secondary"]:hover {
-        background: transparent !important;
-        color: #f1f5f9 !important;
-        border: none !important;
-    }
     div[data-testid="stHorizontalBlock"] button[kind="secondary"] p {
-        font-size: 1.0rem !important;
+        font-size: 0.78rem !important;
         padding: 0 !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
     if _show_admin_btn:
-        h1, h_right = st.columns([3, 7])
+        h1, h2, hf, h_work, h6, h7, h_notice, h_admin, h_profile, h8 = st.columns([2.2, 0.7, 1.8, 0.8, 0.75, 0.85, 0.75, 0.9, 0.9, 0.75])
     else:
-        h1, h_right = st.columns([3, 7])
+        h1, h2, hf, h_work, h6, h7, h_notice, h_profile, h8 = st.columns([2.2, 0.7, 1.8, 0.8, 0.75, 0.85, 0.75, 0.9, 0.75])
 
     with h1:
         title_text = t("app_title").replace("🐉 ", "").replace("🐉 ", "")
-        st.markdown(f'<div style="font-size:1.6rem; font-weight:700; display:flex; align-items:center; gap:6px; margin:0; padding:4px 0">🐉 {title_text}</div>', unsafe_allow_html=True)
-
-    with h_right:
-        # 버튼들을 오른쪽 정렬 — 빈 공간 왼쪽에, 버튼들 오른쪽에
-        if _show_admin_btn:
-            spacer, bc_ko, bc_en, bc_jp, bc_work, bc_home, bc_write, bc_notice, bc_admin, bc_profile, bc_logout = st.columns([1.2, 0.28, 0.28, 0.28, 0.5, 0.42, 0.42, 0.52, 0.52, 0.5, 0.25])
-        else:
-            spacer, bc_ko, bc_en, bc_jp, bc_work, bc_home, bc_write, bc_notice, bc_profile, bc_logout = st.columns([1.5, 0.28, 0.28, 0.28, 0.5, 0.42, 0.42, 0.52, 0.5, 0.25])
-
-        with bc_ko:
-            if st.button("🇰🇷", use_container_width=True, key="flag_ko", help="한국어"):
+        st.markdown(f'<div style="font-size:1.8rem; font-weight:700; display:flex; align-items:center; gap:6px; margin:0; padding:4px 0">🐉 {title_text}</div>', unsafe_allow_html=True)
+    with h2:
+        st.metric(t("this_month"), f"{st.session_state.report_count}{t('unit_reports')}")
+    with hf:
+        fc1, fc2, fc3 = st.columns(3)
+        with fc1:
+            if st.button("🇰🇷 KO", use_container_width=True, key="flag_ko"):
                 st.session_state.lang = "ko"; st.rerun()
-        with bc_en:
-            if st.button("🇺🇸", use_container_width=True, key="flag_en", help="English"):
+        with fc2:
+            if st.button("🇺🇸 EN", use_container_width=True, key="flag_en"):
                 st.session_state.lang = "en"; st.rerun()
-        with bc_jp:
-            if st.button("🇯🇵", use_container_width=True, key="flag_ja", help="日本語"):
+        with fc3:
+            if st.button("🇯🇵 JP", use_container_width=True, key="flag_ja"):
                 st.session_state.lang = "ja"; st.rerun()
-        with bc_work:
-            if st.button("💼 일하기", use_container_width=True, key="hdr_work_btn"):
-                go_to("work_page"); st.rerun()
-        with bc_home:
-            if st.button("🏠 홈", use_container_width=True):
-                go_home(); st.rerun()
-        with bc_write:
-            if st.button("📋 작성", use_container_width=True):
-                open_report_form(from_tab=st.session_state.active_tab); st.rerun()
-        with bc_notice:
-            if st.button(_notice_label, use_container_width=True, key="hdr_notice_btn"):
+    with h_work:
+        if st.button("💼 일하기", use_container_width=True, key="hdr_work_btn"):
+            go_to("work_page"); st.rerun()
+    with h6:
+        if st.button(t("home"), use_container_width=True):
+            go_home(); st.rerun()
+    with h7:
+        if st.button(t("write_report"), use_container_width=True):
+            open_report_form(from_tab=st.session_state.active_tab); st.rerun()
+    with h_notice:
+        if st.button(_notice_label, use_container_width=True, key="hdr_notice_btn"):
+            st.session_state.current_page = "home"
+            st.session_state.active_tab = 98
+            st.rerun()
+    if _show_admin_btn:
+        with h_admin:
+            if st.button("👑 관리자", use_container_width=True, key="hdr_admin_btn"):
                 st.session_state.current_page = "home"
-                st.session_state.active_tab = 98
+                st.session_state.active_tab = 99
                 st.rerun()
-        if _show_admin_btn:
-            with bc_admin:
-                if st.button("👑 관리자", use_container_width=True, key="hdr_admin_btn"):
-                    st.session_state.current_page = "home"
-                    st.session_state.active_tab = 99
-                    st.rerun()
-        with bc_profile:
-            if st.button("👤 사용자", use_container_width=True, key="hdr_profile_btn"):
-                go_to("user_profile"); st.rerun()
-        with bc_logout:
-            if st.button("🚪", use_container_width=True, help="로그아웃"):
-                st.query_params.clear()
-                for k in list(st.session_state.keys()):
-                    del st.session_state[k]
-                st.rerun()
+    with h_profile:
+        if st.button("👤 사용자정보", use_container_width=True, key="hdr_profile_btn"):
+            go_to("user_profile"); st.rerun()
+    with h8:
+        if st.button(t("logout")):
+            st.query_params.clear()
+            for k in list(st.session_state.keys()):
+                del st.session_state[k]
+            st.rerun()
+
+    st.divider()
 
     st.markdown("""
     <div style="
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        align-items: center;
-        gap: 16px;
         background: linear-gradient(135deg, #0f3460 0%, #16213e 100%);
         border-left: 5px solid #e94560;
         border-radius: 8px;
-        padding: 0.6rem 1.2rem;
-        margin-bottom: -0.5rem;
+        padding: 0.8rem 1.2rem;
+        margin-bottom: 0.5rem;
+        color: white;
+        font-size: 0.95rem;
+        line-height: 1.6;
     ">
-        <div style="color:white; font-size:0.88rem; line-height:1.6;">
-            🛡️ <strong>이 곳은 온라인 유해 컨텐츠를 모니터링하는 Claude 기반의 Agent AI 드래곤파더와 함께 작업하는 곳입니다.</strong><br>
-            어린이 아동학대, 그루밍, 성폭력, 도박 등과 관련한 다양한 불법 컨텐츠를 감시합니다.
-        </div>
-        <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; justify-content:flex-end;">
-            <span style="color:#94a3b8; font-size:0.68rem; font-weight:600; letter-spacing:0.05em; white-space:nowrap; margin-right:2px;">🛡️ 국제기관 가이드라인 준수</span>
-            <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #2563eb55;color:#60a5fa;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;">🇺🇸 NCMEC 가이드라인 준수</span>
-            <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #7c3aed55;color:#a78bfa;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;">🌍 WeProtect Global Alliance</span>
-            <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #059669aa;color:#34d399;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;">🇬🇧 IWF 글로벌 기준</span>
-            <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #d9770655;color:#fb923c;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;">⚙️ Tech Coalition</span>
-        </div>
+        🛡️ <strong>이 곳은 온라인 유해 컨텐츠를 모니터링하는 Claude 기반의 Agent AI 드래곤파더와 함께 작업하는 곳입니다.</strong><br>
+        어린이 아동학대, 그루밍, 성폭력, 도박 등과 관련한 다양한 불법 컨텐츠를 감시합니다.
     </div>
     """, unsafe_allow_html=True)
 
     # ══════════════════════════════
+    # 보고서 작성 페이지
     # ══════════════════════════════
     if page == "report_form":
         col_back, col_title = st.columns([1,5])
@@ -1194,6 +1169,7 @@ else:
                 go_back(); st.rerun()
         with col_title:
             st.subheader(t("report_title"))
+            st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
         with st.container(border=True):
             rc1, rc2 = st.columns(2)
             with rc1:
@@ -1336,6 +1312,7 @@ else:
                 go_home(); st.rerun()
         with col_title:
             st.subheader("🐲 드래곤파더 — 전체화면 대화")
+            st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
 
         chat_info = can_use_chat(user["id"])
         ci1, ci2, ci3 = st.columns(3)
@@ -1389,12 +1366,18 @@ else:
                     st.error(f"오류: {str(e)}")
 
     # ══════════════════════════════
-    # 💼 일하기 페이지
+    # 💼 일하기 페이지 (기존 홈 랜딩 내용)
     # ══════════════════════════════
     elif page == "work_page":
         lang = st.session_state.get("lang", "ko")
+        col_back, col_title = st.columns([1, 5])
+        with col_back:
+            if st.button("◀ 홈으로"):
+                go_home(); st.rerun()
+        with col_title:
+            st.subheader(f"💼 일하기 — {t('greeting', user['name'])}")
 
-        # 달성률 카드 (전체 너비) — 최상단
+        st.divider()
         token_info = can_use_dragon(user["id"])
         all_my = supabase.table("reports").select("id,severity,created_at").eq("user_id", user["id"]).execute()
         df_my = pd.DataFrame(all_my.data) if all_my.data else pd.DataFrame()
@@ -1405,194 +1388,148 @@ else:
         history_cnt = len(st.session_state.search_results) + len(st.session_state.recommend_results)
 
         st.markdown(f"""
-        <div style="display:flex; gap:6px; margin:8px 0 4px 0;">
-            <div style="flex:1; background:linear-gradient(135deg,#0ea5e9,#06b6d4); border-radius:8px; padding:5px 8px; text-align:center;">
-                <div style="font-size:0.62rem; color:#e0f7ff;">이번달 보고서</div>
-                <div style="font-size:1rem; font-weight:700; color:#fff;">{month_cnt}건</div>
-                <div style="font-size:0.58rem; color:#bae6fd;">목표 {target}건</div>
+        <div style="display:flex; gap:8px; margin:4px 0;">
+            <div style="flex:1; background:linear-gradient(135deg,#0ea5e9,#06b6d4); border-radius:8px; padding:6px 10px; text-align:center; box-shadow:0 2px 8px rgba(14,165,233,0.35);">
+                <div style="font-size:0.68rem; color:#e0f7ff;">{t('month_report')}</div>
+                <div style="font-size:1.1rem; font-weight:700; color:#ffffff;">{month_cnt}{t('unit_reports')}</div>
+                <div style="font-size:0.62rem; color:#bae6fd;">↑ {t('goal', target)}</div>
             </div>
-            <div style="flex:1; background:linear-gradient(135deg,#10b981,#34d399); border-radius:8px; padding:5px 8px; text-align:center;">
-                <div style="font-size:0.62rem; color:#d1fae5;">달성률</div>
-                <div style="font-size:1rem; font-weight:700; color:#fff;">{rate}%</div>
-                <div style="font-size:0.58rem; color:#a7f3d0;">목표 대비</div>
+            <div style="flex:1; background:linear-gradient(135deg,#10b981,#34d399); border-radius:8px; padding:6px 10px; text-align:center; box-shadow:0 2px 8px rgba(16,185,129,0.35);">
+                <div style="font-size:0.68rem; color:#d1fae5;">{t('achievement')}</div>
+                <div style="font-size:1.1rem; font-weight:700; color:#ffffff;">{rate}%</div>
+                <div style="font-size:0.62rem; color:#a7f3d0;">목표 {target}건</div>
             </div>
-            <div style="flex:1; background:linear-gradient(135deg,#f59e0b,#fbbf24); border-radius:8px; padding:5px 8px; text-align:center;">
-                <div style="font-size:0.62rem; color:#fef3c7;">드래곤 토큰</div>
-                <div style="font-size:1rem; font-weight:700; color:#fff;">{token_info['monthly_remaining']}회</div>
-                <div style="font-size:0.58rem; color:#fde68a;">남음</div>
+            <div style="flex:1; background:linear-gradient(135deg,#f59e0b,#fbbf24); border-radius:8px; padding:6px 10px; text-align:center; box-shadow:0 2px 8px rgba(245,158,11,0.35);">
+                <div style="font-size:0.68rem; color:#fef3c7;">{t('dragon_token')}</div>
+                <div style="font-size:1.1rem; font-weight:700; color:#ffffff;">{token_info['monthly_remaining']}</div>
+                <div style="font-size:0.62rem; color:#fde68a;">회 남음</div>
             </div>
-            <div style="flex:1; background:linear-gradient(135deg,#ec4899,#f472b6); border-radius:8px; padding:5px 8px; text-align:center;">
-                <div style="font-size:0.62rem; color:#fce7f3;">탐색 히스토리</div>
-                <div style="font-size:1rem; font-weight:700; color:#fff;">{history_cnt}건</div>
-                <div style="font-size:0.58rem; color:#fbcfe8;">대기중</div>
+            <div style="flex:1; background:linear-gradient(135deg,#ec4899,#f472b6); border-radius:8px; padding:6px 10px; text-align:center; box-shadow:0 2px 8px rgba(236,72,153,0.35);">
+                <div style="font-size:0.68rem; color:#fce7f3;">탐색 히스토리</div>
+                <div style="font-size:1.1rem; font-weight:700; color:#ffffff;">{history_cnt}건</div>
+                <div style="font-size:0.62rem; color:#fbcfe8;">대기중</div>
             </div>
         </div>
-        <div style="background:#334155; border-radius:4px; height:4px; margin:0 0 4px 0;">
-            <div style="background:{'#22c55e' if rate>=100 else '#f59e0b' if rate>=50 else '#e94560'}; width:{rate}%; height:4px; border-radius:4px;"></div>
+        <div style="background:#334155; border-radius:4px; height:6px; margin:4px 0;">
+            <div style="background:#22c55e; width:{rate}%; height:6px; border-radius:4px;"></div>
         </div>
         """, unsafe_allow_html=True)
 
-        # 헤더 (홈으로 + 제목) — 카드 아래
-        hd1, hd2 = st.columns([1, 5])
-        with hd1:
-            if st.button("◀ 홈으로", key="work_home_btn"):
-                go_home(); st.rerun()
-        with hd2:
-            st.markdown(f'<div style="font-size:1rem; font-weight:600; color:#94a3b8; padding-top:6px;">💼 일하기 — {user["name"]}님</div>', unsafe_allow_html=True)
+        st.divider()
+        st.markdown('<div style="font-size:0.8rem; font-weight:600; color:#94a3b8; margin-bottom:4px;">🚀 바로가기</div>', unsafe_allow_html=True)
+        if st.button("🐉 드래곤아이즈 모니터링 자동 추천 리스트 생성", use_container_width=True, type="primary"):
+            st.session_state.current_page = "home"
+            st.session_state.active_tab = 3
+            st.rerun()
+        gb1, gb2, gb3 = st.columns(3)
+        with gb1:
+            if st.button(t("tab_text"), use_container_width=True):
+                st.session_state.current_page = "home"; st.rerun()
+        with gb2:
+            if st.button(t("tab_youtube"), use_container_width=True):
+                st.session_state.current_page = "home"; st.rerun()
+        with gb3:
+            if st.button(t("tab_reports"), use_container_width=True):
+                st.session_state.current_page = "home"; st.rerun()
 
-        st.markdown("<div style='margin:2px 0;'></div>", unsafe_allow_html=True)
-
-        # ── 좌우 분할 레이아웃 ──
-        work_left, work_right = st.columns([1, 1])
-
-        # ── 왼쪽: 팀별 업무 현황 ──
-        with work_left:
-            st.markdown('<div style="font-size:1rem; font-weight:700; color:#1e293b; margin:0 0 4px 0;">📊 팀별 업무 현황</div>', unsafe_allow_html=True)
-            _role = get_user_role(user)
-
-            if _role in ("superadmin", "group_leader", "group_leader_2", "group_leader_3", "group_leader_4", "director", "director_2", "director_3", "director_4"):
-                try:
-                    all_teams_dash = supabase.table("teams").select("*").execute().data or []
-                    all_users_dash = supabase.table("users").select("*").execute().data or []
-                    all_reports_dash = supabase.table("reports").select("user_id,created_at").execute().data or []
-                    umap_dash = {u["id"]: u for u in all_users_dash}
-
-                    if all_teams_dash:
-                        for team in all_teams_dash:
-                            members = [u for u in all_users_dash if u.get("team_id") == team["id"]]
-                            leader = umap_dash.get(team.get("leader_id",""), {})
-                            with st.expander(f"🏢 **{team['name']}** | 팀장: {leader.get('name','미지정')} | {len(members)}명", expanded=True):
-                                if members:
-                                    cols_header = st.columns([2.5, 1, 1, 1, 1])
-                                    cols_header[0].markdown("**이름**")
-                                    cols_header[1].markdown("**이번달**")
-                                    cols_header[2].markdown("**목표**")
-                                    cols_header[3].markdown("**달성률**")
-                                    cols_header[4].markdown("**누적**")
-                                    for m in members:
-                                        m_reports = [r for r in all_reports_dash if r["user_id"] == m["id"]]
-                                        m_month = len([r for r in m_reports if r["created_at"][:7] == this_month])
-                                        m_total = len(m_reports)
-                                        m_target = m.get("monthly_target", 10)
-                                        m_rate = min(int(m_month/m_target*100), 100) if m_target > 0 else 0
-                                        r_icon = role_icon(m.get("role_v2","user"))
-                                        rate_color = "#22c55e" if m_rate >= 100 else ("#f59e0b" if m_rate >= 50 else "#ef4444")
-                                        cols = st.columns([2.5, 1, 1, 1, 1])
-                                        cols[0].write(f"{r_icon} {m['name']}")
-                                        cols[1].write(f"{m_month}건")
-                                        cols[2].write(f"{m_target}건")
-                                        cols[3].markdown(f"<span style='color:{rate_color};font-weight:700'>{m_rate}%</span>", unsafe_allow_html=True)
-                                        cols[4].write(f"{m_total}건")
-                                else:
-                                    st.caption("팀원 없음")
-                    else:
-                        st.info("생성된 팀이 없습니다.")
-
-                    no_team = [u for u in all_users_dash if not u.get("team_id")]
-                    if no_team:
-                        with st.expander(f"👥 **팀 미배정** | {len(no_team)}명"):
-                            for u in no_team:
-                                u_reports = [r for r in all_reports_dash if r["user_id"] == u["id"]]
-                                u_month = len([r for r in u_reports if r["created_at"][:7] == this_month])
-                                r_icon = role_icon(u.get("role_v2","user"))
-                                st.caption(f"{r_icon} {u['name']} | 이번달 {u_month}건")
-                except Exception as e:
-                    st.warning(f"팀 현황 불러오기 실패: {str(e)}")
-
-            elif _role == "team_leader":
-                try:
-                    my_team_id = user.get("team_id")
-                    if my_team_id:
-                        team_members = supabase.table("users").select("*").eq("team_id", my_team_id).execute().data or []
-                        all_reports_team = supabase.table("reports").select("user_id,created_at").execute().data or []
-                        if team_members:
-                            cols_h = st.columns([2.5, 1, 1, 1, 1])
-                            cols_h[0].markdown("**이름**"); cols_h[1].markdown("**이번달**")
-                            cols_h[2].markdown("**목표**"); cols_h[3].markdown("**달성률**"); cols_h[4].markdown("**누적**")
-                            for m in team_members:
-                                m_reports = [r for r in all_reports_team if r["user_id"] == m["id"]]
-                                m_month = len([r for r in m_reports if r["created_at"][:7] == this_month])
-                                m_total = len(m_reports)
-                                m_target = m.get("monthly_target", 10)
-                                m_rate = min(int(m_month/m_target*100), 100) if m_target > 0 else 0
-                                is_me = "⭐ " if m["id"] == user["id"] else ""
-                                rate_color = "#22c55e" if m_rate >= 100 else ("#f59e0b" if m_rate >= 50 else "#ef4444")
-                                cols = st.columns([2.5, 1, 1, 1, 1])
-                                cols[0].write(f"{is_me}{m['name']}")
-                                cols[1].write(f"{m_month}건"); cols[2].write(f"{m_target}건")
-                                cols[3].markdown(f"<span style='color:{rate_color};font-weight:700'>{m_rate}%</span>", unsafe_allow_html=True)
-                                cols[4].write(f"{m_total}건")
-                        else:
-                            st.info("팀원이 없습니다.")
-                    else:
-                        st.info("배정된 팀이 없습니다.")
-                except Exception as e:
-                    st.warning(f"팀 현황 불러오기 실패: {str(e)}")
-            else:
-                st.info("팀에 배정되지 않았습니다.")
-
-        # ── 오른쪽: 미작성 목록 + 바로가기 ──
-        with work_right:
-            st.markdown('<div style="font-size:1rem; font-weight:700; color:#1e293b; margin:0 0 4px 0;">⚠️ 내게 배정된 미작성 목록</div>', unsafe_allow_html=True)
-
-            # 페이지네이션
-            PAGE_SIZE = 10
-            if "work_page_num" not in st.session_state:
-                st.session_state.work_page_num = 0
-
-            assigned_all = supabase.table("analyzed_urls").select("*").eq("assigned_to", user["id"]).eq("reported", False).order("analyzed_at", desc=True).execute()
-            assigned_data = assigned_all.data if assigned_all.data else []
-            total = len(assigned_data)
-            total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
-            page_num = st.session_state.work_page_num
-            paged = assigned_data[page_num * PAGE_SIZE : (page_num + 1) * PAGE_SIZE]
-
-            st.markdown(f'<div style="font-size:0.75rem; color:#64748b; margin-bottom:4px;">총 {total}건 | {page_num+1}/{total_pages} 페이지</div>', unsafe_allow_html=True)
-
-            # 목록 (스크롤 컨테이너) — 높이 30% 축소
-            with st.container(height=290):
-                if not paged:
-                    st.info("✅ 배정된 미작성 목록이 없습니다!")
-                for d in paged:
-                    dc1, dc2 = st.columns([5, 1])
-                    with dc1:
-                        st.markdown(f"<div style='font-size:0.88rem; font-weight:600; color:#0f172a; margin:0; padding:2px 0 0 0; line-height:1.3;'>{d.get('title','(제목없음)')[:60]}</div>", unsafe_allow_html=True)
-                        st.markdown(f"<div style='font-size:0.72rem; color:#475569; margin:0 0 3px 0;'>{search_type_label(d.get('search_type',''))} | {str(d.get('analyzed_at',''))[:10]}</div>", unsafe_allow_html=True)
-                    with dc2:
-                        if st.button("📋", key=f"work_rep_{d['id']}", help="보고서 작성"):
-                            open_report_form(d["url"], "", 1, "안전", "YouTube", from_tab=4)
-                            st.session_state.current_page = "report_form"; st.rerun()
-                    st.markdown("<hr style='margin:2px 0; border-color:#e2e8f0;'>", unsafe_allow_html=True)
-
-            # 페이지 이동 버튼
-            pn1, pn2, pn3 = st.columns([1, 2, 1])
-            with pn1:
-                if st.button("◀ 이전", disabled=page_num == 0, use_container_width=True, key="work_prev"):
-                    st.session_state.work_page_num -= 1; st.rerun()
-            with pn2:
-                st.markdown(f"<div style='text-align:center; padding-top:8px; color:#94a3b8; font-size:0.85rem;'>{page_num+1} / {total_pages}</div>", unsafe_allow_html=True)
-            with pn3:
-                if st.button("다음 ▶", disabled=page_num >= total_pages-1, use_container_width=True, key="work_next"):
-                    st.session_state.work_page_num += 1; st.rerun()
-
+        assigned = supabase.table("analyzed_urls").select("*").eq("assigned_to", user["id"]).eq("reported", False).order("analyzed_at", desc=True).limit(5).execute()
+        if assigned.data:
             st.divider()
+            st.subheader(t("assigned_pending", len(assigned.data)))
+            for d in assigned.data:
+                ac1, ac2 = st.columns([5,1])
+                with ac1:
+                    st.caption(f"{search_type_label(d.get('search_type',''))} | {str(d.get('analyzed_at',''))[:10]} | {d.get('title','')[:50]}")
+                with ac2:
+                    if st.button(t("write_btn"), key=f"work_rep_{d['id']}"):
+                        open_report_form(d["url"], "", 1, "안전", "YouTube", from_tab=4)
+                        st.session_state.current_page = "report_form"; st.rerun()
 
-            # 바로가기
-            st.markdown('<div style="font-size:0.82rem; font-weight:600; color:#94a3b8; margin-bottom:4px;">🚀 바로가기</div>', unsafe_allow_html=True)
-            if st.button("🐉 드래곤아이즈 자동 추천 리스트 생성", use_container_width=True, type="primary", key="work_dragon_btn"):
-                st.session_state.current_page = "home"
-                st.session_state.active_tab = 3
-                st.rerun()
-            wg1, wg2, wg3 = st.columns(3)
-            with wg1:
-                if st.button(t("tab_text"), use_container_width=True, key="work_text_btn"):
-                    st.session_state.current_page = "home"; st.rerun()
-            with wg2:
-                if st.button(t("tab_youtube"), use_container_width=True, key="work_yt_btn"):
-                    st.session_state.current_page = "home"; st.rerun()
-            with wg3:
-                if st.button(t("tab_reports"), use_container_width=True, key="work_rep_btn"):
-                    st.session_state.current_page = "home"; st.rerun()
+        # 역할별 팀 현황
+        _role = get_user_role(user)
+        this_month = date.today().strftime("%Y-%m")
+
+        if _role in ("superadmin", "group_leader", "group_leader_2", "group_leader_3", "group_leader_4", "director", "director_2", "director_3", "director_4"):
+            st.divider()
+            st.markdown("### 📊 팀별 업무 현황")
+            try:
+                all_teams_dash = supabase.table("teams").select("*").execute().data or []
+                all_users_dash = supabase.table("users").select("*").execute().data or []
+                all_reports_dash = supabase.table("reports").select("user_id,created_at").execute().data or []
+                umap_dash = {u["id"]: u for u in all_users_dash}
+                if all_teams_dash:
+                    for team in all_teams_dash:
+                        members = [u for u in all_users_dash if u.get("team_id") == team["id"]]
+                        leader = umap_dash.get(team.get("leader_id",""), {})
+                        with st.expander(f"🏢 **{team['name']}** | 팀장: {leader.get('name','미지정')} | 팀원: {len(members)}명", expanded=True):
+                            if members:
+                                cols_header = st.columns([2.5, 1, 1, 1, 1])
+                                cols_header[0].markdown("**이름**")
+                                cols_header[1].markdown("**이번달**")
+                                cols_header[2].markdown("**목표**")
+                                cols_header[3].markdown("**달성률**")
+                                cols_header[4].markdown("**누적**")
+                                for m in members:
+                                    m_reports = [r for r in all_reports_dash if r["user_id"] == m["id"]]
+                                    m_month = len([r for r in m_reports if r["created_at"][:7] == this_month])
+                                    m_total = len(m_reports)
+                                    m_target = m.get("monthly_target", 10)
+                                    m_rate = min(int(m_month/m_target*100), 100) if m_target > 0 else 0
+                                    r_icon = role_icon(m.get("role_v2","user"))
+                                    rate_color = "#22c55e" if m_rate >= 100 else ("#f59e0b" if m_rate >= 50 else "#ef4444")
+                                    cols = st.columns([2.5, 1, 1, 1, 1])
+                                    cols[0].write(f"{r_icon} {m['name']}")
+                                    cols[1].write(f"{m_month}건")
+                                    cols[2].write(f"{m_target}건")
+                                    cols[3].markdown(f"<span style='color:{rate_color};font-weight:700'>{m_rate}%</span>", unsafe_allow_html=True)
+                                    cols[4].write(f"{m_total}건")
+                            else:
+                                st.caption("팀원 없음")
+                else:
+                    st.info("생성된 팀이 없습니다.")
+                no_team = [u for u in all_users_dash if not u.get("team_id")]
+                if no_team:
+                    with st.expander(f"👥 **팀 미배정** | {len(no_team)}명"):
+                        for u in no_team:
+                            u_reports = [r for r in all_reports_dash if r["user_id"] == u["id"]]
+                            u_month = len([r for r in u_reports if r["created_at"][:7] == this_month])
+                            r_icon = role_icon(u.get("role_v2","user"))
+                            st.caption(f"{r_icon} {u['name']} ({u.get('email','')}) | 이번달 {u_month}건")
+            except Exception as e:
+                st.warning(f"팀 현황 불러오기 실패: {str(e)}")
+
+        elif _role == "team_leader":
+            st.divider()
+            st.markdown("### 👥 내 팀 현황")
+            try:
+                my_team_id = user.get("team_id")
+                if my_team_id:
+                    team_members = supabase.table("users").select("*").eq("team_id", my_team_id).execute().data or []
+                    all_reports_team = supabase.table("reports").select("user_id,created_at").execute().data or []
+                    if team_members:
+                        cols_h = st.columns([2.5, 1, 1, 1, 1])
+                        cols_h[0].markdown("**이름**"); cols_h[1].markdown("**이번달**")
+                        cols_h[2].markdown("**목표**"); cols_h[3].markdown("**달성률**"); cols_h[4].markdown("**누적**")
+                        for m in team_members:
+                            m_reports = [r for r in all_reports_team if r["user_id"] == m["id"]]
+                            m_month = len([r for r in m_reports if r["created_at"][:7] == this_month])
+                            m_total = len(m_reports)
+                            m_target = m.get("monthly_target", 10)
+                            m_rate = min(int(m_month/m_target*100), 100) if m_target > 0 else 0
+                            is_me = "⭐ " if m["id"] == user["id"] else ""
+                            rate_color = "#22c55e" if m_rate >= 100 else ("#f59e0b" if m_rate >= 50 else "#ef4444")
+                            cols = st.columns([2.5, 1, 1, 1, 1])
+                            cols[0].write(f"{is_me}{m['name']}")
+                            cols[1].write(f"{m_month}건")
+                            cols[2].write(f"{m_target}건")
+                            cols[3].markdown(f"<span style='color:{rate_color};font-weight:700'>{m_rate}%</span>", unsafe_allow_html=True)
+                            cols[4].write(f"{m_total}건")
+                    else:
+                        st.info("팀원이 없습니다.")
+                else:
+                    st.info("배정된 팀이 없습니다.")
+            except Exception as e:
+                st.warning(f"팀 현황 불러오기 실패: {str(e)}")
 
     # ══════════════════════════════
     # 👤 사용자 정보 페이지
@@ -1737,11 +1674,89 @@ else:
     elif page == "home_landing":
         lang = st.session_state.get("lang", "ko")
 
-        # 메인 2컬럼 레이아웃 — 드래곤파더 왼쪽, 통계+모니터링 오른쪽
+        # 인사말
+        st.markdown(f"""
+        <div style="font-size:1.3rem; font-weight:600; color:#f1f5f9; margin-bottom:8px;">
+            {t('greeting', user['name'])} &nbsp;
+            <span style="font-size:0.9rem; color:#94a3b8; font-weight:400;">오늘도 수고하세요 🐉</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # 메인 2컬럼 레이아웃
         left_col, right_col = st.columns([1, 1])
 
-        # ── 왼쪽: 드래곤파더 ──
         with left_col:
+            # 드래곤아이즈 추천 큰 버튼
+            st.markdown("""
+            <div style="font-size:0.85rem; font-weight:600; color:#94a3b8; margin-bottom:8px;">🐉 모니터링</div>
+            """, unsafe_allow_html=True)
+            if st.button("🐉 드래곤아이즈 자동 추천 리스트 생성", use_container_width=True, type="primary", key="home_dragon_btn"):
+                st.session_state.current_page = "home"
+                st.session_state.active_tab = 3
+                st.rerun()
+
+            st.markdown("<div style='margin-top:8px;'></div>", unsafe_allow_html=True)
+
+            # 빠른 접근 버튼들
+            qa1, qa2, qa3 = st.columns(3)
+            with qa1:
+                if st.button("📝 텍스트\n분석", use_container_width=True, key="home_text_btn"):
+                    st.session_state.current_page = "home"; st.rerun()
+            with qa2:
+                if st.button("🎬 유튜브\n분석", use_container_width=True, key="home_yt_btn"):
+                    st.session_state.current_page = "home"; st.rerun()
+            with qa3:
+                if st.button("📁 보고서\n목록", use_container_width=True, key="home_rep_btn"):
+                    st.session_state.current_page = "home"; st.rerun()
+
+            st.divider()
+
+            # ── 통계 영역 (향후 확장) ──
+            st.markdown("""
+            <div style="font-size:0.85rem; font-weight:600; color:#94a3b8; margin-bottom:8px;">📊 통계 & 현황</div>
+            """, unsafe_allow_html=True)
+
+            # 이번달 간단 요약
+            try:
+                all_my_home = supabase.table("reports").select("id,severity,created_at").eq("user_id", user["id"]).execute()
+                df_home = pd.DataFrame(all_my_home.data) if all_my_home.data else pd.DataFrame()
+                this_month = date.today().strftime("%Y-%m")
+                month_cnt_h = len(df_home[df_home["created_at"].str[:7] == this_month]) if not df_home.empty else 0
+                target_h = user.get("monthly_target", 10)
+                rate_h = min(int(month_cnt_h / target_h * 100), 100) if target_h > 0 else 0
+                token_info_h = can_use_dragon(user["id"])
+
+                sm1, sm2, sm3 = st.columns(3)
+                sm1.metric("📅 이번달 보고서", f"{month_cnt_h}건", f"목표 {target_h}건")
+                sm2.metric("🎯 달성률", f"{rate_h}%")
+                sm3.metric("🐉 드래곤 토큰", f"{token_info_h['monthly_remaining']}회")
+
+                # 진행률 바
+                st.markdown(f"""
+                <div style="background:#334155; border-radius:4px; height:8px; margin:4px 0 12px 0;">
+                    <div style="background:{'#22c55e' if rate_h>=100 else '#f59e0b' if rate_h>=50 else '#e94560'}; width:{rate_h}%; height:8px; border-radius:4px;"></div>
+                </div>
+                """, unsafe_allow_html=True)
+            except:
+                pass
+
+            # 빈 공간 — 향후 통계 위젯 추가 예정
+            st.markdown("""
+            <div style="
+                border: 2px dashed #334155;
+                border-radius: 12px;
+                padding: 24px;
+                text-align: center;
+                color: #475569;
+                font-size: 0.85rem;
+                margin-top: 8px;
+            ">
+                📈 향후 통계 위젯이 추가될 공간입니다
+            </div>
+            """, unsafe_allow_html=True)
+
+        # ── 드래곤파더 채팅 (오른쪽) ──
+        with right_col:
             st.markdown("""
             <style>
             div[data-testid="stVerticalBlock"]:has(> div > div > #dragonfather_anchor) {
@@ -1749,23 +1764,20 @@ else:
                 border: 1px solid #e94560;
                 border-radius: 12px;
                 box-shadow: 0 4px 24px rgba(233,69,96,0.35), 0 0 40px rgba(15,52,96,0.5);
-                padding: 1rem 1rem 0.5rem 1rem;
+                padding: 1.2rem 1rem 0.5rem 1rem;
             }
             </style>
             """, unsafe_allow_html=True)
             st.markdown('<span id="dragonfather_anchor"></span>', unsafe_allow_html=True)
 
             chat_info = can_use_chat(user["id"])
-            da1, da2 = st.columns([4, 2])
-            with da1:
-                st.markdown('''
-                <div style="padding:2px 0 0 0; line-height:1.2;">
-                    <span style="font-size:1.4rem; font-weight:700; color:#1d4ed8;">🐲 드래곤파더</span>
-                    <span style="font-size:0.95rem; color:#60a5fa; margin-left:8px;">✨ Agent AI 드래곤파더에게 말을 걸어보세요</span>
-                </div>
-                ''', unsafe_allow_html=True)
-            with da2:
-                if st.button("🐲 큰 화면에서 드래곤파더와 대화하기", key="dragon_fs_btn", use_container_width=True):
+            df_col1, df_col2 = st.columns([2, 2])
+            with df_col1:
+                st.markdown('''<div style="font-size:1.5rem; font-weight:700; margin:-2rem 0 0 0; padding-left:2rem; line-height:1.2;">🐲 드래곤파더</div>
+                <div style="font-size:1.0rem; color:#94a3b8; padding-left:2rem; margin-bottom:2px;">✨ Agent AI 드래곤파더</div>''', unsafe_allow_html=True)
+            with df_col2:
+                st.markdown('<div style="margin-top:2rem;"></div>', unsafe_allow_html=True)
+                if st.button("🐲 큰 화면에서 대화하기", key="dragon_fs_btn", use_container_width=True):
                     go_to("dragon_chat"); st.rerun()
 
             today_u = chat_info.get('today_used',0)
@@ -1773,19 +1785,19 @@ else:
             month_u = chat_info.get('monthly_used',0)
             month_lim = chat_info.get('monthly_limit', CHAT_MONTHLY_LIMIT)
             st.markdown(f"""
-            <div style="margin:2px 0 4px 0;">
-                <div style="display:flex; gap:8px; align-items:center;">
-                    <div style="text-align:center; padding:4px 8px; background:linear-gradient(135deg,#3b82f6,#6366f1); border-radius:8px; flex:1;">
-                        <div style="font-size:0.58rem; color:#e0e7ff;">오늘</div>
-                        <div style="font-size:0.85rem; font-weight:700; color:#ffffff;">{today_u}/{CHAT_DAILY_LIMIT}</div>
+            <div style="margin:6px 0 4px 0;">
+                <div style="display:flex; gap:12px; align-items:center;">
+                    <div style="text-align:center; padding:5px 10px; background:linear-gradient(135deg,#3b82f6,#6366f1); border-radius:8px; flex:1;">
+                        <div style="font-size:0.6rem; color:#e0e7ff;">오늘</div>
+                        <div style="font-size:0.9rem; font-weight:700; color:#ffffff;">{today_u}/{CHAT_DAILY_LIMIT}</div>
                     </div>
-                    <div style="text-align:center; padding:4px 8px; background:linear-gradient(135deg,#6366f1,#8b5cf6); border-radius:8px; flex:1;">
-                        <div style="font-size:0.58rem; color:#ede9fe;">이번주</div>
-                        <div style="font-size:0.85rem; font-weight:700; color:#ffffff;">{week_u}/{CHAT_WEEKLY_LIMIT}</div>
+                    <div style="text-align:center; padding:5px 10px; background:linear-gradient(135deg,#6366f1,#8b5cf6); border-radius:8px; flex:1;">
+                        <div style="font-size:0.6rem; color:#ede9fe;">이번주</div>
+                        <div style="font-size:0.9rem; font-weight:700; color:#ffffff;">{week_u}/{CHAT_WEEKLY_LIMIT}</div>
                     </div>
-                    <div style="text-align:center; padding:4px 8px; background:linear-gradient(135deg,#8b5cf6,#a855f7); border-radius:8px; flex:1;">
-                        <div style="font-size:0.58rem; color:#fae8ff;">이번달</div>
-                        <div style="font-size:0.85rem; font-weight:700; color:#ffffff;">{month_u}/{month_lim}</div>
+                    <div style="text-align:center; padding:5px 10px; background:linear-gradient(135deg,#8b5cf6,#a855f7); border-radius:8px; flex:1;">
+                        <div style="font-size:0.6rem; color:#fae8ff;">이번달</div>
+                        <div style="font-size:0.9rem; font-weight:700; color:#ffffff;">{month_u}/{month_lim}</div>
                     </div>
                 </div>
             </div>
@@ -1804,16 +1816,16 @@ else:
                         st.markdown(f"""
                         <div style="background:linear-gradient(90deg,rgba(233,69,96,0.15),rgba(15,52,96,0.3));
                             border-left:3px solid #e94560; border-radius:6px;
-                            padding:5px 10px; margin:3px 0; font-size:0.8rem;">
+                            padding:6px 10px; margin:4px 0; font-size:0.82rem;">
                             {icon_h} <strong style="color:#f1f5f9;">{ann_h['title']}</strong>
-                            <span style="color:#94a3b8; margin-left:6px; font-size:0.72rem;">{ann_date_h}</span>
-                            <span style="background:#e94560; color:white; border-radius:4px; padding:1px 5px; font-size:0.65rem; margin-left:4px;">미확인</span>
+                            <span style="color:#94a3b8; margin-left:6px; font-size:0.75rem;">{ann_date_h}</span>
+                            <span style="background:#e94560; color:white; border-radius:4px; padding:1px 5px; font-size:0.68rem; margin-left:4px;">미확인</span>
                         </div>
                         """, unsafe_allow_html=True)
             except:
                 pass
 
-            chat_box = st.container(height=340)
+            chat_box = st.container(height=320)
             with chat_box:
                 if not st.session_state.chat_history:
                     st.caption("💡 예: '이 댓글이 그루밍 패턴인지 분석해줘'")
@@ -1856,90 +1868,6 @@ else:
                     except Exception as e:
                         st.session_state.chat_history.pop()
                         st.error(f"오류: {str(e)}")
-
-        # ── 오른쪽: 통계 (상단) + 모니터링 버튼 (하단) ──
-        with right_col:
-
-            st.markdown('<div style="font-size:0.82rem; font-weight:600; color:#94a3b8; margin:0 0 4px 0;">📊 통계 & 현황</div>', unsafe_allow_html=True)
-
-            # ① 통계 카드
-            try:
-                all_my_home = supabase.table("reports").select("id,severity,created_at").eq("user_id", user["id"]).execute()
-                df_home = pd.DataFrame(all_my_home.data) if all_my_home.data else pd.DataFrame()
-                this_month = date.today().strftime("%Y-%m")
-                month_cnt_h = len(df_home[df_home["created_at"].str[:7] == this_month]) if not df_home.empty else 0
-                target_h = user.get("monthly_target", 10)
-                rate_h = min(int(month_cnt_h / target_h * 100), 100) if target_h > 0 else 0
-                token_info_h = can_use_dragon(user["id"])
-
-                # 숫자 크기 20% 축소 + 왼쪽 여백 추가
-                st.markdown(f"""
-                <div style="display:flex; gap:12px; padding:0 8px 0 16px; margin-bottom:4px;">
-                    <div style="flex:1; background:#1e293b; border-radius:8px; padding:10px 14px;">
-                        <div style="font-size:0.7rem; color:#94a3b8; margin-bottom:2px;">📅 이번달</div>
-                        <div style="font-size:1.5rem; font-weight:700; color:#38bdf8; line-height:1.1;">{month_cnt_h}건</div>
-                        <div style="font-size:0.65rem; color:#4ade80;">↑ 목표 {target_h}건</div>
-                    </div>
-                    <div style="flex:1; background:#1e293b; border-radius:8px; padding:10px 14px;">
-                        <div style="font-size:0.7rem; color:#94a3b8; margin-bottom:2px;">🎯 달성률</div>
-                        <div style="font-size:1.5rem; font-weight:700; color:#{'22c55e' if rate_h>=100 else 'f59e0b' if rate_h>=50 else 'e94560'}; line-height:1.1;">{rate_h}%</div>
-                        <div style="font-size:0.65rem; color:#94a3b8;">목표 대비</div>
-                    </div>
-                    <div style="flex:1; background:#1e293b; border-radius:8px; padding:10px 14px;">
-                        <div style="font-size:0.7rem; color:#94a3b8; margin-bottom:2px;">🐉 토큰</div>
-                        <div style="font-size:1.5rem; font-weight:700; color:#a78bfa; line-height:1.1;">{token_info_h['monthly_remaining']}회</div>
-                        <div style="font-size:0.65rem; color:#94a3b8;">남은 횟수</div>
-                    </div>
-                </div>
-                <div style="background:#334155; border-radius:4px; height:6px; margin:0 8px 8px 16px;">
-                    <div style="background:{'#22c55e' if rate_h>=100 else '#f59e0b' if rate_h>=50 else '#e94560'}; width:{rate_h}%; height:6px; border-radius:4px;"></div>
-                </div>
-                """, unsafe_allow_html=True)
-            except:
-                pass
-
-            # ② 위젯 공간 (중간)
-            st.markdown("""
-            <div style="
-                border: 2px dashed #334155;
-                border-radius: 10px;
-                padding: 28px 16px;
-                text-align: center;
-                color: #475569;
-                font-size: 0.82rem;
-                margin-bottom: 10px;
-            ">📈 향후 통계 위젯이 추가될 공간입니다</div>
-            """, unsafe_allow_html=True)
-
-            # ③ 모니터링 버튼 (하단)
-            st.markdown('<div style="font-size:0.82rem; font-weight:600; color:#94a3b8; margin-bottom:4px;">🐉 모니터링</div>', unsafe_allow_html=True)
-            if st.button("🐉 드래곤아이즈 자동 추천 리스트 생성", use_container_width=True, type="primary", key="home_dragon_btn"):
-                st.session_state.current_page = "home"
-                st.session_state.active_tab = 3
-                st.rerun()
-            qa1, qa2, qa3 = st.columns(3)
-            with qa1:
-                if st.button("📝 텍스트 분석", use_container_width=True, key="home_text_btn"):
-                    st.session_state.current_page = "home"; st.rerun()
-            with qa2:
-                if st.button("🎬 유튜브 분석", use_container_width=True, key="home_yt_btn"):
-                    st.session_state.current_page = "home"; st.rerun()
-            with qa3:
-                if st.button("📁 보고서 목록", use_container_width=True, key="home_rep_btn"):
-                    st.session_state.current_page = "home"; st.rerun()
-
-        # ── 하단 중앙 문구 ──
-        st.markdown("""
-        <div style="
-            text-align: center;
-            padding: 18px 0 6px 0;
-            color: #475569;
-            font-size: 0.88rem;
-            letter-spacing: 0.04em;
-        ">
-            🐉 이곳은 <strong style="color:#60a5fa;">최승현</strong>님이 만드는 Agent AI 드래곤파더 월드입니다.
-        </div>
-        """, unsafe_allow_html=True)
 
     # ══════════════════════════════
     # 홈 대시보드
@@ -2080,6 +2008,7 @@ else:
         # ── 텍스트 분석 ──
         with tab1:
             st.subheader(t("text_title"))
+            st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
             content = st.text_area(t("text_input"), height=150)
             if st.button(t("analyze_start"), key="text_go"):
                 if content:
@@ -2105,6 +2034,7 @@ else:
         # ── 유튜브 분석 ──
         with tab2:
             st.subheader(t("yt_title"))
+            st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
             url = st.text_input(t("yt_url"))
             if st.button(t("analyze_start"), key="yt_go"):
                 if url:
@@ -2200,6 +2130,7 @@ else:
                     st.warning(t("enter_keyword"))
 
             if st.session_state.search_results:
+                st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
                 results_to_show = list(st.session_state.search_results)
                 sc1, sc2 = st.columns([3, 1])
                 with sc1:
@@ -2226,6 +2157,7 @@ else:
         # ── 드래곤아이즈 추천 ──
         with tab4:
             st.subheader(t("dragon_title"))
+            st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
             st.caption("AI가 플랫폼별 위험 키워드를 자동 생성하고 유튜브를 탐색합니다. 이미 분석한 영상은 자동 제외됩니다.")
 
             token_info = can_use_dragon(user["id"])
@@ -2297,6 +2229,7 @@ else:
                     st.error(f"오류: {str(e)}")
 
             if st.session_state.recommend_results:
+                st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
                 results = list(st.session_state.recommend_results)
                 rc1, rc2 = st.columns([3,1])
                 with rc1:
@@ -2334,6 +2267,7 @@ else:
         with tab5:
             st.subheader(t("history_title"))
             st.caption(t("history_caption"))
+            st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
 
             fc1, fc2, fc3 = st.columns(3)
             with fc1:
@@ -2387,6 +2321,7 @@ else:
         # ── 보고서 목록 ──
         with tab6:
             st.subheader(t("report_list"))
+            st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
 
             all_reps_data = supabase.table("reports").select("*").order("created_at", desc=True).execute()
             all_users_r = supabase.table("users").select("id,name").execute()
@@ -2536,6 +2471,7 @@ else:
         # ── 내 성과 ──
         with tab7:
             st.subheader(f"📈 {user['name']}님의 성과 현황")
+            st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
             all_my = supabase.table("reports").select("*").eq("user_id", user["id"]).execute()
             if all_my.data:
                 df = pd.DataFrame(all_my.data)
@@ -2568,6 +2504,7 @@ else:
         # ── 네이버 탐색 ──
         with tab_naver:
             st.subheader("🟢 네이버 카페·블로그·뉴스 탐색")
+            st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
             if not NAVER_CLIENT_ID:
                 st.error("네이버 API 키가 설정되지 않았습니다. .env 파일에 NAVER_CLIENT_ID와 NAVER_CLIENT_SECRET을 추가하세요.")
             else:
@@ -2718,6 +2655,7 @@ else:
         # ── 대화형 AI 채팅 ──
         with tab_chat:
             st.subheader("🐲 드래곤파더")
+            st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
             lang = st.session_state.get("lang", "ko")
 
             chat_info = can_use_chat(user["id"])
@@ -2795,6 +2733,7 @@ else:
         if tab_notice:
             with tab_notice:
                 st.subheader("📢 공지사항")
+                st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
 
                 if is_high:
                     with st.expander("➕ 새 공지 / 업무지시 작성", expanded=False):
@@ -2889,7 +2828,7 @@ else:
                         with st.expander(f"{icon} **{ann['title']}**  |  {ann_date}  |  {read_badge}"):
                             st.markdown(f"**유형:** {type_label_map.get(ann['type'],'공지')} | **발송:** {sender_name} | **수신:** {target_str}")
                             st.divider()
-                            st.markdown(f'<div style="color:#1e293b; background:#f8fafc; border-radius:6px; padding:10px 14px; margin:4px 0; font-size:0.95rem; line-height:1.7;">{ann["content"]}</div>', unsafe_allow_html=True)
+                            st.markdown(ann["content"])
 
                             if not is_read:
                                 if st.button("✅ 확인했습니다", key=f"read_ann_{ann['id']}"):
@@ -3171,118 +3110,31 @@ else:
                 with admin_tab1:
                     all_users_data = supabase.table("users").select("*").execute()
                     all_reps = supabase.table("reports").select("*").execute()
+                    if all_users_data.data and all_reps.data:
+                        df_r = pd.DataFrame(all_reps.data)
+                        df_r["created_at"] = pd.to_datetime(df_r["created_at"])
+                        this_month = date.today().strftime("%Y-%m")
+                        df_r["month"] = df_r["created_at"].dt.strftime("%Y-%m")
+                        summary = []
+                        for u in all_users_data.data:
+                            ur = df_r[df_r["user_id"]==u["id"]]
+                            mr = ur[ur["month"]==this_month]
+                            tgt = u.get("monthly_target",10)
+                            rt = min(int(len(mr)/tgt*100),100) if tgt>0 else 0
+                            ti = get_token_info(u["id"])
+                            # ★ 수정: role_label() 함수 사용
+                            _role_label_str = role_label(u.get("role_v2","user"))
+                            summary.append({
+                                "역할": _role_label_str,
+                                "이름": u["name"] + "  (" + u.get("email","") + ")",
+                                "이번달": len(mr),
+                                "목표": tgt,
+                                "달성률": f"{rt}%",
+                                "누적": len(ur),
+                                "드래곤토큰": f"{ti['used_count']}/{MONTHLY_DRAGON_LIMIT+ti.get('extra_tokens',0)}회"
+                            })
+                        st.dataframe(pd.DataFrame(summary), use_container_width=True)
 
-                    # ── 전체 / 그룹별 보기 탭 ──
-                    view_tab1, view_tab2 = st.tabs(["👥 전체 사용자 현황", "🏢 그룹별 사용자 현황"])
-
-                    with view_tab1:
-                        if all_users_data.data and all_reps.data:
-                            df_r = pd.DataFrame(all_reps.data)
-                            df_r["created_at"] = pd.to_datetime(df_r["created_at"])
-                            this_month = date.today().strftime("%Y-%m")
-                            df_r["month"] = df_r["created_at"].dt.strftime("%Y-%m")
-                            summary = []
-                            for u in all_users_data.data:
-                                ur = df_r[df_r["user_id"]==u["id"]]
-                                mr = ur[ur["month"]==this_month]
-                                tgt = u.get("monthly_target",10)
-                                rt = min(int(len(mr)/tgt*100),100) if tgt>0 else 0
-                                ti = get_token_info(u["id"])
-                                _role_label_str = role_label(u.get("role_v2","user"))
-                                summary.append({
-                                    "역할": _role_label_str,
-                                    "이름": u["name"] + "  (" + u.get("email","") + ")",
-                                    "이번달": len(mr),
-                                    "목표": tgt,
-                                    "달성률": f"{rt}%",
-                                    "누적": len(ur),
-                                    "드래곤토큰": f"{ti['used_count']}/{MONTHLY_DRAGON_LIMIT+ti.get('extra_tokens',0)}회"
-                                })
-                            st.caption(f"전체 사용자 {len(summary)}명")
-                            st.dataframe(pd.DataFrame(summary), use_container_width=True)
-
-                    with view_tab2:
-                        # 그룹 역할 정의
-                        group_options = {
-                            "전체 보기": None,
-                            "👑 전체 관리자 (superadmin)": ["superadmin"],
-                            "🔱 제1 그룹 (그룹장+디렉터)": ["group_leader", "director"],
-                            "🔱 제2 그룹 (그룹장+디렉터)": ["group_leader_2", "director_2"],
-                            "🔱 제3 그룹 (그룹장+디렉터)": ["group_leader_3", "director_3"],
-                            "🔱 제4 그룹 (그룹장+디렉터)": ["group_leader_4", "director_4"],
-                            "👔 팀장": ["team_leader"],
-                            "👤 일반사용자": ["user"],
-                        }
-
-                        selected_group = st.selectbox(
-                            "🔍 그룹 선택",
-                            options=list(group_options.keys()),
-                            key="admin_group_filter"
-                        )
-
-                        if all_users_data.data and all_reps.data:
-                            df_r2 = pd.DataFrame(all_reps.data)
-                            df_r2["created_at"] = pd.to_datetime(df_r2["created_at"])
-                            this_month = date.today().strftime("%Y-%m")
-                            df_r2["month"] = df_r2["created_at"].dt.strftime("%Y-%m")
-
-                            # 필터링
-                            target_roles = group_options[selected_group]
-                            if target_roles:
-                                filtered_users = [u for u in all_users_data.data if u.get("role_v2","user") in target_roles]
-                            else:
-                                filtered_users = all_users_data.data
-
-                            if not filtered_users:
-                                st.info("해당 그룹에 사용자가 없습니다.")
-                            else:
-                                st.caption(f"**{selected_group}** — {len(filtered_users)}명")
-
-                                # 헤더
-                                hc = st.columns([2, 2, 1, 1, 1, 1, 1.5])
-                                hc[0].markdown("**이름**")
-                                hc[1].markdown("**역할**")
-                                hc[2].markdown("**이번달**")
-                                hc[3].markdown("**목표**")
-                                hc[4].markdown("**달성률**")
-                                hc[5].markdown("**누적**")
-                                hc[6].markdown("**드래곤토큰**")
-                                st.divider()
-
-                                for u in filtered_users:
-                                    ur = df_r2[df_r2["user_id"]==u["id"]]
-                                    mr = ur[ur["month"]==this_month]
-                                    tgt = u.get("monthly_target",10)
-                                    rt = min(int(len(mr)/tgt*100),100) if tgt>0 else 0
-                                    ti = get_token_info(u["id"])
-                                    rate_color = "#22c55e" if rt>=100 else ("#f59e0b" if rt>=50 else "#ef4444")
-                                    r_ico = role_icon(u.get("role_v2","user"))
-
-                                    rc = st.columns([2, 2, 1, 1, 1, 1, 1.5])
-                                    rc[0].write(f"{r_ico} **{u['name']}**")
-                                    rc[1].caption(u.get("email",""))
-                                    rc[2].write(f"{len(mr)}건")
-                                    rc[3].write(f"{tgt}건")
-                                    rc[4].markdown(f"<span style='color:{rate_color};font-weight:700'>{rt}%</span>", unsafe_allow_html=True)
-                                    rc[5].write(f"{len(ur)}건")
-                                    rc[6].write(f"{ti['used_count']}/{MONTHLY_DRAGON_LIMIT+ti.get('extra_tokens',0)}회")
-
-                                # 요약 통계
-                                st.divider()
-                                total_month = sum(len(df_r2[(df_r2["user_id"]==u["id"]) & (df_r2["month"]==this_month)]) for u in filtered_users)
-                                total_all = sum(len(df_r2[df_r2["user_id"]==u["id"]]) for u in filtered_users)
-                                avg_rate = sum(
-                                    min(int(len(df_r2[(df_r2["user_id"]==u["id"]) & (df_r2["month"]==this_month)]) / max(u.get("monthly_target",10),1) * 100), 100)
-                                    for u in filtered_users
-                                ) // max(len(filtered_users), 1)
-
-                                sc1, sc2, sc3, sc4 = st.columns(4)
-                                sc1.metric("👥 인원", f"{len(filtered_users)}명")
-                                sc2.metric("📅 이번달 합계", f"{total_month}건")
-                                sc3.metric("📊 평균 달성률", f"{avg_rate}%")
-                                sc4.metric("📁 누적 합계", f"{total_all}건")
-
-                    st.divider()
                     st.subheader("💬 팀원에게 코멘트")
                     all_users_data2 = supabase.table("users").select("*").execute()
                     tu_name = st.selectbox(t("select_member"), [u["name"] + " (" + u.get("email","") + ")" for u in all_users_data2.data])
