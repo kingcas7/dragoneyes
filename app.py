@@ -1151,17 +1151,26 @@ else:
 
     st.markdown("""
     <div style="
+        display: flex;
+        align-items: center;
+        gap: 10px;
         background: linear-gradient(135deg, #0f3460 0%, #16213e 100%);
         border-left: 5px solid #e94560;
         border-radius: 8px;
-        padding: 0.5rem 1.2rem;
+        padding: 0.45rem 1rem;
         margin-bottom: 0.3rem;
-        color: white;
-        font-size: 0.88rem;
-        line-height: 1.5;
+        flex-wrap: nowrap;
     ">
-        🛡️ <strong>이 곳은 온라인 유해 컨텐츠를 모니터링하는 Claude 기반의 Agent AI 드래곤파더와 함께 작업하는 곳입니다.</strong><br>
-        어린이 아동학대, 그루밍, 성폭력, 도박 등과 관련한 다양한 불법 컨텐츠를 감시합니다.
+        <div style="color:white; font-size:0.82rem; line-height:1.4; white-space:nowrap; flex-shrink:0;">
+            🛡️ <strong>온라인 유해 컨텐츠 모니터링 — Claude 기반 Agent AI 드래곤파더</strong>
+        </div>
+        <div style="width:1px; background:#e9456055; height:28px; flex-shrink:0;"></div>
+        <div style="display:flex; gap:5px; flex-wrap:nowrap; align-items:center; overflow:hidden;">
+            <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #2563eb55;color:#60a5fa;font-size:0.62rem;font-weight:700;padding:3px 7px;border-radius:20px;white-space:nowrap;">🇺🇸 NCMEC</span>
+            <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #7c3aed55;color:#a78bfa;font-size:0.62rem;font-weight:700;padding:3px 7px;border-radius:20px;white-space:nowrap;">🌍 WeProtect</span>
+            <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #059669aa;color:#34d399;font-size:0.62rem;font-weight:700;padding:3px 7px;border-radius:20px;white-space:nowrap;">🇬🇧 IWF</span>
+            <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #d9770655;color:#fb923c;font-size:0.62rem;font-weight:700;padding:3px 7px;border-radius:20px;white-space:nowrap;">⚙️ Tech Coalition</span>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
