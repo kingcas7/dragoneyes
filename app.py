@@ -1082,7 +1082,7 @@ else:
         border: none !important;
         box-shadow: none !important;
         padding: 0.25rem 0.3rem !important;
-        font-size: 0.82rem !important;
+        font-size: 1.0rem !important;
         color: #94a3b8 !important;
         transition: color 0.2s;
     }
@@ -1092,7 +1092,7 @@ else:
         border: none !important;
     }
     div[data-testid="stHorizontalBlock"] button[kind="secondary"] p {
-        font-size: 0.82rem !important;
+        font-size: 1.0rem !important;
         padding: 0 !important;
     }
     </style>
