@@ -1394,15 +1394,7 @@ else:
     elif page == "work_page":
         lang = st.session_state.get("lang", "ko")
 
-        # 헤더
-        col_back, col_title = st.columns([1, 5])
-        with col_back:
-            if st.button("◀ 홈으로"):
-                go_home(); st.rerun()
-        with col_title:
-            st.subheader(f"💼 일하기 — {user['name']}님")
-
-        # 달성률 카드 (전체 너비)
+        # 달성률 카드 (전체 너비) — 최상단
         token_info = can_use_dragon(user["id"])
         all_my = supabase.table("reports").select("id,severity,created_at").eq("user_id", user["id"]).execute()
         df_my = pd.DataFrame(all_my.data) if all_my.data else pd.DataFrame()
@@ -1413,43 +1405,49 @@ else:
         history_cnt = len(st.session_state.search_results) + len(st.session_state.recommend_results)
 
         st.markdown(f"""
-        <div style="display:flex; gap:8px; margin:4px 0 6px 0;">
-            <div style="flex:1; background:linear-gradient(135deg,#0ea5e9,#06b6d4); border-radius:8px; padding:6px 10px; text-align:center;">
-                <div style="font-size:0.65rem; color:#e0f7ff;">이번달 보고서</div>
-                <div style="font-size:1.1rem; font-weight:700; color:#ffffff;">{month_cnt}건</div>
-                <div style="font-size:0.6rem; color:#bae6fd;">목표 {target}건</div>
+        <div style="display:flex; gap:6px; margin:0 0 4px 0;">
+            <div style="flex:1; background:linear-gradient(135deg,#0ea5e9,#06b6d4); border-radius:8px; padding:5px 8px; text-align:center;">
+                <div style="font-size:0.62rem; color:#e0f7ff;">이번달 보고서</div>
+                <div style="font-size:1rem; font-weight:700; color:#fff;">{month_cnt}건</div>
+                <div style="font-size:0.58rem; color:#bae6fd;">목표 {target}건</div>
             </div>
-            <div style="flex:1; background:linear-gradient(135deg,#10b981,#34d399); border-radius:8px; padding:6px 10px; text-align:center;">
-                <div style="font-size:0.65rem; color:#d1fae5;">달성률</div>
-                <div style="font-size:1.1rem; font-weight:700; color:#ffffff;">{rate}%</div>
-                <div style="font-size:0.6rem; color:#a7f3d0;">목표 대비</div>
+            <div style="flex:1; background:linear-gradient(135deg,#10b981,#34d399); border-radius:8px; padding:5px 8px; text-align:center;">
+                <div style="font-size:0.62rem; color:#d1fae5;">달성률</div>
+                <div style="font-size:1rem; font-weight:700; color:#fff;">{rate}%</div>
+                <div style="font-size:0.58rem; color:#a7f3d0;">목표 대비</div>
             </div>
-            <div style="flex:1; background:linear-gradient(135deg,#f59e0b,#fbbf24); border-radius:8px; padding:6px 10px; text-align:center;">
-                <div style="font-size:0.65rem; color:#fef3c7;">드래곤 토큰</div>
-                <div style="font-size:1.1rem; font-weight:700; color:#ffffff;">{token_info['monthly_remaining']}회</div>
-                <div style="font-size:0.6rem; color:#fde68a;">남음</div>
+            <div style="flex:1; background:linear-gradient(135deg,#f59e0b,#fbbf24); border-radius:8px; padding:5px 8px; text-align:center;">
+                <div style="font-size:0.62rem; color:#fef3c7;">드래곤 토큰</div>
+                <div style="font-size:1rem; font-weight:700; color:#fff;">{token_info['monthly_remaining']}회</div>
+                <div style="font-size:0.58rem; color:#fde68a;">남음</div>
             </div>
-            <div style="flex:1; background:linear-gradient(135deg,#ec4899,#f472b6); border-radius:8px; padding:6px 10px; text-align:center;">
-                <div style="font-size:0.65rem; color:#fce7f3;">탐색 히스토리</div>
-                <div style="font-size:1.1rem; font-weight:700; color:#ffffff;">{history_cnt}건</div>
-                <div style="font-size:0.6rem; color:#fbcfe8;">대기중</div>
+            <div style="flex:1; background:linear-gradient(135deg,#ec4899,#f472b6); border-radius:8px; padding:5px 8px; text-align:center;">
+                <div style="font-size:0.62rem; color:#fce7f3;">탐색 히스토리</div>
+                <div style="font-size:1rem; font-weight:700; color:#fff;">{history_cnt}건</div>
+                <div style="font-size:0.58rem; color:#fbcfe8;">대기중</div>
             </div>
         </div>
-        <div style="background:#334155; border-radius:4px; height:5px; margin:0 0 8px 0;">
-            <div style="background:{'#22c55e' if rate>=100 else '#f59e0b' if rate>=50 else '#e94560'}; width:{rate}%; height:5px; border-radius:4px;"></div>
+        <div style="background:#334155; border-radius:4px; height:4px; margin:0 0 4px 0;">
+            <div style="background:{'#22c55e' if rate>=100 else '#f59e0b' if rate>=50 else '#e94560'}; width:{rate}%; height:4px; border-radius:4px;"></div>
         </div>
         """, unsafe_allow_html=True)
+
+        # 헤더 (홈으로 + 제목) — 카드 아래
+        hd1, hd2 = st.columns([1, 5])
+        with hd1:
+            if st.button("◀ 홈으로", key="work_home_btn"):
+                go_home(); st.rerun()
+        with hd2:
+            st.markdown(f'<div style="font-size:1rem; font-weight:600; color:#94a3b8; padding-top:6px;">💼 일하기 — {user["name"]}님</div>', unsafe_allow_html=True)
+
+        st.markdown("<div style='margin:2px 0;'></div>", unsafe_allow_html=True)
 
         # ── 좌우 분할 레이아웃 ──
         work_left, work_right = st.columns([1, 1])
 
-        # ── 왼쪽: 팀별 업무 현황 (고정) ──
+        # ── 왼쪽: 팀별 업무 현황 ──
         with work_left:
-            st.markdown("""
-            <div style="font-size:1.1rem; font-weight:700; color:#f1f5f9; margin:0 0 6px 0;">
-                📊 팀별 업무 현황
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown('<div style="font-size:1rem; font-weight:700; color:#1e293b; margin:0 0 4px 0;">📊 팀별 업무 현황</div>', unsafe_allow_html=True)
             _role = get_user_role(user)
 
             if _role in ("superadmin", "group_leader", "group_leader_2", "group_leader_3", "group_leader_4", "director", "director_2", "director_3", "director_4"):
@@ -1535,7 +1533,7 @@ else:
 
         # ── 오른쪽: 미작성 목록 + 바로가기 ──
         with work_right:
-            st.markdown("#### ⚠️ 내게 배정된 미작성 목록")
+            st.markdown('<div style="font-size:1rem; font-weight:700; color:#1e293b; margin:0 0 4px 0;">⚠️ 내게 배정된 미작성 목록</div>', unsafe_allow_html=True)
 
             # 페이지네이션
             PAGE_SIZE = 10
@@ -1549,7 +1547,7 @@ else:
             page_num = st.session_state.work_page_num
             paged = assigned_data[page_num * PAGE_SIZE : (page_num + 1) * PAGE_SIZE]
 
-            st.caption(f"총 {total}건 | {page_num+1}/{total_pages} 페이지")
+            st.markdown(f'<div style="font-size:0.75rem; color:#64748b; margin-bottom:4px;">총 {total}건 | {page_num+1}/{total_pages} 페이지</div>', unsafe_allow_html=True)
 
             # 목록 (스크롤 컨테이너) — 높이 30% 축소
             with st.container(height=290):
@@ -1558,13 +1556,13 @@ else:
                 for d in paged:
                     dc1, dc2 = st.columns([5, 1])
                     with dc1:
-                        st.markdown(f"<div style='font-size:0.88rem; font-weight:600; color:#f1f5f9; margin:0; padding:2px 0 0 0; line-height:1.3;'>{d.get('title','(제목없음)')[:60]}</div>", unsafe_allow_html=True)
-                        st.markdown(f"<div style='font-size:0.72rem; color:#64748b; margin:0 0 4px 0;'>{search_type_label(d.get('search_type',''))} | {str(d.get('analyzed_at',''))[:10]}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='font-size:0.88rem; font-weight:600; color:#0f172a; margin:0; padding:2px 0 0 0; line-height:1.3;'>{d.get('title','(제목없음)')[:60]}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='font-size:0.72rem; color:#475569; margin:0 0 3px 0;'>{search_type_label(d.get('search_type',''))} | {str(d.get('analyzed_at',''))[:10]}</div>", unsafe_allow_html=True)
                     with dc2:
                         if st.button("📋", key=f"work_rep_{d['id']}", help="보고서 작성"):
                             open_report_form(d["url"], "", 1, "안전", "YouTube", from_tab=4)
                             st.session_state.current_page = "report_form"; st.rerun()
-                    st.markdown("<hr style='margin:2px 0; border-color:#1e293b;'>", unsafe_allow_html=True)
+                    st.markdown("<hr style='margin:2px 0; border-color:#e2e8f0;'>", unsafe_allow_html=True)
 
             # 페이지 이동 버튼
             pn1, pn2, pn3 = st.columns([1, 2, 1])
