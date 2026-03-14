@@ -1434,20 +1434,12 @@ else:
         </div>
         """, unsafe_allow_html=True)
 
-        # ② 홈으로 버튼 + 제목
-        hd1, hd2 = st.columns([1, 5])
-        with hd1:
-            if st.button("◀ 홈으로", key="work_home_btn"):
-                go_home(); st.rerun()
-        with hd2:
-            st.markdown(f'<div style="font-size:0.9rem; color:#94a3b8; padding-top:7px;">💼 일하기 — {user["name"]}님</div>', unsafe_allow_html=True)
-
-        # ③ 좌우 2컬럼 (타이틀 + 내용 모두 컬럼 안에)
+        # ② 좌우 2컬럼 (바로 시작)
         work_left, work_right = st.columns([1, 1])
 
         # ── 왼쪽: 팀별 업무 현황 ──
         with work_left:
-            st.markdown('<div style="font-size:1rem; font-weight:700; color:#1e293b; margin:4px 0;">📊 팀별 업무 현황</div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-size:1rem; font-weight:700; color:#1e293b; margin:0 0 6px 0;">📊 팀별 업무 현황</div>', unsafe_allow_html=True)
 
             if _role in ("superadmin","group_leader","group_leader_2","group_leader_3","group_leader_4","director","director_2","director_3","director_4"):
                 try:
@@ -1522,7 +1514,7 @@ else:
 
         # ── 오른쪽: 미작성 목록 + 바로가기 ──
         with work_right:
-            st.markdown('<div style="font-size:1rem; font-weight:700; color:#1e293b; margin:4px 0;">⚠️ 내게 배정된 미작성 목록</div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-size:1rem; font-weight:700; color:#1e293b; margin:0 0 6px 0;">⚠️ 내게 배정된 미작성 목록</div>', unsafe_allow_html=True)
 
             PAGE_SIZE = 10
             if "work_page_num" not in st.session_state:
