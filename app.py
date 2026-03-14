@@ -1443,19 +1443,20 @@ else:
         st.markdown("<div style='margin:0;'></div>", unsafe_allow_html=True)
 
         # ── 좌우 분할 레이아웃 ──
-        st.markdown("""
-        <style>
-        div[data-testid="stHorizontalBlock"] > div[data-testid="stVerticalBlock"] {
-            padding-top: 0 !important;
-            margin-top: 0 !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
         work_left, work_right = st.columns([1, 1])
 
-        # ── 왼쪽: 팀별 업무 현황 ──
+        # 타이틀을 컬럼 밖에서 나란히 배치
+        t1, t2 = st.columns([1, 1])
+        with t1:
+            st.markdown('<div style="font-size:1rem; font-weight:700; color:#1e293b; margin:0 0 2px 0;">📊 팀별 업무 현황</div>', unsafe_allow_html=True)
+        with t2:
+            st.markdown('<div style="font-size:1rem; font-weight:700; color:#1e293b; margin:0 0 2px 0;">⚠️ 내게 배정된 미작성 목록</div>', unsafe_allow_html=True)
+
+        # ── 내용 컬럼 ──
+        work_left, work_right = st.columns([1, 1])
+
+        # ── 왼쪽: 팀별 업무 현황 내용 ──
         with work_left:
-            st.markdown('<div style="font-size:1rem; font-weight:700; color:#1e293b; margin:0 0 4px 0; padding-top:0;">📊 팀별 업무 현황</div>', unsafe_allow_html=True)
             _role = get_user_role(user)
 
             if _role in ("superadmin", "group_leader", "group_leader_2", "group_leader_3", "group_leader_4", "director", "director_2", "director_3", "director_4"):
@@ -1541,7 +1542,6 @@ else:
 
         # ── 오른쪽: 미작성 목록 + 바로가기 ──
         with work_right:
-            st.markdown('<div style="font-size:1rem; font-weight:700; color:#1e293b; margin:0 0 4px 0;">⚠️ 내게 배정된 미작성 목록</div>', unsafe_allow_html=True)
 
             # 페이지네이션
             PAGE_SIZE = 10
@@ -1564,13 +1564,13 @@ else:
                 for d in paged:
                     dc1, dc2 = st.columns([5, 1])
                     with dc1:
-                        st.markdown(f"<div style='font-size:0.88rem; font-weight:600; color:#0f172a; margin:0; padding:2px 0 0 0; line-height:1.3;'>{d.get('title','(제목없음)')[:60]}</div>", unsafe_allow_html=True)
-                        st.markdown(f"<div style='font-size:0.72rem; color:#475569; margin:0 0 3px 0;'>{search_type_label(d.get('search_type',''))} | {str(d.get('analyzed_at',''))[:10]}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='font-size:0.85rem; font-weight:600; color:#0f172a; margin:0; line-height:1.2;'>{d.get('title','(제목없음)')[:60]}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='font-size:0.7rem; color:#475569; margin:0 0 1px 0;'>{search_type_label(d.get('search_type',''))} | {str(d.get('analyzed_at',''))[:10]}</div>", unsafe_allow_html=True)
                     with dc2:
                         if st.button("📋", key=f"work_rep_{d['id']}", help="보고서 작성"):
                             open_report_form(d["url"], "", 1, "안전", "YouTube", from_tab=4)
                             st.session_state.current_page = "report_form"; st.rerun()
-                    st.markdown("<hr style='margin:2px 0; border-color:#e2e8f0;'>", unsafe_allow_html=True)
+                    st.markdown("<hr style='margin:1px 0; border-color:#e2e8f0;'>", unsafe_allow_html=True)
 
             # 페이지 이동 버튼
             pn1, pn2, pn3 = st.columns([1, 2, 1])
