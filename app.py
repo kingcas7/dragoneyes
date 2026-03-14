@@ -1084,32 +1084,32 @@ else:
     """, unsafe_allow_html=True)
 
     if _show_admin_btn:
-        h1, hf, h_work, h6, h7, h_notice, h_admin, h_profile, h8 = st.columns([2.8, 1.8, 0.8, 0.75, 0.85, 0.75, 0.9, 0.9, 0.75])
+        h1, hf, h_work, h6, h7, h_notice, h_admin, h_profile, h8 = st.columns([2.2, 1.5, 0.7, 0.65, 0.75, 0.72, 0.8, 0.85, 0.65])
     else:
-        h1, hf, h_work, h6, h7, h_notice, h_profile, h8 = st.columns([2.8, 1.8, 0.8, 0.75, 0.85, 0.75, 0.9, 0.75])
+        h1, hf, h_work, h6, h7, h_notice, h_profile, h8 = st.columns([2.2, 1.5, 0.7, 0.65, 0.75, 0.72, 0.85, 0.65])
 
     with h1:
         title_text = t("app_title").replace("🐉 ", "").replace("🐉 ", "")
-        st.markdown(f'<div style="font-size:1.8rem; font-weight:700; display:flex; align-items:center; gap:6px; margin:0; padding:4px 0">🐉 {title_text}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="font-size:1.6rem; font-weight:700; display:flex; align-items:center; gap:6px; margin:0; padding:4px 0">🐉 {title_text}</div>', unsafe_allow_html=True)
     with hf:
         fc1, fc2, fc3 = st.columns(3)
         with fc1:
-            if st.button("🇰🇷 KO", use_container_width=True, key="flag_ko"):
+            if st.button("🇰🇷", use_container_width=True, key="flag_ko", help="한국어"):
                 st.session_state.lang = "ko"; st.rerun()
         with fc2:
-            if st.button("🇺🇸 EN", use_container_width=True, key="flag_en"):
+            if st.button("🇺🇸", use_container_width=True, key="flag_en", help="English"):
                 st.session_state.lang = "en"; st.rerun()
         with fc3:
-            if st.button("🇯🇵 JP", use_container_width=True, key="flag_ja"):
+            if st.button("🇯🇵", use_container_width=True, key="flag_ja", help="日本語"):
                 st.session_state.lang = "ja"; st.rerun()
     with h_work:
         if st.button("💼 일하기", use_container_width=True, key="hdr_work_btn"):
             go_to("work_page"); st.rerun()
     with h6:
-        if st.button(t("home"), use_container_width=True):
+        if st.button("🏠 홈", use_container_width=True):
             go_home(); st.rerun()
     with h7:
-        if st.button(t("write_report"), use_container_width=True):
+        if st.button("📋 작성", use_container_width=True):
             open_report_form(from_tab=st.session_state.active_tab); st.rerun()
     with h_notice:
         if st.button(_notice_label, use_container_width=True, key="hdr_notice_btn"):
@@ -1123,10 +1123,10 @@ else:
                 st.session_state.active_tab = 99
                 st.rerun()
     with h_profile:
-        if st.button("👤 사용자정보", use_container_width=True, key="hdr_profile_btn"):
+        if st.button("👤 사용자", use_container_width=True, key="hdr_profile_btn"):
             go_to("user_profile"); st.rerun()
     with h8:
-        if st.button(t("logout")):
+        if st.button("🚪", use_container_width=True, help="로그아웃"):
             st.query_params.clear()
             for k in list(st.session_state.keys()):
                 del st.session_state[k]
