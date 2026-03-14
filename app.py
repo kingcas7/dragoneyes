@@ -1076,8 +1076,23 @@ else:
 
     st.markdown("""
     <style>
+    /* 헤더 버튼 박스 제거 — 텍스트만 표시 */
+    div[data-testid="stHorizontalBlock"] button[kind="secondary"] {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0.25rem 0.3rem !important;
+        font-size: 0.82rem !important;
+        color: #94a3b8 !important;
+        transition: color 0.2s;
+    }
+    div[data-testid="stHorizontalBlock"] button[kind="secondary"]:hover {
+        background: transparent !important;
+        color: #f1f5f9 !important;
+        border: none !important;
+    }
     div[data-testid="stHorizontalBlock"] button[kind="secondary"] p {
-        font-size: 0.78rem !important;
+        font-size: 0.82rem !important;
         padding: 0 !important;
     }
     </style>
