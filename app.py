@@ -1434,20 +1434,13 @@ else:
         </div>
         """, unsafe_allow_html=True)
 
-        # ② 타이틀을 컬럼 밖에서 나란히 (HTML 그리드)
-        st.markdown("""
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:0 0 4px 0;">
-            <div style="font-size:1rem; font-weight:700; color:#1e293b;">📊 팀별 업무 현황</div>
-            <div style="font-size:1rem; font-weight:700; color:#1e293b;">⚠️ 내게 배정된 미작성 목록</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # ③ 좌우 2컬럼 (내용만)
+        # ② 좌우 2컬럼
         work_left, work_right = st.columns([1, 1])
 
         # ── 왼쪽: 팀별 업무 현황 ──
         with work_left:
-            st.markdown("<div style='margin-top:-3.5rem'></div>", unsafe_allow_html=True)
+            st.markdown('<div style="font-size:1rem; font-weight:700; color:#1e293b; margin:0 0 4px 0;">📊 팀별 업무 현황</div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-size:0.75rem; color:transparent; margin-bottom:2px;">placeholder</div>', unsafe_allow_html=True)
 
             if _role in ("superadmin","group_leader","group_leader_2","group_leader_3","group_leader_4","director","director_2","director_3","director_4"):
                 try:
