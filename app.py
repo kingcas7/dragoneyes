@@ -1078,6 +1078,17 @@ else:
     with h7:
         if st.button(t("write_report"), use_container_width=True):
             open_report_form(from_tab=st.session_state.active_tab); st.rerun()
+    with h_notice:
+        if st.button(_notice_label, use_container_width=True, key="hdr_notice_btn"):
+            st.session_state.current_page = "main"
+            st.session_state.active_tab = 98
+            st.rerun()
+    if _show_admin_btn:
+        with h_admin:
+            if st.button("👑 관리자", use_container_width=True, key="hdr_admin_btn"):
+                st.session_state.current_page = "main"
+                st.session_state.active_tab = 99
+                st.rerun()
     with h8:
         if st.button(t("logout")):
             st.query_params.clear()
