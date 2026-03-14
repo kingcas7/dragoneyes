@@ -110,7 +110,7 @@ st.markdown("""
 
 /* 데스크탑 전체 컴팩트 */
 .block-container {
-    padding-top: 2.5rem !important;
+    padding-top: 1.2rem !important;
     padding-bottom: 0.4rem !important;
 }
 h1 { font-size: 1.5rem !important; margin: 0 !important; }
@@ -1141,11 +1141,11 @@ else:
         background: linear-gradient(135deg, #0f3460 0%, #16213e 100%);
         border-left: 5px solid #e94560;
         border-radius: 8px;
-        padding: 0.8rem 1.2rem;
-        margin-bottom: 0.5rem;
+        padding: 0.5rem 1.2rem;
+        margin-bottom: 0.3rem;
         color: white;
-        font-size: 0.95rem;
-        line-height: 1.6;
+        font-size: 0.88rem;
+        line-height: 1.5;
     ">
         🛡️ <strong>이 곳은 온라인 유해 컨텐츠를 모니터링하는 Claude 기반의 Agent AI 드래곤파더와 함께 작업하는 곳입니다.</strong><br>
         어린이 아동학대, 그루밍, 성폭력, 도박 등과 관련한 다양한 불법 컨텐츠를 감시합니다.
@@ -1666,14 +1666,6 @@ else:
     # ══════════════════════════════
     elif page == "home_landing":
         lang = st.session_state.get("lang", "ko")
-
-        # 인사말 (간결하게)
-        st.markdown(f"""
-        <div style="font-size:1.2rem; font-weight:600; color:#f1f5f9; margin-bottom:10px;">
-            {t('greeting', user['name'])} &nbsp;
-            <span style="font-size:0.88rem; color:#94a3b8; font-weight:400;">오늘도 수고하세요 🐉</span>
-        </div>
-        """, unsafe_allow_html=True)
 
         # 메인 2컬럼 레이아웃 — 드래곤파더 왼쪽, 모니터링 오른쪽
         left_col, right_col = st.columns([1, 1])
