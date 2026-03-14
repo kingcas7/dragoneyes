@@ -1684,16 +1684,13 @@ else:
             st.markdown('<span id="dragonfather_anchor"></span>', unsafe_allow_html=True)
 
             chat_info = can_use_chat(user["id"])
-            st.markdown(f"""
-            <div style="display:flex; align-items:center; justify-content:space-between; margin:-0.5rem 0 4px 0;">
-                <div>
-                    <div style="font-size:1.4rem; font-weight:700; color:#f1f5f9; line-height:1.2;">🐲 드래곤파더</div>
-                    <div style="font-size:0.88rem; color:#94a3b8;">✨ Agent AI 드래곤파더</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            if st.button("🐲 큰 화면에서 대화하기", key="dragon_fs_btn", use_container_width=False):
-                go_to("dragon_chat"); st.rerun()
+            tc1, tc2 = st.columns([3, 2])
+            with tc1:
+                st.markdown('''<div style="font-size:1.4rem; font-weight:700; color:#f1f5f9; line-height:1.1;">🐲 드래곤파더</div>
+                <div style="font-size:0.85rem; color:#94a3b8;">✨ Agent AI 드래곤파더</div>''', unsafe_allow_html=True)
+            with tc2:
+                if st.button("🐲 큰 화면에서 대화하기", key="dragon_fs_btn", use_container_width=True):
+                    go_to("dragon_chat"); st.rerun()
 
             today_u = chat_info.get('today_used',0)
             week_u = chat_info.get('week_used',0)
