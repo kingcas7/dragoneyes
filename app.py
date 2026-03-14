@@ -1665,10 +1665,10 @@ else:
     elif page == "home_landing":
         lang = st.session_state.get("lang", "ko")
 
-        # 메인 2컬럼 레이아웃 — 드래곤파더 왼쪽, 모니터링 오른쪽
+        # 메인 2컬럼 레이아웃 — 드래곤파더 왼쪽, 통계+모니터링 오른쪽
         left_col, right_col = st.columns([1, 1])
 
-        # ── 왼쪽: 드래곤파더 + 모니터링 버튼 ──
+        # ── 왼쪽: 드래곤파더 ──
         with left_col:
             st.markdown("""
             <style>
@@ -1734,10 +1734,10 @@ else:
                         st.markdown(f"""
                         <div style="background:linear-gradient(90deg,rgba(233,69,96,0.15),rgba(15,52,96,0.3));
                             border-left:3px solid #e94560; border-radius:6px;
-                            padding:6px 10px; margin:4px 0; font-size:0.82rem;">
+                            padding:5px 10px; margin:3px 0; font-size:0.8rem;">
                             {icon_h} <strong style="color:#f1f5f9;">{ann_h['title']}</strong>
-                            <span style="color:#94a3b8; margin-left:6px; font-size:0.75rem;">{ann_date_h}</span>
-                            <span style="background:#e94560; color:white; border-radius:4px; padding:1px 5px; font-size:0.68rem; margin-left:4px;">미확인</span>
+                            <span style="color:#94a3b8; margin-left:6px; font-size:0.72rem;">{ann_date_h}</span>
+                            <span style="background:#e94560; color:white; border-radius:4px; padding:1px 5px; font-size:0.65rem; margin-left:4px;">미확인</span>
                         </div>
                         """, unsafe_allow_html=True)
             except:
@@ -1787,10 +1787,48 @@ else:
                         st.session_state.chat_history.pop()
                         st.error(f"오류: {str(e)}")
 
-            st.divider()
+        # ── 오른쪽: 통계 (상단) + 모니터링 버튼 (하단) ──
+        with right_col:
 
-            # ── 모니터링 버튼 (드래곤파더 아래) ──
-            st.markdown('<div style="font-size:0.82rem; font-weight:600; color:#94a3b8; margin-bottom:6px;">🐉 모니터링</div>', unsafe_allow_html=True)
+            # ① 통계 — 맨 위에 바짝
+            st.markdown('<div style="font-size:0.82rem; font-weight:600; color:#94a3b8; margin-bottom:4px;">📊 통계 & 현황</div>', unsafe_allow_html=True)
+            try:
+                all_my_home = supabase.table("reports").select("id,severity,created_at").eq("user_id", user["id"]).execute()
+                df_home = pd.DataFrame(all_my_home.data) if all_my_home.data else pd.DataFrame()
+                this_month = date.today().strftime("%Y-%m")
+                month_cnt_h = len(df_home[df_home["created_at"].str[:7] == this_month]) if not df_home.empty else 0
+                target_h = user.get("monthly_target", 10)
+                rate_h = min(int(month_cnt_h / target_h * 100), 100) if target_h > 0 else 0
+                token_info_h = can_use_dragon(user["id"])
+
+                sm1, sm2, sm3 = st.columns(3)
+                sm1.metric("📅 이번달", f"{month_cnt_h}건", f"목표 {target_h}건")
+                sm2.metric("🎯 달성률", f"{rate_h}%")
+                sm3.metric("🐉 토큰", f"{token_info_h['monthly_remaining']}회")
+
+                st.markdown(f"""
+                <div style="background:#334155; border-radius:4px; height:7px; margin:2px 0 8px 0;">
+                    <div style="background:{'#22c55e' if rate_h>=100 else '#f59e0b' if rate_h>=50 else '#e94560'}; width:{rate_h}%; height:7px; border-radius:4px;"></div>
+                </div>
+                """, unsafe_allow_html=True)
+            except:
+                pass
+
+            # ② 위젯 공간 (중간)
+            st.markdown("""
+            <div style="
+                border: 2px dashed #334155;
+                border-radius: 10px;
+                padding: 28px 16px;
+                text-align: center;
+                color: #475569;
+                font-size: 0.82rem;
+                margin-bottom: 10px;
+            ">📈 향후 통계 위젯이 추가될 공간입니다</div>
+            """, unsafe_allow_html=True)
+
+            # ③ 모니터링 버튼 (하단)
+            st.markdown('<div style="font-size:0.82rem; font-weight:600; color:#94a3b8; margin-bottom:4px;">🐉 모니터링</div>', unsafe_allow_html=True)
             if st.button("🐉 드래곤아이즈 자동 추천 리스트 생성", use_container_width=True, type="primary", key="home_dragon_btn"):
                 st.session_state.current_page = "home"
                 st.session_state.active_tab = 3
@@ -1805,46 +1843,6 @@ else:
             with qa3:
                 if st.button("📁 보고서 목록", use_container_width=True, key="home_rep_btn"):
                     st.session_state.current_page = "home"; st.rerun()
-
-        # ── 오른쪽: 통계 + 위젯 공간 ──
-        with right_col:
-            # 통계 영역 — 바짝 위로
-            st.markdown('<div style="font-size:0.82rem; font-weight:600; color:#94a3b8; margin-bottom:6px;">📊 통계 & 현황</div>', unsafe_allow_html=True)
-            try:
-                all_my_home = supabase.table("reports").select("id,severity,created_at").eq("user_id", user["id"]).execute()
-                df_home = pd.DataFrame(all_my_home.data) if all_my_home.data else pd.DataFrame()
-                this_month = date.today().strftime("%Y-%m")
-                month_cnt_h = len(df_home[df_home["created_at"].str[:7] == this_month]) if not df_home.empty else 0
-                target_h = user.get("monthly_target", 10)
-                rate_h = min(int(month_cnt_h / target_h * 100), 100) if target_h > 0 else 0
-                token_info_h = can_use_dragon(user["id"])
-
-                sm1, sm2, sm3 = st.columns(3)
-                sm1.metric("📅 이번달 보고서", f"{month_cnt_h}건", f"목표 {target_h}건")
-                sm2.metric("🎯 달성률", f"{rate_h}%")
-                sm3.metric("🐉 드래곤 토큰", f"{token_info_h['monthly_remaining']}회")
-
-                st.markdown(f"""
-                <div style="background:#334155; border-radius:4px; height:8px; margin:4px 0 10px 0;">
-                    <div style="background:{'#22c55e' if rate_h>=100 else '#f59e0b' if rate_h>=50 else '#e94560'}; width:{rate_h}%; height:8px; border-radius:4px;"></div>
-                </div>
-                """, unsafe_allow_html=True)
-            except:
-                pass
-
-            # 향후 위젯 공간
-            st.markdown("""
-            <div style="
-                border: 2px dashed #334155;
-                border-radius: 12px;
-                padding: 60px 24px;
-                text-align: center;
-                color: #475569;
-                font-size: 0.85rem;
-            ">
-                📈 향후 통계 위젯이 추가될 공간입니다
-            </div>
-            """, unsafe_allow_html=True)
 
     # ══════════════════════════════
     # 홈 대시보드
