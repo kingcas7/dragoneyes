@@ -1405,7 +1405,7 @@ else:
         history_cnt = len(st.session_state.search_results) + len(st.session_state.recommend_results)
 
         st.markdown(f"""
-        <div style="display:flex; gap:6px; margin:8px 0 4px 0;">
+        <div style="display:flex; gap:6px; margin:6px 0 4px 0;">
             <div style="flex:1; background:linear-gradient(135deg,#0ea5e9,#06b6d4); border-radius:8px; padding:5px 8px; text-align:center;">
                 <div style="font-size:0.62rem; color:#e0f7ff;">이번달 보고서</div>
                 <div style="font-size:1rem; font-weight:700; color:#fff;">{month_cnt}건</div>
@@ -1440,14 +1440,22 @@ else:
         with hd2:
             st.markdown(f'<div style="font-size:1rem; font-weight:600; color:#94a3b8; padding-top:6px;">💼 일하기 — {user["name"]}님</div>', unsafe_allow_html=True)
 
-        st.markdown("<div style='margin:2px 0;'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='margin:0;'></div>", unsafe_allow_html=True)
 
         # ── 좌우 분할 레이아웃 ──
+        st.markdown("""
+        <style>
+        div[data-testid="stHorizontalBlock"] > div[data-testid="stVerticalBlock"] {
+            padding-top: 0 !important;
+            margin-top: 0 !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
         work_left, work_right = st.columns([1, 1])
 
         # ── 왼쪽: 팀별 업무 현황 ──
         with work_left:
-            st.markdown('<div style="font-size:1rem; font-weight:700; color:#1e293b; margin:0 0 4px 0;">📊 팀별 업무 현황</div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-size:1rem; font-weight:700; color:#1e293b; margin:0 0 4px 0; padding-top:0;">📊 팀별 업무 현황</div>', unsafe_allow_html=True)
             _role = get_user_role(user)
 
             if _role in ("superadmin", "group_leader", "group_leader_2", "group_leader_3", "group_leader_4", "director", "director_2", "director_3", "director_4"):
