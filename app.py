@@ -1084,15 +1084,13 @@ else:
     """, unsafe_allow_html=True)
 
     if _show_admin_btn:
-        h1, h2, hf, h_work, h6, h7, h_notice, h_admin, h_profile, h8 = st.columns([2.0, 0.8, 1.8, 0.8, 0.75, 0.85, 0.75, 0.9, 0.9, 0.75])
+        h1, hf, h_work, h6, h7, h_notice, h_admin, h_profile, h8 = st.columns([2.8, 1.8, 0.8, 0.75, 0.85, 0.75, 0.9, 0.9, 0.75])
     else:
-        h1, h2, hf, h_work, h6, h7, h_notice, h_profile, h8 = st.columns([2.0, 0.8, 1.8, 0.8, 0.75, 0.85, 0.75, 0.9, 0.75])
+        h1, hf, h_work, h6, h7, h_notice, h_profile, h8 = st.columns([2.8, 1.8, 0.8, 0.75, 0.85, 0.75, 0.9, 0.75])
 
     with h1:
         title_text = t("app_title").replace("🐉 ", "").replace("🐉 ", "")
         st.markdown(f'<div style="font-size:1.8rem; font-weight:700; display:flex; align-items:center; gap:6px; margin:0; padding:4px 0">🐉 {title_text}</div>', unsafe_allow_html=True)
-    with h2:
-        st.metric("이번달", f"{st.session_state.report_count}{t('unit_reports')}")
     with hf:
         fc1, fc2, fc3 = st.columns(3)
         with fc1:
@@ -1686,33 +1684,35 @@ else:
             st.markdown('<span id="dragonfather_anchor"></span>', unsafe_allow_html=True)
 
             chat_info = can_use_chat(user["id"])
-            df_col1, df_col2 = st.columns([2, 2])
-            with df_col1:
-                st.markdown('''<div style="font-size:1.5rem; font-weight:700; margin:-2rem 0 0 0; padding-left:2rem; line-height:1.2;">🐲 드래곤파더</div>
-                <div style="font-size:0.95rem; color:#94a3b8; padding-left:2rem; margin-bottom:2px;">✨ Agent AI 드래곤파더</div>''', unsafe_allow_html=True)
-            with df_col2:
-                st.markdown('<div style="margin-top:2rem;"></div>', unsafe_allow_html=True)
-                if st.button("🐲 큰 화면에서 대화하기", key="dragon_fs_btn", use_container_width=True):
-                    go_to("dragon_chat"); st.rerun()
+            st.markdown(f"""
+            <div style="display:flex; align-items:center; justify-content:space-between; margin:-0.5rem 0 4px 0;">
+                <div>
+                    <div style="font-size:1.4rem; font-weight:700; color:#f1f5f9; line-height:1.2;">🐲 드래곤파더</div>
+                    <div style="font-size:0.88rem; color:#94a3b8;">✨ Agent AI 드래곤파더</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button("🐲 큰 화면에서 대화하기", key="dragon_fs_btn", use_container_width=False):
+                go_to("dragon_chat"); st.rerun()
 
             today_u = chat_info.get('today_used',0)
             week_u = chat_info.get('week_used',0)
             month_u = chat_info.get('monthly_used',0)
             month_lim = chat_info.get('monthly_limit', CHAT_MONTHLY_LIMIT)
             st.markdown(f"""
-            <div style="margin:6px 0 4px 0;">
-                <div style="display:flex; gap:12px; align-items:center;">
-                    <div style="text-align:center; padding:5px 10px; background:linear-gradient(135deg,#3b82f6,#6366f1); border-radius:8px; flex:1;">
-                        <div style="font-size:0.6rem; color:#e0e7ff;">오늘</div>
-                        <div style="font-size:0.9rem; font-weight:700; color:#ffffff;">{today_u}/{CHAT_DAILY_LIMIT}</div>
+            <div style="margin:2px 0 4px 0;">
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <div style="text-align:center; padding:4px 8px; background:linear-gradient(135deg,#3b82f6,#6366f1); border-radius:8px; flex:1;">
+                        <div style="font-size:0.58rem; color:#e0e7ff;">오늘</div>
+                        <div style="font-size:0.85rem; font-weight:700; color:#ffffff;">{today_u}/{CHAT_DAILY_LIMIT}</div>
                     </div>
-                    <div style="text-align:center; padding:5px 10px; background:linear-gradient(135deg,#6366f1,#8b5cf6); border-radius:8px; flex:1;">
-                        <div style="font-size:0.6rem; color:#ede9fe;">이번주</div>
-                        <div style="font-size:0.9rem; font-weight:700; color:#ffffff;">{week_u}/{CHAT_WEEKLY_LIMIT}</div>
+                    <div style="text-align:center; padding:4px 8px; background:linear-gradient(135deg,#6366f1,#8b5cf6); border-radius:8px; flex:1;">
+                        <div style="font-size:0.58rem; color:#ede9fe;">이번주</div>
+                        <div style="font-size:0.85rem; font-weight:700; color:#ffffff;">{week_u}/{CHAT_WEEKLY_LIMIT}</div>
                     </div>
-                    <div style="text-align:center; padding:5px 10px; background:linear-gradient(135deg,#8b5cf6,#a855f7); border-radius:8px; flex:1;">
-                        <div style="font-size:0.6rem; color:#fae8ff;">이번달</div>
-                        <div style="font-size:0.9rem; font-weight:700; color:#ffffff;">{month_u}/{month_lim}</div>
+                    <div style="text-align:center; padding:4px 8px; background:linear-gradient(135deg,#8b5cf6,#a855f7); border-radius:8px; flex:1;">
+                        <div style="font-size:0.58rem; color:#fae8ff;">이번달</div>
+                        <div style="font-size:0.85rem; font-weight:700; color:#ffffff;">{month_u}/{month_lim}</div>
                     </div>
                 </div>
             </div>
