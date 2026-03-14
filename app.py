@@ -1719,13 +1719,13 @@ else:
             da1, da2 = st.columns([4, 2])
             with da1:
                 st.markdown('''
-                <div style="padding-top:4px;">
+                <div style="padding:2px 0 0 0; line-height:1.2;">
                     <span style="font-size:1.4rem; font-weight:700; color:#1d4ed8;">🐲 드래곤파더</span>
                     <span style="font-size:0.95rem; color:#60a5fa; margin-left:8px;">✨ Agent AI 드래곤파더에게 말을 걸어보세요</span>
                 </div>
                 ''', unsafe_allow_html=True)
             with da2:
-                st.markdown("<div style='padding-top:32px;'>", unsafe_allow_html=True)
+                st.markdown("<div style='padding-top:2px;'>", unsafe_allow_html=True)
                 if st.button("🐲 큰 화면에서 드래곤파더와 대화하기", key="dragon_fs_btn", use_container_width=True):
                     go_to("dragon_chat"); st.rerun()
                 st.markdown("</div>", unsafe_allow_html=True)
@@ -1889,6 +1889,19 @@ else:
             with qa3:
                 if st.button("📁 보고서 목록", use_container_width=True, key="home_rep_btn"):
                     st.session_state.current_page = "home"; st.rerun()
+
+        # ── 하단 중앙 문구 ──
+        st.markdown("""
+        <div style="
+            text-align: center;
+            padding: 18px 0 6px 0;
+            color: #475569;
+            font-size: 0.88rem;
+            letter-spacing: 0.04em;
+        ">
+            🐉 이곳은 <strong style="color:#60a5fa;">최승현</strong>님이 만드는 Agent AI 드래곤파더 월드입니다.
+        </div>
+        """, unsafe_allow_html=True)
 
     # ══════════════════════════════
     # 홈 대시보드
