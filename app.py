@@ -1445,6 +1445,7 @@ else:
 
         # ── 왼쪽: 팀별 업무 현황 (고정) ──
         with work_left:
+            st.markdown('<div style="margin-top:-8px;"></div>', unsafe_allow_html=True)
             st.markdown("#### 📊 팀별 업무 현황")
             _role = get_user_role(user)
 
@@ -1547,8 +1548,8 @@ else:
 
             st.caption(f"총 {total}건 | {page_num+1}/{total_pages} 페이지")
 
-            # 목록 (스크롤 컨테이너)
-            with st.container(height=420):
+            # 목록 (스크롤 컨테이너) — 높이 30% 축소
+            with st.container(height=290):
                 if not paged:
                     st.info("✅ 배정된 미작성 목록이 없습니다!")
                 for d in paged:
