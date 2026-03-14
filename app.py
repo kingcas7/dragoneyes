@@ -1716,12 +1716,12 @@ else:
             st.markdown('<span id="dragonfather_anchor"></span>', unsafe_allow_html=True)
 
             chat_info = can_use_chat(user["id"])
-            da1, da2 = st.columns([3, 2])
+            da1, da2 = st.columns([4, 2])
             with da1:
                 st.markdown('''
                 <div style="padding-top:4px;">
-                    <div style="font-size:1.4rem; font-weight:700; color:#1d4ed8; line-height:1.2;">🐲 드래곤파더</div>
-                    <div style="font-size:0.85rem; color:#60a5fa; margin-top:2px;">✨ Agent AI 드래곤파더</div>
+                    <span style="font-size:1.4rem; font-weight:700; color:#1d4ed8;">🐲 드래곤파더</span>
+                    <span style="font-size:0.95rem; color:#60a5fa; margin-left:8px;">✨ Agent AI 드래곤파더에게 말을 걸어보세요</span>
                 </div>
                 ''', unsafe_allow_html=True)
             with da2:
