@@ -1166,6 +1166,7 @@ else:
             어린이 아동학대, 그루밍, 성폭력, 도박 등과 관련한 다양한 불법 컨텐츠를 감시합니다.
         </div>
         <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; justify-content:flex-end;">
+            <span style="color:#94a3b8; font-size:0.68rem; font-weight:600; letter-spacing:0.05em; white-space:nowrap; margin-right:2px;">🛡️ 국제기관 가이드라인 준수</span>
             <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #2563eb55;color:#60a5fa;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;">🇺🇸 NCMEC 가이드라인 준수</span>
             <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #7c3aed55;color:#a78bfa;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;">🌍 WeProtect Global Alliance</span>
             <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #059669aa;color:#34d399;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;">🇬🇧 IWF 글로벌 기준</span>
