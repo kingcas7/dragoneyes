@@ -1806,7 +1806,7 @@ else:
         with right_col:
 
             # ① 통계 — 맨 위에 바짝
-            st.markdown('<div style="font-size:0.82rem; font-weight:600; color:#94a3b8; margin-bottom:4px;">📊 통계 & 현황</div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-size:0.82rem; font-weight:600; color:#94a3b8; margin-bottom:4px; padding-left:16px;">📊 통계 & 현황</div>', unsafe_allow_html=True)
             try:
                 all_my_home = supabase.table("reports").select("id,severity,created_at").eq("user_id", user["id"]).execute()
                 df_home = pd.DataFrame(all_my_home.data) if all_my_home.data else pd.DataFrame()
@@ -1816,14 +1816,27 @@ else:
                 rate_h = min(int(month_cnt_h / target_h * 100), 100) if target_h > 0 else 0
                 token_info_h = can_use_dragon(user["id"])
 
-                sm1, sm2, sm3 = st.columns(3)
-                sm1.metric("📅 이번달", f"{month_cnt_h}건", f"목표 {target_h}건")
-                sm2.metric("🎯 달성률", f"{rate_h}%")
-                sm3.metric("🐉 토큰", f"{token_info_h['monthly_remaining']}회")
-
+                # 숫자 크기 20% 축소 + 왼쪽 여백 추가
                 st.markdown(f"""
-                <div style="background:#334155; border-radius:4px; height:7px; margin:2px 0 8px 0;">
-                    <div style="background:{'#22c55e' if rate_h>=100 else '#f59e0b' if rate_h>=50 else '#e94560'}; width:{rate_h}%; height:7px; border-radius:4px;"></div>
+                <div style="display:flex; gap:12px; padding:0 8px 0 16px; margin-bottom:4px;">
+                    <div style="flex:1; background:#1e293b; border-radius:8px; padding:10px 14px;">
+                        <div style="font-size:0.7rem; color:#94a3b8; margin-bottom:2px;">📅 이번달</div>
+                        <div style="font-size:1.5rem; font-weight:700; color:#38bdf8; line-height:1.1;">{month_cnt_h}건</div>
+                        <div style="font-size:0.65rem; color:#4ade80;">↑ 목표 {target_h}건</div>
+                    </div>
+                    <div style="flex:1; background:#1e293b; border-radius:8px; padding:10px 14px;">
+                        <div style="font-size:0.7rem; color:#94a3b8; margin-bottom:2px;">🎯 달성률</div>
+                        <div style="font-size:1.5rem; font-weight:700; color:#{'22c55e' if rate_h>=100 else 'f59e0b' if rate_h>=50 else 'e94560'}; line-height:1.1;">{rate_h}%</div>
+                        <div style="font-size:0.65rem; color:#94a3b8;">목표 대비</div>
+                    </div>
+                    <div style="flex:1; background:#1e293b; border-radius:8px; padding:10px 14px;">
+                        <div style="font-size:0.7rem; color:#94a3b8; margin-bottom:2px;">🐉 토큰</div>
+                        <div style="font-size:1.5rem; font-weight:700; color:#a78bfa; line-height:1.1;">{token_info_h['monthly_remaining']}회</div>
+                        <div style="font-size:0.65rem; color:#94a3b8;">남은 횟수</div>
+                    </div>
+                </div>
+                <div style="background:#334155; border-radius:4px; height:6px; margin:0 8px 8px 16px;">
+                    <div style="background:{'#22c55e' if rate_h>=100 else '#f59e0b' if rate_h>=50 else '#e94560'}; width:{rate_h}%; height:6px; border-radius:4px;"></div>
                 </div>
                 """, unsafe_allow_html=True)
             except:
