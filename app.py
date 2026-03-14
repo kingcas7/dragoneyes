@@ -1725,10 +1725,8 @@ else:
                 </div>
                 ''', unsafe_allow_html=True)
             with da2:
-                st.markdown("<div style='padding-top:2px;'>", unsafe_allow_html=True)
                 if st.button("🐲 큰 화면에서 드래곤파더와 대화하기", key="dragon_fs_btn", use_container_width=True):
                     go_to("dragon_chat"); st.rerun()
-                st.markdown("</div>", unsafe_allow_html=True)
 
             today_u = chat_info.get('today_used',0)
             week_u = chat_info.get('week_used',0)
