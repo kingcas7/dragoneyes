@@ -1815,9 +1815,11 @@ else:
 
         # ── 오른쪽: 통계 (상단) + 모니터링 버튼 (하단) ──
         with right_col:
+            # 오른쪽 전체를 위로 당김
+            st.markdown('<div style="margin-top:-2.2rem;"></div>', unsafe_allow_html=True)
 
             # ① 통계 — 맨 위에 바짝
-            st.markdown('<div style="font-size:0.82rem; font-weight:600; color:#94a3b8; margin-bottom:4px; padding-left:16px;">📊 통계 & 현황</div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-size:0.82rem; font-weight:600; color:#94a3b8; margin:0 0 4px 16px;">📊 통계 & 현황</div>', unsafe_allow_html=True)
             try:
                 all_my_home = supabase.table("reports").select("id,severity,created_at").eq("user_id", user["id"]).execute()
                 df_home = pd.DataFrame(all_my_home.data) if all_my_home.data else pd.DataFrame()
