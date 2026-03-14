@@ -1432,7 +1432,7 @@ else:
 
         # ── 왼쪽 ──
         with work_left:
-            with st.container(height=420):
+            with st.container(height=330):
                 if _role in ("superadmin","group_leader","group_leader_2","group_leader_3","group_leader_4","director","director_2","director_3","director_4"):
                     try:
                         all_teams_dash = supabase.table("teams").select("*").execute().data or []
