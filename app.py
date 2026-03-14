@@ -1066,13 +1066,6 @@ else:
                     st.session_state.pop("ann_popup_shown", None)
                     st.rerun()
 
-    # ── 개인 PR 문구 ──
-    st.markdown("""
-    <div style="text-align:left; font-size:1.08rem; color:#aaa; margin-bottom:2px; padding-left:4px;">
-        🐉 <strong style="color:#c8a84b;">최승현</strong> 님이 만드는 드래곤아이즈에 오신 것을 환영합니다.
-    </div>
-    """, unsafe_allow_html=True)
-
     # ── 상단 헤더 ──
     _show_admin_btn = is_admin or is_super
     try:
@@ -1674,89 +1667,19 @@ else:
     elif page == "home_landing":
         lang = st.session_state.get("lang", "ko")
 
-        # 인사말
+        # 인사말 (간결하게)
         st.markdown(f"""
-        <div style="font-size:1.3rem; font-weight:600; color:#f1f5f9; margin-bottom:8px;">
+        <div style="font-size:1.2rem; font-weight:600; color:#f1f5f9; margin-bottom:10px;">
             {t('greeting', user['name'])} &nbsp;
-            <span style="font-size:0.9rem; color:#94a3b8; font-weight:400;">오늘도 수고하세요 🐉</span>
+            <span style="font-size:0.88rem; color:#94a3b8; font-weight:400;">오늘도 수고하세요 🐉</span>
         </div>
         """, unsafe_allow_html=True)
 
-        # 메인 2컬럼 레이아웃
+        # 메인 2컬럼 레이아웃 — 드래곤파더 왼쪽, 모니터링 오른쪽
         left_col, right_col = st.columns([1, 1])
 
+        # ── 왼쪽: 드래곤파더 ──
         with left_col:
-            # 드래곤아이즈 추천 큰 버튼
-            st.markdown("""
-            <div style="font-size:0.85rem; font-weight:600; color:#94a3b8; margin-bottom:8px;">🐉 모니터링</div>
-            """, unsafe_allow_html=True)
-            if st.button("🐉 드래곤아이즈 자동 추천 리스트 생성", use_container_width=True, type="primary", key="home_dragon_btn"):
-                st.session_state.current_page = "home"
-                st.session_state.active_tab = 3
-                st.rerun()
-
-            st.markdown("<div style='margin-top:8px;'></div>", unsafe_allow_html=True)
-
-            # 빠른 접근 버튼들
-            qa1, qa2, qa3 = st.columns(3)
-            with qa1:
-                if st.button("📝 텍스트\n분석", use_container_width=True, key="home_text_btn"):
-                    st.session_state.current_page = "home"; st.rerun()
-            with qa2:
-                if st.button("🎬 유튜브\n분석", use_container_width=True, key="home_yt_btn"):
-                    st.session_state.current_page = "home"; st.rerun()
-            with qa3:
-                if st.button("📁 보고서\n목록", use_container_width=True, key="home_rep_btn"):
-                    st.session_state.current_page = "home"; st.rerun()
-
-            st.divider()
-
-            # ── 통계 영역 (향후 확장) ──
-            st.markdown("""
-            <div style="font-size:0.85rem; font-weight:600; color:#94a3b8; margin-bottom:8px;">📊 통계 & 현황</div>
-            """, unsafe_allow_html=True)
-
-            # 이번달 간단 요약
-            try:
-                all_my_home = supabase.table("reports").select("id,severity,created_at").eq("user_id", user["id"]).execute()
-                df_home = pd.DataFrame(all_my_home.data) if all_my_home.data else pd.DataFrame()
-                this_month = date.today().strftime("%Y-%m")
-                month_cnt_h = len(df_home[df_home["created_at"].str[:7] == this_month]) if not df_home.empty else 0
-                target_h = user.get("monthly_target", 10)
-                rate_h = min(int(month_cnt_h / target_h * 100), 100) if target_h > 0 else 0
-                token_info_h = can_use_dragon(user["id"])
-
-                sm1, sm2, sm3 = st.columns(3)
-                sm1.metric("📅 이번달 보고서", f"{month_cnt_h}건", f"목표 {target_h}건")
-                sm2.metric("🎯 달성률", f"{rate_h}%")
-                sm3.metric("🐉 드래곤 토큰", f"{token_info_h['monthly_remaining']}회")
-
-                # 진행률 바
-                st.markdown(f"""
-                <div style="background:#334155; border-radius:4px; height:8px; margin:4px 0 12px 0;">
-                    <div style="background:{'#22c55e' if rate_h>=100 else '#f59e0b' if rate_h>=50 else '#e94560'}; width:{rate_h}%; height:8px; border-radius:4px;"></div>
-                </div>
-                """, unsafe_allow_html=True)
-            except:
-                pass
-
-            # 빈 공간 — 향후 통계 위젯 추가 예정
-            st.markdown("""
-            <div style="
-                border: 2px dashed #334155;
-                border-radius: 12px;
-                padding: 24px;
-                text-align: center;
-                color: #475569;
-                font-size: 0.85rem;
-                margin-top: 8px;
-            ">
-                📈 향후 통계 위젯이 추가될 공간입니다
-            </div>
-            """, unsafe_allow_html=True)
-
-        # ── 드래곤파더 채팅 (오른쪽) ──
-        with right_col:
             st.markdown("""
             <style>
             div[data-testid="stVerticalBlock"]:has(> div > div > #dragonfather_anchor) {
@@ -1774,7 +1697,7 @@ else:
             df_col1, df_col2 = st.columns([2, 2])
             with df_col1:
                 st.markdown('''<div style="font-size:1.5rem; font-weight:700; margin:-2rem 0 0 0; padding-left:2rem; line-height:1.2;">🐲 드래곤파더</div>
-                <div style="font-size:1.0rem; color:#94a3b8; padding-left:2rem; margin-bottom:2px;">✨ Agent AI 드래곤파더</div>''', unsafe_allow_html=True)
+                <div style="font-size:0.95rem; color:#94a3b8; padding-left:2rem; margin-bottom:2px;">✨ Agent AI 드래곤파더</div>''', unsafe_allow_html=True)
             with df_col2:
                 st.markdown('<div style="margin-top:2rem;"></div>', unsafe_allow_html=True)
                 if st.button("🐲 큰 화면에서 대화하기", key="dragon_fs_btn", use_container_width=True):
@@ -1825,7 +1748,7 @@ else:
             except:
                 pass
 
-            chat_box = st.container(height=320)
+            chat_box = st.container(height=340)
             with chat_box:
                 if not st.session_state.chat_history:
                     st.caption("💡 예: '이 댓글이 그루밍 패턴인지 분석해줘'")
@@ -1868,6 +1791,75 @@ else:
                     except Exception as e:
                         st.session_state.chat_history.pop()
                         st.error(f"오류: {str(e)}")
+
+        # ── 오른쪽: 모니터링 + 통계 ──
+        with right_col:
+            # 드래곤아이즈 추천 큰 버튼
+            st.markdown("""
+            <div style="font-size:0.85rem; font-weight:600; color:#94a3b8; margin-bottom:8px;">🐉 모니터링</div>
+            """, unsafe_allow_html=True)
+            if st.button("🐉 드래곤아이즈 자동 추천 리스트 생성", use_container_width=True, type="primary", key="home_dragon_btn"):
+                st.session_state.current_page = "home"
+                st.session_state.active_tab = 3
+                st.rerun()
+
+            st.markdown("<div style='margin-top:8px;'></div>", unsafe_allow_html=True)
+
+            # 빠른 접근 버튼들
+            qa1, qa2, qa3 = st.columns(3)
+            with qa1:
+                if st.button("📝 텍스트\n분석", use_container_width=True, key="home_text_btn"):
+                    st.session_state.current_page = "home"; st.rerun()
+            with qa2:
+                if st.button("🎬 유튜브\n분석", use_container_width=True, key="home_yt_btn"):
+                    st.session_state.current_page = "home"; st.rerun()
+            with qa3:
+                if st.button("📁 보고서\n목록", use_container_width=True, key="home_rep_btn"):
+                    st.session_state.current_page = "home"; st.rerun()
+
+            st.divider()
+
+            # ── 통계 영역 ──
+            st.markdown("""
+            <div style="font-size:0.85rem; font-weight:600; color:#94a3b8; margin-bottom:8px;">📊 통계 & 현황</div>
+            """, unsafe_allow_html=True)
+
+            try:
+                all_my_home = supabase.table("reports").select("id,severity,created_at").eq("user_id", user["id"]).execute()
+                df_home = pd.DataFrame(all_my_home.data) if all_my_home.data else pd.DataFrame()
+                this_month = date.today().strftime("%Y-%m")
+                month_cnt_h = len(df_home[df_home["created_at"].str[:7] == this_month]) if not df_home.empty else 0
+                target_h = user.get("monthly_target", 10)
+                rate_h = min(int(month_cnt_h / target_h * 100), 100) if target_h > 0 else 0
+                token_info_h = can_use_dragon(user["id"])
+
+                sm1, sm2, sm3 = st.columns(3)
+                sm1.metric("📅 이번달 보고서", f"{month_cnt_h}건", f"목표 {target_h}건")
+                sm2.metric("🎯 달성률", f"{rate_h}%")
+                sm3.metric("🐉 드래곤 토큰", f"{token_info_h['monthly_remaining']}회")
+
+                st.markdown(f"""
+                <div style="background:#334155; border-radius:4px; height:8px; margin:4px 0 12px 0;">
+                    <div style="background:{'#22c55e' if rate_h>=100 else '#f59e0b' if rate_h>=50 else '#e94560'}; width:{rate_h}%; height:8px; border-radius:4px;"></div>
+                </div>
+                """, unsafe_allow_html=True)
+            except:
+                pass
+
+            # 빈 통계 공간 (향후 확장)
+            st.markdown("""
+            <div style="
+                border: 2px dashed #334155;
+                border-radius: 12px;
+                padding: 40px 24px;
+                text-align: center;
+                color: #475569;
+                font-size: 0.85rem;
+                margin-top: 8px;
+            ">
+                📈 향후 통계 위젯이 추가될 공간입니다
+            </div>
+            """, unsafe_allow_html=True)
 
     # ══════════════════════════════
     # 홈 대시보드
