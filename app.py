@@ -1405,7 +1405,7 @@ else:
         history_cnt = len(st.session_state.search_results) + len(st.session_state.recommend_results)
 
         st.markdown(f"""
-        <div style="display:flex; gap:6px; margin:0 0 4px 0;">
+        <div style="display:flex; gap:6px; margin:8px 0 4px 0;">
             <div style="flex:1; background:linear-gradient(135deg,#0ea5e9,#06b6d4); border-radius:8px; padding:5px 8px; text-align:center;">
                 <div style="font-size:0.62rem; color:#e0f7ff;">이번달 보고서</div>
                 <div style="font-size:1rem; font-weight:700; color:#fff;">{month_cnt}건</div>
