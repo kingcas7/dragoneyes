@@ -1159,13 +1159,12 @@ else:
         border-radius: 8px;
         padding: 0.45rem 1rem;
         margin-bottom: 0.3rem;
-        flex-wrap: nowrap;
+        flex-wrap: wrap;
     ">
-        <div style="color:white; font-size:0.82rem; line-height:1.4; white-space:nowrap; flex-shrink:0;">
+        <div style="color:white; font-size:0.82rem; line-height:1.4; flex-shrink:0;">
             🛡️ <strong>온라인 유해 컨텐츠 모니터링 — Claude 기반 Agent AI 드래곤파더</strong>
         </div>
-        <div style="width:1px; background:#e9456055; height:28px; flex-shrink:0;"></div>
-        <div style="display:flex; gap:5px; flex-wrap:nowrap; align-items:center; overflow:hidden;">
+        <div style="display:flex; gap:5px; flex-wrap:wrap; align-items:center;">
             <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #2563eb55;color:#60a5fa;font-size:0.62rem;font-weight:700;padding:3px 7px;border-radius:20px;white-space:nowrap;">🇺🇸 NCMEC</span>
             <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #7c3aed55;color:#a78bfa;font-size:0.62rem;font-weight:700;padding:3px 7px;border-radius:20px;white-space:nowrap;">🌍 WeProtect</span>
             <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #059669aa;color:#34d399;font-size:0.62rem;font-weight:700;padding:3px 7px;border-radius:20px;white-space:nowrap;">🇬🇧 IWF</span>
@@ -1184,7 +1183,6 @@ else:
                 go_back(); st.rerun()
         with col_title:
             st.subheader(t("report_title"))
-            st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
         with st.container(border=True):
             rc1, rc2 = st.columns(2)
             with rc1:
@@ -1327,7 +1325,6 @@ else:
                 go_home(); st.rerun()
         with col_title:
             st.subheader("🐲 드래곤파더 — 전체화면 대화")
-            st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
 
         chat_info = can_use_chat(user["id"])
         ci1, ci2, ci3 = st.columns(3)
@@ -2020,7 +2017,6 @@ else:
         # ── 텍스트 분석 ──
         with tab1:
             st.subheader(t("text_title"))
-            st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
             content = st.text_area(t("text_input"), height=150)
             if st.button(t("analyze_start"), key="text_go"):
                 if content:
@@ -2046,7 +2042,6 @@ else:
         # ── 유튜브 분석 ──
         with tab2:
             st.subheader(t("yt_title"))
-            st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
             url = st.text_input(t("yt_url"))
             if st.button(t("analyze_start"), key="yt_go"):
                 if url:
@@ -2142,7 +2137,6 @@ else:
                     st.warning(t("enter_keyword"))
 
             if st.session_state.search_results:
-                st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
                 results_to_show = list(st.session_state.search_results)
                 sc1, sc2 = st.columns([3, 1])
                 with sc1:
@@ -2169,7 +2163,6 @@ else:
         # ── 드래곤아이즈 추천 ──
         with tab4:
             st.subheader(t("dragon_title"))
-            st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
             st.caption("AI가 플랫폼별 위험 키워드를 자동 생성하고 유튜브를 탐색합니다. 이미 분석한 영상은 자동 제외됩니다.")
 
             token_info = can_use_dragon(user["id"])
@@ -2241,7 +2234,6 @@ else:
                     st.error(f"오류: {str(e)}")
 
             if st.session_state.recommend_results:
-                st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
                 results = list(st.session_state.recommend_results)
                 rc1, rc2 = st.columns([3,1])
                 with rc1:
@@ -2279,7 +2271,6 @@ else:
         with tab5:
             st.subheader(t("history_title"))
             st.caption(t("history_caption"))
-            st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
 
             fc1, fc2, fc3 = st.columns(3)
             with fc1:
@@ -2333,7 +2324,6 @@ else:
         # ── 보고서 목록 ──
         with tab6:
             st.subheader(t("report_list"))
-            st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
 
             all_reps_data = supabase.table("reports").select("*").order("created_at", desc=True).execute()
             all_users_r = supabase.table("users").select("id,name").execute()
@@ -2483,7 +2473,6 @@ else:
         # ── 내 성과 ──
         with tab7:
             st.subheader(f"📈 {user['name']}님의 성과 현황")
-            st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
             all_my = supabase.table("reports").select("*").eq("user_id", user["id"]).execute()
             if all_my.data:
                 df = pd.DataFrame(all_my.data)
@@ -2516,7 +2505,6 @@ else:
         # ── 네이버 탐색 ──
         with tab_naver:
             st.subheader("🟢 네이버 카페·블로그·뉴스 탐색")
-            st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
             if not NAVER_CLIENT_ID:
                 st.error("네이버 API 키가 설정되지 않았습니다. .env 파일에 NAVER_CLIENT_ID와 NAVER_CLIENT_SECRET을 추가하세요.")
             else:
@@ -2667,7 +2655,6 @@ else:
         # ── 대화형 AI 채팅 ──
         with tab_chat:
             st.subheader("🐲 드래곤파더")
-            st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
             lang = st.session_state.get("lang", "ko")
 
             chat_info = can_use_chat(user["id"])
@@ -2745,7 +2732,6 @@ else:
         if tab_notice:
             with tab_notice:
                 st.subheader("📢 공지사항")
-                st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
 
                 if is_high:
                     with st.expander("➕ 새 공지 / 업무지시 작성", expanded=False):
