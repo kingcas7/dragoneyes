@@ -165,14 +165,17 @@ CHAT_MONTHLY_LIMIT = 400
 ROLE_LABELS = {
     "superadmin":     "👑 전체 관리자",
     # 1그룹
-    "group_leader":   "🔱 1그룹 리더",
+    "group_leader":   "🔱 제1 그룹장",
     "director":       "🎯 1그룹 디렉터",
     # 2그룹
-    "group_leader_2": "🔱 2그룹 리더",
+    "group_leader_2": "🔱 제2 그룹장",
     "director_2":     "🎯 2그룹 디렉터",
     # 3그룹
-    "group_leader_3": "🔱 3그룹 리더",
+    "group_leader_3": "🔱 제3 그룹장",
     "director_3":     "🎯 3그룹 디렉터",
+    # 4그룹
+    "group_leader_4": "🔱 제4 그룹장",
+    "director_4":     "🎯 4그룹 디렉터",
     # 공통
     "team_leader":    "👔 팀장",
     "user":           "👤 일반사용자",
@@ -184,9 +187,11 @@ ROLE_ICONS = {
     "group_leader":   "🔱",
     "group_leader_2": "🔱",
     "group_leader_3": "🔱",
+    "group_leader_4": "🔱",
     "director":       "🎯",
     "director_2":     "🎯",
     "director_3":     "🎯",
+    "director_4":     "🎯",
     "team_leader":    "👔",
     "user":           "👤",
     "admin":          "⚙️",
@@ -476,15 +481,15 @@ def is_superadmin(user):
 def is_director(user):
     return get_user_role(user) in (
         "superadmin",
-        "group_leader", "group_leader_2", "group_leader_3",
-        "director", "director_2", "director_3",
+        "group_leader", "group_leader_2", "group_leader_3", "group_leader_4",
+        "director", "director_2", "director_3", "director_4",
     )
 
 def is_team_leader(user):
     return get_user_role(user) in (
         "superadmin",
-        "group_leader", "group_leader_2", "group_leader_3",
-        "director", "director_2", "director_3",
+        "group_leader", "group_leader_2", "group_leader_3", "group_leader_4",
+        "director", "director_2", "director_3", "director_4",
         "team_leader",
     )
 
@@ -535,7 +540,7 @@ def mark_announcement_read(announcement_id, user_id):
 
 def get_pending_leaves(user_id, role):
     try:
-        if role in ("superadmin", "group_leader", "group_leader_2", "group_leader_3", "director", "director_2", "director_3"):
+        if role in ("superadmin", "group_leader", "group_leader_2", "group_leader_3", "group_leader_4", "director", "director_2", "director_3", "director_4"):
             return supabase.table("leave_requests").select("*").eq("status", "pending").order("created_at", desc=True).execute().data or []
         elif role == "team_leader":
             team_members = supabase.table("users").select("id").eq("team_id", supabase.table("users").select("team_id").eq("id", user_id).execute().data[0].get("team_id")).execute().data or []
@@ -1029,8 +1034,9 @@ if st.session_state.user is None:
 else:
     user = st.session_state.user
     is_admin = user.get("role") == "admin" or user.get("role_v2") in (
-        "superadmin", "group_leader", "group_leader_2", "group_leader_3",
-        "director", "director_2", "director_3",
+        "superadmin",
+        "group_leader", "group_leader_2", "group_leader_3", "group_leader_4",
+        "director", "director_2", "director_3", "director_4",
     )
     user_role = get_user_role(user)
     is_super = is_superadmin(user)
@@ -1434,7 +1440,7 @@ else:
             _role = get_user_role(user)
             this_month = date.today().strftime("%Y-%m")
 
-            if _role in ("superadmin", "group_leader", "group_leader_2", "group_leader_3", "director", "director_2", "director_3"):
+            if _role in ("superadmin", "group_leader", "group_leader_2", "group_leader_3", "group_leader_4", "director", "director_2", "director_3", "director_4"):
                 st.divider()
                 st.markdown("### 📊 팀별 업무 현황")
                 try:
@@ -2691,7 +2697,7 @@ else:
                                             st.write(f"{rb} {m['name']} ({m.get('email','')})")
                                         with mc2:
                                             if is_high:
-                                                _all_roles = ["user","team_leader","group_leader","director","group_leader_2","director_2","group_leader_3","director_3","superadmin"]
+                                                _all_roles = ["user","team_leader","group_leader","director","group_leader_2","director_2","group_leader_3","director_3","group_leader_4","director_4","superadmin"]
                                                 new_role = st.selectbox("역할",
                                                     _all_roles,
                                                     index=_all_roles.index(m.get("role_v2","user")) if m.get("role_v2","user") in _all_roles else 0,
