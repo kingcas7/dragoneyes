@@ -1500,19 +1500,47 @@ else:
 
         # ── 오른쪽 ──
         with work_right:
+            # 팝업 상태
+            if "work_popup_id" not in st.session_state:
+                st.session_state.work_popup_id = None
+
+            # 팝업 표시
+            if st.session_state.work_popup_id:
+                popup_d = next((x for x in assigned_data if x["id"] == st.session_state.work_popup_id), None)
+                if popup_d:
+                    with st.container(border=True):
+                        st.markdown(f"**{popup_d.get('title','')[:80]}**")
+                        url = popup_d.get("url","")
+                        if "youtube.com" in url or "youtu.be" in url:
+                            st.video(url)
+                        else:
+                            st.markdown(f"[🔗 링크 열기]({url})")
+                        pc1, pc2 = st.columns(2)
+                        with pc1:
+                            if st.button("📋 보고서 작성", type="primary", use_container_width=True, key="popup_write_btn"):
+                                st.session_state.work_popup_id = None
+                                open_report_form(url,"",1,"안전","YouTube",from_tab=4)
+                                st.session_state.current_page = "report_form"; st.rerun()
+                        with pc2:
+                            if st.button("✖ 닫기", use_container_width=True, key="popup_close_btn"):
+                                st.session_state.work_popup_id = None; st.rerun()
+
             with st.container(height=360):
                 if not paged:
                     st.info("✅ 배정된 미작성 목록이 없습니다!")
                 for d in paged:
-                    dc1, dc2 = st.columns([5,1])
+                    dc1, dc2, dc3 = st.columns([5, 1, 1])
                     with dc1:
                         st.markdown(f"<div style='font-size:0.85rem;font-weight:600;color:#0f172a;margin:0;line-height:1.2;'>{d.get('title','(제목없음)')[:60]}</div>", unsafe_allow_html=True)
                         st.markdown(f"<div style='font-size:0.7rem;color:#475569;margin:0;'>{search_type_label(d.get('search_type',''))} | {str(d.get('analyzed_at',''))[:10]}</div>", unsafe_allow_html=True)
                     with dc2:
+                        if st.button("🔍", key=f"work_view_{d['id']}", help="미리보기"):
+                            st.session_state.work_popup_id = d["id"]; st.rerun()
+                    with dc3:
                         if st.button("📋", key=f"work_rep_{d['id']}", help="보고서 작성"):
                             open_report_form(d["url"],"",1,"안전","YouTube",from_tab=4)
                             st.session_state.current_page = "report_form"; st.rerun()
-                    st.markdown("<hr style='margin:1px 0;border-color:#e2e8f0;'>", unsafe_allow_html=True)
+                    st.markdown("<hr style='margin:0;border-color:#e2e8f0;'>", unsafe_allow_html=True)
 
             pn1, pn2, pn3 = st.columns([1,2,1])
             with pn1:
