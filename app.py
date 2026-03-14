@@ -1405,32 +1405,13 @@ else:
 
         # 달성률 카드
         st.markdown(f"""<div style="display:flex;gap:6px;margin:10px 0 6px 0;">
-            <div style="flex:1;background:linear-gradient(135deg,#0ea5e9,#06b6d4);border-radius:8px;padding:5px 8px;text-align:center;">
-                <div style="font-size:0.62rem;color:#e0f7ff;">이번달 보고서</div>
-                <div style="font-size:1rem;font-weight:700;color:#fff;">{month_cnt}건</div>
-                <div style="font-size:0.58rem;color:#bae6fd;">목표 {target}건</div>
-            </div>
-            <div style="flex:1;background:linear-gradient(135deg,#10b981,#34d399);border-radius:8px;padding:5px 8px;text-align:center;">
-                <div style="font-size:0.62rem;color:#d1fae5;">달성률</div>
-                <div style="font-size:1rem;font-weight:700;color:#fff;">{rate}%</div>
-                <div style="font-size:0.58rem;color:#a7f3d0;">목표 대비</div>
-            </div>
-            <div style="flex:1;background:linear-gradient(135deg,#f59e0b,#fbbf24);border-radius:8px;padding:5px 8px;text-align:center;">
-                <div style="font-size:0.62rem;color:#fef3c7;">드래곤 토큰</div>
-                <div style="font-size:1rem;font-weight:700;color:#fff;">{token_info["monthly_remaining"]}회</div>
-                <div style="font-size:0.58rem;color:#fde68a;">남음</div>
-            </div>
-            <div style="flex:1;background:linear-gradient(135deg,#ec4899,#f472b6);border-radius:8px;padding:5px 8px;text-align:center;">
-                <div style="font-size:0.62rem;color:#fce7f3;">탐색 히스토리</div>
-                <div style="font-size:1rem;font-weight:700;color:#fff;">{history_cnt}건</div>
-                <div style="font-size:0.58rem;color:#fbcfe8;">대기중</div>
-            </div>
-        </div>
-        <div style="background:#334155;border-radius:4px;height:4px;margin:0 0 6px 0;">
-            <div style="background:{"#22c55e" if rate>=100 else "#f59e0b" if rate>=50 else "#e94560"};width:{rate}%;height:4px;border-radius:4px;"></div>
-        </div>""", unsafe_allow_html=True)
+            <div style="flex:1;background:linear-gradient(135deg,#0ea5e9,#06b6d4);border-radius:8px;padding:5px 8px;text-align:center;"><div style="font-size:0.62rem;color:#e0f7ff;">이번달 보고서</div><div style="font-size:1rem;font-weight:700;color:#fff;">{month_cnt}건</div><div style="font-size:0.58rem;color:#bae6fd;">목표 {target}건</div></div>
+            <div style="flex:1;background:linear-gradient(135deg,#10b981,#34d399);border-radius:8px;padding:5px 8px;text-align:center;"><div style="font-size:0.62rem;color:#d1fae5;">달성률</div><div style="font-size:1rem;font-weight:700;color:#fff;">{rate}%</div><div style="font-size:0.58rem;color:#a7f3d0;">목표 대비</div></div>
+            <div style="flex:1;background:linear-gradient(135deg,#f59e0b,#fbbf24);border-radius:8px;padding:5px 8px;text-align:center;"><div style="font-size:0.62rem;color:#fef3c7;">드래곤 토큰</div><div style="font-size:1rem;font-weight:700;color:#fff;">{token_info["monthly_remaining"]}회</div><div style="font-size:0.58rem;color:#fde68a;">남음</div></div>
+            <div style="flex:1;background:linear-gradient(135deg,#ec4899,#f472b6);border-radius:8px;padding:5px 8px;text-align:center;"><div style="font-size:0.62rem;color:#fce7f3;">탐색 히스토리</div><div style="font-size:1rem;font-weight:700;color:#fff;">{history_cnt}건</div><div style="font-size:0.58rem;color:#fbcfe8;">대기중</div></div>
+        </div><div style="background:#334155;border-radius:4px;height:4px;margin:0 0 6px 0;"><div style="background:{"#22c55e" if rate>=100 else "#f59e0b" if rate>=50 else "#e94560"};width:{rate}%;height:4px;border-radius:4px;"></div></div>""", unsafe_allow_html=True)
 
-        # 페이지네이션 데이터 미리 계산 (컬럼 밖에서)
+        # 페이지네이션 미리 계산
         PAGE_SIZE = 10
         if "work_page_num" not in st.session_state:
             st.session_state.work_page_num = 0
@@ -1441,98 +1422,92 @@ else:
         page_num = st.session_state.work_page_num
         paged = assigned_data[page_num*PAGE_SIZE:(page_num+1)*PAGE_SIZE]
 
-        # 타이틀 행 (컬럼 밖, HTML로 나란히)
+        # 타이틀 행 (HTML)
         st.markdown(f"""<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:0 0 6px 0;">
             <div style="font-size:1rem;font-weight:700;color:#1e293b;">📊 팀별 업무 현황</div>
-            <div style="font-size:1rem;font-weight:700;color:#1e293b;">⚠️ 내게 배정된 미작성 목록
-                <span style="font-size:0.72rem;font-weight:400;color:#64748b;margin-left:6px;">총 {total}건 | {page_num+1}/{total_pages}p</span>
-            </div>
+            <div style="font-size:1rem;font-weight:700;color:#1e293b;">⚠️ 내게 배정된 미작성 목록 <span style="font-size:0.72rem;font-weight:400;color:#64748b;">총 {total}건 | {page_num+1}/{total_pages}p</span></div>
         </div>""", unsafe_allow_html=True)
 
-        # 좌우 컬럼
         work_left, work_right = st.columns([1, 1])
 
+        # ── 왼쪽 ──
         with work_left:
-            if _role in ("superadmin","group_leader","group_leader_2","group_leader_3","group_leader_4","director","director_2","director_3","director_4"):
-                try:
-                    all_teams_dash = supabase.table("teams").select("*").execute().data or []
-                    all_users_dash = supabase.table("users").select("*").execute().data or []
-                    all_reports_dash = supabase.table("reports").select("user_id,created_at").execute().data or []
-                    umap_dash = {u["id"]: u for u in all_users_dash}
-                    if all_teams_dash:
-                        for team in all_teams_dash:
-                            members = [u for u in all_users_dash if u.get("team_id") == team["id"]]
-                            leader = umap_dash.get(team.get("leader_id",""), {})
-                            with st.expander(f"🏢 **{team['name']}** | 팀장: {leader.get('name','미지정')} | {len(members)}명", expanded=True):
-                                if members:
-                                    ch = st.columns([2.5,1,1,1,1])
-                                    ch[0].markdown("**이름**"); ch[1].markdown("**이번달**")
-                                    ch[2].markdown("**목표**"); ch[3].markdown("**달성률**"); ch[4].markdown("**누적**")
-                                    for m in members:
-                                        mr = [r for r in all_reports_dash if r["user_id"]==m["id"]]
-                                        mm = len([r for r in mr if r["created_at"][:7]==this_month])
-                                        mt = len(mr); mtgt = m.get("monthly_target",10)
-                                        mrt = min(int(mm/mtgt*100),100) if mtgt>0 else 0
-                                        rc = "#22c55e" if mrt>=100 else ("#f59e0b" if mrt>=50 else "#ef4444")
-                                        ri = role_icon(m.get("role_v2","user"))
-                                        cv = st.columns([2.5,1,1,1,1])
-                                        cv[0].write(f"{ri} {m['name']}")
-                                        cv[1].write(f"{mm}건"); cv[2].write(f"{mtgt}건")
-                                        cv[3].markdown(f"<span style='color:{rc};font-weight:700'>{mrt}%</span>", unsafe_allow_html=True)
-                                        cv[4].write(f"{mt}건")
-                                else:
-                                    st.caption("팀원 없음")
-                    else:
-                        st.info("생성된 팀이 없습니다.")
-                    no_team = [u for u in all_users_dash if not u.get("team_id")]
-                    if no_team:
-                        with st.expander(f"👥 **팀 미배정** | {len(no_team)}명"):
-                            for u in no_team:
-                                ur = [r for r in all_reports_dash if r["user_id"]==u["id"]]
-                                um = len([r for r in ur if r["created_at"][:7]==this_month])
-                                st.caption(f"{role_icon(u.get('role_v2','user'))} {u['name']} | 이번달 {um}건")
-                except Exception as e:
-                    st.warning(f"팀 현황 불러오기 실패: {str(e)}")
-            elif _role == "team_leader":
-                try:
-                    my_team_id = user.get("team_id")
-                    if my_team_id:
-                        tm = supabase.table("users").select("*").eq("team_id",my_team_id).execute().data or []
-                        ar = supabase.table("reports").select("user_id,created_at").execute().data or []
-                        if tm:
-                            ch = st.columns([2.5,1,1,1,1])
-                            ch[0].markdown("**이름**"); ch[1].markdown("**이번달**")
-                            ch[2].markdown("**목표**"); ch[3].markdown("**달성률**"); ch[4].markdown("**누적**")
-                            for m in tm:
-                                mr = [r for r in ar if r["user_id"]==m["id"]]
-                                mm = len([r for r in mr if r["created_at"][:7]==this_month])
-                                mt = len(mr); mtgt = m.get("monthly_target",10)
-                                mrt = min(int(mm/mtgt*100),100) if mtgt>0 else 0
-                                rc = "#22c55e" if mrt>=100 else ("#f59e0b" if mrt>=50 else "#ef4444")
-                                is_me = "⭐ " if m["id"]==user["id"] else ""
-                                cv = st.columns([2.5,1,1,1,1])
-                                cv[0].write(f"{is_me}{m['name']}")
-                                cv[1].write(f"{mm}건"); cv[2].write(f"{mtgt}건")
-                                cv[3].markdown(f"<span style='color:{rc};font-weight:700'>{mrt}%</span>", unsafe_allow_html=True)
-                                cv[4].write(f"{mt}건")
+            with st.container(height=295):
+                if _role in ("superadmin","group_leader","group_leader_2","group_leader_3","group_leader_4","director","director_2","director_3","director_4"):
+                    try:
+                        all_teams_dash = supabase.table("teams").select("*").execute().data or []
+                        all_users_dash = supabase.table("users").select("*").execute().data or []
+                        all_reports_dash = supabase.table("reports").select("user_id,created_at").execute().data or []
+                        umap_dash = {u["id"]: u for u in all_users_dash}
+                        if all_teams_dash:
+                            for team in all_teams_dash:
+                                members = [u for u in all_users_dash if u.get("team_id") == team["id"]]
+                                leader = umap_dash.get(team.get("leader_id",""), {})
+                                with st.expander(f"🏢 **{team['name']}** | 팀장: {leader.get('name','미지정')} | {len(members)}명", expanded=True):
+                                    if members:
+                                        ch = st.columns([2.5,1,1,1,1])
+                                        ch[0].markdown("**이름**"); ch[1].markdown("**이번달**"); ch[2].markdown("**목표**"); ch[3].markdown("**달성률**"); ch[4].markdown("**누적**")
+                                        for m in members:
+                                            mr = [r for r in all_reports_dash if r["user_id"]==m["id"]]
+                                            mm = len([r for r in mr if r["created_at"][:7]==this_month])
+                                            mt = len(mr); mtgt = m.get("monthly_target",10)
+                                            mrt = min(int(mm/mtgt*100),100) if mtgt>0 else 0
+                                            rc = "#22c55e" if mrt>=100 else ("#f59e0b" if mrt>=50 else "#ef4444")
+                                            ri = role_icon(m.get("role_v2","user"))
+                                            cv = st.columns([2.5,1,1,1,1])
+                                            cv[0].write(f"{ri} {m['name']}"); cv[1].write(f"{mm}건"); cv[2].write(f"{mtgt}건")
+                                            cv[3].markdown(f"<span style='color:{rc};font-weight:700'>{mrt}%</span>", unsafe_allow_html=True); cv[4].write(f"{mt}건")
+                                    else:
+                                        st.caption("팀원 없음")
                         else:
-                            st.info("팀원이 없습니다.")
-                    else:
-                        st.info("배정된 팀이 없습니다.")
-                except Exception as e:
-                    st.warning(f"팀 현황 불러오기 실패: {str(e)}")
-            else:
-                st.info("팀에 배정되지 않았습니다.")
+                            st.info("생성된 팀이 없습니다.")
+                        no_team = [u for u in all_users_dash if not u.get("team_id")]
+                        if no_team:
+                            with st.expander(f"👥 **팀 미배정** | {len(no_team)}명"):
+                                for u in no_team:
+                                    ur = [r for r in all_reports_dash if r["user_id"]==u["id"]]
+                                    um = len([r for r in ur if r["created_at"][:7]==this_month])
+                                    st.caption(f"{role_icon(u.get('role_v2','user'))} {u['name']} | 이번달 {um}건")
+                    except Exception as e:
+                        st.warning(f"팀 현황 불러오기 실패: {str(e)}")
+                elif _role == "team_leader":
+                    try:
+                        my_team_id = user.get("team_id")
+                        if my_team_id:
+                            tm = supabase.table("users").select("*").eq("team_id",my_team_id).execute().data or []
+                            ar = supabase.table("reports").select("user_id,created_at").execute().data or []
+                            if tm:
+                                ch = st.columns([2.5,1,1,1,1])
+                                ch[0].markdown("**이름**"); ch[1].markdown("**이번달**"); ch[2].markdown("**목표**"); ch[3].markdown("**달성률**"); ch[4].markdown("**누적**")
+                                for m in tm:
+                                    mr = [r for r in ar if r["user_id"]==m["id"]]
+                                    mm = len([r for r in mr if r["created_at"][:7]==this_month])
+                                    mt = len(mr); mtgt = m.get("monthly_target",10)
+                                    mrt = min(int(mm/mtgt*100),100) if mtgt>0 else 0
+                                    rc = "#22c55e" if mrt>=100 else ("#f59e0b" if mrt>=50 else "#ef4444")
+                                    is_me = "⭐ " if m["id"]==user["id"] else ""
+                                    cv = st.columns([2.5,1,1,1,1])
+                                    cv[0].write(f"{is_me}{m['name']}"); cv[1].write(f"{mm}건"); cv[2].write(f"{mtgt}건")
+                                    cv[3].markdown(f"<span style='color:{rc};font-weight:700'>{mrt}%</span>", unsafe_allow_html=True); cv[4].write(f"{mt}건")
+                            else:
+                                st.info("팀원이 없습니다.")
+                        else:
+                            st.info("배정된 팀이 없습니다.")
+                    except Exception as e:
+                        st.warning(f"팀 현황 불러오기 실패: {str(e)}")
+                else:
+                    st.info("팀에 배정되지 않았습니다.")
 
+        # ── 오른쪽 ──
         with work_right:
-            with st.container(height=290):
+            with st.container(height=295):
                 if not paged:
                     st.info("✅ 배정된 미작성 목록이 없습니다!")
                 for d in paged:
                     dc1, dc2 = st.columns([5,1])
                     with dc1:
                         st.markdown(f"<div style='font-size:0.85rem;font-weight:600;color:#0f172a;margin:0;line-height:1.2;'>{d.get('title','(제목없음)')[:60]}</div>", unsafe_allow_html=True)
-                        st.markdown(f"<div style='font-size:0.7rem;color:#475569;margin:0 0 1px 0;'>{search_type_label(d.get('search_type',''))} | {str(d.get('analyzed_at',''))[:10]}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='font-size:0.7rem;color:#475569;margin:0;'>{search_type_label(d.get('search_type',''))} | {str(d.get('analyzed_at',''))[:10]}</div>", unsafe_allow_html=True)
                     with dc2:
                         if st.button("📋", key=f"work_rep_{d['id']}", help="보고서 작성"):
                             open_report_form(d["url"],"",1,"안전","YouTube",from_tab=4)
@@ -1548,7 +1523,6 @@ else:
             with pn3:
                 if st.button("다음 ▶", disabled=page_num>=total_pages-1, use_container_width=True, key="work_next"):
                     st.session_state.work_page_num += 1; st.rerun()
-
             st.divider()
             st.markdown('<div style="font-size:0.82rem;font-weight:600;color:#94a3b8;margin-bottom:4px;">🚀 바로가기</div>', unsafe_allow_html=True)
             if st.button("🐉 드래곤아이즈 자동 추천 리스트 생성", use_container_width=True, type="primary", key="work_dragon_btn"):
