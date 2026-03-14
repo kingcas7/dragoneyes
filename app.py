@@ -1415,6 +1415,103 @@ else:
                             open_report_form(d["url"], "", 1, "안전", "YouTube", from_tab=4)
                             st.session_state.current_page = "report_form"; st.rerun()
 
+            # ── 역할별 팀 현황 ──
+            _role = get_user_role(user)
+            this_month = date.today().strftime("%Y-%m")
+
+            if _role in ("superadmin", "director"):
+                # 그룹장/디렉터: 팀별 전체 현황
+                st.divider()
+                st.markdown("### 📊 팀별 업무 현황")
+                try:
+                    all_teams_dash = supabase.table("teams").select("*").execute().data or []
+                    all_users_dash = supabase.table("users").select("*").execute().data or []
+                    all_reports_dash = supabase.table("reports").select("user_id,created_at").execute().data or []
+
+                    umap_dash = {u["id"]: u for u in all_users_dash}
+                    # 팀없는 사용자도 포함
+                    teams_to_show = all_teams_dash if all_teams_dash else []
+
+                    if teams_to_show:
+                        for team in teams_to_show:
+                            members = [u for u in all_users_dash if u.get("team_id") == team["id"]]
+                            leader = umap_dash.get(team.get("leader_id",""), {})
+                            with st.expander(f"🏢 **{team['name']}** | 팀장: {leader.get('name','미지정')} | 팀원: {len(members)}명", expanded=True):
+                                if members:
+                                    cols_header = st.columns([2.5, 1, 1, 1, 1])
+                                    cols_header[0].markdown("**이름**")
+                                    cols_header[1].markdown("**이번달**")
+                                    cols_header[2].markdown("**목표**")
+                                    cols_header[3].markdown("**달성률**")
+                                    cols_header[4].markdown("**누적**")
+                                    for m in members:
+                                        m_reports = [r for r in all_reports_dash if r["user_id"] == m["id"]]
+                                        m_month = len([r for r in m_reports if r["created_at"][:7] == this_month])
+                                        m_total = len(m_reports)
+                                        m_target = m.get("monthly_target", 10)
+                                        m_rate = min(int(m_month/m_target*100), 100) if m_target > 0 else 0
+                                        role_icon = {"superadmin":"👑","director":"🎯","team_leader":"👔","user":"👤","admin":"⚙️"}.get(m.get("role_v2","user"),"👤")
+                                        rate_color = "#22c55e" if m_rate >= 100 else ("#f59e0b" if m_rate >= 50 else "#ef4444")
+                                        cols = st.columns([2.5, 1, 1, 1, 1])
+                                        cols[0].write(f"{role_icon} {m['name']}")
+                                        cols[1].write(f"{m_month}건")
+                                        cols[2].write(f"{m_target}건")
+                                        cols[3].markdown(f"<span style='color:{rate_color};font-weight:700'>{m_rate}%</span>", unsafe_allow_html=True)
+                                        cols[4].write(f"{m_total}건")
+                                else:
+                                    st.caption("팀원 없음")
+                    else:
+                        st.info("생성된 팀이 없습니다. 조직관리 탭에서 팀을 만들어주세요.")
+
+                    # 팀 미배정 사용자
+                    no_team = [u for u in all_users_dash if not u.get("team_id")]
+                    if no_team:
+                        with st.expander(f"👥 **팀 미배정** | {len(no_team)}명"):
+                            for u in no_team:
+                                u_reports = [r for r in all_reports_dash if r["user_id"] == u["id"]]
+                                u_month = len([r for r in u_reports if r["created_at"][:7] == this_month])
+                                st.caption(f"👤 {u['name']} ({u.get('email','')}) | 이번달 {u_month}건")
+                except Exception as e:
+                    st.warning(f"팀 현황 불러오기 실패: {str(e)}")
+
+            elif _role == "team_leader":
+                # 팀장: 내 팀원 스코어
+                st.divider()
+                st.markdown("### 👥 내 팀 현황")
+                try:
+                    my_team_id = user.get("team_id")
+                    if my_team_id:
+                        team_members = supabase.table("users").select("*").eq("team_id", my_team_id).execute().data or []
+                        all_reports_team = supabase.table("reports").select("user_id,created_at").execute().data or []
+
+                        if team_members:
+                            cols_h = st.columns([2.5, 1, 1, 1, 1])
+                            cols_h[0].markdown("**이름**")
+                            cols_h[1].markdown("**이번달**")
+                            cols_h[2].markdown("**목표**")
+                            cols_h[3].markdown("**달성률**")
+                            cols_h[4].markdown("**누적**")
+                            for m in team_members:
+                                m_reports = [r for r in all_reports_team if r["user_id"] == m["id"]]
+                                m_month = len([r for r in m_reports if r["created_at"][:7] == this_month])
+                                m_total = len(m_reports)
+                                m_target = m.get("monthly_target", 10)
+                                m_rate = min(int(m_month/m_target*100), 100) if m_target > 0 else 0
+                                is_me = "⭐ " if m["id"] == user["id"] else ""
+                                rate_color = "#22c55e" if m_rate >= 100 else ("#f59e0b" if m_rate >= 50 else "#ef4444")
+                                cols = st.columns([2.5, 1, 1, 1, 1])
+                                cols[0].write(f"{is_me}{m['name']}")
+                                cols[1].write(f"{m_month}건")
+                                cols[2].write(f"{m_target}건")
+                                cols[3].markdown(f"<span style='color:{rate_color};font-weight:700'>{m_rate}%</span>", unsafe_allow_html=True)
+                                cols[4].write(f"{m_total}건")
+                        else:
+                            st.info("팀원이 없습니다.")
+                    else:
+                        st.info("배정된 팀이 없습니다.")
+                except Exception as e:
+                    st.warning(f"팀 현황 불러오기 실패: {str(e)}")
+
         # ── 드래곤파더 채팅 (오른쪽) ──
         with right_col:
             st.markdown("""
