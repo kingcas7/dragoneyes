@@ -1393,8 +1393,6 @@ else:
     # ══════════════════════════════
     elif page == "work_page":
         lang = st.session_state.get("lang", "ko")
-
-        # 데이터 준비
         token_info = can_use_dragon(user["id"])
         all_my = supabase.table("reports").select("id,severity,created_at").eq("user_id", user["id"]).execute()
         df_my = pd.DataFrame(all_my.data) if all_my.data else pd.DataFrame()
@@ -1405,43 +1403,56 @@ else:
         history_cnt = len(st.session_state.search_results) + len(st.session_state.recommend_results)
         _role = get_user_role(user)
 
-        # ① 달성률 카드 (전체 너비)
-        st.markdown(f"""
-        <div style="display:flex; gap:6px; margin:10px 0 6px 0;">
-            <div style="flex:1; background:linear-gradient(135deg,#0ea5e9,#06b6d4); border-radius:8px; padding:5px 8px; text-align:center;">
-                <div style="font-size:0.62rem; color:#e0f7ff;">이번달 보고서</div>
-                <div style="font-size:1rem; font-weight:700; color:#fff;">{month_cnt}건</div>
-                <div style="font-size:0.58rem; color:#bae6fd;">목표 {target}건</div>
+        # 달성률 카드
+        st.markdown(f"""<div style="display:flex;gap:6px;margin:10px 0 6px 0;">
+            <div style="flex:1;background:linear-gradient(135deg,#0ea5e9,#06b6d4);border-radius:8px;padding:5px 8px;text-align:center;">
+                <div style="font-size:0.62rem;color:#e0f7ff;">이번달 보고서</div>
+                <div style="font-size:1rem;font-weight:700;color:#fff;">{month_cnt}건</div>
+                <div style="font-size:0.58rem;color:#bae6fd;">목표 {target}건</div>
             </div>
-            <div style="flex:1; background:linear-gradient(135deg,#10b981,#34d399); border-radius:8px; padding:5px 8px; text-align:center;">
-                <div style="font-size:0.62rem; color:#d1fae5;">달성률</div>
-                <div style="font-size:1rem; font-weight:700; color:#fff;">{rate}%</div>
-                <div style="font-size:0.58rem; color:#a7f3d0;">목표 대비</div>
+            <div style="flex:1;background:linear-gradient(135deg,#10b981,#34d399);border-radius:8px;padding:5px 8px;text-align:center;">
+                <div style="font-size:0.62rem;color:#d1fae5;">달성률</div>
+                <div style="font-size:1rem;font-weight:700;color:#fff;">{rate}%</div>
+                <div style="font-size:0.58rem;color:#a7f3d0;">목표 대비</div>
             </div>
-            <div style="flex:1; background:linear-gradient(135deg,#f59e0b,#fbbf24); border-radius:8px; padding:5px 8px; text-align:center;">
-                <div style="font-size:0.62rem; color:#fef3c7;">드래곤 토큰</div>
-                <div style="font-size:1rem; font-weight:700; color:#fff;">{token_info["monthly_remaining"]}회</div>
-                <div style="font-size:0.58rem; color:#fde68a;">남음</div>
+            <div style="flex:1;background:linear-gradient(135deg,#f59e0b,#fbbf24);border-radius:8px;padding:5px 8px;text-align:center;">
+                <div style="font-size:0.62rem;color:#fef3c7;">드래곤 토큰</div>
+                <div style="font-size:1rem;font-weight:700;color:#fff;">{token_info["monthly_remaining"]}회</div>
+                <div style="font-size:0.58rem;color:#fde68a;">남음</div>
             </div>
-            <div style="flex:1; background:linear-gradient(135deg,#ec4899,#f472b6); border-radius:8px; padding:5px 8px; text-align:center;">
-                <div style="font-size:0.62rem; color:#fce7f3;">탐색 히스토리</div>
-                <div style="font-size:1rem; font-weight:700; color:#fff;">{history_cnt}건</div>
-                <div style="font-size:0.58rem; color:#fbcfe8;">대기중</div>
+            <div style="flex:1;background:linear-gradient(135deg,#ec4899,#f472b6);border-radius:8px;padding:5px 8px;text-align:center;">
+                <div style="font-size:0.62rem;color:#fce7f3;">탐색 히스토리</div>
+                <div style="font-size:1rem;font-weight:700;color:#fff;">{history_cnt}건</div>
+                <div style="font-size:0.58rem;color:#fbcfe8;">대기중</div>
             </div>
         </div>
-        <div style="background:#334155; border-radius:4px; height:4px; margin:0 0 6px 0;">
-            <div style="background:{"#22c55e" if rate>=100 else "#f59e0b" if rate>=50 else "#e94560"}; width:{rate}%; height:4px; border-radius:4px;"></div>
-        </div>
-        """, unsafe_allow_html=True)
+        <div style="background:#334155;border-radius:4px;height:4px;margin:0 0 6px 0;">
+            <div style="background:{"#22c55e" if rate>=100 else "#f59e0b" if rate>=50 else "#e94560"};width:{rate}%;height:4px;border-radius:4px;"></div>
+        </div>""", unsafe_allow_html=True)
 
-        # ② 좌우 2컬럼
+        # 페이지네이션 데이터 미리 계산 (컬럼 밖에서)
+        PAGE_SIZE = 10
+        if "work_page_num" not in st.session_state:
+            st.session_state.work_page_num = 0
+        assigned_all = supabase.table("analyzed_urls").select("*").eq("assigned_to",user["id"]).eq("reported",False).order("analyzed_at",desc=True).execute()
+        assigned_data = assigned_all.data if assigned_all.data else []
+        total = len(assigned_data)
+        total_pages = max(1,(total+PAGE_SIZE-1)//PAGE_SIZE)
+        page_num = st.session_state.work_page_num
+        paged = assigned_data[page_num*PAGE_SIZE:(page_num+1)*PAGE_SIZE]
+
+        # 타이틀 행 (컬럼 밖, HTML로 나란히)
+        st.markdown(f"""<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:0 0 6px 0;">
+            <div style="font-size:1rem;font-weight:700;color:#1e293b;">📊 팀별 업무 현황</div>
+            <div style="font-size:1rem;font-weight:700;color:#1e293b;">⚠️ 내게 배정된 미작성 목록
+                <span style="font-size:0.72rem;font-weight:400;color:#64748b;margin-left:6px;">총 {total}건 | {page_num+1}/{total_pages}p</span>
+            </div>
+        </div>""", unsafe_allow_html=True)
+
+        # 좌우 컬럼
         work_left, work_right = st.columns([1, 1])
 
-        # ── 왼쪽: 팀별 업무 현황 ──
         with work_left:
-            st.markdown('<div style="font-size:1rem; font-weight:700; color:#1e293b; margin:0 0 4px 0;">📊 팀별 업무 현황</div>', unsafe_allow_html=True)
-            st.markdown('<div style="font-size:0.75rem; color:transparent; margin-bottom:2px;">placeholder</div>', unsafe_allow_html=True)
-
             if _role in ("superadmin","group_leader","group_leader_2","group_leader_3","group_leader_4","director","director_2","director_3","director_4"):
                 try:
                     all_teams_dash = supabase.table("teams").select("*").execute().data or []
@@ -1513,21 +1524,7 @@ else:
             else:
                 st.info("팀에 배정되지 않았습니다.")
 
-        # ── 오른쪽: 미작성 목록 + 바로가기 ──
         with work_right:
-
-            PAGE_SIZE = 10
-            if "work_page_num" not in st.session_state:
-                st.session_state.work_page_num = 0
-            assigned_all = supabase.table("analyzed_urls").select("*").eq("assigned_to",user["id"]).eq("reported",False).order("analyzed_at",desc=True).execute()
-            assigned_data = assigned_all.data if assigned_all.data else []
-            total = len(assigned_data)
-            total_pages = max(1,(total+PAGE_SIZE-1)//PAGE_SIZE)
-            page_num = st.session_state.work_page_num
-            paged = assigned_data[page_num*PAGE_SIZE:(page_num+1)*PAGE_SIZE]
-
-            st.markdown(f'<div style="font-size:0.75rem; color:#64748b; margin-bottom:2px;">총 {total}건 | {page_num+1}/{total_pages} 페이지</div>', unsafe_allow_html=True)
-
             with st.container(height=290):
                 if not paged:
                     st.info("✅ 배정된 미작성 목록이 없습니다!")
