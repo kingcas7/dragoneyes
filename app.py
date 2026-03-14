@@ -1105,26 +1105,20 @@ else:
     """, unsafe_allow_html=True)
 
     if _show_admin_btn:
-        h1, h_right = st.columns([2.5, 7.5])
+        h1, h_right = st.columns([3, 7])
     else:
-        h1, h_right = st.columns([2.5, 7.5])
+        h1, h_right = st.columns([3, 7])
 
     with h1:
         title_text = t("app_title").replace("🐉 ", "").replace("🐉 ", "")
         st.markdown(f'<div style="font-size:1.6rem; font-weight:700; display:flex; align-items:center; gap:6px; margin:0; padding:4px 0">🐉 {title_text}</div>', unsafe_allow_html=True)
 
     with h_right:
-        # 오른쪽 정렬 버튼들을 HTML로 구성
+        # 버튼들을 오른쪽 정렬 — 빈 공간 왼쪽에, 버튼들 오른쪽에
         if _show_admin_btn:
-            admin_btn_html = f"""<a href="?admin=1" style="display:none"></a>"""
-        
-        # Streamlit 버튼을 오른쪽 정렬 컨테이너 안에
-        btn_cols = st.columns([0.5, 0.3, 0.3, 0.3, 0.55, 0.55, 0.55, 0.6, 0.55, 0.3] if _show_admin_btn else [0.5, 0.3, 0.3, 0.3, 0.55, 0.55, 0.55, 0.55, 0.3])
-        
-        if _show_admin_btn:
-            bc_ko, bc_en, bc_jp, bc_work, bc_home, bc_write, bc_notice, bc_admin, bc_profile, bc_logout = btn_cols
+            spacer, bc_ko, bc_en, bc_jp, bc_work, bc_home, bc_write, bc_notice, bc_admin, bc_profile, bc_logout = st.columns([1.2, 0.28, 0.28, 0.28, 0.5, 0.42, 0.42, 0.52, 0.52, 0.5, 0.25])
         else:
-            bc_ko, bc_en, bc_jp, bc_work, bc_home, bc_write, bc_notice, bc_profile, bc_logout = btn_cols
+            spacer, bc_ko, bc_en, bc_jp, bc_work, bc_home, bc_write, bc_notice, bc_profile, bc_logout = st.columns([1.5, 0.28, 0.28, 0.28, 0.5, 0.42, 0.42, 0.52, 0.5, 0.25])
 
         with bc_ko:
             if st.button("🇰🇷", use_container_width=True, key="flag_ko", help="한국어"):
