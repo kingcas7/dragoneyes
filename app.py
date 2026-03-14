@@ -1668,7 +1668,7 @@ else:
         # 메인 2컬럼 레이아웃 — 드래곤파더 왼쪽, 모니터링 오른쪽
         left_col, right_col = st.columns([1, 1])
 
-        # ── 왼쪽: 드래곤파더 ──
+        # ── 왼쪽: 드래곤파더 + 모니터링 버튼 ──
         with left_col:
             st.markdown("""
             <style>
@@ -1677,7 +1677,7 @@ else:
                 border: 1px solid #e94560;
                 border-radius: 12px;
                 box-shadow: 0 4px 24px rgba(233,69,96,0.35), 0 0 40px rgba(15,52,96,0.5);
-                padding: 1.2rem 1rem 0.5rem 1rem;
+                padding: 1rem 1rem 0.5rem 1rem;
             }
             </style>
             """, unsafe_allow_html=True)
@@ -1787,38 +1787,29 @@ else:
                         st.session_state.chat_history.pop()
                         st.error(f"오류: {str(e)}")
 
-        # ── 오른쪽: 모니터링 + 통계 ──
-        with right_col:
-            # 드래곤아이즈 추천 큰 버튼
-            st.markdown("""
-            <div style="font-size:0.85rem; font-weight:600; color:#94a3b8; margin-bottom:8px;">🐉 모니터링</div>
-            """, unsafe_allow_html=True)
+            st.divider()
+
+            # ── 모니터링 버튼 (드래곤파더 아래) ──
+            st.markdown('<div style="font-size:0.82rem; font-weight:600; color:#94a3b8; margin-bottom:6px;">🐉 모니터링</div>', unsafe_allow_html=True)
             if st.button("🐉 드래곤아이즈 자동 추천 리스트 생성", use_container_width=True, type="primary", key="home_dragon_btn"):
                 st.session_state.current_page = "home"
                 st.session_state.active_tab = 3
                 st.rerun()
-
-            st.markdown("<div style='margin-top:8px;'></div>", unsafe_allow_html=True)
-
-            # 빠른 접근 버튼들
             qa1, qa2, qa3 = st.columns(3)
             with qa1:
-                if st.button("📝 텍스트\n분석", use_container_width=True, key="home_text_btn"):
+                if st.button("📝 텍스트 분석", use_container_width=True, key="home_text_btn"):
                     st.session_state.current_page = "home"; st.rerun()
             with qa2:
-                if st.button("🎬 유튜브\n분석", use_container_width=True, key="home_yt_btn"):
+                if st.button("🎬 유튜브 분석", use_container_width=True, key="home_yt_btn"):
                     st.session_state.current_page = "home"; st.rerun()
             with qa3:
-                if st.button("📁 보고서\n목록", use_container_width=True, key="home_rep_btn"):
+                if st.button("📁 보고서 목록", use_container_width=True, key="home_rep_btn"):
                     st.session_state.current_page = "home"; st.rerun()
 
-            st.divider()
-
-            # ── 통계 영역 ──
-            st.markdown("""
-            <div style="font-size:0.85rem; font-weight:600; color:#94a3b8; margin-bottom:8px;">📊 통계 & 현황</div>
-            """, unsafe_allow_html=True)
-
+        # ── 오른쪽: 통계 + 위젯 공간 ──
+        with right_col:
+            # 통계 영역 — 바짝 위로
+            st.markdown('<div style="font-size:0.82rem; font-weight:600; color:#94a3b8; margin-bottom:6px;">📊 통계 & 현황</div>', unsafe_allow_html=True)
             try:
                 all_my_home = supabase.table("reports").select("id,severity,created_at").eq("user_id", user["id"]).execute()
                 df_home = pd.DataFrame(all_my_home.data) if all_my_home.data else pd.DataFrame()
@@ -1834,23 +1825,22 @@ else:
                 sm3.metric("🐉 드래곤 토큰", f"{token_info_h['monthly_remaining']}회")
 
                 st.markdown(f"""
-                <div style="background:#334155; border-radius:4px; height:8px; margin:4px 0 12px 0;">
+                <div style="background:#334155; border-radius:4px; height:8px; margin:4px 0 10px 0;">
                     <div style="background:{'#22c55e' if rate_h>=100 else '#f59e0b' if rate_h>=50 else '#e94560'}; width:{rate_h}%; height:8px; border-radius:4px;"></div>
                 </div>
                 """, unsafe_allow_html=True)
             except:
                 pass
 
-            # 빈 통계 공간 (향후 확장)
+            # 향후 위젯 공간
             st.markdown("""
             <div style="
                 border: 2px dashed #334155;
                 border-radius: 12px;
-                padding: 40px 24px;
+                padding: 60px 24px;
                 text-align: center;
                 color: #475569;
                 font-size: 0.85rem;
-                margin-top: 8px;
             ">
                 📈 향후 통계 위젯이 추가될 공간입니다
             </div>
