@@ -1659,16 +1659,13 @@ else:
                     df_prof = pd.DataFrame(preview_data)
                     st.dataframe(df_prof, use_container_width=True)
 
-                    # 엑셀 다운로드
-                    excel_buf = io.BytesIO()
-                    with pd.ExcelWriter(excel_buf, engine="openpyxl") as writer:
-                        df_prof.to_excel(writer, index=False, sheet_name="직원정보")
-                    excel_buf.seek(0)
+                    # CSV 다운로드 (openpyxl 불필요)
+                    csv_data = df_prof.to_csv(index=False, encoding="utf-8-sig")
                     st.download_button(
-                        label="📥 전체 직원 정보 엑셀 다운로드",
-                        data=excel_buf,
-                        file_name=f"DragonEyes_직원정보_{date.today().strftime('%Y%m%d')}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        label="📥 전체 직원 정보 CSV 다운로드",
+                        data=csv_data.encode("utf-8-sig"),
+                        file_name=f"DragonEyes_직원정보_{date.today().strftime('%Y%m%d')}.csv",
+                        mime="text/csv",
                         use_container_width=True,
                         type="primary",
                     )
@@ -3143,7 +3140,17 @@ else:
                                     "드래곤토큰": f"{ti['used_count']}/{MONTHLY_DRAGON_LIMIT+ti.get('extra_tokens',0)}회"
                                 })
                             st.caption(f"전체 사용자 {len(summary)}명")
-                            st.dataframe(pd.DataFrame(summary), use_container_width=True)
+                            df_summary = pd.DataFrame(summary)
+                            st.dataframe(df_summary, use_container_width=True)
+                            # CSV 다운로드
+                            csv_summary = df_summary.to_csv(index=False, encoding="utf-8-sig")
+                            st.download_button(
+                                label="📥 전체 사용자 현황 CSV 다운로드",
+                                data=csv_summary.encode("utf-8-sig"),
+                                file_name=f"DragonEyes_전체사용자_{date.today().strftime('%Y%m%d')}.csv",
+                                mime="text/csv",
+                                use_container_width=True,
+                            )
 
                     with view_tab2:
                         # 그룹 역할 정의
