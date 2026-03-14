@@ -3113,31 +3113,118 @@ else:
                 with admin_tab1:
                     all_users_data = supabase.table("users").select("*").execute()
                     all_reps = supabase.table("reports").select("*").execute()
-                    if all_users_data.data and all_reps.data:
-                        df_r = pd.DataFrame(all_reps.data)
-                        df_r["created_at"] = pd.to_datetime(df_r["created_at"])
-                        this_month = date.today().strftime("%Y-%m")
-                        df_r["month"] = df_r["created_at"].dt.strftime("%Y-%m")
-                        summary = []
-                        for u in all_users_data.data:
-                            ur = df_r[df_r["user_id"]==u["id"]]
-                            mr = ur[ur["month"]==this_month]
-                            tgt = u.get("monthly_target",10)
-                            rt = min(int(len(mr)/tgt*100),100) if tgt>0 else 0
-                            ti = get_token_info(u["id"])
-                            # ★ 수정: role_label() 함수 사용
-                            _role_label_str = role_label(u.get("role_v2","user"))
-                            summary.append({
-                                "역할": _role_label_str,
-                                "이름": u["name"] + "  (" + u.get("email","") + ")",
-                                "이번달": len(mr),
-                                "목표": tgt,
-                                "달성률": f"{rt}%",
-                                "누적": len(ur),
-                                "드래곤토큰": f"{ti['used_count']}/{MONTHLY_DRAGON_LIMIT+ti.get('extra_tokens',0)}회"
-                            })
-                        st.dataframe(pd.DataFrame(summary), use_container_width=True)
 
+                    # ── 전체 / 그룹별 보기 탭 ──
+                    view_tab1, view_tab2 = st.tabs(["👥 전체 사용자 현황", "🏢 그룹별 사용자 현황"])
+
+                    with view_tab1:
+                        if all_users_data.data and all_reps.data:
+                            df_r = pd.DataFrame(all_reps.data)
+                            df_r["created_at"] = pd.to_datetime(df_r["created_at"])
+                            this_month = date.today().strftime("%Y-%m")
+                            df_r["month"] = df_r["created_at"].dt.strftime("%Y-%m")
+                            summary = []
+                            for u in all_users_data.data:
+                                ur = df_r[df_r["user_id"]==u["id"]]
+                                mr = ur[ur["month"]==this_month]
+                                tgt = u.get("monthly_target",10)
+                                rt = min(int(len(mr)/tgt*100),100) if tgt>0 else 0
+                                ti = get_token_info(u["id"])
+                                _role_label_str = role_label(u.get("role_v2","user"))
+                                summary.append({
+                                    "역할": _role_label_str,
+                                    "이름": u["name"] + "  (" + u.get("email","") + ")",
+                                    "이번달": len(mr),
+                                    "목표": tgt,
+                                    "달성률": f"{rt}%",
+                                    "누적": len(ur),
+                                    "드래곤토큰": f"{ti['used_count']}/{MONTHLY_DRAGON_LIMIT+ti.get('extra_tokens',0)}회"
+                                })
+                            st.caption(f"전체 사용자 {len(summary)}명")
+                            st.dataframe(pd.DataFrame(summary), use_container_width=True)
+
+                    with view_tab2:
+                        # 그룹 역할 정의
+                        group_options = {
+                            "전체 보기": None,
+                            "👑 전체 관리자 (superadmin)": ["superadmin"],
+                            "🔱 제1 그룹 (그룹장+디렉터)": ["group_leader", "director"],
+                            "🔱 제2 그룹 (그룹장+디렉터)": ["group_leader_2", "director_2"],
+                            "🔱 제3 그룹 (그룹장+디렉터)": ["group_leader_3", "director_3"],
+                            "🔱 제4 그룹 (그룹장+디렉터)": ["group_leader_4", "director_4"],
+                            "👔 팀장": ["team_leader"],
+                            "👤 일반사용자": ["user"],
+                        }
+
+                        selected_group = st.selectbox(
+                            "🔍 그룹 선택",
+                            options=list(group_options.keys()),
+                            key="admin_group_filter"
+                        )
+
+                        if all_users_data.data and all_reps.data:
+                            df_r2 = pd.DataFrame(all_reps.data)
+                            df_r2["created_at"] = pd.to_datetime(df_r2["created_at"])
+                            this_month = date.today().strftime("%Y-%m")
+                            df_r2["month"] = df_r2["created_at"].dt.strftime("%Y-%m")
+
+                            # 필터링
+                            target_roles = group_options[selected_group]
+                            if target_roles:
+                                filtered_users = [u for u in all_users_data.data if u.get("role_v2","user") in target_roles]
+                            else:
+                                filtered_users = all_users_data.data
+
+                            if not filtered_users:
+                                st.info("해당 그룹에 사용자가 없습니다.")
+                            else:
+                                st.caption(f"**{selected_group}** — {len(filtered_users)}명")
+
+                                # 헤더
+                                hc = st.columns([2, 2, 1, 1, 1, 1, 1.5])
+                                hc[0].markdown("**이름**")
+                                hc[1].markdown("**역할**")
+                                hc[2].markdown("**이번달**")
+                                hc[3].markdown("**목표**")
+                                hc[4].markdown("**달성률**")
+                                hc[5].markdown("**누적**")
+                                hc[6].markdown("**드래곤토큰**")
+                                st.divider()
+
+                                for u in filtered_users:
+                                    ur = df_r2[df_r2["user_id"]==u["id"]]
+                                    mr = ur[ur["month"]==this_month]
+                                    tgt = u.get("monthly_target",10)
+                                    rt = min(int(len(mr)/tgt*100),100) if tgt>0 else 0
+                                    ti = get_token_info(u["id"])
+                                    rate_color = "#22c55e" if rt>=100 else ("#f59e0b" if rt>=50 else "#ef4444")
+                                    r_ico = role_icon(u.get("role_v2","user"))
+
+                                    rc = st.columns([2, 2, 1, 1, 1, 1, 1.5])
+                                    rc[0].write(f"{r_ico} **{u['name']}**")
+                                    rc[1].caption(u.get("email",""))
+                                    rc[2].write(f"{len(mr)}건")
+                                    rc[3].write(f"{tgt}건")
+                                    rc[4].markdown(f"<span style='color:{rate_color};font-weight:700'>{rt}%</span>", unsafe_allow_html=True)
+                                    rc[5].write(f"{len(ur)}건")
+                                    rc[6].write(f"{ti['used_count']}/{MONTHLY_DRAGON_LIMIT+ti.get('extra_tokens',0)}회")
+
+                                # 요약 통계
+                                st.divider()
+                                total_month = sum(len(df_r2[(df_r2["user_id"]==u["id"]) & (df_r2["month"]==this_month)]) for u in filtered_users)
+                                total_all = sum(len(df_r2[df_r2["user_id"]==u["id"]]) for u in filtered_users)
+                                avg_rate = sum(
+                                    min(int(len(df_r2[(df_r2["user_id"]==u["id"]) & (df_r2["month"]==this_month)]) / max(u.get("monthly_target",10),1) * 100), 100)
+                                    for u in filtered_users
+                                ) // max(len(filtered_users), 1)
+
+                                sc1, sc2, sc3, sc4 = st.columns(4)
+                                sc1.metric("👥 인원", f"{len(filtered_users)}명")
+                                sc2.metric("📅 이번달 합계", f"{total_month}건")
+                                sc3.metric("📊 평균 달성률", f"{avg_rate}%")
+                                sc4.metric("📁 누적 합계", f"{total_all}건")
+
+                    st.divider()
                     st.subheader("💬 팀원에게 코멘트")
                     all_users_data2 = supabase.table("users").select("*").execute()
                     tu_name = st.selectbox(t("select_member"), [u["name"] + " (" + u.get("email","") + ")" for u in all_users_data2.data])
