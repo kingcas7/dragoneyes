@@ -1447,7 +1447,7 @@ else:
 
         # ── 왼쪽: 팀별 업무 현황 ──
         with work_left:
-            st.markdown("<div style='margin-top:-1rem'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-top:-3.5rem'></div>", unsafe_allow_html=True)
 
             if _role in ("superadmin","group_leader","group_leader_2","group_leader_3","group_leader_4","director","director_2","director_3","director_4"):
                 try:
