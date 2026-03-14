@@ -1691,19 +1691,7 @@ else:
     elif page == "home_landing":
         lang = st.session_state.get("lang", "ko")
 
-        # ── 드래곤파더 타이틀 (컬럼 밖, 전체 너비) ──
-        title_c1, title_c2 = st.columns([3, 2])
-        with title_c1:
-            st.markdown('''
-            <div style="display:flex; flex-direction:column; padding:4px 0 2px 0;">
-                <div style="font-size:1.4rem; font-weight:700; color:#16a34a; line-height:1.2;">🐲 드래곤파더</div>
-                <div style="font-size:0.85rem; color:#4ade80; margin-top:1px;">✨ Agent AI 드래곤파더</div>
-            </div>
-            ''', unsafe_allow_html=True)
-        with title_c2:
-            st.markdown('<div style="font-size:0.82rem; font-weight:600; color:#94a3b8; padding-top:6px;">📊 통계 & 현황</div>', unsafe_allow_html=True)
-
-        # 메인 2컬럼 레이아웃
+        # 메인 2컬럼 레이아웃 — 드래곤파더 왼쪽, 통계+모니터링 오른쪽
         left_col, right_col = st.columns([1, 1])
 
         # ── 왼쪽: 드래곤파더 ──
@@ -1715,7 +1703,7 @@ else:
                 border: 1px solid #e94560;
                 border-radius: 12px;
                 box-shadow: 0 4px 24px rgba(233,69,96,0.35), 0 0 40px rgba(15,52,96,0.5);
-                padding: 0.6rem 1rem 0.5rem 1rem;
+                padding: 1rem 1rem 0.5rem 1rem;
             }
             </style>
             """, unsafe_allow_html=True)
@@ -1724,10 +1712,17 @@ else:
             chat_info = can_use_chat(user["id"])
             da1, da2 = st.columns([3, 2])
             with da1:
-                st.markdown("", unsafe_allow_html=True)  # 타이틀은 위로 이동
+                st.markdown('''
+                <div style="padding-top:4px;">
+                    <div style="font-size:1.4rem; font-weight:700; color:#1d4ed8; line-height:1.2;">🐲 드래곤파더</div>
+                    <div style="font-size:0.85rem; color:#60a5fa; margin-top:2px;">✨ Agent AI 드래곤파더</div>
+                </div>
+                ''', unsafe_allow_html=True)
             with da2:
+                st.markdown("<div style='padding-top:6px;'>", unsafe_allow_html=True)
                 if st.button("🐲 큰 화면에서 대화하기", key="dragon_fs_btn", use_container_width=True):
                     go_to("dragon_chat"); st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
 
             today_u = chat_info.get('today_used',0)
             week_u = chat_info.get('week_used',0)
@@ -1820,6 +1815,8 @@ else:
 
         # ── 오른쪽: 통계 (상단) + 모니터링 버튼 (하단) ──
         with right_col:
+
+            st.markdown('<div style="font-size:0.82rem; font-weight:600; color:#94a3b8; margin:0 0 4px 0;">📊 통계 & 현황</div>', unsafe_allow_html=True)
 
             # ① 통계 카드
             try:
