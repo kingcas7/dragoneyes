@@ -1431,7 +1431,33 @@ else:
             </div>
             """, unsafe_allow_html=True)
 
-            chat_box = st.container(height=320)
+            # ── 공지사항 미리보기 ──
+            try:
+                recent_ann = supabase.table("announcements").select("*").eq("is_deleted", False).order("created_at", desc=True).limit(3).execute().data or []
+                my_reads_home = [r["announcement_id"] for r in (supabase.table("announcement_reads").select("announcement_id").eq("user_id", user["id"]).execute().data or [])]
+                unread_home = [a for a in recent_ann if a["id"] not in my_reads_home]
+                if unread_home:
+                    ann_icon = {"notice":"🔵","work_order":"🟠","urgent":"🚨"}
+                    for ann_h in unread_home[:2]:
+                        icon_h = ann_icon.get(ann_h["type"],"📢")
+                        ann_date_h = str(ann_h.get("created_at",""))[:10]
+                        st.markdown(f"""
+                        <div style="background:linear-gradient(90deg,rgba(233,69,96,0.15),rgba(15,52,96,0.3));
+                            border-left:3px solid #e94560; border-radius:6px;
+                            padding:6px 10px; margin:4px 0; font-size:0.82rem;">
+                            {icon_h} <strong style="color:#f1f5f9;">{ann_h['title']}</strong>
+                            <span style="color:#94a3b8; margin-left:6px; font-size:0.75rem;">{ann_date_h}</span>
+                            <span style="background:#e94560; color:white; border-radius:4px;
+                                padding:1px 5px; font-size:0.68rem; margin-left:4px;">미확인</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    if st.button("📢 공지사항 모두 보기", key="ann_see_all_home", use_container_width=False):
+                        st.session_state.active_tab = 8
+                        st.rerun()
+            except:
+                pass
+
+            chat_box = st.container(height=260)
             with chat_box:
                 if not st.session_state.chat_history:
                     st.caption("💡 예: '이 댓글이 그루밍 패턴인지 분석해줘'")
@@ -1588,9 +1614,9 @@ else:
             ("notice",  "📢 공지사항"),
             ("chat",    "🐲 드래곤파더"),
         ]
-        if is_admin or is_lead:
+        if is_admin or is_lead or is_super:
             tab_defs.append(("org", "🏢 조직관리"))
-        if is_admin:
+        if is_admin or is_super:
             tab_defs.append(("admin", t("tab_admin")))
 
         # active_tab=3이면 dragon 탭을 맨 앞으로 이동
@@ -2768,7 +2794,7 @@ else:
                                             supabase.table("work_orders").update({"status":"done"}).eq("id", wo["id"]).execute()
                                             st.rerun()
 
-        if is_admin and tab8:
+        if (is_admin or is_super) and tab8:
             with tab8:
                 st.subheader(t("admin_title"))
                 admin_tab1, admin_tab2, admin_tab3, admin_tab4, admin_tab5, admin_tab6 = st.tabs([
