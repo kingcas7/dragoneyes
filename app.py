@@ -160,6 +160,45 @@ CHAT_WEEKLY_LIMIT = 100
 CHAT_MONTHLY_LIMIT = 400
 
 # ══════════════════════════════
+# 역할 레이블 매핑 (중앙 관리)
+# ══════════════════════════════
+ROLE_LABELS = {
+    "superadmin":     "👑 전체 관리자",
+    # 1그룹
+    "group_leader":   "🔱 1그룹 리더",
+    "director":       "🎯 1그룹 디렉터",
+    # 2그룹
+    "group_leader_2": "🔱 2그룹 리더",
+    "director_2":     "🎯 2그룹 디렉터",
+    # 3그룹
+    "group_leader_3": "🔱 3그룹 리더",
+    "director_3":     "🎯 3그룹 디렉터",
+    # 공통
+    "team_leader":    "👔 팀장",
+    "user":           "👤 일반사용자",
+    "admin":          "⚙️ 관리자",
+}
+
+ROLE_ICONS = {
+    "superadmin":     "👑",
+    "group_leader":   "🔱",
+    "group_leader_2": "🔱",
+    "group_leader_3": "🔱",
+    "director":       "🎯",
+    "director_2":     "🎯",
+    "director_3":     "🎯",
+    "team_leader":    "👔",
+    "user":           "👤",
+    "admin":          "⚙️",
+}
+
+def role_label(role_v2):
+    return ROLE_LABELS.get(role_v2, "👤 일반사용자")
+
+def role_icon(role_v2):
+    return ROLE_ICONS.get(role_v2, "👤")
+
+# ══════════════════════════════
 # 다국어 딕셔너리
 # ══════════════════════════════
 LANG = {
@@ -398,8 +437,8 @@ defaults = {
     "selected_report": None,
     "search_results": [],
     "recommend_results": [],
-    "chat_history": [],  # 대화형 AI 히스토리
-    "dragon_fullscreen": False,  # 드래곤파더 전체화면
+    "chat_history": [],
+    "dragon_fullscreen": False,
 }
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -428,22 +467,30 @@ if "token" in params and st.session_state.user is None:
 # ══════════════════════════════
 
 def get_user_role(user):
-    """역할 반환: superadmin > director > team_leader > user"""
+    """역할 반환: superadmin > group_leader > director > team_leader > user"""
     return user.get("role_v2") or ("admin" if user.get("role") == "admin" else "user")
 
 def is_superadmin(user):
     return get_user_role(user) == "superadmin"
 
 def is_director(user):
-    return get_user_role(user) in ("superadmin", "director")
+    return get_user_role(user) in (
+        "superadmin",
+        "group_leader", "group_leader_2", "group_leader_3",
+        "director", "director_2", "director_3",
+    )
 
 def is_team_leader(user):
-    return get_user_role(user) in ("superadmin", "director", "team_leader")
+    return get_user_role(user) in (
+        "superadmin",
+        "group_leader", "group_leader_2", "group_leader_3",
+        "director", "director_2", "director_3",
+        "team_leader",
+    )
 
 def can_approve(user, target_user=None):
-    """승인 권한 체크"""
     role = get_user_role(user)
-    if role in ("superadmin", "director"):
+    if role in ("superadmin", "group_leader", "director"):
         return True
     if role == "team_leader":
         if target_user is None:
@@ -470,7 +517,6 @@ def get_team_members(team_id):
         return []
 
 def get_unread_announcements(user_id):
-    """미확인 공지 개수"""
     try:
         all_ann = supabase.table("announcements").select("id").eq("is_deleted", False).execute().data or []
         read_ids = [r["announcement_id"] for r in (supabase.table("announcement_reads").select("announcement_id").eq("user_id", user_id).execute().data or [])]
@@ -488,9 +534,8 @@ def mark_announcement_read(announcement_id, user_id):
         pass
 
 def get_pending_leaves(user_id, role):
-    """승인 대기 중인 휴가 신청"""
     try:
-        if role in ("superadmin", "director"):
+        if role in ("superadmin", "group_leader", "group_leader_2", "group_leader_3", "director", "director_2", "director_3"):
             return supabase.table("leave_requests").select("*").eq("status", "pending").order("created_at", desc=True).execute().data or []
         elif role == "team_leader":
             team_members = supabase.table("users").select("id").eq("team_id", supabase.table("users").select("team_id").eq("id", user_id).execute().data[0].get("team_id")).execute().data or []
@@ -526,11 +571,9 @@ def login(email, password):
     return False, "로그인 실패"
 
 def is_weekday():
-    """평일(월~금) 여부 확인"""
-    return True  # 주말 제한 해제 — 항상 사용 가능
+    return True
 
 def get_chat_token_info(user_id):
-    """월간 채팅 토큰 정보"""
     ym = date.today().strftime("%Y-%m")
     res = supabase.table("chat_tokens").select("*").eq("user_id", user_id).eq("year_month", ym).execute()
     if res.data:
@@ -542,20 +585,17 @@ def get_chat_token_info(user_id):
     return {"used_count": 0, "extra_tokens": 0}
 
 def get_chat_today_count(user_id):
-    """오늘 사용한 채팅 턴 수"""
     today = date.today().isoformat()
     res = supabase.table("chat_logs").select("id").eq("user_id", user_id).gte("created_at", today).execute()
     return len(res.data)
 
 def get_chat_week_count(user_id):
-    """이번 주 월요일부터 오늘까지 사용한 턴 수"""
     today = date.today()
     monday = today - timedelta(days=today.weekday())
     res = supabase.table("chat_logs").select("id").eq("user_id", user_id).gte("created_at", monday.isoformat()).execute()
     return len(res.data)
 
 def can_use_chat(user_id):
-    """채팅 사용 가능 여부 및 현황"""
     if not is_weekday():
         return {"ok": False, "reason": "weekend"}
     info = get_chat_token_info(user_id)
@@ -578,7 +618,6 @@ def can_use_chat(user_id):
     }
 
 def use_chat_token(user_id):
-    """채팅 1턴 사용 처리"""
     ym = date.today().strftime("%Y-%m")
     info = get_chat_token_info(user_id)
     supabase.table("chat_tokens").update({
@@ -587,7 +626,6 @@ def use_chat_token(user_id):
     }).eq("user_id", user_id).eq("year_month", ym).execute()
 
 def add_chat_extra_tokens(user_id, amount):
-    """관리자가 추가 토큰 배정"""
     ym = date.today().strftime("%Y-%m")
     info = get_chat_token_info(user_id)
     supabase.table("chat_tokens").update({
@@ -596,7 +634,6 @@ def add_chat_extra_tokens(user_id, amount):
     }).eq("user_id", user_id).eq("year_month", ym).execute()
 
 def chat_with_ai(messages_history, user_message, lang="ko"):
-    """대화형 AI 호출 (히스토리 3턴 유지 + 웹서치 툴)"""
     system_prompt = {
         "ko": """당신은 Dragon J Holdings의 드래곤파더입니다. DragonEyes 팀의 든든한 AI 동반자입니다.
 아동 온라인 안전, 그루밍 패턴, 보고서 작성 등 업무 질문은 물론, 일상 대화, 고민 상담, 잡담, 유머, 퀴즈 등 어떤 주제든 자유롭게 대화할 수 있습니다.
@@ -612,10 +649,7 @@ Be warm, fun, and supportive. Help the team enjoy their work.""",
 チームメンバーが楽しく快適に仕事できるよう、親しみやすく温かく接してください。"""
     }
 
-    # 웹서치 툴 정의
     tools = [{"type": "web_search_20250305", "name": "web_search"}]
-
-    # 최근 3턴만 유지
     recent = messages_history[-6:] if len(messages_history) > 6 else messages_history
     recent.append({"role": "user", "content": user_message[:300]})
 
@@ -627,7 +661,6 @@ Be warm, fun, and supportive. Help the team enjoy their work.""",
         messages=recent
     )
 
-    # 텍스트 블록만 추출 (tool_use 블록 제외)
     response_text = ""
     for block in msg.content:
         if hasattr(block, "text"):
@@ -635,7 +668,6 @@ Be warm, fun, and supportive. Help the team enjoy their work.""",
     return response_text if response_text else "답변을 생성하지 못했습니다."
 
 def translate_to_english(text):
-    """한국어/일본어 텍스트를 영어로 자동 번역"""
     if not text or len(text.strip()) < 5:
         return ""
     try:
@@ -657,7 +689,6 @@ def save_report(content, result, severity, category, platform="manual"):
         saved_search = list(st.session_state.search_results)
         saved_recommend = list(st.session_state.recommend_results)
 
-        # 한국어/일본어인 경우 영어 번역 자동 생성
         lang = st.session_state.get("lang", "ko")
         result_en = ""
         content_en = ""
@@ -713,7 +744,6 @@ def mark_url_analyzed(url, title="", search_type="keyword", assigned_to=None):
             "assigned_at": datetime.now().isoformat() if assigned_to else None,
         }
         supabase.table("analyzed_urls").upsert(data).execute()
-        # 1000개 초과 시 오래된 것 삭제
         all_urls = supabase.table("analyzed_urls").select("id").order("analyzed_at", desc=False).execute()
         if len(all_urls.data) > 1000:
             old_ids = [r["id"] for r in all_urls.data[:len(all_urls.data)-1000]]
@@ -722,13 +752,11 @@ def mark_url_analyzed(url, title="", search_type="keyword", assigned_to=None):
     except Exception:
         pass
 
-# ── 토큰 관련 ──
 def get_token_info(user_id):
     ym = date.today().strftime("%Y-%m")
     res = supabase.table("dragon_tokens").select("*").eq("user_id", user_id).eq("year_month", ym).execute()
     if res.data:
         return res.data[0]
-    # 없으면 생성
     supabase.table("dragon_tokens").insert({
         "user_id": user_id,
         "year_month": ym,
@@ -789,7 +817,6 @@ def extract_category(text):
 def sev_icon(s):
     return {1:"✅", 2:"🟡", 3:"🟠", 4:"🔴", 5:"🚨"}.get(s, "❓")
 
-# ── 국제기관 가이드라인 뱃지 (공통) ──
 GUIDELINE_BADGE_FULL = """
 <div style="
     background: linear-gradient(135deg, #0a1628 0%, #0d1f3c 100%);
@@ -829,7 +856,6 @@ def go_to(page, from_tab=None):
 
 def go_back():
     st.session_state.current_page = st.session_state.prev_page
-    # 이전 탭도 복원
     st.session_state.active_tab = st.session_state.get("prev_tab", 0)
     st.session_state.prev_page = "home"
 
@@ -858,7 +884,6 @@ def parse_keywords(text):
 
 def generate_recommend_keywords(platform="general"):
     import random
-    # 고정 키워드 풀 - Claude 거부 없이 실제 유튜브에서 위험 콘텐츠가 검색되는 검색어
     keyword_pools = {
         "general": [
             "미성년자 채팅 만남", "초등학생 온라인 만남", "청소년 개인방송",
@@ -868,13 +893,10 @@ def generate_recommend_keywords(platform="general"):
             "미성년자 그루밍", "초등학생 유해 콘텐츠", "청소년 사이버성폭력",
         ],
         "gambling": [
-            # 불법 온라인 도박 유입 경로
             "청소년 불법도박 사이트", "초등학생 온라인도박", "미성년자 스포츠토토",
             "청소년 파워볼 사이트", "중학생 도박 빠짐", "10대 온라인카지노",
-            # 도박 은어/우회 표현 (2024 실태조사 기반)
             "청소년 달팽이게임", "사다리게임 미성년자", "로하이 초등학생",
             "소셜그래프 청소년", "청소년 홀짝게임", "미성년자 바카라",
-            # 도박 유인/모집 관련
             "청소년 도박 알바", "학생 대리베팅 모집", "미성년자 총판 모집",
             "청소년 도박자금 빌려줌", "학생 도박빚 협박", "10대 도박 사기",
         ],
@@ -894,21 +916,19 @@ def generate_recommend_keywords(platform="general"):
         ],
     }
     pool = keyword_pools.get(platform, keyword_pools["general"])
-    # 매번 다른 10개 키워드 랜덤 선택
     return random.sample(pool, min(10, len(pool)))
 
 def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="keyword", assigned_to=None):
     if analyzed_urls is None:
         analyzed_urls = set()
 
-    # ① YouTube 파라미터 강화: 최신순 + 더 많이 가져와서 필터링
     sr = youtube.search().list(
         part="snippet", q=keyword, type="video",
         maxResults=max_results + 10,
         relevanceLanguage="ko",
-        order="date",            # 최신 영상 우선 (위험 트렌드 반영)
-        regionCode="KR",         # 한국 지역 특화
-        safeSearch="none"        # 안전 필터 해제 (모니터링 목적)
+        order="date",
+        regionCode="KR",
+        safeSearch="none"
     ).execute()
 
     results = []
@@ -924,7 +944,6 @@ def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="
         channel = item["snippet"]["channelTitle"]
         published = item["snippet"].get("publishedAt", "")[:10]
 
-        # ② 분석 프롬프트: 아동 안전 모니터링 관점
         msg = client.messages.create(
             model="claude-sonnet-4-20250514", max_tokens=400,
             messages=[{"role": "user", "content": f"""아동 온라인 안전 모니터링 전문가로서 다음 유튜브 영상이 아동에게 위험한지 분석해주세요.
@@ -951,12 +970,11 @@ def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="
         sev = extract_severity(rt)
         cat = extract_category(rt)
 
-        # ③ 사전 필터링: 심각도 3 미만이거나 안전/스팸 분류면 드래곤 추천에서 제외
         if search_type in ["dragon_general", "dragon_roblox", "dragon_minecraft"]:
             if sev < 3 or cat in ["안전", "스팸"]:
                 analyzed_urls.add(url)
                 mark_url_analyzed(url, title, search_type, assigned_to)
-                continue  # 위험하지 않은 영상은 결과에 포함하지 않음
+                continue
 
         mark_url_analyzed(url, title, search_type, assigned_to)
         results.append({
@@ -972,7 +990,6 @@ def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="
 # 로그인 화면
 # ══════════════════════════════
 if st.session_state.user is None:
-    # 로그인 화면 언어 선택
     lc1, lc2, lc3, lc4 = st.columns([6,1,1,1])
     st.markdown("""
     <style>
@@ -1011,12 +1028,16 @@ if st.session_state.user is None:
 # ══════════════════════════════
 else:
     user = st.session_state.user
-    is_admin = user.get("role") == "admin" or user.get("role_v2") in ("superadmin", "director")
+    is_admin = user.get("role") == "admin" or user.get("role_v2") in (
+        "superadmin", "group_leader", "group_leader_2", "group_leader_3",
+        "director", "director_2", "director_3",
+    )
     user_role = get_user_role(user)
     is_super = is_superadmin(user)
     is_dir   = is_director(user)
     is_lead  = is_team_leader(user)
-    is_high  = is_dir  # 그룹장 또는 디렉터
+    is_high  = is_dir
+
     page = st.session_state.current_page
 
     # ── 미확인 공지 팝업 ──
@@ -1047,14 +1068,12 @@ else:
 
     # ── 상단 헤더 ──
     _show_admin_btn = is_admin or is_super
-    # 미확인 공지 개수
     try:
         _unread_cnt = len(get_unread_announcements(user["id"]))
     except:
         _unread_cnt = 0
     _notice_label = f"📢 공지 🔴{_unread_cnt}" if _unread_cnt > 0 else "📢 공지"
 
-    # 헤더 버튼 CSS - 작게
     st.markdown("""
     <style>
     div[data-testid="stHorizontalBlock"] button[kind="secondary"] p {
@@ -1094,13 +1113,13 @@ else:
     with h_notice:
         if st.button(_notice_label, use_container_width=True, key="hdr_notice_btn"):
             st.session_state.current_page = "home"
-            st.session_state.active_tab = 98  # 공지 탭 강제 선택 플래그
+            st.session_state.active_tab = 98
             st.rerun()
     if _show_admin_btn:
         with h_admin:
             if st.button("👑 관리자", use_container_width=True, key="hdr_admin_btn"):
                 st.session_state.current_page = "home"
-                st.session_state.active_tab = 99  # admin 탭 강제 선택 플래그
+                st.session_state.active_tab = 99
                 st.rerun()
     with h8:
         if st.button(t("logout")):
@@ -1111,7 +1130,6 @@ else:
 
     st.divider()
 
-    # ── 서비스 소개 배너 ──
     st.markdown("""
     <div style="
         background: linear-gradient(135deg, #0f3460 0%, #16213e 100%);
@@ -1214,12 +1232,10 @@ else:
             st.divider()
             st.markdown(t("analysis"))
             result_en = r.get("result_en", "")
-            content_en = r.get("content_en", "")
             lang = st.session_state.get("lang", "ko")
             orig_flag = "🇰🇷" if lang == "ko" else ("🇯🇵" if lang == "ja" else "🇺🇸")
 
             if result_en:
-                # 병기 표시
                 rc1, rc2 = st.columns(2)
                 with rc1:
                     st.markdown(f"**{orig_flag} 원문 / 原文**")
@@ -1342,7 +1358,6 @@ else:
     elif page == "home_landing":
         lang = st.session_state.get("lang", "ko")
 
-        # ── 인사말 + 드래곤파더 나란히 ──
         left_col, right_col = st.columns([1, 1])
 
         with left_col:
@@ -1389,7 +1404,7 @@ else:
             st.markdown('<div style="font-size:0.8rem; font-weight:600; color:#94a3b8; margin-bottom:4px;">🚀 바로가기</div>', unsafe_allow_html=True)
             if st.button("🐉 드래곤아이즈 모니터링 자동 추천 리스트 생성", use_container_width=True, type="primary"):
                 st.session_state.current_page = "home"
-                st.session_state.active_tab = 3  # 드래곤아이즈 추천 탭으로 이동
+                st.session_state.active_tab = 3
                 st.rerun()
             gb1, gb2, gb3 = st.columns(3)
             with gb1:
@@ -1419,8 +1434,7 @@ else:
             _role = get_user_role(user)
             this_month = date.today().strftime("%Y-%m")
 
-            if _role in ("superadmin", "director"):
-                # 그룹장/디렉터: 팀별 전체 현황
+            if _role in ("superadmin", "group_leader", "group_leader_2", "group_leader_3", "director", "director_2", "director_3"):
                 st.divider()
                 st.markdown("### 📊 팀별 업무 현황")
                 try:
@@ -1429,7 +1443,6 @@ else:
                     all_reports_dash = supabase.table("reports").select("user_id,created_at").execute().data or []
 
                     umap_dash = {u["id"]: u for u in all_users_dash}
-                    # 팀없는 사용자도 포함
                     teams_to_show = all_teams_dash if all_teams_dash else []
 
                     if teams_to_show:
@@ -1450,10 +1463,11 @@ else:
                                         m_total = len(m_reports)
                                         m_target = m.get("monthly_target", 10)
                                         m_rate = min(int(m_month/m_target*100), 100) if m_target > 0 else 0
-                                        role_icon = {"superadmin":"👑","director":"🎯","team_leader":"👔","user":"👤","admin":"⚙️"}.get(m.get("role_v2","user"),"👤")
+                                        # ★ 수정: ROLE_ICONS 사용
+                                        r_icon = role_icon(m.get("role_v2","user"))
                                         rate_color = "#22c55e" if m_rate >= 100 else ("#f59e0b" if m_rate >= 50 else "#ef4444")
                                         cols = st.columns([2.5, 1, 1, 1, 1])
-                                        cols[0].write(f"{role_icon} {m['name']}")
+                                        cols[0].write(f"{r_icon} {m['name']}")
                                         cols[1].write(f"{m_month}건")
                                         cols[2].write(f"{m_target}건")
                                         cols[3].markdown(f"<span style='color:{rate_color};font-weight:700'>{m_rate}%</span>", unsafe_allow_html=True)
@@ -1463,19 +1477,18 @@ else:
                     else:
                         st.info("생성된 팀이 없습니다. 조직관리 탭에서 팀을 만들어주세요.")
 
-                    # 팀 미배정 사용자
                     no_team = [u for u in all_users_dash if not u.get("team_id")]
                     if no_team:
                         with st.expander(f"👥 **팀 미배정** | {len(no_team)}명"):
                             for u in no_team:
                                 u_reports = [r for r in all_reports_dash if r["user_id"] == u["id"]]
                                 u_month = len([r for r in u_reports if r["created_at"][:7] == this_month])
-                                st.caption(f"👤 {u['name']} ({u.get('email','')}) | 이번달 {u_month}건")
+                                r_icon = role_icon(u.get("role_v2","user"))
+                                st.caption(f"{r_icon} {u['name']} ({u.get('email','')}) | 이번달 {u_month}건")
                 except Exception as e:
                     st.warning(f"팀 현황 불러오기 실패: {str(e)}")
 
             elif _role == "team_leader":
-                # 팀장: 내 팀원 스코어
                 st.divider()
                 st.markdown("### 👥 내 팀 현황")
                 try:
@@ -1561,7 +1574,6 @@ else:
             </div>
             """, unsafe_allow_html=True)
 
-            # ── 공지사항 미리보기 ──
             try:
                 recent_ann = supabase.table("announcements").select("*").eq("is_deleted", False).order("created_at", desc=True).limit(3).execute().data or []
                 my_reads_home = [r["announcement_id"] for r in (supabase.table("announcement_reads").select("announcement_id").eq("user_id", user["id"]).execute().data or [])]
@@ -1651,7 +1663,6 @@ else:
     # ══════════════════════════════
     elif page == "home":
 
-        # ── 채팅창 (탭 위 고정) ──
         lang = st.session_state.get("lang", "ko")
         chat_info = can_use_chat(user["id"])
 
@@ -1666,7 +1677,6 @@ else:
             with chat_header4:
                 st.metric("이번달", f"{chat_info.get('monthly_used',0)}/{chat_info.get('monthly_limit', CHAT_MONTHLY_LIMIT)}턴")
 
-            # 대화 내용
             if st.session_state.chat_history:
                 chat_box = st.container(height=250)
                 with chat_box:
@@ -1680,7 +1690,6 @@ else:
             else:
                 st.caption("💡 예: '이 댓글이 그루밍 패턴인지 분석해줘' / '보고서 작성 주의사항은?' / 'Roblox 위험 패턴은?'")
 
-            # 사용 불가 안내
             if not chat_info["ok"]:
                 reason = chat_info.get("reason")
                 if reason == "weekend":
@@ -1692,7 +1701,6 @@ else:
                 elif reason == "monthly":
                     st.warning("📌 이번 달 한도 도달. 관리자에게 추가 토큰을 요청하세요.")
 
-            # 입력창 + 초기화
             ic1, ic2 = st.columns([6, 1])
             with ic1:
                 user_input = st.chat_input(
@@ -1729,7 +1737,6 @@ else:
 
         st.divider()
 
-        # active_tab이 3(드래곤 추천)이면 해당 탭을 맨 앞으로 배치
         active_tab_idx = st.session_state.get("active_tab", 0)
 
         tab_defs = [
@@ -1749,7 +1756,6 @@ else:
         if is_admin or is_super:
             tab_defs.append(("admin", t("tab_admin")))
 
-        # active_tab=99이면 admin 탭을 맨 앞으로 이동
         if active_tab_idx == 99:
             admin_keys = [i for i, d in enumerate(tab_defs) if d[0] == "admin"]
             if admin_keys:
@@ -1757,7 +1763,6 @@ else:
                 tab_defs.insert(0, admin_item)
             st.session_state.active_tab = 0
 
-        # active_tab=98이면 notice 탭을 맨 앞으로 이동
         if active_tab_idx == 98:
             notice_keys = [i for i, d in enumerate(tab_defs) if d[0] == "notice"]
             if notice_keys:
@@ -1765,7 +1770,6 @@ else:
                 tab_defs.insert(0, notice_item)
             st.session_state.active_tab = 0
 
-        # active_tab=3이면 dragon 탭을 맨 앞으로 이동
         if active_tab_idx == 3:
             dragon_item = tab_defs.pop(3)
             tab_defs.insert(0, dragon_item)
@@ -1916,7 +1920,6 @@ else:
 
             if st.session_state.search_results:
                 st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
-
                 results_to_show = list(st.session_state.search_results)
                 sc1, sc2 = st.columns([3, 1])
                 with sc1:
@@ -2007,7 +2010,6 @@ else:
                     all_results.sort(key=lambda x: x["severity"], reverse=True)
                     risky = [r for r in all_results if r["severity"] >= 2]
                     existing = list(st.session_state.recommend_results)
-                    existing_urls = {r["url"] for r in existing}
                     merged = all_results + [r for r in existing if r["url"] not in {x["url"] for x in all_results}]
                     st.session_state.recommend_results = merged
                     use_dragon_token(user["id"])
@@ -2017,7 +2019,6 @@ else:
 
             if st.session_state.recommend_results:
                 st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
-
                 results = list(st.session_state.recommend_results)
                 rc1, rc2 = st.columns([3,1])
                 with rc1:
@@ -2057,7 +2058,6 @@ else:
             st.caption(t("history_caption"))
             st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
 
-            # 필터
             fc1, fc2, fc3 = st.columns(3)
             with fc1:
                 ftype = st.selectbox(t("filter_type"), ["전체","🐉 일반추천","🎮 Roblox추천","⛏️ Minecraft추천","🔍 키워드탐색"])
@@ -2066,7 +2066,6 @@ else:
             with fc3:
                 fdate = st.date_input(t("after_date"), value=None, key="hist_date")
 
-            # 관리자는 전체, 일반은 자신 것만
             if is_admin:
                 hist = supabase.table("analyzed_urls").select("*").order("analyzed_at", desc=True).limit(1000).execute()
             else:
@@ -2074,7 +2073,6 @@ else:
 
             data = hist.data if hist.data else []
 
-            # 필터 적용
             type_map = {"🐉 일반추천":"dragon_general","🎮 Roblox추천":"dragon_roblox",
                         "⛏️ Minecraft추천":"dragon_minecraft","🔍 키워드탐색":"keyword"}
             if ftype != "전체":
@@ -2088,7 +2086,6 @@ else:
 
             st.caption(f"총 {len(data)}건")
 
-            # 담당자 이름 캐시
             all_users_res = supabase.table("users").select("id,name").execute()
             user_map = {u["id"]: u["name"] for u in (all_users_res.data or [])}
 
@@ -2115,7 +2112,6 @@ else:
             st.subheader(t("report_list"))
             st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
 
-            # 전체 보고서 (모든 사용자 열람 가능)
             all_reps_data = supabase.table("reports").select("*").order("created_at", desc=True).execute()
             all_users_r = supabase.table("users").select("id,name").execute()
             umap_r = {u["id"]: u["name"] for u in (all_users_r.data or [])}
@@ -2139,7 +2135,6 @@ else:
                     if writer_id:
                         filtered = [r for r in filtered if r.get("user_id") == writer_id]
 
-                # 정렬
                 sort_rep = st.selectbox(t("sort"), [t("sort_sev_high"),t("sort_sev_low"),t("sort_newest"),t("sort_oldest")], key="sort_rep")
                 if sort_rep == t("sort_sev_high"):
                     filtered.sort(key=lambda x: x.get("severity", 0), reverse=True)
@@ -2152,7 +2147,6 @@ else:
 
                 st.caption(f"총 {len(filtered)}건")
 
-                # 관리자 일괄 발송 버튼
                 if is_admin and filtered:
                     with st.expander("📧 선택 보고서 일괄 이메일 발송"):
                         recipients = supabase.table("email_recipients").select("*").eq("active", True).execute()
@@ -2205,7 +2199,6 @@ else:
                             st.session_state.selected_report = r
                             go_to("report_detail", from_tab=5); st.rerun()
                     with cc:
-                        # 관리자: 개별 이메일 발송 버튼
                         if is_admin:
                             if st.button("📧 발송", key=f"email_{r['id']}"):
                                 st.session_state[f"show_email_{r['id']}"] = True
@@ -2214,7 +2207,6 @@ else:
                             if st.button("🗑️ 삭제", key=f"del_{r['id']}"):
                                 if delete_report(r["id"]): st.rerun()
 
-                    # 개별 이메일 발송 UI (인라인)
                     if is_admin and st.session_state.get(f"show_email_{r['id']}", False):
                         with st.container(border=True):
                             st.caption("📧 이메일 발송")
@@ -2227,7 +2219,6 @@ else:
                                     key=f"subj_{r['id']}")
                                 email_memo = st.text_area("추가 메모", height=60, key=f"memo_{r['id']}")
 
-                                # 병기 미리보기
                                 with st.expander("📄 발송 내용 미리보기 (병기)"):
                                     pc1, pc2 = st.columns(2)
                                     with pc1:
@@ -2323,12 +2314,10 @@ else:
                 if auto_keywords:
                     import random
                     pool = [
-                        # 성범죄/그루밍
                         "미성년자 채팅 만남", "초등학생 온라인 만남", "청소년 개인방송",
                         "어린이 랜덤채팅", "중학생 SNS 만남", "10대 화상채팅",
                         "청소년 섹스토션 피해", "어린이 딥페이크 피해", "청소년 사진 협박",
                         "미성년자 그루밍", "초등학생 유해 콘텐츠", "청소년 사이버성폭력",
-                        # 도박 (2024 실태조사 기반)
                         "청소년 불법도박 사이트", "초등학생 온라인도박", "미성년자 스포츠토토",
                         "청소년 파워볼 사이트", "중학생 도박 빠짐", "10대 온라인카지노",
                         "청소년 달팽이게임", "사다리게임 미성년자", "소셜그래프 청소년",
@@ -2376,7 +2365,6 @@ else:
                         st.warning("검색 결과가 없습니다.")
                     else:
                         st.success(f"총 {len(items)}개 결과 발견")
-                        # Claude로 위험도 일괄 분석
                         with st.spinner("🐲 드래곤파더가 위험도 분석 중..."):
                             analyzed = []
                             for item in items:
@@ -2428,17 +2416,16 @@ else:
                                     "severity": sev, "category": cat, "reason": reason
                                 })
 
-                        # 위험도 높은 순 정렬
                         analyzed.sort(key=lambda x: x["severity"], reverse=True)
                         risky = [a for a in analyzed if a["severity"] >= 3]
                         safe  = [a for a in analyzed if a["severity"] < 3]
 
-                        sev_icon = {1:"✅",2:"🟡",3:"🟠",4:"🔴",5:"🚨"}
+                        sev_icon_map = {1:"✅",2:"🟡",3:"🟠",4:"🔴",5:"🚨"}
 
                         if risky:
                             st.markdown(f"### 🚨 주의 필요 ({len(risky)}개)")
                             for a in risky:
-                                with st.expander(f"{sev_icon.get(a['severity'],'⚪')} [{a['type']}] {a['title'][:60]}"):
+                                with st.expander(f"{sev_icon_map.get(a['severity'],'⚪')} [{a['type']}] {a['title'][:60]}"):
                                     st.markdown(f"**심각도:** {a['severity']} | **분류:** {a['category']}")
                                     st.markdown(f"**이유:** {a['reason']}")
                                     st.markdown(f"**내용:** {a['desc'][:200]}")
@@ -2450,18 +2437,16 @@ else:
                         if safe:
                             with st.expander(f"✅ 안전 판정 ({len(safe)}개)"):
                                 for a in safe:
-                                    st.caption(f"{sev_icon.get(a['severity'],'⚪')} [{a['type']}] {a['title'][:60]} — {a['reason']}")
+                                    st.caption(f"{sev_icon_map.get(a['severity'],'⚪')} [{a['type']}] {a['title'][:60]} — {a['reason']}")
                 elif do_search and not naver_query:
                     st.warning("검색어를 입력하세요.")
 
-        # ── 관리자 ──
         # ── 대화형 AI 채팅 ──
         with tab_chat:
             st.subheader("🐲 드래곤파더")
             st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
             lang = st.session_state.get("lang", "ko")
 
-            # 사용 현황
             chat_info = can_use_chat(user["id"])
             ci1, ci2, ci3, ci4 = st.columns(4)
             if chat_info.get("ok"):
@@ -2475,7 +2460,6 @@ else:
                 ci3.metric("🗓️ 이번달", f"{chat_info.get('monthly_used',0)}/{chat_info.get('monthly_limit', CHAT_MONTHLY_LIMIT)}턴")
                 ci4.metric("✅ 오늘 남은 턴", "0턴")
 
-            # 사용 불가 사유
             if not chat_info["ok"]:
                 reason = chat_info.get("reason")
                 if reason == "weekend":
@@ -2491,7 +2475,6 @@ else:
 
             st.divider()
 
-            # 대화 히스토리 표시
             chat_container = st.container()
             with chat_container:
                 if not st.session_state.chat_history:
@@ -2504,26 +2487,18 @@ else:
                         with st.chat_message("assistant", avatar="🐲"):
                             st.write(msg["content"])
 
-            # 입력창
             if chat_info["ok"]:
                 user_input = st.chat_input("드래곤파더에게 질문하세요... (최대 300자)", max_chars=300)
                 if user_input:
-                    # 히스토리에 사용자 메시지 추가
                     st.session_state.chat_history.append({"role": "user", "content": user_input})
-
                     with st.spinner("🐲 드래곤파더가 답변 중..."):
                         try:
-                            # API 호출용 히스토리 (최근 6개 = 3턴)
                             api_history = [
                                 {"role": m["role"], "content": m["content"]}
                                 for m in st.session_state.chat_history[:-1]
                             ]
                             response = chat_with_ai(api_history, user_input, lang)
-
-                            # 응답 히스토리에 추가
                             st.session_state.chat_history.append({"role": "assistant", "content": response})
-
-                            # DB 저장 + 토큰 차감
                             supabase.table("chat_logs").insert({
                                 "user_id": user["id"],
                                 "message": user_input,
@@ -2532,19 +2507,16 @@ else:
                             }).execute()
                             use_chat_token(user["id"])
                             st.rerun()
-
                         except Exception as e:
                             st.session_state.chat_history.pop()
                             st.error(f"오류: {str(e)}")
             else:
                 st.chat_input("사용 불가 상태입니다", disabled=True)
 
-            # 대화 초기화 버튼
             if st.session_state.chat_history:
                 if st.button("🗑️ 대화 초기화", key="clear_chat"):
                     st.session_state.chat_history = []
                     st.rerun()
-
 
         # ── 공지사항 탭 ──
         if tab_notice:
@@ -2552,7 +2524,6 @@ else:
                 st.subheader("📢 공지사항")
                 st.markdown(GUIDELINE_BADGE_FULL, unsafe_allow_html=True)
 
-                # 발송 권한 (그룹장/디렉터)
                 if is_high:
                     with st.expander("➕ 새 공지 / 업무지시 작성", expanded=False):
                         ann_type = st.selectbox("유형", ["notice","work_order","urgent"],
@@ -2560,7 +2531,7 @@ else:
                             key="ann_type_sel")
                         ann_title = st.text_input("제목", key="ann_title_inp")
                         ann_content = st.text_area("내용", height=150, key="ann_content_inp")
-                        
+
                         all_teams_ann = get_all_teams()
                         all_users_ann = get_all_users()
                         target_type = st.selectbox("수신 대상", ["all","team","user"],
@@ -2585,7 +2556,6 @@ else:
                                         "target_type": target_type,
                                         "target_id": str(target_id) if target_id else None,
                                     }).execute()
-                                    # 팝업 초기화 (모든 유저에게 다시 노출)
                                     st.success("✅ 공지가 발송됐습니다!")
                                     st.rerun()
                                 except Exception as e:
@@ -2593,7 +2563,6 @@ else:
                             else:
                                 st.warning("제목과 내용을 입력해주세요.")
 
-                # 필터
                 fc1, fc2, fc3 = st.columns(3)
                 with fc1:
                     filter_type = st.selectbox("유형 필터", ["전체","notice","work_order","urgent"],
@@ -2604,7 +2573,6 @@ else:
                 with fc3:
                     filter_search = st.text_input("검색", placeholder="제목 검색...", key="ann_filter_search")
 
-                # 공지 목록 조회
                 try:
                     ann_query = supabase.table("announcements").select("*").eq("is_deleted", False).order("created_at", desc=True).limit(100)
                     if filter_type != "전체":
@@ -2613,26 +2581,21 @@ else:
                 except:
                     announcements_list = []
 
-                # 기간 필터
                 if filter_period == "이번주":
-                    from datetime import timedelta
                     week_start = (date.today() - timedelta(days=date.today().weekday())).isoformat()
                     announcements_list = [a for a in announcements_list if str(a.get("created_at",""))[:10] >= week_start]
                 elif filter_period == "이번달":
                     this_month = date.today().strftime("%Y-%m")
                     announcements_list = [a for a in announcements_list if str(a.get("created_at",""))[:7] == this_month]
 
-                # 검색 필터
                 if filter_search:
                     announcements_list = [a for a in announcements_list if filter_search.lower() in a.get("title","").lower() or filter_search.lower() in a.get("content","").lower()]
 
-                # 읽음 목록
                 try:
                     my_reads = [r["announcement_id"] for r in (supabase.table("announcement_reads").select("announcement_id").eq("user_id", user["id"]).execute().data or [])]
                 except:
                     my_reads = []
 
-                # 발송자 맵
                 all_users_map2 = {u["id"]: u["name"] for u in get_all_users()}
 
                 type_icon = {"notice":"🔵","work_order":"🟠","urgent":"🚨"}
@@ -2655,14 +2618,12 @@ else:
                             st.markdown(f"**유형:** {type_label_map.get(ann['type'],'공지')} | **발송:** {sender_name} | **수신:** {target_str}")
                             st.divider()
                             st.markdown(ann["content"])
-                            
-                            # 읽음 처리
+
                             if not is_read:
                                 if st.button("✅ 확인했습니다", key=f"read_ann_{ann['id']}"):
                                     mark_announcement_read(ann["id"], user["id"])
                                     st.rerun()
-                            
-                            # 읽음 현황 (그룹장/디렉터만)
+
                             if is_high:
                                 try:
                                     read_count = supabase.table("announcement_reads").select("id", count="exact").eq("announcement_id", ann["id"]).execute()
@@ -2671,8 +2632,7 @@ else:
                                     st.caption(f"👁️ 읽음: {rc}명 / {total_users}명")
                                 except:
                                     pass
-                                
-                                # 삭제 버튼
+
                                 if st.button("🗑️ 삭제", key=f"del_ann_{ann['id']}"):
                                     supabase.table("announcements").update({"is_deleted": True}).eq("id", ann["id"]).execute()
                                     st.rerun()
@@ -2681,25 +2641,22 @@ else:
         if tab_org and (is_admin or is_lead):
             with tab_org:
                 st.subheader("🏢 조직관리")
-                
-                # 역할 배지
-                role_badge = {"superadmin":"👑 그룹장","director":"🎯 디렉터","team_leader":"👔 팀장","user":"👤 일반사용자"}
-                st.info(f"현재 권한: **{role_badge.get(user_role, user_role)}**")
+
+                # ★ 수정: role_label() 함수 사용
+                st.info(f"현재 권한: **{role_label(user_role)}**")
 
                 org_tab1, org_tab2, org_tab3 = st.tabs(["👥 팀 관리", "🏖️ 휴가/병가 관리", "📋 업무지시"])
 
-                # ── 팀 관리 ──
                 with org_tab1:
                     all_teams_org = get_all_teams()
                     all_users_org = get_all_users()
                     umap_org = {u["id"]: u["name"] for u in all_users_org}
-                    
-                    # 그룹장/디렉터: 팀 생성
+
                     if is_high:
                         with st.expander("➕ 새 팀 생성", expanded=False):
                             new_team_name = st.text_input("팀 이름", key="new_team_name")
                             new_team_desc = st.text_input("설명 (선택)", key="new_team_desc")
-                            leader_candidates = [u for u in all_users_org if u.get("role_v2") in ("team_leader","user","director","superadmin")]
+                            leader_candidates = [u for u in all_users_org if u.get("role_v2") in ("team_leader","user","director","group_leader","superadmin")]
                             sel_leader = st.selectbox("팀장 지정", [None]+leader_candidates,
                                 format_func=lambda x: "지정 안함" if x is None else x["name"],
                                 key="new_team_leader")
@@ -2715,7 +2672,6 @@ else:
                                 else:
                                     st.warning("팀 이름을 입력해주세요.")
 
-                    # 팀 목록
                     if not all_teams_org:
                         st.info("생성된 팀이 없습니다.")
                     else:
@@ -2725,22 +2681,22 @@ else:
                             with st.expander(f"🏢 **{team['name']}**  |  팀장: {leader_name}  |  팀원: {len(members)}명"):
                                 if team.get("description"):
                                     st.caption(team["description"])
-                                
-                                # 팀원 목록
+
                                 if members:
-                                    role_badge2 = {"superadmin":"👑","director":"🎯","team_leader":"👔","user":"👤","admin":"⚙️"}
                                     for m in members:
                                         mc1, mc2, mc3 = st.columns([4,2,2])
                                         with mc1:
-                                            rb = role_badge2.get(m.get("role_v2","user"),"👤")
+                                            # ★ 수정: role_icon() 함수 사용
+                                            rb = role_icon(m.get("role_v2","user"))
                                             st.write(f"{rb} {m['name']} ({m.get('email','')})")
                                         with mc2:
                                             if is_high:
+                                                _all_roles = ["user","team_leader","group_leader","director","group_leader_2","director_2","group_leader_3","director_3","superadmin"]
                                                 new_role = st.selectbox("역할",
-                                                    ["user","team_leader","director","superadmin"],
-                                                    index=["user","team_leader","director","superadmin"].index(m.get("role_v2","user")) if m.get("role_v2","user") in ["user","team_leader","director","superadmin"] else 0,
+                                                    _all_roles,
+                                                    index=_all_roles.index(m.get("role_v2","user")) if m.get("role_v2","user") in _all_roles else 0,
                                                     key=f"role_sel_{m['id']}",
-                                                    format_func=lambda x:{"user":"일반","team_leader":"팀장","director":"디렉터","superadmin":"그룹장"}[x],
+                                                    format_func=lambda x: role_label(x),
                                                     label_visibility="collapsed")
                                         with mc3:
                                             if is_high:
@@ -2750,7 +2706,6 @@ else:
                                 else:
                                     st.caption("팀원 없음")
 
-                                # 팀원 추가 (그룹장/디렉터)
                                 if is_high:
                                     st.divider()
                                     unassigned_users = [u for u in all_users_org if not u.get("team_id")]
@@ -2764,12 +2719,10 @@ else:
                                                 supabase.table("users").update({"team_id": team["id"]}).eq("id", add_member["id"]).execute()
                                                 st.success(f"✅ {add_member['name']}님이 {team['name']}에 추가됐습니다!"); st.rerun()
 
-                # ── 휴가/병가 관리 ──
                 with org_tab2:
                     leave_type_map = {"annual":"🏖️ 연차","half":"🌤️ 반차","sick":"🤒 병가","other":"📝 기타"}
                     status_map = {"pending":"⏳ 대기","approved":"✅ 승인","rejected":"❌ 반려"}
 
-                    # 신청 폼
                     st.subheader("📝 휴가/병가 신청")
                     with st.container(border=True):
                         lc1, lc2, lc3 = st.columns(3)
@@ -2798,7 +2751,6 @@ else:
                             else:
                                 st.warning("종료일이 시작일보다 빠릅니다.")
 
-                    # 내 신청 현황
                     st.subheader("📋 내 신청 현황")
                     my_leaves = supabase.table("leave_requests").select("*").eq("user_id", user["id"]).order("created_at", desc=True).limit(20).execute().data or []
                     if not my_leaves:
@@ -2808,7 +2760,6 @@ else:
                             lv_icon = leave_type_map.get(lv["type"],"📝")
                             st.markdown(f"{lv_icon} **{lv['start_date']} ~ {lv['end_date']}**  {status_map.get(lv['status'],'?')}  |  {lv.get('reason','')}")
 
-                    # 승인 대기 목록 (팀장 이상)
                     if is_lead:
                         st.divider()
                         st.subheader("✅ 승인 대기 목록")
@@ -2816,7 +2767,6 @@ else:
                             if is_high:
                                 pending_leaves = supabase.table("leave_requests").select("*").eq("status","pending").order("created_at", desc=True).execute().data or []
                             else:
-                                # 팀장: 내 팀원만
                                 my_team_id = user.get("team_id")
                                 if my_team_id:
                                     team_user_ids = [u["id"] for u in get_team_members(my_team_id)]
@@ -2857,9 +2807,7 @@ else:
                                             }).eq("id", lv["id"]).execute()
                                             st.warning("반려됨"); st.rerun()
 
-                # ── 업무지시 ──
                 with org_tab3:
-                    # 발송 (팀장 이상)
                     if is_lead:
                         st.subheader("📤 업무지시 발송")
                         with st.container(border=True):
@@ -2876,7 +2824,7 @@ else:
                                     ["all","team","user"],
                                     format_func=lambda x:{"all":"📢 전체","team":"👥 팀","user":"👤 개인"}[x],
                                     key="wo_target_type")
-                            
+
                             wo_target_id = None
                             all_teams_wo = get_all_teams()
                             all_users_wo = get_all_users()
@@ -2903,7 +2851,6 @@ else:
                                 else:
                                     st.warning("제목과 내용을 입력해주세요.")
 
-                    # 수신함
                     st.subheader("📥 수신 업무지시")
                     try:
                         all_wo = supabase.table("work_orders").select("*").order("created_at", desc=True).limit(50).execute().data or []
@@ -2940,6 +2887,7 @@ else:
                                             supabase.table("work_orders").update({"status":"done"}).eq("id", wo["id"]).execute()
                                             st.rerun()
 
+        # ── 관리자 탭 ──
         if (is_admin or is_super) and tab8:
             with tab8:
                 st.subheader(t("admin_title"))
@@ -2963,10 +2911,10 @@ else:
                             tgt = u.get("monthly_target",10)
                             rt = min(int(len(mr)/tgt*100),100) if tgt>0 else 0
                             ti = get_token_info(u["id"])
-                            _rb = {"superadmin":"👑 그룹장","director":"🎯 디렉터","team_leader":"👔 팀장","user":"👤 일반","admin":"⚙️ 관리자"}
-                            _role_label = _rb.get(u.get("role_v2","user"), "👤 일반")
+                            # ★ 수정: role_label() 함수 사용
+                            _role_label_str = role_label(u.get("role_v2","user"))
                             summary.append({
-                                "역할": _role_label,
+                                "역할": _role_label_str,
                                 "이름": u["name"] + "  (" + u.get("email","") + ")",
                                 "이번달": len(mr),
                                 "목표": tgt,
@@ -2994,13 +2942,10 @@ else:
                     all_users_data3 = supabase.table("users").select("*").execute()
                     umap = {u["id"]: u["name"] for u in (all_users_data3.data or [])}
 
-                    # 미배정 목록
                     unassigned = supabase.table("analyzed_urls").select("*").is_("assigned_to", "null").order("analyzed_at", desc=True).limit(100).execute()
-                    # 1주일 경과 미작성 목록
                     week_ago = (datetime.now() - timedelta(days=7)).isoformat()
                     overdue = supabase.table("analyzed_urls").select("*").eq("reported", False).lt("analyzed_at", week_ago).order("analyzed_at", desc=True).limit(100).execute()
 
-                    # 사용자 목록 (이름+이메일 표시)
                     user_list = all_users_data3.data or []
                     user_options = {f"{u['name']} ({u.get('email','')})": u["id"] for u in user_list}
 
@@ -3085,7 +3030,6 @@ else:
                     st.subheader("📧 이메일 수신자 관리")
                     st.caption("보고서를 발송할 기관, 의뢰인, 변호사를 등록합니다.")
 
-                    # 수신자 추가
                     with st.container(border=True):
                         st.markdown("**새 수신자 등록**")
                         nc1, nc2 = st.columns(2)
@@ -3112,15 +3056,14 @@ else:
                             else:
                                 st.warning("이름과 이메일을 입력해주세요.")
 
-                    # 수신자 목록
                     st.subheader("등록된 수신자 목록")
                     recs = supabase.table("email_recipients").select("*").order("created_at", desc=False).execute()
-                    type_label = {"agency":"🏢 기관","client":"👤 의뢰인","lawyer":"⚖️ 변호사"}
+                    type_label_rec = {"agency":"🏢 기관","client":"👤 의뢰인","lawyer":"⚖️ 변호사"}
                     for rc in (recs.data or []):
                         rc1, rc2, rc3 = st.columns([5, 1, 1])
                         with rc1:
                             status = "✅ 활성" if rc.get("active") else "❌ 비활성"
-                            st.markdown(f"**{rc['name']}** {type_label.get(rc.get('type',''),'')} | {rc['email']} | {status}")
+                            st.markdown(f"**{rc['name']}** {type_label_rec.get(rc.get('type',''),'')} | {rc['email']} | {status}")
                             if rc.get("memo"):
                                 st.caption(rc["memo"])
                         with rc2:
@@ -3187,7 +3130,6 @@ else:
                                     st.success(f"{u['name']}님께 {extra}턴 추가됨"); st.rerun()
                         st.divider()
 
-                    # 채팅 로그 최근 50건
                     st.subheader("📋 최근 채팅 로그")
                     chat_logs = supabase.table("chat_logs").select("*").order("created_at", desc=True).limit(50).execute()
                     all_users_cl = supabase.table("users").select("id,name").execute()
