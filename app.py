@@ -2333,6 +2333,29 @@ else:
             all_users_res = supabase.table("users").select("id,name").execute()
             user_map = {u["id"]: u["name"] for u in (all_users_res.data or [])}
 
+            # 히스토리 팝업
+            if st.session_state.get("hist_popup_id"):
+                hist_popup_d = next((x for x in data if x["id"] == st.session_state.hist_popup_id), None)
+                if hist_popup_d:
+                    with st.container(border=True):
+                        hp1, hp2 = st.columns([8, 1])
+                        with hp1:
+                            st.markdown(f"**{hist_popup_d.get('title','')[:100]}**")
+                        with hp2:
+                            if st.button("✖", key="hist_popup_close", use_container_width=True):
+                                st.session_state.hist_popup_id = None; st.rerun()
+                        hurl = hist_popup_d.get("url","")
+                        pv1, pv2, pv3 = st.columns([1, 3, 1])
+                        with pv2:
+                            if "youtube.com" in hurl or "youtu.be" in hurl:
+                                st.video(hurl)
+                            else:
+                                st.markdown(f"[🔗 링크 열기]({hurl})")
+                        if not hist_popup_d.get("reported"):
+                            if st.button("📋 보고서 작성하기", type="primary", use_container_width=True, key="hist_popup_write"):
+                                st.session_state.hist_popup_id = None
+                                open_report_form(hurl,"",1,"안전","YouTube",from_tab=4); st.rerun()
+
             for d in data:
                 stype = search_type_label(d.get("search_type",""))
                 reported_badge = "✅ 보고서 작성" if d.get("reported") else "⏳ 미작성"
@@ -2344,8 +2367,9 @@ else:
                     st.markdown(f"**{d.get('title','(제목없음)')}**")
                     st.caption(f"{stype} | {analyzed_date} | 담당: {assigned_name} | {reported_badge}")
                 with cb:
-                    if "youtube.com" in d.get("url",""):
-                        st.markdown(f"[▶️ 열기]({d['url']})")
+                    if "youtube.com" in d.get("url","") or "youtu.be" in d.get("url",""):
+                        if st.button("▶️ 열기", key=f"hist_open_{d['id']}"):
+                            st.session_state.hist_popup_id = d["id"]; st.rerun()
                     if not d.get("reported"):
                         if st.button(t("write_btn"), key=f"hist_{d['id']}"):
                             open_report_form(d["url"], "", 1, "안전", "YouTube", from_tab=4); st.rerun()
