@@ -1046,7 +1046,16 @@ else:
     """, unsafe_allow_html=True)
 
     # ── 상단 헤더 ──
-    h1, h2, hf, h6, h7, h8 = st.columns([2.5, 0.8, 2.2, 0.9, 1, 0.9])
+    _show_admin_btn = is_admin or is_super
+    try:
+        _unread_cnt = len(get_unread_announcements(user["id"]))
+    except:
+        _unread_cnt = 0
+    _notice_label = f"📢 공지 🔴{_unread_cnt}" if _unread_cnt > 0 else "📢 공지"
+    if _show_admin_btn:
+        h1, h2, hf, h6, h7, h_notice, h_admin, h8 = st.columns([2.2, 0.7, 1.8, 0.75, 0.85, 0.75, 0.9, 0.75])
+    else:
+        h1, h2, hf, h6, h7, h_notice, h8 = st.columns([2.2, 0.7, 1.8, 0.75, 0.85, 0.75, 0.75])
     with h1:
         title_text = t("app_title").replace("🐉 ", "").replace("🐉 ", "")
         st.markdown(f'<div style="font-size:2rem; font-weight:700; display:flex; align-items:center; gap:6px; margin:0; padding:4px 0">🐉 {title_text}</div>', unsafe_allow_html=True)
