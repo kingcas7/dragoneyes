@@ -1719,7 +1719,7 @@ else:
                 </div>
                 ''', unsafe_allow_html=True)
             with da2:
-                st.markdown("<div style='padding-top:18px;'>", unsafe_allow_html=True)
+                st.markdown("<div style='padding-top:32px;'>", unsafe_allow_html=True)
                 if st.button("🐲 큰 화면에서 드래곤파더와 대화하기", key="dragon_fs_btn", use_container_width=True):
                     go_to("dragon_chat"); st.rerun()
                 st.markdown("</div>", unsafe_allow_html=True)
@@ -2832,7 +2832,7 @@ else:
                         with st.expander(f"{icon} **{ann['title']}**  |  {ann_date}  |  {read_badge}"):
                             st.markdown(f"**유형:** {type_label_map.get(ann['type'],'공지')} | **발송:** {sender_name} | **수신:** {target_str}")
                             st.divider()
-                            st.markdown(ann["content"])
+                            st.markdown(f'<div style="color:#1e293b; background:#f8fafc; border-radius:6px; padding:10px 14px; margin:4px 0; font-size:0.95rem; line-height:1.7;">{ann["content"]}</div>', unsafe_allow_html=True)
 
                             if not is_read:
                                 if st.button("✅ 확인했습니다", key=f"read_ann_{ann['id']}"):
