@@ -1147,8 +1147,6 @@ else:
                 del st.session_state[k]
             st.rerun()
 
-    st.divider()
-
     st.markdown("""
     <div style="
         display: grid;
@@ -1159,7 +1157,7 @@ else:
         border-left: 5px solid #e94560;
         border-radius: 8px;
         padding: 0.6rem 1.2rem;
-        margin-bottom: 0.3rem;
+        margin-bottom: 0;
     ">
         <div style="color:white; font-size:0.88rem; line-height:1.6;">
             🛡️ <strong>이 곳은 온라인 유해 컨텐츠를 모니터링하는 Claude 기반의 Agent AI 드래곤파더와 함께 작업하는 곳입니다.</strong><br>
@@ -1176,7 +1174,6 @@ else:
     """, unsafe_allow_html=True)
 
     # ══════════════════════════════
-    # 보고서 작성 페이지
     # ══════════════════════════════
     if page == "report_form":
         col_back, col_title = st.columns([1,5])
