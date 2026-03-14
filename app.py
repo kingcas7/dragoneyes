@@ -1428,6 +1428,29 @@ else:
             <div style="font-size:1rem;font-weight:700;color:#1e293b;">⚠️ 내게 배정된 미작성 목록 <span style="font-size:0.72rem;font-weight:400;color:#64748b;">총 {total}건 | {page_num+1}/{total_pages}p</span></div>
         </div>""", unsafe_allow_html=True)
 
+        # ── 팝업 (컬럼 밖 전체 너비) ──
+        if st.session_state.get("work_popup_id"):
+            popup_d = next((x for x in assigned_data if x["id"] == st.session_state.work_popup_id), None)
+            if popup_d:
+                with st.container(border=True):
+                    pc_title, pc_close = st.columns([8, 1])
+                    with pc_title:
+                        st.markdown(f"**{popup_d.get('title','')[:100]}**")
+                    with pc_close:
+                        if st.button("✖ 닫기", key="popup_close_btn", use_container_width=True):
+                            st.session_state.work_popup_id = None; st.rerun()
+                    url = popup_d.get("url","")
+                    pv1, pv2, pv3 = st.columns([1, 3, 1])
+                    with pv2:
+                        if "youtube.com" in url or "youtu.be" in url:
+                            st.video(url)
+                        else:
+                            st.markdown(f"[🔗 링크 열기]({url})")
+                    if st.button("📋 보고서 작성하기", type="primary", use_container_width=True, key="popup_write_btn"):
+                        st.session_state.work_popup_id = None
+                        open_report_form(url,"",1,"안전","YouTube",from_tab=4)
+                        st.session_state.current_page = "report_form"; st.rerun()
+
         work_left, work_right = st.columns([1, 1])
 
         # ── 왼쪽 ──
@@ -1500,31 +1523,6 @@ else:
 
         # ── 오른쪽 ──
         with work_right:
-            # 팝업 상태
-            if "work_popup_id" not in st.session_state:
-                st.session_state.work_popup_id = None
-
-            # 팝업 표시
-            if st.session_state.work_popup_id:
-                popup_d = next((x for x in assigned_data if x["id"] == st.session_state.work_popup_id), None)
-                if popup_d:
-                    with st.container(border=True):
-                        st.markdown(f"**{popup_d.get('title','')[:80]}**")
-                        url = popup_d.get("url","")
-                        if "youtube.com" in url or "youtu.be" in url:
-                            st.video(url)
-                        else:
-                            st.markdown(f"[🔗 링크 열기]({url})")
-                        pc1, pc2 = st.columns(2)
-                        with pc1:
-                            if st.button("📋 보고서 작성", type="primary", use_container_width=True, key="popup_write_btn"):
-                                st.session_state.work_popup_id = None
-                                open_report_form(url,"",1,"안전","YouTube",from_tab=4)
-                                st.session_state.current_page = "report_form"; st.rerun()
-                        with pc2:
-                            if st.button("✖ 닫기", use_container_width=True, key="popup_close_btn"):
-                                st.session_state.work_popup_id = None; st.rerun()
-
             with st.container(height=360):
                 if not paged:
                     st.info("✅ 배정된 미작성 목록이 없습니다!")
