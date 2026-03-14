@@ -1084,15 +1084,15 @@ else:
     """, unsafe_allow_html=True)
 
     if _show_admin_btn:
-        h1, h2, hf, h_work, h6, h7, h_notice, h_admin, h_profile, h8 = st.columns([2.2, 0.7, 1.8, 0.8, 0.75, 0.85, 0.75, 0.9, 0.9, 0.75])
+        h1, h2, hf, h_work, h6, h7, h_notice, h_admin, h_profile, h8 = st.columns([2.0, 0.8, 1.8, 0.8, 0.75, 0.85, 0.75, 0.9, 0.9, 0.75])
     else:
-        h1, h2, hf, h_work, h6, h7, h_notice, h_profile, h8 = st.columns([2.2, 0.7, 1.8, 0.8, 0.75, 0.85, 0.75, 0.9, 0.75])
+        h1, h2, hf, h_work, h6, h7, h_notice, h_profile, h8 = st.columns([2.0, 0.8, 1.8, 0.8, 0.75, 0.85, 0.75, 0.9, 0.75])
 
     with h1:
         title_text = t("app_title").replace("🐉 ", "").replace("🐉 ", "")
         st.markdown(f'<div style="font-size:1.8rem; font-weight:700; display:flex; align-items:center; gap:6px; margin:0; padding:4px 0">🐉 {title_text}</div>', unsafe_allow_html=True)
     with h2:
-        st.metric(t("this_month"), f"{st.session_state.report_count}{t('unit_reports')}")
+        st.metric("이번달", f"{st.session_state.report_count}{t('unit_reports')}")
     with hf:
         fc1, fc2, fc3 = st.columns(3)
         with fc1:
