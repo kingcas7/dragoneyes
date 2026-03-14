@@ -108,10 +108,16 @@ st.markdown("""
     }
 }
 
-/* 데스크탑 전체 컴팩트 */
+/* 배너 아래 공백 제거 */
 .block-container {
     padding-top: 1.2rem !important;
     padding-bottom: 0.4rem !important;
+}
+/* Streamlit 기본 요소 간격 최소화 */
+[data-testid="stVerticalBlock"] > [data-testid="stVerticalBlockBorderWrapper"],
+[data-testid="stVerticalBlock"] > div:first-child {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
 }
 h1 { font-size: 1.5rem !important; margin: 0 !important; }
 h2 { font-size: 1.1rem !important; margin: 0 !important; }
@@ -1157,7 +1163,7 @@ else:
         border-left: 5px solid #e94560;
         border-radius: 8px;
         padding: 0.6rem 1.2rem;
-        margin-bottom: 0;
+        margin-bottom: -0.5rem;
     ">
         <div style="color:white; font-size:0.88rem; line-height:1.6;">
             🛡️ <strong>이 곳은 온라인 유해 컨텐츠를 모니터링하는 Claude 기반의 Agent AI 드래곤파더와 함께 작업하는 곳입니다.</strong><br>
