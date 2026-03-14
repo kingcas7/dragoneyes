@@ -1405,7 +1405,7 @@ else:
         history_cnt = len(st.session_state.search_results) + len(st.session_state.recommend_results)
 
         st.markdown(f"""
-        <div style="display:flex; gap:6px; margin:6px 0 4px 0;">
+        <div style="display:flex; gap:6px; margin:10px 0 4px 0;">
             <div style="flex:1; background:linear-gradient(135deg,#0ea5e9,#06b6d4); border-radius:8px; padding:5px 8px; text-align:center;">
                 <div style="font-size:0.62rem; color:#e0f7ff;">이번달 보고서</div>
                 <div style="font-size:1rem; font-weight:700; color:#fff;">{month_cnt}건</div>
@@ -1442,21 +1442,12 @@ else:
 
         st.markdown("<div style='margin:0;'></div>", unsafe_allow_html=True)
 
-        # ── 좌우 분할 레이아웃 ──
-        work_left, work_right = st.columns([1, 1])
-
-        # 타이틀을 컬럼 밖에서 나란히 배치
-        t1, t2 = st.columns([1, 1])
-        with t1:
-            st.markdown('<div style="font-size:1rem; font-weight:700; color:#1e293b; margin:0 0 2px 0;">📊 팀별 업무 현황</div>', unsafe_allow_html=True)
-        with t2:
-            st.markdown('<div style="font-size:1rem; font-weight:700; color:#1e293b; margin:0 0 2px 0;">⚠️ 내게 배정된 미작성 목록</div>', unsafe_allow_html=True)
-
-        # ── 내용 컬럼 ──
+        # ── 좌우 분할 레이아웃 (타이틀 + 내용 모두 같은 컬럼 안에) ──
         work_left, work_right = st.columns([1, 1])
 
         # ── 왼쪽: 팀별 업무 현황 내용 ──
         with work_left:
+            st.markdown('<div style="font-size:1rem; font-weight:700; color:#1e293b; margin:0 0 4px 0;">📊 팀별 업무 현황</div>', unsafe_allow_html=True)
             _role = get_user_role(user)
 
             if _role in ("superadmin", "group_leader", "group_leader_2", "group_leader_3", "group_leader_4", "director", "director_2", "director_3", "director_4"):
@@ -1542,6 +1533,7 @@ else:
 
         # ── 오른쪽: 미작성 목록 + 바로가기 ──
         with work_right:
+            st.markdown('<div style="font-size:1rem; font-weight:700; color:#1e293b; margin:0 0 4px 0;">⚠️ 내게 배정된 미작성 목록</div>', unsafe_allow_html=True)
 
             # 페이지네이션
             PAGE_SIZE = 10
