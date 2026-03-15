@@ -157,7 +157,7 @@ p { margin-bottom: 0.2rem !important; }
 </style>
 """, unsafe_allow_html=True)
 
-DAILY_DRAGON_LIMIT = 5
+DAILY_DRAGON_LIMIT = 9999  # 테스트 중 제한 해제
 MONTHLY_DRAGON_LIMIT = 20
 
 # 대화형 AI 제한
