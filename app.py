@@ -2703,19 +2703,38 @@ else:
 
                 if auto_keywords:
                     import random
-                    pool = [
-                        "미성년자 채팅 만남", "초등학생 온라인 만남", "청소년 개인방송",
-                        "어린이 랜덤채팅", "중학생 SNS 만남", "10대 화상채팅",
-                        "청소년 섹스토션 피해", "어린이 딥페이크 피해", "청소년 사진 협박",
-                        "미성년자 그루밍", "초등학생 유해 콘텐츠", "청소년 사이버성폭력",
-                        "청소년 불법도박 사이트", "초등학생 온라인도박", "미성년자 스포츠토토",
-                        "청소년 파워볼 사이트", "중학생 도박 빠짐", "10대 온라인카지노",
-                        "청소년 달팽이게임", "사다리게임 미성년자", "소셜그래프 청소년",
-                        "학생 대리베팅 모집", "미성년자 총판 모집", "학생 도박빚 협박",
-                    ]
-                    picked = random.choice(pool)
+                    # 네이버 카페 특화 — 실제 위험 게시물에서 쓰이는 표현
+                    pool = {
+                        "카페": [
+                            # 그루밍/만남 유도
+                            "초등학생 친구 구함 카페", "여중생 친구해요", "10대 여자친구 구함",
+                            "청소년 남친 여친 구함", "어린 친구 사귀기", "중학생 만남 카페",
+                            # 연락처 교환
+                            "카카오톡 친추 10대", "디스코드 청소년 서버", "틱톡 팔로우 여중",
+                            # 성적 접근
+                            "교복 사진 공유 카페", "중학생 몸매 인증", "여고생 사진 모음",
+                            # 도박 유도
+                            "용돈 버는 방법 학생", "학생 알바 나이 상관없음", "미성년 가능 재택알바",
+                            # 가출/납치
+                            "가출 청소년 도와줌", "10대 쉼터 카페", "가출 친구 구함",
+                        ],
+                        "블로그": [
+                            "미성년자 조건만남 후기", "청소년 그루밍 방법",
+                            "10대 섹스토션 피해 경험", "어린이 온라인 협박",
+                            "중학생 불법촬영 카페", "청소년 딥페이크 피해",
+                        ],
+                        "뉴스": [
+                            "청소년 온라인 그루밍 검거", "미성년자 성착취 카페 적발",
+                            "아동 섹스토션 피의자", "청소년 불법촬영 유포",
+                        ],
+                    }
+                    sel_type = naver_type if naver_type != "전체" else "카페"
+                    kw_pool = pool.get(sel_type, pool["카페"])
+                    picked = random.choice(kw_pool)
                     st.session_state["naver_auto_kw"] = picked
-                    st.info(f"🔑 자동 생성 키워드: **{picked}**  ← 위 검색어 입력창에 복사해서 사용하세요.")
+                    st.info(f"🔑 자동 생성 키워드: **{picked}**")
+                    # 자동으로 검색어 입력란에 반영
+                    naver_query = picked
 
                 def naver_search(query, search_type, display=10):
                     headers = {
@@ -2763,24 +2782,37 @@ else:
                                 link  = item.get("link","") or item.get("url","")
                                 src_type = item.get("_type","")
                                 pub_date = item.get("pubDate","") or item.get("postdate","")
+                                cafe_name = clean_html(item.get("cafename",""))
 
                                 try:
                                     msg = client.messages.create(
-                                        model="claude-sonnet-4-20250514", max_tokens=200,
-                                        messages=[{"role":"user","content":f"""아동 온라인 안전 모니터링 전문가로서 다음 게시물이 아동에게 위험한지 분석하세요.
+                                        model="claude-sonnet-4-20250514", max_tokens=300,
+                                        messages=[{"role":"user","content":f"""당신은 아동 온라인 안전 전문 분석가입니다. 아래 네이버 {src_type} 게시물이 아동·청소년에게 위험한지 엄격하게 분석하세요.
 
 제목: {title}
 내용 요약: {desc}
-출처: 네이버 {src_type}
+카페명: {cafe_name if cafe_name else "알 수 없음"}
+게시일: {pub_date}
 
-위험도 판단 기준:
-- 미성년자 대상 만남·채팅·유인
-- 그루밍, 섹스토션, 사진/영상 협박
-- 아동 대상 유해 콘텐츠 유포
+【위험 신호 체크리스트】
+① 그루밍: 성인→미성년자 친구/연인 유도, 나이/학교 묻기
+② 연락처 유도: 카카오톡·디스코드·인스타 등 유도
+③ 성적 접근: 교복·신체·사진 요구, 성적 암시
+④ 만남 유도: 실제 만남 장소·시간 제안
+⑤ 도박: 불법 배팅·환전·대리베팅 모집
+⑥ 가출 조장: 가출 도움·쉼터 제공 위장
+⑦ 협박/섹스토션: 사진·영상 요구 후 협박
+⑧ 미끼: 게임 아이템·용돈·알바비 미끼
+
+【중요】
+- 제목/내용이 애매해도 위험 가능성 있으면 심각도 높게
+- 카페명에 "성인" "은밀" "비공개" 포함시 심각도 +1
+- 안전 판정은 명백히 교육·뉴스·공식 기관 게시물만
 
 반드시 아래 형식으로만 답변:
 심각도: (1~5)
-분류: (안전/스팸/부적절/그루밍/섹스토션/폭력유도)
+분류: (안전/스팸/부적절/그루밍/섹스토션/도박/가출조장/만남유도/개인정보)
+위험신호: (구체적 패턴, 없으면 "없음")
 이유: (한 줄)"""}]
                                     )
                                     resp_text = msg.content[0].text
@@ -2791,24 +2823,29 @@ else:
                                             m = re.search(r'\d', line)
                                             if m: sev = int(m.group())
                                     cat = "안전"
-                                    for c in ["섹스토션","폭력유도","그루밍","성인","부적절","스팸"]:
+                                    for c in ["섹스토션","만남유도","그루밍","도박","가출조장","개인정보","성인","부적절","스팸"]:
                                         if c in resp_text: cat = c; break
                                     reason = ""
+                                    danger_signal = ""
                                     for line in resp_text.splitlines():
                                         if "이유:" in line:
                                             reason = line.replace("이유:","").strip()
+                                        if "위험신호:" in line:
+                                            danger_signal = line.replace("위험신호:","").strip()
                                 except Exception:
-                                    sev, cat, reason = 1, "안전", "분석 실패"
+                                    sev, cat, reason, danger_signal = 1, "안전", "분석 실패", ""
 
                                 analyzed.append({
                                     "title": title, "desc": desc, "link": link,
                                     "type": src_type, "pubDate": pub_date,
-                                    "severity": sev, "category": cat, "reason": reason
+                                    "cafename": cafe_name,
+                                    "severity": sev, "category": cat,
+                                    "reason": reason, "danger_signal": danger_signal
                                 })
 
                         analyzed.sort(key=lambda x: x["severity"], reverse=True)
-                        risky = [a for a in analyzed if a["severity"] >= 3]
-                        safe  = [a for a in analyzed if a["severity"] < 3]
+                        risky = [a for a in analyzed if a["severity"] >= 2]
+                        safe  = [a for a in analyzed if a["severity"] < 2]
 
                         sev_icon_map = {1:"✅",2:"🟡",3:"🟠",4:"🔴",5:"🚨"}
 
@@ -2816,11 +2853,22 @@ else:
                             st.markdown(f"### 🚨 주의 필요 ({len(risky)}개)")
                             for a in risky:
                                 with st.expander(f"{sev_icon_map.get(a['severity'],'⚪')} [{a['type']}] {a['title'][:60]}"):
-                                    st.markdown(f"**심각도:** {a['severity']} | **분류:** {a['category']}")
+                                    sc1, sc2 = st.columns(2)
+                                    sc1.markdown(f"**심각도:** {a['severity']} | **분류:** {a['category']}")
+                                    if a.get("cafename"):
+                                        sc2.markdown(f"**카페:** {a['cafename']}")
+                                    if a.get("danger_signal") and a["danger_signal"] != "없음":
+                                        st.markdown(f"**⚠️ 위험신호:** {a['danger_signal']}")
                                     st.markdown(f"**이유:** {a['reason']}")
-                                    st.markdown(f"**내용:** {a['desc'][:200]}")
-                                    st.markdown(f"**날짜:** {a['pubDate']}")
-                                    st.markdown(f"[🔗 원문 보기]({a['link']})")
+                                    st.markdown(f"**내용:** {a['desc'][:300]}")
+                                    st.caption(f"게시일: {a['pubDate']}")
+                                    bc1, bc2 = st.columns(2)
+                                    with bc1:
+                                        st.markdown(f"[🔗 원문 보기]({a['link']})")
+                                    with bc2:
+                                        if st.button("📋 보고서 작성", key=f"naver_rep_{a['link'][-20:]}"):
+                                            open_report_form(a["link"], f"심각도:{a['severity']}\n분류:{a['category']}\n위험신호:{a.get('danger_signal','')}\n이유:{a['reason']}", a["severity"], a["category"], "naver")
+                                            st.rerun()
                         else:
                             st.success("🟢 주의 필요한 게시물이 없습니다.")
 
