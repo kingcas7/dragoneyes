@@ -283,6 +283,71 @@ LANG = {
         "rec_list":"등록된 수신자 목록","rec_active":"✅ 활성","rec_inactive":"❌ 비활성",
         "deactivate":"❌ 비활성화","activate":"✅ 활성화",
         "save_error":"저장 오류: {}","delete_error":"삭제 오류: {}","error":"오류: {}","no_url":"URL을 입력해주세요.",
+        # 공지 팝업
+        "ann_confirm":t("ann_confirm"),"ann_later":t("ann_later"),"ann_date":"발송일:",
+        # 일하기 페이지
+        "work_title":"💼 일하기 — {}님","work_team_status":t("work_team_status"),
+        "work_pending":t("work_pending"),"work_no_pending":t("work_no_pending"),
+        "work_no_team":t("work_no_team"),"work_no_members":t("work_no_members"),
+        "work_no_assigned":t("work_no_assigned"),"work_no_teams":t("work_no_teams"),
+        "work_team_fail":"팀 현황 불러오기 실패: {}","work_no_member":t("work_no_member"),
+        "work_preview":t("work_preview"),"work_write":"보고서 작성",
+        "work_prev_btn":"◀ 이전","work_next_btn":"다음 ▶",
+        "work_goto":t("work_goto"),"work_dragon_btn":"🐉 드래곤아이즈 자동 추천 리스트 생성",
+        "work_total":"총 {}건 | {}/{}p",
+        # 팝업
+        "popup_close":"✖ 닫기","popup_write":t("popup_write"),
+        # 사용자 정보
+        "profile_title":t("profile_title"),"profile_my_info":"📋 내 정보",
+        "profile_name":t("profile_name"),"profile_email":"이메일","profile_team":t("profile_team"),
+        "profile_role":t("profile_role"),"profile_phone":"📞 연락처","profile_birth":"🎂 생년월일",
+        "profile_addr":"🏠 주소","profile_addr_ph":"서울시 ...","profile_emergency":"🆘 비상연락처",
+        "profile_emergency_ph":"관계 / 010-0000-0000","profile_save":t("profile_save"),
+        "profile_saved":t("profile_saved"),"profile_save_fail":"저장 오류: {}",
+        "profile_pw":t("profile_pw"),"profile_pw_new":t("profile_pw_new"),
+        "profile_pw_confirm":t("profile_pw_confirm"),"profile_pw_change":t("profile_pw"),
+        "profile_pw_empty":t("profile_pw_empty"),"profile_pw_mismatch":t("profile_pw_mismatch"),
+        "profile_pw_short":t("profile_pw_short"),"profile_pw_ok":t("profile_pw_ok"),
+        "profile_pw_fail":"변경 오류: {}","profile_contact":t("profile_contact"),
+        "profile_contact_to":"수신:","profile_subject":"제목","profile_subject_ph":"문의 제목을 입력해주세요",
+        "profile_body":"내용","profile_body_ph":"문의 내용을 입력해주세요",
+        "profile_send":t("profile_send"),"profile_sent":t("profile_sent"),
+        "profile_send_fail":"전송 오류: {}","profile_subject_empty":"제목을 입력해주세요.",
+        "profile_body_empty":"내용을 입력해주세요.",
+        "profile_staff":"📊 전체 직원 정보 관리 (디렉터 이상)",
+        "profile_staff_csv":t("profile_staff_csv"),
+        "profile_staff_fail":"직원 정보 불러오기 오류: {}",
+        # 채널 모니터링
+        "ch_monitor_title":t("ch_monitor_title"),
+        "ch_monitor_caption":t("ch_monitor_caption"),
+        "ch_no_channels":"아직 등록된 모니터링 채널이 없습니다. 자동 검색을 실행하면 위험 채널이 자동 등록됩니다.",
+        "ch_total":"총 {}개 채널 모니터링 중","ch_stat_channels":t("ch_stat_channels"),
+        "ch_stat_avg":t("ch_stat_avg"),"ch_stat_total":t("ch_stat_total"),
+        "ch_view":"▶️ 채널 보기","ch_scan":t("ch_scan"),"ch_scan_ing":"스캔 중...",
+        "ch_scan_done":"{}개 영상 스캔 완료 — 위험 {}개","ch_no_new":"새 영상 없음",
+        "ch_delete":"🗑️ 삭제","ch_scan_all":t("ch_scan_all"),
+        "ch_scan_all_done":"✅ 전체 스캔 완료 — 위험 콘텐츠 {}개 발견",
+        # 네이버
+        "naver_title":t("naver_title"),
+        "naver_query":t("naver_query"),"naver_query_ph":t("naver_query_ph"),
+        "naver_type":t("naver_type"),"naver_auto_kw":t("naver_auto_kw"),
+        "naver_search":t("naver_search"),"naver_result_count":t("naver_result_count"),
+        "naver_auto_kw_msg":"🔑 자동 생성 키워드: **{}**",
+        "naver_searching":"네이버 {} 검색 중...","naver_analyzing":"🐲 드래곤파더가 위험도 분석 중...",
+        "naver_no_result":t("naver_no_result"),"naver_found":"총 {}개 결과 발견",
+        "naver_risky":"### 🚨 주의 필요 ({}개)","naver_safe_all":"🟢 주의 필요한 게시물이 없습니다.",
+        "naver_safe_list":"✅ 안전 판정 ({}개)","naver_enter_query":t("naver_enter_query"),
+        "naver_original":"🔗 원문 보기","naver_write_report":"📋 보고서 작성",
+        "naver_cafe":"카페","naver_blog":"블로그","naver_news":"뉴스","naver_all":"전체",
+        # 드래곤파더 채팅
+        "chat_clear":"대화 초기화","chat_daily_limit":"오늘 한도({}턴) 도달",
+        "chat_weekly_limit":"이번 주 한도({}턴) 도달",
+        "chat_monthly_limit":"이번 달 한도 도달. 관리자에게 추가 요청하세요.",
+        "chat_fullscreen":t("chat_fullscreen"),
+        # 보고서 제출
+        "report_submitted":t("report_submitted"),
+        # 홈
+        "home_back":t("home_back"),
     },
     "en": {
         "app_title":"🐉 DragonEyes Monitoring","this_month":"📅 This Month","home":"🏠 Home",
@@ -352,6 +417,71 @@ LANG = {
         "rec_list":"Registered Recipients","rec_active":"✅ Active","rec_inactive":"❌ Inactive",
         "deactivate":"❌ Deactivate","activate":"✅ Activate",
         "save_error":"Save error: {}","delete_error":"Delete error: {}","error":"Error: {}","no_url":"Please enter a URL.",
+        # announcement popup
+        "ann_confirm":"✅ Confirm (Don't show again)","ann_later":"Remind me later","ann_date":"Sent:",
+        # work page
+        "work_title":"💼 Work — {}","work_team_status":"📊 Team Work Status",
+        "work_pending":"⚠️ My Assigned Pending List","work_no_pending":"✅ No pending items!",
+        "work_no_team":"Not assigned to a team.","work_no_members":"No team members.",
+        "work_no_assigned":"No team assigned.","work_no_teams":"No teams created.",
+        "work_team_fail":"Failed to load team status: {}","work_no_member":"No members",
+        "work_preview":"Preview","work_write":"Write Report",
+        "work_prev_btn":"◀ Prev","work_next_btn":"Next ▶",
+        "work_goto":"🚀 Quick Access","work_dragon_btn":"🐉 Generate DragonEyes Auto List",
+        "work_total":"Total {} | {}/{}p",
+        # popup
+        "popup_close":"✖ Close","popup_write":"📋 Write Report",
+        # user profile
+        "profile_title":"👤 My Profile","profile_my_info":"📋 My Information",
+        "profile_name":"Name","profile_email":"Email","profile_team":"Team",
+        "profile_role":"Role","profile_phone":"📞 Phone","profile_birth":"🎂 Birthday",
+        "profile_addr":"🏠 Address","profile_addr_ph":"Enter address...","profile_emergency":"🆘 Emergency Contact",
+        "profile_emergency_ph":"Relation / Phone number","profile_save":"💾 Save",
+        "profile_saved":"✅ Information saved!","profile_save_fail":"Save error: {}",
+        "profile_pw":"🔐 Change Password","profile_pw_new":"New Password",
+        "profile_pw_confirm":"Confirm Password","profile_pw_change":"🔐 Change Password",
+        "profile_pw_empty":"Please enter a new password.","profile_pw_mismatch":"Passwords do not match.",
+        "profile_pw_short":"Password must be at least 6 characters.","profile_pw_ok":"✅ Password changed!",
+        "profile_pw_fail":"Change error: {}","profile_contact":"📬 Contact HQ",
+        "profile_contact_to":"To:","profile_subject":"Subject","profile_subject_ph":"Enter subject",
+        "profile_body":"Message","profile_body_ph":"Enter your message",
+        "profile_send":"📨 Send to HQ","profile_sent":"✅ Message sent to HQ!",
+        "profile_send_fail":"Send error: {}","profile_subject_empty":"Please enter a subject.",
+        "profile_body_empty":"Please enter a message.",
+        "profile_staff":"📊 Staff Directory (Director+)",
+        "profile_staff_csv":"📥 Download Staff CSV",
+        "profile_staff_fail":"Error loading staff: {}",
+        # channel monitoring
+        "ch_monitor_title":"📡 Risk Channel Monitoring",
+        "ch_monitor_caption":"Channels with severity 3+ videos are automatically registered.",
+        "ch_no_channels":"No monitored channels yet. Run auto-search to register risk channels.",
+        "ch_total":"Monitoring {} channels","ch_stat_channels":"Monitored Channels",
+        "ch_stat_avg":"Avg Risk Level","ch_stat_total":"Total Risk Detections",
+        "ch_view":"▶️ View Channel","ch_scan":"🔍 Scan Now","ch_scan_ing":"Scanning...",
+        "ch_scan_done":"{} videos scanned — {} at risk","ch_no_new":"No new videos",
+        "ch_delete":"🗑️ Remove","ch_scan_all":"🐉 Scan All Monitored Channels",
+        "ch_scan_all_done":"✅ Full scan complete — {} risk items found",
+        # naver
+        "naver_title":"🟢 Naver Café·Blog·News Search",
+        "naver_query":"🔍 Enter search term","naver_query_ph":"e.g. minor chat meeting, child online danger",
+        "naver_type":"Search Target","naver_auto_kw":"🐉 Auto-generate Risk Keywords",
+        "naver_search":"🔍 Start Search","naver_result_count":"Result count",
+        "naver_auto_kw_msg":"🔑 Auto keyword: **{}**",
+        "naver_searching":"Searching Naver {}...","naver_analyzing":"🐲 DragonFather analyzing risk...",
+        "naver_no_result":"No results found.","naver_found":"Found {} results",
+        "naver_risky":"### 🚨 Needs Attention ({})","naver_safe_all":"🟢 No concerning posts found.",
+        "naver_safe_list":"✅ Safe ({})","naver_enter_query":"Please enter a search term.",
+        "naver_original":"🔗 View Original","naver_write_report":"📋 Write Report",
+        "naver_cafe":"Café","naver_blog":"Blog","naver_news":"News","naver_all":"All",
+        # dragon chat
+        "chat_clear":"Clear Chat","chat_daily_limit":"Daily limit ({} turns) reached",
+        "chat_weekly_limit":"Weekly limit ({} turns) reached",
+        "chat_monthly_limit":"Monthly limit reached. Ask admin for more tokens.",
+        "chat_fullscreen":"Chat with DragonFather in fullscreen",
+        # report
+        "report_submitted":"✅ Report submitted!",
+        # home
+        "home_back":"◀ Home",
     },
     "ja": {
         "app_title":"🐉 ドラゴンアイズ モニタリング","this_month":"📅 今月","home":"🏠 ホーム",
@@ -421,6 +551,71 @@ LANG = {
         "rec_list":"登録済み受信者一覧","rec_active":"✅ 有効","rec_inactive":"❌ 無効",
         "deactivate":"❌ 無効化","activate":"✅ 有効化",
         "save_error":"保存エラー: {}","delete_error":"削除エラー: {}","error":"エラー: {}","no_url":"URLを入力してください。",
+        # 公知ポップアップ
+        "ann_confirm":"✅ 確認（次回から表示しない）","ann_later":"後で確認","ann_date":"送信日:",
+        # 作業ページ
+        "work_title":"💼 作業 — {}さん","work_team_status":"📊 チーム別業務状況",
+        "work_pending":"⚠️ 担当未作成リスト","work_no_pending":"✅ 未作成リストはありません！",
+        "work_no_team":"チームに割り当てられていません。","work_no_members":"チームメンバーがいません。",
+        "work_no_assigned":"チームが割り当てられていません。","work_no_teams":"チームが作成されていません。",
+        "work_team_fail":"チーム状況の読み込み失敗: {}","work_no_member":"メンバーなし",
+        "work_preview":"プレビュー","work_write":"レポート作成",
+        "work_prev_btn":"◀ 前へ","work_next_btn":"次へ ▶",
+        "work_goto":"🚀 クイックアクセス","work_dragon_btn":"🐉 ドラゴンアイズ自動リスト生成",
+        "work_total":"合計 {}件 | {}/{}p",
+        # ポップアップ
+        "popup_close":"✖ 閉じる","popup_write":"📋 レポート作成",
+        # ユーザー情報
+        "profile_title":"👤 ユーザー情報","profile_my_info":"📋 マイ情報",
+        "profile_name":"名前","profile_email":"メールアドレス","profile_team":"所属チーム",
+        "profile_role":"役割","profile_phone":"📞 電話番号","profile_birth":"🎂 生年月日",
+        "profile_addr":"🏠 住所","profile_addr_ph":"住所を入力...","profile_emergency":"🆘 緊急連絡先",
+        "profile_emergency_ph":"関係 / 電話番号","profile_save":"💾 保存",
+        "profile_saved":"✅ 情報が保存されました！","profile_save_fail":"保存エラー: {}",
+        "profile_pw":"🔐 パスワード変更","profile_pw_new":"新しいパスワード",
+        "profile_pw_confirm":"パスワード確認","profile_pw_change":"🔐 パスワードを変更",
+        "profile_pw_empty":"新しいパスワードを入力してください。","profile_pw_mismatch":"パスワードが一致しません。",
+        "profile_pw_short":"パスワードは6文字以上必要です。","profile_pw_ok":"✅ パスワードが変更されました！",
+        "profile_pw_fail":"変更エラー: {}","profile_contact":"📬 本社に連絡",
+        "profile_contact_to":"宛先:","profile_subject":"件名","profile_subject_ph":"件名を入力してください",
+        "profile_body":"内容","profile_body_ph":"内容を入力してください",
+        "profile_send":"📨 本社へ送信","profile_sent":"✅ 本社にメッセージが送信されました！",
+        "profile_send_fail":"送信エラー: {}","profile_subject_empty":"件名を入力してください。",
+        "profile_body_empty":"内容を入力してください。",
+        "profile_staff":"📊 全スタッフ情報管理（ディレクター以上）",
+        "profile_staff_csv":"📥 全スタッフCSVダウンロード",
+        "profile_staff_fail":"スタッフ情報読み込みエラー: {}",
+        # チャンネルモニタリング
+        "ch_monitor_title":"📡 危険チャンネルモニタリング",
+        "ch_monitor_caption":"深刻度3以上の危険動画が発見されたチャンネルが自動登録されます。",
+        "ch_no_channels":"モニタリングチャンネルがまだありません。自動検索を実行すると危険チャンネルが自動登録されます。",
+        "ch_total":"{}チャンネルをモニタリング中","ch_stat_channels":"モニタリングチャンネル",
+        "ch_stat_avg":"平均リスクレベル","ch_stat_total":"総リスク検出数",
+        "ch_view":"▶️ チャンネルを見る","ch_scan":"🔍 今すぐスキャン","ch_scan_ing":"スキャン中...",
+        "ch_scan_done":"{}件の動画スキャン完了 — 危険{}件","ch_no_new":"新しい動画なし",
+        "ch_delete":"🗑️ 削除","ch_scan_all":"🐉 全モニタリングチャンネル一括スキャン",
+        "ch_scan_all_done":"✅ 全スキャン完了 — 危険コンテンツ{}件発見",
+        # ネイバー
+        "naver_title":"🟢 Naver カフェ·ブログ·ニュース検索",
+        "naver_query":"🔍 検索ワード入力","naver_query_ph":"例: 未成年者チャット, 子どもオンライン危険",
+        "naver_type":"検索対象","naver_auto_kw":"🐉 危険キーワード自動生成",
+        "naver_search":"🔍 検索開始","naver_result_count":"結果数",
+        "naver_auto_kw_msg":"🔑 自動生成キーワード: **{}**",
+        "naver_searching":"Naver {} 検索中...","naver_analyzing":"🐲 ドラゴンファーザーがリスク分析中...",
+        "naver_no_result":"検索結果がありません。","naver_found":"{}件の結果が見つかりました",
+        "naver_risky":"### 🚨 要注意（{}件）","naver_safe_all":"🟢 問題のある投稿はありません。",
+        "naver_safe_list":"✅ 安全判定（{}件）","naver_enter_query":"検索ワードを入力してください。",
+        "naver_original":"🔗 元記事を見る","naver_write_report":"📋 レポート作成",
+        "naver_cafe":"カフェ","naver_blog":"ブログ","naver_news":"ニュース","naver_all":"すべて",
+        # ドラゴンチャット
+        "chat_clear":"会話をクリア","chat_daily_limit":"本日の上限（{}ターン）に達しました",
+        "chat_weekly_limit":"今週の上限（{}ターン）に達しました",
+        "chat_monthly_limit":"今月の上限に達しました。管理者に追加を申請してください。",
+        "chat_fullscreen":"フルスクリーンでドラゴンファーザーと会話",
+        # レポート
+        "report_submitted":"✅ レポートが提出されました！",
+        # ホーム
+        "home_back":"◀ ホームへ",
     }
 }
 
@@ -1278,15 +1473,15 @@ else:
                 st.markdown(f"### {type_color} {type_label}")
                 st.markdown(f"**{ann['title']}**")
                 st.markdown(f'<div style="color:#1e293b;">{ann["content"]}</div>', unsafe_allow_html=True)
-                st.caption(f"발송일: {str(ann.get('created_at',''))[:10]}")
+                st.caption(f"{t('ann_date')} {str(ann.get('created_at',''))[:10]}")
                 bc1, bc2 = st.columns(2)
                 with bc1:
-                    if st.button("✅ 확인 (다시 보지 않음)", key="ann_popup_confirm", use_container_width=True, type="primary"):
+                    if st.button(t("ann_confirm"), key="ann_popup_confirm", use_container_width=True, type="primary"):
                         mark_announcement_read(ann["id"], user["id"])
                         st.session_state.ann_popup_dismissed = True
                         st.rerun()
                 with bc2:
-                    if st.button("나중에 확인", key="ann_popup_later", use_container_width=True):
+                    if st.button(t("ann_later"), key="ann_popup_later", use_container_width=True):
                         st.session_state.ann_popup_dismissed = True
                         st.rerun()
 
@@ -1445,7 +1640,7 @@ else:
                             st.session_state.prefill_result = ""
                             st.session_state.current_page = prev
                             st.session_state.active_tab = prev_tab  # 탭 복원
-                            st.success("✅ 보고서가 제출됐습니다!")
+                            st.success(t("report_submitted"))
                             st.rerun()
                     else:
                         st.warning(t("enter_content"))
@@ -1553,7 +1748,7 @@ else:
         lang = st.session_state.get("lang", "ko")
         col_back, col_title = st.columns([1, 5])
         with col_back:
-            if st.button("◀ 홈으로"):
+            if st.button(t("home_back")):
                 go_home(); st.rerun()
         with col_title:
             st.subheader("🐲 드래곤파더 — 전체화면 대화")
@@ -1592,7 +1787,7 @@ else:
                 max_chars=300, disabled=not chat_info["ok"], key="dragon_fs_input"
             )
         with ic2:
-            if st.button("🗑️", help="대화 초기화", key="clear_fs"):
+            if st.button("🗑️", help=t("chat_clear"), key="clear_fs"):
                 st.session_state.chat_history = []; st.rerun()
 
         if fs_input and chat_info["ok"]:
@@ -1658,7 +1853,7 @@ else:
                     with pc_title:
                         st.markdown(f"**{popup_d.get('title','')[:100]}**")
                     with pc_close:
-                        if st.button("✖ 닫기", key="popup_close_btn", use_container_width=True):
+                        if st.button(t("popup_close"), key="popup_close_btn", use_container_width=True):
                             st.session_state.work_popup_id = None; st.rerun()
                     url = popup_d.get("url","")
                     pv1, pv2, pv3 = st.columns([1, 3, 1])
@@ -1667,7 +1862,7 @@ else:
                             st.video(url)
                         else:
                             st.markdown(f"[🔗 링크 열기]({url})")
-                    if st.button("📋 보고서 작성하기", type="primary", use_container_width=True, key="popup_write_btn"):
+                    if st.button(t("popup_write"), type="primary", use_container_width=True, key="popup_write_btn"):
                         st.session_state.work_popup_id = None
                         open_report_form(url,"",1,"안전","YouTube",from_tab=4)
                         st.session_state.current_page = "report_form"; st.rerun()
@@ -1702,9 +1897,9 @@ else:
                                             cv[0].write(f"{ri} {m['name']}"); cv[1].write(f"{mm}건"); cv[2].write(f"{mtgt}건")
                                             cv[3].markdown(f"<span style='color:{rc};font-weight:700'>{mrt}%</span>", unsafe_allow_html=True); cv[4].write(f"{mt}건")
                                     else:
-                                        st.caption("팀원 없음")
+                                        st.caption(t("work_no_member"))
                         else:
-                            st.info("생성된 팀이 없습니다.")
+                            st.info(t("work_no_teams"))
                         no_team = [u for u in all_users_dash if not u.get("team_id")]
                         if no_team:
                             with st.expander(f"👥 **팀 미배정** | {len(no_team)}명"):
@@ -1734,26 +1929,26 @@ else:
                                     cv[0].write(f"{is_me}{m['name']}"); cv[1].write(f"{mm}건"); cv[2].write(f"{mtgt}건")
                                     cv[3].markdown(f"<span style='color:{rc};font-weight:700'>{mrt}%</span>", unsafe_allow_html=True); cv[4].write(f"{mt}건")
                             else:
-                                st.info("팀원이 없습니다.")
+                                st.info(t("work_no_members"))
                         else:
-                            st.info("배정된 팀이 없습니다.")
+                            st.info(t("work_no_assigned"))
                     except Exception as e:
                         st.warning(f"팀 현황 불러오기 실패: {str(e)}")
                 else:
-                    st.info("팀에 배정되지 않았습니다.")
+                    st.info(t("work_no_team"))
 
         # ── 오른쪽 ──
         with work_right:
             with st.container(height=360):
                 if not paged:
-                    st.info("✅ 배정된 미작성 목록이 없습니다!")
+                    st.info(t("work_no_pending"))
                 for d in paged:
                     dc1, dc2, dc3 = st.columns([5, 1, 1])
                     with dc1:
                         st.markdown(f"<div style='font-size:0.85rem;font-weight:600;color:#0f172a;margin:0;line-height:1.2;'>{d.get('title','(제목없음)')[:60]}</div>", unsafe_allow_html=True)
                         st.markdown(f"<div style='font-size:0.7rem;color:#475569;margin:0;'>{search_type_label(d.get('search_type',''))} | {str(d.get('analyzed_at',''))[:10]}</div>", unsafe_allow_html=True)
                     with dc2:
-                        if st.button("🔍", key=f"work_view_{d['id']}", help="미리보기"):
+                        if st.button("🔍", key=f"work_view_{d['id']}", help=t("work_preview")):
                             st.session_state.work_popup_id = d["id"]; st.rerun()
                     with dc3:
                         if st.button("📋", key=f"work_rep_{d['id']}", help="보고서 작성"):
@@ -1763,16 +1958,16 @@ else:
 
             pn1, pn2, pn3 = st.columns([1,2,1])
             with pn1:
-                if st.button("◀ 이전", disabled=page_num==0, use_container_width=True, key="work_prev"):
+                if st.button(t("work_prev_btn"), disabled=page_num==0, use_container_width=True, key="work_prev"):
                     st.session_state.work_page_num -= 1; st.rerun()
             with pn2:
                 st.markdown(f"<div style='text-align:center;padding-top:8px;color:#94a3b8;font-size:0.85rem;'>{page_num+1} / {total_pages}</div>", unsafe_allow_html=True)
             with pn3:
-                if st.button("다음 ▶", disabled=page_num>=total_pages-1, use_container_width=True, key="work_next"):
+                if st.button(t("work_next_btn"), disabled=page_num>=total_pages-1, use_container_width=True, key="work_next"):
                     st.session_state.work_page_num += 1; st.rerun()
             st.divider()
             st.markdown('<div style="font-size:0.82rem;font-weight:600;color:#94a3b8;margin-bottom:4px;">🚀 바로가기</div>', unsafe_allow_html=True)
-            if st.button("🐉 드래곤아이즈 자동 추천 리스트 생성", use_container_width=True, type="primary", key="work_dragon_btn"):
+            if st.button(t("work_dragon_btn"), use_container_width=True, type="primary", key="work_dragon_btn"):
                 st.session_state.current_page = "home"; st.session_state.active_tab = 3; st.rerun()
             wg1, wg2, wg3 = st.columns(3)
             with wg1:
@@ -1792,29 +1987,29 @@ else:
         import io
         col_back, col_title = st.columns([1, 5])
         with col_back:
-            if st.button("◀ 홈으로"):
+            if st.button(t("home_back")):
                 go_home(); st.rerun()
         with col_title:
-            st.subheader("👤 사용자 정보")
+            st.subheader(t("profile_title"))
 
         st.divider()
 
         # ── 내 정보 조회/수정 ──
         with st.container(border=True):
-            st.markdown("### 📋 내 정보")
+            st.markdown("### " + t("profile_my_info"))
             pc1, pc2 = st.columns(2)
             with pc1:
-                st.text_input("이름", value=user.get("name",""), disabled=True)
+                st.text_input(t("profile_name"), value=user.get("name",""), disabled=True)
                 st.text_input("이메일", value=user.get("email",""), disabled=True)
-                st.text_input("소속 팀", value=user.get("team_id","미배정"), disabled=True)
-                st.text_input("역할", value=role_label(user.get("role_v2","user")), disabled=True)
+                st.text_input(t("profile_team"), value=user.get("team_id","미배정"), disabled=True)
+                st.text_input(t("profile_role"), value=role_label(user.get("role_v2","user")), disabled=True)
             with pc2:
                 new_phone = st.text_input("📱 연락처 (휴대폰)", value=user.get("phone",""), placeholder="010-0000-0000")
                 new_birth = st.text_input("🎂 생년월일", value=user.get("birthdate",""), placeholder="1990-01-01")
                 new_addr = st.text_input("🏠 주소", value=user.get("address",""), placeholder="서울시 ...")
                 new_emergency = st.text_input("🆘 비상연락처", value=user.get("emergency_contact",""), placeholder="관계 / 010-0000-0000")
 
-            if st.button("💾 정보 저장", type="primary", use_container_width=True):
+            if st.button(t("profile_save"), type="primary", use_container_width=True):
                 try:
                     supabase.table("users").update({
                         "phone": new_phone,
@@ -1828,7 +2023,7 @@ else:
                     st.session_state.user["birthdate"] = new_birth
                     st.session_state.user["address"] = new_addr
                     st.session_state.user["emergency_contact"] = new_emergency
-                    st.success("✅ 정보가 저장됐습니다!")
+                    st.success(t("profile_saved"))
                     st.rerun()
                 except Exception as e:
                     st.error(f"저장 오류: {str(e)}")
@@ -1838,19 +2033,19 @@ else:
         # ── 비밀번호 변경 ──
         with st.container(border=True):
             st.markdown("### 🔐 비밀번호 변경")
-            pw1 = st.text_input("새 비밀번호", type="password", key="pw_new")
-            pw2 = st.text_input("새 비밀번호 확인", type="password", key="pw_confirm")
-            if st.button("🔐 비밀번호 변경", use_container_width=True):
+            pw1 = st.text_input(t("profile_pw_new"), type="password", key="pw_new")
+            pw2 = st.text_input(t("profile_pw_confirm"), type="password", key="pw_confirm")
+            if st.button(t("profile_pw"), use_container_width=True):
                 if not pw1:
-                    st.warning("새 비밀번호를 입력해주세요.")
+                    st.warning(t("profile_pw_empty"))
                 elif pw1 != pw2:
-                    st.error("비밀번호가 일치하지 않습니다.")
+                    st.error(t("profile_pw_mismatch"))
                 elif len(pw1) < 6:
-                    st.warning("비밀번호는 6자 이상이어야 합니다.")
+                    st.warning(t("profile_pw_short"))
                 else:
                     try:
                         supabase.auth.update_user({"password": pw1})
-                        st.success("✅ 비밀번호가 변경됐습니다!")
+                        st.success(t("profile_pw_ok"))
                     except Exception as e:
                         st.error(f"변경 오류: {str(e)}")
 
@@ -1860,8 +2055,8 @@ else:
         with st.container(border=True):
             st.markdown("### 📩 본사에 연락하기")
             st.caption(f"수신: {st.session_state.contact_hq_recipient}")
-            contact_subject = st.text_input("제목", placeholder="문의 제목을 입력해주세요")
-            contact_body = st.text_area("내용", height=120, placeholder="문의 내용을 입력해주세요")
+            contact_subject = st.text_input(t("profile_subject"), placeholder=t("profile_subject_ph"))
+            contact_body = st.text_area(t("profile_body"), height=120, placeholder=t("profile_body_ph"))
             if st.button("📩 본사에 전송", type="primary", use_container_width=True):
                 if contact_subject and contact_body:
                     try:
@@ -1873,7 +2068,7 @@ else:
                             "body": contact_body,
                             "recipient": st.session_state.contact_hq_recipient,
                         }).execute()
-                        st.success("✅ 본사에 메시지가 전송됐습니다!")
+                        st.success(t("profile_sent"))
                     except Exception as e:
                         st.error(f"전송 오류: {str(e)}")
                 else:
@@ -1893,9 +2088,9 @@ else:
                     preview_data = []
                     for u in all_users_prof:
                         preview_data.append({
-                            "이름": u.get("name",""),
+                            t("profile_name"): u.get("name",""),
                             "이메일": u.get("email",""),
-                            "역할": role_label(u.get("role_v2","user")),
+                            t("profile_role"): role_label(u.get("role_v2","user")),
                             "소속팀": team_map.get(u.get("team_id",""), "미배정"),
                             "연락처": u.get("phone",""),
                             "생년월일": u.get("birthdate",""),
@@ -1909,7 +2104,7 @@ else:
                     # CSV 다운로드 (openpyxl 불필요)
                     csv_data = df_prof.to_csv(index=False, encoding="utf-8-sig")
                     st.download_button(
-                        label="📥 전체 직원 정보 CSV 다운로드",
+                        label=t("profile_staff_csv"),
                         data=csv_data.encode("utf-8-sig"),
                         file_name=f"DragonEyes_직원정보_{date.today().strftime('%Y%m%d')}.csv",
                         mime="text/csv",
@@ -2563,7 +2758,7 @@ else:
                         with hp1:
                             st.markdown(f"**{hist_popup_d.get('title','')[:100]}**")
                         with hp2:
-                            if st.button("✖", key="hist_popup_close", use_container_width=True):
+                            if st.button(t("popup_close"), key="hist_popup_close", use_container_width=True):
                                 st.session_state.hist_popup_id = None; st.rerun()
                         hurl = hist_popup_d.get("url","")
                         pv1, pv2, pv3 = st.columns([1, 3, 1])
@@ -2573,7 +2768,7 @@ else:
                             else:
                                 st.markdown(f"[🔗 링크 열기]({hurl})")
                         if not hist_popup_d.get("reported"):
-                            if st.button("📋 보고서 작성하기", type="primary", use_container_width=True, key="hist_popup_write"):
+                            if st.button(t("popup_write"), type="primary", use_container_width=True, key="hist_popup_write"):
                                 st.session_state.hist_popup_id = None
                                 open_report_form(hurl,"",1,"안전","YouTube",from_tab=4); st.rerun()
 
@@ -2779,23 +2974,23 @@ else:
 
         # ── 네이버 탐색 ──
         with tab_naver:
-            st.subheader("🟢 네이버 카페·블로그·뉴스 탐색")
+            st.subheader(t("naver_title"))
             if not NAVER_CLIENT_ID:
                 st.error("네이버 API 키가 설정되지 않았습니다. .env 파일에 NAVER_CLIENT_ID와 NAVER_CLIENT_SECRET을 추가하세요.")
             else:
                 n1, n2 = st.columns([3,1])
                 with n1:
-                    naver_query = st.text_input("🔍 검색어 입력", placeholder="예: 미성년자 채팅 만남, 어린이 온라인 위험")
+                    naver_query = st.text_input(t("naver_query"), placeholder=t("naver_query_ph"))
                 with n2:
-                    naver_type = st.selectbox("검색 대상", ["카페", "블로그", "뉴스", "전체"])
+                    naver_type = st.selectbox(t("naver_type"), ["카페", "블로그", "뉴스", "전체"])
 
                 naver_cols = st.columns(3)
                 with naver_cols[0]:
-                    auto_keywords = st.button("🐉 위험 키워드 자동 생성", use_container_width=True)
+                    auto_keywords = st.button(t("naver_auto_kw"), use_container_width=True)
                 with naver_cols[1]:
-                    do_search = st.button("🔍 검색 시작", use_container_width=True, type="primary")
+                    do_search = st.button(t("naver_search"), use_container_width=True, type="primary")
                 with naver_cols[2]:
-                    display_count = st.slider("결과 수", 5, 20, 10)
+                    display_count = st.slider(t("naver_result_count"), 5, 20, 10)
 
                 if auto_keywords:
                     import random
@@ -2871,7 +3066,7 @@ else:
                         items = naver_search(naver_query, naver_type, display_count)
 
                     if not items:
-                        st.warning("검색 결과가 없습니다.")
+                        st.warning(t("naver_no_result"))
                     else:
                         st.success(f"총 {len(items)}개 결과 발견")
                         with st.spinner("🐲 드래곤파더가 위험도 분석 중..."):
@@ -2977,7 +3172,7 @@ else:
                                 for a in safe:
                                     st.caption(f"{sev_icon_map.get(a['severity'],'⚪')} [{a['type']}] {a['title'][:60]} — {a['reason']}")
                 elif do_search and not naver_query:
-                    st.warning("검색어를 입력하세요.")
+                    st.warning(t("naver_enter_query"))
 
         # ── 대화형 AI 채팅 ──
         with tab_chat:
@@ -3209,7 +3404,7 @@ else:
                                     st.warning("팀 이름을 입력해주세요.")
 
                     if not all_teams_org:
-                        st.info("생성된 팀이 없습니다.")
+                        st.info(t("work_no_teams"))
                     else:
                         for team in all_teams_org:
                             members = get_team_members(team["id"])
@@ -3228,7 +3423,7 @@ else:
                                         with mc2:
                                             if is_high:
                                                 _all_roles = ["user","team_leader","group_leader","director","group_leader_2","director_2","group_leader_3","director_3","group_leader_4","director_4","superadmin"]
-                                                new_role = st.selectbox("역할",
+                                                new_role = st.selectbox(t("profile_role"),
                                                     _all_roles,
                                                     index=_all_roles.index(m.get("role_v2","user")) if m.get("role_v2","user") in _all_roles else 0,
                                                     key=f"role_sel_{m['id']}",
@@ -3240,7 +3435,7 @@ else:
                                                     supabase.table("users").update({"role_v2": new_role}).eq("id", m["id"]).execute()
                                                     st.success(f"✅ {m['name']} 역할 변경됨"); st.rerun()
                                 else:
-                                    st.caption("팀원 없음")
+                                    st.caption(t("work_no_member"))
 
                                 if is_high:
                                     st.divider()
@@ -3454,8 +3649,8 @@ else:
                                 ti = get_token_info(u["id"])
                                 _role_label_str = role_label(u.get("role_v2","user"))
                                 summary.append({
-                                    "역할": _role_label_str,
-                                    "이름": u["name"] + "  (" + u.get("email","") + ")",
+                                    t("profile_role"): _role_label_str,
+                                    t("profile_name"): u["name"] + "  (" + u.get("email","") + ")",
                                     "이번달": len(mr),
                                     "목표": tgt,
                                     "달성률": f"{rt}%",
@@ -3783,8 +3978,8 @@ else:
                         st.info("채팅 로그가 없습니다.")
 
                 with admin_tab7:
-                    st.subheader("📡 위험 채널 모니터링")
-                    st.caption("심각도 3 이상 위험 영상이 발견된 채널이 자동 등록됩니다.")
+                    st.subheader(t("ch_monitor_title"))
+                    st.caption(t("ch_monitor_caption"))
 
                     channels = get_watched_channels()
 
@@ -3795,9 +3990,9 @@ else:
 
                         # 요약 통계
                         mc1, mc2, mc3 = st.columns(3)
-                        mc1.metric("모니터링 채널", len(channels))
-                        mc2.metric("평균 위험도", f"{sum(c['avg_severity'] for c in channels)/len(channels):.1f}")
-                        mc3.metric("총 위험 탐지", sum(c['risk_count'] for c in channels))
+                        mc1.metric(t("ch_stat_channels"), len(channels))
+                        mc2.metric(t("ch_stat_avg"), f"{sum(c['avg_severity'] for c in channels)/len(channels):.1f}")
+                        mc3.metric(t("ch_stat_total"), sum(c['risk_count'] for c in channels))
 
                         st.divider()
 
@@ -3812,7 +4007,7 @@ else:
                                 with cc2:
                                     st.markdown(f"[▶️ 채널 보기](https://www.youtube.com/channel/{ch['channel_id']})")
                                 with cc3:
-                                    if st.button("🔍 지금 스캔", key=f"scan_{ch['id']}", use_container_width=True):
+                                    if st.button(t("ch_scan"), key=f"scan_{ch['id']}", use_container_width=True):
                                         with st.spinner(f"{ch['channel_name']} 스캔 중..."):
                                             scan_results = scan_watched_channel(
                                                 ch['channel_id'], ch['channel_name'],
@@ -3826,14 +4021,14 @@ else:
                                         else:
                                             st.info("새 영상 없음")
                                 with cc4:
-                                    if st.button("🗑️ 삭제", key=f"del_ch_{ch['id']}", use_container_width=True):
+                                    if st.button(t("ch_delete"), key=f"del_ch_{ch['id']}", use_container_width=True):
                                         supabase.table("watched_channels").delete().eq("id", ch["id"]).execute()
                                         st.rerun()
 
                         st.divider()
 
                         # 전체 스캔 버튼
-                        if st.button("🐉 전체 모니터링 채널 일괄 스캔", type="primary", use_container_width=True):
+                        if st.button(t("ch_scan_all"), type="primary", use_container_width=True):
                             total_risky = 0
                             prog = st.progress(0)
                             for i, ch in enumerate(channels):
