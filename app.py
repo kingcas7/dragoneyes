@@ -818,6 +818,86 @@ def mark_url_analyzed(url, title="", search_type="keyword", assigned_to=None):
     except Exception:
         pass
 
+def register_watched_channel(channel_id, channel_name, severity, added_by=None):
+    """위험 채널 자동 등록 / 기존 채널이면 위험도 업데이트"""
+    try:
+        existing = supabase.table("watched_channels").select("*").eq("channel_id", channel_id).execute()
+        if existing.data:
+            ch = existing.data[0]
+            new_count = ch["risk_count"] + 1
+            new_avg = ((ch["avg_severity"] * ch["risk_count"]) + severity) / new_count
+            supabase.table("watched_channels").update({
+                "risk_count": new_count,
+                "avg_severity": round(new_avg, 2),
+                "last_detected_at": datetime.now().isoformat(),
+                "channel_name": channel_name,
+            }).eq("channel_id", channel_id).execute()
+        else:
+            supabase.table("watched_channels").insert({
+                "channel_id": channel_id,
+                "channel_name": channel_name,
+                "risk_count": 1,
+                "avg_severity": float(severity),
+                "first_detected_at": datetime.now().isoformat(),
+                "last_detected_at": datetime.now().isoformat(),
+                "status": "monitoring",
+                "added_by": added_by,
+            }).execute()
+    except Exception:
+        pass
+
+def get_watched_channels():
+    """모니터링 중인 채널 목록"""
+    try:
+        return supabase.table("watched_channels").select("*").order("risk_count", desc=True).execute().data or []
+    except:
+        return []
+
+def scan_watched_channel(channel_id, channel_name, max_results=5, assigned_to=None):
+    """모니터링 채널의 최신 영상을 자동 스캔"""
+    try:
+        sr = youtube.search().list(
+            part="snippet", channelId=channel_id, type="video",
+            maxResults=max_results, order="date", safeSearch="none"
+        ).execute()
+        results = []
+        for item in sr.get("items", []):
+            vid = item["id"]["videoId"]
+            url = f"https://www.youtube.com/watch?v={vid}"
+            title = item["snippet"]["title"]
+            desc = item["snippet"].get("description","")[:300]
+            published = item["snippet"].get("publishedAt","")[:10]
+            comments = get_video_comments(vid, max_comments=20)
+            comment_text = "\n".join([f"- {c}" for c in comments[:10]]) if comments else "없음"
+            msg = client.messages.create(
+                model="claude-sonnet-4-20250514", max_tokens=300,
+                messages=[{"role":"user","content":f"""아동 안전 전문 분석가로서 위험 채널의 최신 영상을 분석하세요.
+
+채널: {channel_name}
+제목: {title}
+설명: {desc}
+댓글: {comment_text}
+
+반드시 아래 형식으로만:
+심각도: (1~5)
+분류: (안전/부적절/그루밍/섹스토션/도박/폭력유도)
+위험신호: (구체적 패턴)
+이유: (한 줄)"""}]
+            )
+            rt = msg.content[0].text
+            sev = extract_severity(rt)
+            cat = extract_category(rt)
+            mark_url_analyzed(url, title, "channel_monitor", assigned_to)
+            results.append({
+                "id": vid, "title": title, "channel": channel_name,
+                "url": url, "analysis": rt, "severity": sev,
+                "category": cat, "search_type": "channel_monitor",
+                "published": published
+            })
+        return results
+    except Exception as e:
+        return []
+
 def get_token_info(user_id):
     ym = date.today().strftime("%Y-%m")
     res = supabase.table("dragon_tokens").select("*").eq("user_id", user_id).eq("year_month", ym).execute()
@@ -1108,6 +1188,14 @@ def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="
                 continue
 
         mark_url_analyzed(url, title, search_type, assigned_to)
+        # 심각도 3 이상이면 채널 자동 모니터링 등록
+        if sev >= 3:
+            register_watched_channel(
+                channel_id=item["snippet"]["channelId"],
+                channel_name=channel,
+                severity=sev,
+                added_by=assigned_to
+            )
         results.append({
             "id": vid, "title": title, "channel": channel,
             "url": url, "keyword": keyword, "analysis": rt,
@@ -1967,24 +2055,24 @@ else:
                 # 숫자 크기 20% 축소 + 왼쪽 여백 추가
                 st.markdown(f"""
                 <div style="display:flex; gap:12px; padding:0 8px 0 16px; margin-bottom:4px;">
-                    <div style="flex:1; background:#1e293b; border-radius:8px; padding:10px 14px;">
-                        <div style="font-size:0.7rem; color:#94a3b8; margin-bottom:2px;">📅 이번달</div>
-                        <div style="font-size:1.5rem; font-weight:700; color:#38bdf8; line-height:1.1;">{month_cnt_h}건</div>
-                        <div style="font-size:0.65rem; color:#4ade80;">↑ 목표 {target_h}건</div>
+                    <div style="flex:1; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:10px 14px;">
+                        <div style="font-size:0.7rem; color:#3b82f6; margin-bottom:2px; font-weight:600;">📅 이번달</div>
+                        <div style="font-size:1.5rem; font-weight:700; color:#1d4ed8; line-height:1.1;">{month_cnt_h}건</div>
+                        <div style="font-size:0.65rem; color:#64748b;">↑ 목표 {target_h}건</div>
                     </div>
-                    <div style="flex:1; background:#1e293b; border-radius:8px; padding:10px 14px;">
-                        <div style="font-size:0.7rem; color:#94a3b8; margin-bottom:2px;">🎯 달성률</div>
-                        <div style="font-size:1.5rem; font-weight:700; color:#{'22c55e' if rate_h>=100 else 'f59e0b' if rate_h>=50 else 'e94560'}; line-height:1.1;">{rate_h}%</div>
-                        <div style="font-size:0.65rem; color:#94a3b8;">목표 대비</div>
+                    <div style="flex:1; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:10px 14px;">
+                        <div style="font-size:0.7rem; color:#16a34a; margin-bottom:2px; font-weight:600;">🎯 달성률</div>
+                        <div style="font-size:1.5rem; font-weight:700; color:{'#16a34a' if rate_h>=100 else '#d97706' if rate_h>=50 else '#dc2626'}; line-height:1.1;">{rate_h}%</div>
+                        <div style="font-size:0.65rem; color:#64748b;">목표 대비</div>
                     </div>
-                    <div style="flex:1; background:#1e293b; border-radius:8px; padding:10px 14px;">
-                        <div style="font-size:0.7rem; color:#94a3b8; margin-bottom:2px;">🐉 토큰</div>
-                        <div style="font-size:1.5rem; font-weight:700; color:#a78bfa; line-height:1.1;">{token_info_h['monthly_remaining']}회</div>
-                        <div style="font-size:0.65rem; color:#94a3b8;">남은 횟수</div>
+                    <div style="flex:1; background:#faf5ff; border:1px solid #e9d5ff; border-radius:8px; padding:10px 14px;">
+                        <div style="font-size:0.7rem; color:#7c3aed; margin-bottom:2px; font-weight:600;">🐉 토큰</div>
+                        <div style="font-size:1.5rem; font-weight:700; color:#7c3aed; line-height:1.1;">{token_info_h['monthly_remaining']}회</div>
+                        <div style="font-size:0.65rem; color:#64748b;">남은 횟수</div>
                     </div>
                 </div>
-                <div style="background:#334155; border-radius:4px; height:6px; margin:0 8px 8px 16px;">
-                    <div style="background:{'#22c55e' if rate_h>=100 else '#f59e0b' if rate_h>=50 else '#e94560'}; width:{rate_h}%; height:6px; border-radius:4px;"></div>
+                <div style="background:#e2e8f0; border-radius:4px; height:6px; margin:0 8px 8px 16px;">
+                    <div style="background:{'#16a34a' if rate_h>=100 else '#d97706' if rate_h>=50 else '#dc2626'}; width:{rate_h}%; height:6px; border-radius:4px;"></div>
                 </div>
                 """, unsafe_allow_html=True)
             except:
@@ -3327,8 +3415,8 @@ else:
         if (is_admin or is_super) and tab8:
             with tab8:
                 st.subheader(t("admin_title"))
-                admin_tab1, admin_tab2, admin_tab3, admin_tab4, admin_tab5, admin_tab6 = st.tabs([
-                    t("admin_team"), t("admin_assign"), t("admin_token"), t("admin_email"), t("admin_log"), "💬 채팅 토큰"
+                admin_tab1, admin_tab2, admin_tab3, admin_tab4, admin_tab5, admin_tab6, admin_tab7 = st.tabs([
+                    t("admin_team"), t("admin_assign"), t("admin_token"), t("admin_email"), t("admin_log"), "💬 채팅 토큰", "📡 채널 모니터링"
                 ])
 
                 # 팀 현황
@@ -3681,3 +3769,65 @@ else:
                                     st.write(lg.get("response",""))
                     else:
                         st.info("채팅 로그가 없습니다.")
+
+                with admin_tab7:
+                    st.subheader("📡 위험 채널 모니터링")
+                    st.caption("심각도 3 이상 위험 영상이 발견된 채널이 자동 등록됩니다.")
+
+                    channels = get_watched_channels()
+
+                    if not channels:
+                        st.info("아직 등록된 모니터링 채널이 없습니다. 자동 검색을 실행하면 위험 채널이 자동 등록됩니다.")
+                    else:
+                        st.success(f"총 {len(channels)}개 채널 모니터링 중")
+
+                        # 요약 통계
+                        mc1, mc2, mc3 = st.columns(3)
+                        mc1.metric("모니터링 채널", len(channels))
+                        mc2.metric("평균 위험도", f"{sum(c['avg_severity'] for c in channels)/len(channels):.1f}")
+                        mc3.metric("총 위험 탐지", sum(c['risk_count'] for c in channels))
+
+                        st.divider()
+
+                        # 채널 목록
+                        for ch in channels:
+                            sev_color = "🚨" if ch['avg_severity'] >= 4 else "🔴" if ch['avg_severity'] >= 3 else "🟠"
+                            with st.expander(f"{sev_color} {ch['channel_name']} | 위험탐지 {ch['risk_count']}회 | 평균심각도 {ch['avg_severity']}"):
+                                cc1, cc2, cc3, cc4 = st.columns([3,1,1,1])
+                                with cc1:
+                                    st.markdown(f"**채널ID:** `{ch['channel_id']}`")
+                                    st.caption(f"최초: {str(ch['first_detected_at'])[:10]} | 최근: {str(ch['last_detected_at'])[:10]}")
+                                with cc2:
+                                    st.markdown(f"[▶️ 채널 보기](https://www.youtube.com/channel/{ch['channel_id']})")
+                                with cc3:
+                                    if st.button("🔍 지금 스캔", key=f"scan_{ch['id']}", use_container_width=True):
+                                        with st.spinner(f"{ch['channel_name']} 스캔 중..."):
+                                            scan_results = scan_watched_channel(
+                                                ch['channel_id'], ch['channel_name'],
+                                                assigned_to=user["id"]
+                                            )
+                                        if scan_results:
+                                            risky_scan = [r for r in scan_results if r['severity'] >= 2]
+                                            st.success(f"{len(scan_results)}개 영상 스캔 완료 — 위험 {len(risky_scan)}개")
+                                            for r in risky_scan:
+                                                st.markdown(f"- 🚨 [{r['title'][:50]}]({r['url']}) | 심각도:{r['severity']}")
+                                        else:
+                                            st.info("새 영상 없음")
+                                with cc4:
+                                    if st.button("🗑️ 삭제", key=f"del_ch_{ch['id']}", use_container_width=True):
+                                        supabase.table("watched_channels").delete().eq("id", ch["id"]).execute()
+                                        st.rerun()
+
+                        st.divider()
+
+                        # 전체 스캔 버튼
+                        if st.button("🐉 전체 모니터링 채널 일괄 스캔", type="primary", use_container_width=True):
+                            total_risky = 0
+                            prog = st.progress(0)
+                            for i, ch in enumerate(channels):
+                                with st.spinner(f"{ch['channel_name']} 스캔 중... ({i+1}/{len(channels)})"):
+                                    scan_results = scan_watched_channel(ch['channel_id'], ch['channel_name'], assigned_to=user["id"])
+                                    risky_scan = [r for r in scan_results if r['severity'] >= 2]
+                                    total_risky += len(risky_scan)
+                                prog.progress((i+1)/len(channels))
+                            st.success(f"✅ 전체 스캔 완료 — 위험 콘텐츠 {total_risky}개 발견")
