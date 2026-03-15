@@ -233,7 +233,7 @@ LANG = {
         "analyze_start":"분석 시작","analyzing":"분석 중...","result_title":"분석 결과",
         "to_report":"📋 보고서로 작성하기","enter_text":"텍스트를 입력해주세요.",
         "yt_title":"유튜브 영상 분석","yt_url":"유튜브 URL 입력","yt_collecting":"데이터 수집 중...",
-        "yt_analyzing":"AI 분석 중...","yt_open":"▶️ 유튜브에서 보기","enter_url":"URL을 입력해주세요.",
+        "yt_analyzing":"AI 분석 중...","yt_open":t("yt_watch"),"enter_url":"URL을 입력해주세요.",
         "kw_title":"키워드 기반 자동 탐색","kw_input":"검색 키워드","kw_count":"분석할 영상 수",
         "kw_start":"자동 탐색 시작","kw_searching":"'{}' 검색 중...","kw_skipped":"⏭️ 이미 분석한 영상 {}개 제외됨",
         "kw_no_new":"새로운 영상이 없습니다. 다른 키워드를 시도해보세요.",
@@ -242,7 +242,7 @@ LANG = {
         "dragon_title":"🐉 드래곤아이즈 추천 모니터링 리스트",
         "dragon_caption":"AI가 플랫폼별 위험 키워드를 자동 생성하고 유튜브를 탐색합니다. 이미 분석한 영상은 자동 제외됩니다.",
         "dragon_used":"이번달 사용","dragon_today":"오늘 사용","dragon_remain":"남은 월간 횟수",
-        "dragon_monthly_limit":"이번달 추천 한도에 도달했습니다. 관리자에게 추가 토큰을 요청하세요.",
+        "dragon_monthly_limit":t("dragon_monthly_warn"),
         "dragon_daily_limit":"오늘 추천 한도({}회)에 도달했습니다. 내일 다시 사용 가능합니다.",
         "dragon_general":"🐉 일반 추천","dragon_roblox":"🎮 Roblox 추천","dragon_minecraft":"⛏️ Minecraft 추천",
         "dragon_kw_gen":"{} 위험 키워드 생성 중...","dragon_kw_done":"키워드 {}개 생성됨!",
@@ -266,7 +266,7 @@ LANG = {
         "plat_yt":"YouTube","plat_rb":"Roblox","plat_mc":"Minecraft","plat_etc":"기타",
         "history_title":"📜 탐색 히스토리","history_caption":"지금까지 분석된 영상 목록 (최대 1000개)",
         "filter_type":"탐색 유형","filter_reported":"보고서 여부","reported":"작성됨","not_reported":"미작성",
-        "after_date":"날짜 이후","assignee":"담당","unassigned":"미배정","write_btn":"📋 작성",
+        "after_date":"날짜 이후","assignee":"담당","unassigned":t("unassigned_label"),"write_btn":"📋 작성",
         "stats_title":"📈 {}님의 성과 현황","stat_month":"이번달","stat_rate":"달성률",
         "stat_total":"누적 총계","stat_target":"이번달 목표","goal_achieved":"🎉 이번달 목표 달성!",
         "goal_good":"💪 잘 하고 있어요!","goal_keep":"📌 꾸준히 해봐요!","admin_comment":"💬 관리자 코멘트",
@@ -282,6 +282,65 @@ LANG = {
         "rec_memo":"메모 (선택)","rec_add":"➕ 수신자 등록","rec_added":"✅ {} 등록됨!",
         "rec_list":"등록된 수신자 목록","rec_active":"✅ 활성","rec_inactive":"❌ 비활성",
         "deactivate":"❌ 비활성화","activate":"✅ 활성화",
+        "today":"오늘",
+        "this_week":"이번주",
+        "this_month_label":"이번달",
+        "turn":"턴",
+        "chat_input_ph":"드래곤파더에게 질문하세요... (최대 300자)",
+        "chat_disabled":"사용 불가 상태입니다",
+        "chat_limit_daily":"오늘 한도({}턴) 도달",
+        "chat_limit_weekly":"이번 주 한도({}턴) 도달",
+        "chat_limit_monthly":t("chat_limit_monthly"),
+        "yt_watch":t("yt_watch"),
+        "yt_open_link":"▶️ 열기",
+        "video_title":"영상 제목: {}",
+        "search_result_cnt":"탐색 결과 ({}개)",
+        "recommend_result_cnt":"추천 결과 ({}개)",
+        "safe_count":"✅ 안전 판정 ({}개)",
+        "skipped_cnt":"⏭️ 이미 분석한 영상 {}개 제외됨",
+        "new_video_cnt":"새 영상 {}개 분석 시작...",
+        "analyze_done":"완료! {}개 분석됨",
+        "kw_gen_done":"키워드 {}개 생성됨!",
+        "kw_gen_fail":t("kw_gen_fail"),
+        "dragon_monthly_warn":t("dragon_monthly_warn"),
+        "dragon_daily_warn":"오늘 추천 한도({}회)에 도달했습니다. 내일 다시 사용 가능합니다.",
+        "total_count":"총 {}건",
+        "naver_found_msg":"총 {}개 결과 발견",
+        "naver_searching_msg":"네이버 {} 검색 중...",
+        "naver_pub_date":"게시일: {}",
+        "write_report_safe":"안전",
+        "ann_read_btn":"✅ 확인했습니다",
+        "role_current":"현재 권한: **{}**",
+        "team_created":"✅ {} 팀이 생성됐습니다!",
+        "role_changed":"✅ {} 역할 변경됨",
+        "member_added":"✅ {}님이 {}에 추가됐습니다!",
+        "save_btn":"저장",
+        "add_btn":"➕ 추가",
+        "leave_start":"시작일",
+        "leave_end":"종료일",
+        "leave_reason_label":"사유: {}",
+        "leave_approve":"✅ 승인",
+        "leave_reject":"❌ 반려",
+        "leave_approved":t("leave_approved"),
+        "leave_rejected":t("leave_rejected"),
+        "work_order_title":"제목",
+        "work_order_content":"내용",
+        "cancel_btn":"취소",
+        "close_btn":"닫기",
+        "email_subject_label":"제목",
+        "email_memo_label":"추가 메모 (선택)",
+        "email_memo_label2":"추가 메모",
+        "profile_contact_label":"수신: {}",
+        "delete_error_msg":"삭제 오류: {}",
+        "save_error_msg":"저장 오류: {}",
+        "send_error_msg":"전송 오류: {}",
+        "change_error_msg":"변경 오류: {}",
+        "staff_error_msg":"직원 정보 불러오기 오류: {}",
+        "error_msg":"오류: {}",
+        "team_fail_msg":"팀 현황 불러오기 실패: {}",
+        "write_report_help":"보고서 작성",
+        "unassigned_label":t("unassigned_label"),
+        "naver_safe_cnt":"✅ 안전 판정 ({}개)",
         "save_error":"저장 오류: {}","delete_error":"삭제 오류: {}","error":"오류: {}","no_url":"URL을 입력해주세요.",
         # 공지 팝업
         "ann_confirm":"ann_confirm","ann_later":"ann_later","ann_date":"발송일:",
@@ -342,7 +401,7 @@ LANG = {
         # 드래곤파더 채팅
         "chat_clear":"대화 초기화","chat_daily_limit":"오늘 한도({}턴) 도달",
         "chat_weekly_limit":"이번 주 한도({}턴) 도달",
-        "chat_monthly_limit":"이번 달 한도 도달. 관리자에게 추가 요청하세요.",
+        "chat_monthly_limit":t("chat_limit_monthly"),
         "chat_fullscreen":"chat_fullscreen",
         # 보고서 제출
         "report_submitted":"report_submitted",
@@ -416,6 +475,65 @@ LANG = {
         "rec_memo":"Memo (optional)","rec_add":"➕ Add Recipient","rec_added":"✅ {} added!",
         "rec_list":"Registered Recipients","rec_active":"✅ Active","rec_inactive":"❌ Inactive",
         "deactivate":"❌ Deactivate","activate":"✅ Activate",
+        "today":"Today",
+        "this_week":"This Week",
+        "this_month_label":"This Month",
+        "turn":"turns",
+        "chat_input_ph":"Ask DragonFather... (max 300 chars)",
+        "chat_disabled":"Currently unavailable",
+        "chat_limit_daily":"Daily limit ({} turns) reached",
+        "chat_limit_weekly":"Weekly limit ({} turns) reached",
+        "chat_limit_monthly":"Monthly limit reached. Ask admin for more tokens.",
+        "yt_watch":"▶️ Watch on YouTube",
+        "yt_open_link":"▶️ Open",
+        "video_title":"Video title: {}",
+        "search_result_cnt":"Search Results ({})",
+        "recommend_result_cnt":"Recommended Results ({})",
+        "safe_count":"✅ Safe ({})",
+        "skipped_cnt":"⏭️ {} already-analyzed videos excluded",
+        "new_video_cnt":"Analyzing {} new videos...",
+        "analyze_done":"Done! {} analyzed",
+        "kw_gen_done":"{} keywords generated!",
+        "kw_gen_fail":"Keyword generation failed.",
+        "dragon_monthly_warn":"Monthly limit reached. Ask admin for more tokens.",
+        "dragon_daily_warn":"Daily limit ({} times) reached. Try again tomorrow.",
+        "total_count":"Total: {}",
+        "naver_found_msg":"Found {} results",
+        "naver_searching_msg":"Searching Naver {}...",
+        "naver_pub_date":"Published: {}",
+        "write_report_safe":"Safe",
+        "ann_read_btn":"✅ Confirmed",
+        "role_current":"Current role: **{}**",
+        "team_created":"✅ Team {} created!",
+        "role_changed":"✅ {} role changed",
+        "member_added":"✅ {} added to {}!",
+        "save_btn":"Save",
+        "add_btn":"➕ Add",
+        "leave_start":"Start Date",
+        "leave_end":"End Date",
+        "leave_reason_label":"Reason: {}",
+        "leave_approve":"✅ Approve",
+        "leave_reject":"❌ Reject",
+        "leave_approved":"Approved",
+        "leave_rejected":"Rejected",
+        "work_order_title":"Title",
+        "work_order_content":"Content",
+        "cancel_btn":"Cancel",
+        "close_btn":"Close",
+        "email_subject_label":"Subject",
+        "email_memo_label":"Additional Memo (optional)",
+        "email_memo_label2":"Additional Memo",
+        "profile_contact_label":"To: {}",
+        "delete_error_msg":"Delete error: {}",
+        "save_error_msg":"Save error: {}",
+        "send_error_msg":"Send error: {}",
+        "change_error_msg":"Change error: {}",
+        "staff_error_msg":"Staff load error: {}",
+        "error_msg":"Error: {}",
+        "team_fail_msg":"Failed to load team: {}",
+        "write_report_help":"Write Report",
+        "unassigned_label":"Unassigned",
+        "naver_safe_cnt":"✅ Safe ({})",
         "save_error":"Save error: {}","delete_error":"Delete error: {}","error":"Error: {}","no_url":"Please enter a URL.",
         # announcement popup
 # 2nd pass
@@ -577,6 +695,65 @@ LANG = {
         "rec_memo":"メモ（任意）","rec_add":"➕ 受信者を登録","rec_added":"✅ {}を登録しました！",
         "rec_list":"登録済み受信者一覧","rec_active":"✅ 有効","rec_inactive":"❌ 無効",
         "deactivate":"❌ 無効化","activate":"✅ 有効化",
+        "today":"本日",
+        "this_week":"今週",
+        "this_month_label":"今月",
+        "turn":"ターン",
+        "chat_input_ph":"ドラゴンファーザーに質問... (最大300文字)",
+        "chat_disabled":"現在使用できません",
+        "chat_limit_daily":"本日の上限（{}ターン）に達しました",
+        "chat_limit_weekly":"今週の上限（{}ターン）に達しました",
+        "chat_limit_monthly":"今月の上限に達しました。管理者に追加を申請してください。",
+        "yt_watch":"▶️ YouTubeで見る",
+        "yt_open_link":"▶️ 開く",
+        "video_title":"動画タイトル: {}",
+        "search_result_cnt":"検索結果（{}件）",
+        "recommend_result_cnt":"推薦結果（{}件）",
+        "safe_count":"✅ 安全判定（{}件）",
+        "skipped_cnt":"⏭️ 分析済み{}件を除外",
+        "new_video_cnt":"新規{}件の分析開始...",
+        "analyze_done":"完了！{}件分析済み",
+        "kw_gen_done":"{}個のキーワードを生成しました！",
+        "kw_gen_fail":"キーワード生成に失敗しました。",
+        "dragon_monthly_warn":"今月の上限に達しました。管理者に追加を申請してください。",
+        "dragon_daily_warn":"本日の推薦上限（{}回）に達しました。明日また使用できます。",
+        "total_count":"合計: {}件",
+        "naver_found_msg":"{}件の結果が見つかりました",
+        "naver_searching_msg":"Naver {} 検索中...",
+        "naver_pub_date":"投稿日: {}",
+        "write_report_safe":"安全",
+        "ann_read_btn":"✅ 確認しました",
+        "role_current":"現在の権限: **{}**",
+        "team_created":"✅ {}チームが作成されました！",
+        "role_changed":"✅ {}の役割が変更されました",
+        "member_added":"✅ {}さんが{}に追加されました！",
+        "save_btn":"保存",
+        "add_btn":"➕ 追加",
+        "leave_start":"開始日",
+        "leave_end":"終了日",
+        "leave_reason_label":"理由: {}",
+        "leave_approve":"✅ 承認",
+        "leave_reject":"❌ 却下",
+        "leave_approved":"承認されました",
+        "leave_rejected":"却下されました",
+        "work_order_title":"タイトル",
+        "work_order_content":"内容",
+        "cancel_btn":"キャンセル",
+        "close_btn":"閉じる",
+        "email_subject_label":"件名",
+        "email_memo_label":"追加メモ（任意）",
+        "email_memo_label2":"追加メモ",
+        "profile_contact_label":"宛先: {}",
+        "delete_error_msg":"削除エラー: {}",
+        "save_error_msg":"保存エラー: {}",
+        "send_error_msg":"送信エラー: {}",
+        "change_error_msg":"変更エラー: {}",
+        "staff_error_msg":"スタッフ情報読み込みエラー: {}",
+        "error_msg":"エラー: {}",
+        "team_fail_msg":"チーム読み込み失敗: {}",
+        "write_report_help":"レポート作成",
+        "unassigned_label":"未割り当て",
+        "naver_safe_cnt":"✅ 安全判定（{}件）",
         "save_error":"保存エラー: {}","delete_error":"削除エラー: {}","error":"エラー: {}","no_url":"URLを入力してください。",
         # 公知ポップアップ
 # 2次翻訳
@@ -1039,7 +1216,7 @@ def delete_report(report_id):
         st.session_state.report_count = get_month_count(st.session_state.user["id"])
         return True
     except Exception as e:
-        st.error(f"삭제 오류: {str(e)}")
+        st.error(t("delete_error_msg").format(str(e)))
         return False
 
 def get_analyzed_urls():
@@ -1830,9 +2007,9 @@ else:
 
         if not chat_info["ok"]:
             reason = chat_info.get("reason")
-            if reason == "daily": st.warning(f"오늘 한도({CHAT_DAILY_LIMIT}턴) 도달")
-            elif reason == "weekly": st.warning(f"이번 주 한도({CHAT_WEEKLY_LIMIT}턴) 도달")
-            elif reason == "monthly": st.warning("이번 달 한도 도달. 관리자에게 추가 요청하세요.")
+            if reason == "daily": st.warning(t("chat_limit_daily").format(CHAT_DAILY_LIMIT))
+            elif reason == "weekly": st.warning(t("chat_limit_weekly").format(CHAT_WEEKLY_LIMIT))
+            elif reason == "monthly": st.warning(t("chat_limit_monthly"))
 
         ic1, ic2 = st.columns([6, 1])
         with ic1:
@@ -1856,7 +2033,7 @@ else:
                     st.rerun()
                 except Exception as e:
                     st.session_state.chat_history.pop()
-                    st.error(f"오류: {str(e)}")
+                    st.error(t("error_msg").format(str(e)))
 
     # ══════════════════════════════
     # 💼 일하기 페이지
@@ -1918,7 +2095,7 @@ else:
                             st.markdown(f"[🔗 링크 열기]({url})")
                     if st.button(t("popup_write"), type="primary", use_container_width=True, key="popup_write_btn"):
                         st.session_state.work_popup_id = None
-                        open_report_form(url,"",1,"안전","YouTube",from_tab=4)
+                        open_report_form(url,"",1,t("write_report_safe"),"YouTube",from_tab=4)
                         st.session_state.current_page = "report_form"; st.rerun()
 
         work_left, work_right = st.columns([1, 1])
@@ -1962,7 +2139,7 @@ else:
                                     um = len([r for r in ur if r["created_at"][:7]==this_month])
                                     st.caption(f"{role_icon(u.get('role_v2','user'))} {u['name']} | 이번달 {um}건")
                     except Exception as e:
-                        st.warning(f"팀 현황 불러오기 실패: {str(e)}")
+                        st.warning(t("team_fail_msg").format(str(e)))
                 elif _role == "team_leader":
                     try:
                         my_team_id = user.get("team_id")
@@ -1987,7 +2164,7 @@ else:
                         else:
                             st.info(t("work_no_assigned"))
                     except Exception as e:
-                        st.warning(f"팀 현황 불러오기 실패: {str(e)}")
+                        st.warning(t("team_fail_msg").format(str(e)))
                 else:
                     st.info(t("work_no_team"))
 
@@ -2005,8 +2182,8 @@ else:
                         if st.button("🔍", key=f"work_view_{d['id']}", help=t("work_preview")):
                             st.session_state.work_popup_id = d["id"]; st.rerun()
                     with dc3:
-                        if st.button("📋", key=f"work_rep_{d['id']}", help="보고서 작성"):
-                            open_report_form(d["url"],"",1,"안전","YouTube",from_tab=4)
+                        if st.button("📋", key=f"work_rep_{d['id']}", help=t("write_report_help")):
+                            open_report_form(d["url"],"",1,t("write_report_safe"),"YouTube",from_tab=4)
                             st.session_state.current_page = "report_form"; st.rerun()
                     st.markdown("<hr style='margin:0;border-color:#e2e8f0;'>", unsafe_allow_html=True)
 
@@ -2055,7 +2232,7 @@ else:
             with pc1:
                 st.text_input(t("profile_name"), value=user.get("name",""), disabled=True)
                 st.text_input(t("profile_email"), value=user.get("email",""), disabled=True)
-                st.text_input(t("profile_team"), value=user.get("team_id","미배정"), disabled=True)
+                st.text_input(t("profile_team"), value=user.get("team_id",t("unassigned_label")), disabled=True)
                 st.text_input(t("profile_role"), value=role_label(user.get("role_v2","user")), disabled=True)
             with pc2:
                 new_phone = st.text_input("📱 연락처 (휴대폰)", value=user.get("phone",""), placeholder="010-0000-0000")
@@ -2080,7 +2257,7 @@ else:
                     st.success(t("profile_saved"))
                     st.rerun()
                 except Exception as e:
-                    st.error(f"저장 오류: {str(e)}")
+                    st.error(t("save_error_msg").format(str(e)))
 
         st.divider()
 
@@ -2101,14 +2278,14 @@ else:
                         supabase.auth.update_user({"password": pw1})
                         st.success(t("profile_pw_ok"))
                     except Exception as e:
-                        st.error(f"변경 오류: {str(e)}")
+                        st.error(t("change_error_msg").format(str(e)))
 
         st.divider()
 
         # ── 본사에 연락하기 ──
         with st.container(border=True):
             st.markdown("### 📩 본사에 연락하기")
-            st.caption(f"수신: {st.session_state.contact_hq_recipient}")
+            st.caption(t("profile_contact_label").format(st.session_state.contact_hq_recipient))
             contact_subject = st.text_input(t("profile_subject"), placeholder=t("profile_subject_ph"))
             contact_body = st.text_area(t("profile_body"), height=120, placeholder=t("profile_body_ph"))
             if st.button("📩 본사에 전송", type="primary", use_container_width=True):
@@ -2124,7 +2301,7 @@ else:
                         }).execute()
                         st.success(t("profile_sent"))
                     except Exception as e:
-                        st.error(f"전송 오류: {str(e)}")
+                        st.error(t("send_error_msg").format(str(e)))
                 else:
                     st.warning(t("profile_subject_body_empty"))
 
@@ -2145,7 +2322,7 @@ else:
                             t("profile_name"): u.get("name",""),
                             "이메일": u.get("email",""),
                             t("profile_role"): role_label(u.get("role_v2","user")),
-                            "소속팀": team_map.get(u.get("team_id",""), "미배정"),
+                            "소속팀": team_map.get(u.get("team_id",""), t("unassigned_label")),
                             "연락처": u.get("phone",""),
                             "생년월일": u.get("birthdate",""),
                             "주소": u.get("address",""),
@@ -2166,7 +2343,7 @@ else:
                         type="primary",
                     )
                 except Exception as e:
-                    st.error(f"직원 정보 불러오기 오류: {str(e)}")
+                    st.error(t("staff_error_msg").format(str(e)))
 
     # ══════════════════════════════
     # 홈 랜딩 페이지 (심플 버전)
@@ -2266,8 +2443,8 @@ else:
 
             if not chat_info["ok"]:
                 reason = chat_info.get("reason")
-                if reason == "daily": st.warning(f"오늘 한도({CHAT_DAILY_LIMIT}턴) 도달")
-                elif reason == "weekly": st.warning(f"이번 주 한도({CHAT_WEEKLY_LIMIT}턴) 도달")
+                if reason == "daily": st.warning(t("chat_limit_daily").format(CHAT_DAILY_LIMIT))
+                elif reason == "weekly": st.warning(t("chat_limit_weekly").format(CHAT_WEEKLY_LIMIT))
                 elif reason == "monthly": st.warning(t("monthly_limit_short"))
 
             ic1, ic2 = st.columns([5, 1])
@@ -2292,7 +2469,7 @@ else:
                         st.rerun()
                     except Exception as e:
                         st.session_state.chat_history.pop()
-                        st.error(f"오류: {str(e)}")
+                        st.error(t("error_msg").format(str(e)))
 
         # ── 오른쪽: 통계 (상단) + 모니터링 버튼 (하단) ──
         with right_col:
@@ -2391,11 +2568,11 @@ else:
             with chat_header1:
                 st.markdown("### 🐲 드래곤파더")
             with chat_header2:
-                st.metric("오늘", f"{chat_info.get('today_used',0)}/{CHAT_DAILY_LIMIT}턴")
+                st.metric(t("today"), f"{chat_info.get('today_used',0)}/{CHAT_DAILY_LIMIT}턴")
             with chat_header3:
-                st.metric("이번주", f"{chat_info.get('week_used',0)}/{CHAT_WEEKLY_LIMIT}턴")
+                st.metric(t("this_week"), f"{chat_info.get('week_used',0)}/{CHAT_WEEKLY_LIMIT}턴")
             with chat_header4:
-                st.metric("이번달", f"{chat_info.get('monthly_used',0)}/{chat_info.get('monthly_limit', CHAT_MONTHLY_LIMIT)}턴")
+                st.metric(t("this_month_label"), f"{chat_info.get('monthly_used',0)}/{chat_info.get('monthly_limit', CHAT_MONTHLY_LIMIT)}턴")
 
             if st.session_state.chat_history:
                 chat_box = st.container(height=250)
@@ -2453,7 +2630,7 @@ else:
                         st.rerun()
                     except Exception as e:
                         st.session_state.chat_history.pop()
-                        st.error(f"오류: {str(e)}")
+                        st.error(t("error_msg").format(str(e)))
 
         st.divider()
 
@@ -2558,7 +2735,7 @@ else:
                                     comments.append(item["snippet"]["topLevelComment"]["snippet"]["textDisplay"])
                             except Exception:
                                 comments = ["댓글 수집 불가"]
-                            st.success(f"영상 제목: {title}")
+                            st.success(t("video_title").format(title))
                             st.markdown(f"▶️ [유튜브에서 보기]({url})")
                         with st.spinner(t("yt_analyzing")):
                             at = f"제목: {title}\n설명: {desc}\n태그: {', '.join(tags[:10])}\n댓글:\n{chr(10).join(comments[:20])}"
@@ -2607,10 +2784,10 @@ else:
                                     "description":item["snippet"].get("description","")[:200],
                                     "channel":item["snippet"]["channelTitle"],"url":u})
                         if skipped > 0:
-                            st.caption(f"⏭️ 이미 분석한 영상 {skipped}개 제외됨")
+                            st.caption(t("skipped_cnt").format(skipped))
                         if not videos:
                             st.warning(t("no_new_video")); st.stop()
-                        st.info(f"새 영상 {len(videos)}개 분석 시작...")
+                        st.info(t("new_video_cnt").format(len(videos)))
                         results = []; prog = st.progress(0)
                         for i, video in enumerate(videos):
                             with st.spinner(f"({i+1}/{len(videos)}) {video['title'][:30]}..."):
@@ -2630,9 +2807,9 @@ else:
                                 mark_url_analyzed(video["url"], video["title"], "keyword", user["id"])
                             prog.progress((i+1)/len(videos))
                         st.session_state.search_results = results
-                        st.success(f"완료! {len(results)}개 분석됨")
+                        st.success(t("analyze_done").format(len(results)))
                     except Exception as e:
-                        st.error(f"오류: {str(e)}")
+                        st.error(t("error_msg").format(str(e)))
                 else:
                     st.warning(t("enter_keyword"))
 
@@ -2640,7 +2817,7 @@ else:
                 results_to_show = list(st.session_state.search_results)
                 sc1, sc2 = st.columns([3, 1])
                 with sc1:
-                    st.subheader(f"탐색 결과 ({len(results_to_show)}개)")
+                    st.subheader(t("search_result_cnt").format(len(results_to_show)))
                 with sc2:
                     sort_key = st.selectbox(t("sort"), [t("sort_sev_high"), t("sort_sev_low"), t("sort_newest")], key="sort_search")
                 if sort_key == t("sort_sev_high"):
@@ -2673,9 +2850,9 @@ else:
 
             if not token_info["ok"]:
                 if token_info["monthly_remaining"] <= 0:
-                    st.warning("이번달 추천 한도에 도달했습니다. 관리자에게 추가 토큰을 요청하세요.")
+                    st.warning(t("dragon_monthly_warn"))
                 else:
-                    st.warning(f"오늘 추천 한도({DAILY_DRAGON_LIMIT}회)에 도달했습니다. 내일 다시 사용 가능합니다.")
+                    st.warning(t("dragon_daily_warn").format(DAILY_DRAGON_LIMIT))
 
             btn1, btn2, btn3, btn4 = st.columns(4)
             with btn1:
@@ -2704,10 +2881,10 @@ else:
                     with st.spinner(f"{selected_label} 위험 키워드 생성 중..."):
                         keywords = generate_recommend_keywords(selected_platform)
                     if keywords:
-                        st.success(f"키워드 {len(keywords)}개 생성됨!")
+                        st.success(t("kw_gen_done").format(len(keywords)))
                         st.write("🔑 " + " | ".join(keywords))
                     else:
-                        st.error("키워드 생성 실패."); st.stop()
+                        st.error(t("kw_gen_fail")); st.stop()
 
                     all_results = []; prog = st.progress(0)
                     analyzed_urls = get_analyzed_urls()
@@ -2731,13 +2908,13 @@ else:
                     use_dragon_token(user["id"])
                     st.success(f"완료! {selected_label} — {len(all_results)}개 중 주의 필요 {len(risky)}개 발견")
                 except Exception as e:
-                    st.error(f"오류: {str(e)}")
+                    st.error(t("error_msg").format(str(e)))
 
             if st.session_state.recommend_results:
                 results = list(st.session_state.recommend_results)
                 rc1, rc2 = st.columns([3,1])
                 with rc1:
-                    st.subheader(f"추천 결과 ({len(results)}개)")
+                    st.subheader(t("recommend_result_cnt").format(len(results)))
                 with rc2:
                     sort_rec = st.selectbox(t("sort"), [t("sort_sev_high"),t("sort_sev_low"),t("sort_newest")], key="sort_rec")
 
@@ -2761,7 +2938,7 @@ else:
                                 st.markdown(f"**[▶️ 유튜브 열기]({r['url']})**")
                                 if st.button("📋 보고서 작성", key=f"rec_{r['id']}"):
                                     open_report_form(r["url"],r["analysis"],r["severity"],r["category"],"YouTube",from_tab=3); st.rerun()
-                with st.expander(f"✅ 안전 판정 ({len(safe)}개)"):
+                with st.expander(t("safe_count").format(len(safe))):
                     for r in safe:
                         st.caption(f"✅ [{r.get('keyword','')}] {r['title']}")
                 if st.button(t("dragon_clear")):
@@ -2798,7 +2975,7 @@ else:
             if fdate:
                 data = [d for d in data if str(d.get("analyzed_at",""))[:10] >= str(fdate)]
 
-            st.caption(f"총 {len(data)}건")
+            st.caption(t("total_count").format(len(data)))
 
             all_users_res = supabase.table("users").select("id,name").execute()
             user_map = {u["id"]: u["name"] for u in (all_users_res.data or [])}
@@ -2824,7 +3001,7 @@ else:
                         if not hist_popup_d.get("reported"):
                             if st.button(t("popup_write"), type="primary", use_container_width=True, key="hist_popup_write"):
                                 st.session_state.hist_popup_id = None
-                                open_report_form(hurl,"",1,"안전","YouTube",from_tab=4); st.rerun()
+                                open_report_form(hurl,"",1,t("write_report_safe"),"YouTube",from_tab=4); st.rerun()
 
             for d in data:
                 stype = search_type_label(d.get("search_type",""))
@@ -2838,7 +3015,7 @@ else:
                     st.caption(f"{stype} | {analyzed_date} | 담당: {assigned_name} | {reported_badge}")
                 with cb:
                     if "youtube.com" in d.get("url","") or "youtu.be" in d.get("url",""):
-                        if st.button("▶️ 열기", key=f"hist_open_{d['id']}"):
+                        if st.button(t("yt_open_link"), key=f"hist_open_{d['id']}"):
                             st.session_state.hist_popup_id = d["id"]; st.rerun()
                     if not d.get("reported"):
                         if st.button(t("write_btn"), key=f"hist_{d['id']}"):
@@ -2890,8 +3067,8 @@ else:
                         if recipients.data:
                             rec_names = [f"{r['name']} ({r['type']}) — {r['email']}" for r in recipients.data]
                             selected_recs = st.multiselect("수신자 선택", rec_names)
-                            bulk_subject = st.text_input("제목", value=f"[DragonEyes] Monitoring Report — {len(filtered)} cases")
-                            bulk_memo = st.text_area("추가 메모 (선택)", height=60)
+                            bulk_subject = st.text_input(t("email_subject_label"), value=f"[DragonEyes] Monitoring Report — {len(filtered)} cases")
+                            bulk_memo = st.text_area(t("email_memo_label"), height=60)
                             if st.button("📧 선택된 수신자에게 일괄 발송 (UI 미리보기)", type="primary"):
                                 st.success(f"✅ {len(selected_recs)}명에게 {len(filtered)}건 발송 예정")
                                 with st.expander("📄 발송 미리보기 (병기 형식)"):
@@ -2954,7 +3131,7 @@ else:
                                 email_subject = st.text_input("제목",
                                     value=f"[DragonEyes] Monitoring Report — {r.get('category','')} {sev_icon(sev)}",
                                     key=f"subj_{r['id']}")
-                                email_memo = st.text_area("추가 메모", height=60, key=f"memo_{r['id']}")
+                                email_memo = st.text_area(t("email_memo_label2"), height=60, key=f"memo_{r['id']}")
 
                                 with st.expander("📄 발송 내용 미리보기 (병기)"):
                                     pc1, pc2 = st.columns(2)
@@ -2984,11 +3161,11 @@ else:
                                         st.session_state[f"show_email_{r['id']}"] = False
                                         st.rerun()
                                 with ec2:
-                                    if st.button("취소", key=f"cancel_email_{r['id']}"):
+                                    if st.button(t("cancel_btn"), key=f"cancel_email_{r['id']}"):
                                         st.session_state[f"show_email_{r['id']}"] = False; st.rerun()
                             else:
                                 st.warning(t("no_recipients"))
-                                if st.button("닫기", key=f"close_email_{r['id']}"):
+                                if st.button(t("close_btn"), key=f"close_email_{r['id']}"):
                                     st.session_state[f"show_email_{r['id']}"] = False; st.rerun()
                     st.divider()
             else:
@@ -3116,13 +3293,13 @@ else:
                     return re.sub(r'<[^>]+>', '', text)
 
                 if do_search and naver_query:
-                    with st.spinner(f"네이버 {naver_type} 검색 중..."):
+                    with st.spinner(t("naver_searching_msg").format(naver_type)):
                         items = naver_search(naver_query, naver_type, display_count)
 
                     if not items:
                         st.warning(t("naver_no_result"))
                     else:
-                        st.success(f"총 {len(items)}개 결과 발견")
+                        st.success(t("naver_found_msg").format(len(items)))
                         with st.spinner("🐲 드래곤파더가 위험도 분석 중..."):
                             analyzed = []
                             for item in items:
@@ -3210,7 +3387,7 @@ else:
                                         st.markdown(f"**⚠️ 위험신호:** {a['danger_signal']}")
                                     st.markdown(f"**이유:** {a['reason']}")
                                     st.markdown(f"**내용:** {a['desc'][:300]}")
-                                    st.caption(f"게시일: {a['pubDate']}")
+                                    st.caption(t("naver_pub_date").format(a['pubDate']))
                                     bc1, bc2 = st.columns(2)
                                     with bc1:
                                         st.markdown(f"[🔗 원문 보기]({a['link']})")
@@ -3222,7 +3399,7 @@ else:
                             st.success("🟢 주의 필요한 게시물이 없습니다.")
 
                         if safe:
-                            with st.expander(f"✅ 안전 판정 ({len(safe)}개)"):
+                            with st.expander(t("safe_count").format(len(safe))):
                                 for a in safe:
                                     st.caption(f"{sev_icon_map.get(a['severity'],'⚪')} [{a['type']}] {a['title'][:60]} — {a['reason']}")
                 elif do_search and not naver_query:
@@ -3274,7 +3451,7 @@ else:
                             st.write(msg["content"])
 
             if chat_info["ok"]:
-                user_input = st.chat_input("드래곤파더에게 질문하세요... (최대 300자)", max_chars=300)
+                user_input = st.chat_input(t("chat_input_ph"), max_chars=300)
                 if user_input:
                     st.session_state.chat_history.append({"role": "user", "content": user_input})
                     with st.spinner("🐲 드래곤파더가 답변 중..."):
@@ -3295,9 +3472,9 @@ else:
                             st.rerun()
                         except Exception as e:
                             st.session_state.chat_history.pop()
-                            st.error(f"오류: {str(e)}")
+                            st.error(t("error_msg").format(str(e)))
             else:
-                st.chat_input("사용 불가 상태입니다", disabled=True)
+                st.chat_input(t("chat_disabled"), disabled=True)
 
             if st.session_state.chat_history:
                 if st.button("🗑️ 대화 초기화", key="clear_chat"):
@@ -3344,7 +3521,7 @@ else:
                                     st.success(t("ann_sent"))
                                     st.rerun()
                                 except Exception as e:
-                                    st.error(f"오류: {str(e)}")
+                                    st.error(t("error_msg").format(str(e)))
                             else:
                                 st.warning(t("ann_title_empty"))
 
@@ -3405,7 +3582,7 @@ else:
                             st.markdown(f'<div style="color:#1e293b; background:#f8fafc; border-radius:6px; padding:10px 14px; margin:4px 0; font-size:0.95rem; line-height:1.7;">{ann["content"]}</div>', unsafe_allow_html=True)
 
                             if not is_read:
-                                if st.button("✅ 확인했습니다", key=f"read_ann_{ann['id']}"):
+                                if st.button(t("ann_read_btn"), key=f"read_ann_{ann['id']}"):
                                     mark_announcement_read(ann["id"], user["id"])
                                     st.rerun()
 
@@ -3428,7 +3605,7 @@ else:
                 st.subheader("🏢 조직관리")
 
                 # ★ 수정: role_label() 함수 사용
-                st.info(f"현재 권한: **{role_label(user_role)}**")
+                st.info(t("role_current").format(role_label(user_role)))
 
                 org_tab1, org_tab2, org_tab3 = st.tabs(["👥 팀 관리", "🏖️ 휴가/병가 관리", "📋 업무지시"])
 
@@ -3452,7 +3629,7 @@ else:
                                         "description": new_team_desc,
                                         "leader_id": sel_leader["id"] if sel_leader else None
                                     }).execute()
-                                    st.success(f"✅ {new_team_name} 팀이 생성됐습니다!")
+                                    st.success(t("team_created").format(new_team_name))
                                     st.rerun()
                                 else:
                                     st.warning(t("org_team_name_empty"))
@@ -3485,9 +3662,9 @@ else:
                                                     label_visibility="collapsed")
                                         with mc3:
                                             if is_high:
-                                                if st.button("저장", key=f"save_role_{m['id']}"):
+                                                if st.button(t("save_btn"), key=f"save_role_{m['id']}"):
                                                     supabase.table("users").update({"role_v2": new_role}).eq("id", m["id"]).execute()
-                                                    st.success(f"✅ {m['name']} 역할 변경됨"); st.rerun()
+                                                    st.success(t("role_changed").format(m['name'])); st.rerun()
                                 else:
                                     st.caption(t("work_no_member"))
 
@@ -3499,10 +3676,10 @@ else:
                                             [None]+unassigned_users,
                                             format_func=lambda x: "선택..." if x is None else f'{x["name"]} ({x.get("email","")})',
                                             key=f"add_member_{team['id']}")
-                                        if st.button("➕ 추가", key=f"add_btn_{team['id']}"):
+                                        if st.button(t("add_btn"), key=f"add_btn_{team['id']}"):
                                             if add_member:
                                                 supabase.table("users").update({"team_id": team["id"]}).eq("id", add_member["id"]).execute()
-                                                st.success(f"✅ {add_member['name']}님이 {team['name']}에 추가됐습니다!"); st.rerun()
+                                                st.success(t("member_added").format(add_member['name'], team['name'])); st.rerun()
 
                 with org_tab2:
                     leave_type_map = {"annual":"🏖️ 연차","half":"🌤️ 반차","sick":"🤒 병가","other":"📝 기타"}
@@ -3517,9 +3694,9 @@ else:
                                 format_func=lambda x: leave_type_map[x],
                                 key="leave_type_sel")
                         with lc2:
-                            leave_start = st.date_input("시작일", key="leave_start")
+                            leave_start = st.date_input(t("leave_start"), key="leave_start")
                         with lc3:
-                            leave_end = st.date_input("종료일", key="leave_end")
+                            leave_end = st.date_input(t("leave_end"), key="leave_end")
                         leave_reason = st.text_input(t("leave_reason"), key="leave_reason")
                         if st.button("📤 신청", type="primary", key="leave_submit"):
                             if leave_start <= leave_end:
@@ -3574,30 +3751,30 @@ else:
                                         req_email = {u["id"]: u.get("email","") for u in get_all_users()}.get(lv.get("user_id",""),"")
                                         st.markdown(f"**{req_name}** `{req_email}` | {lv_icon} {lv['start_date']} ~ {lv['end_date']}")
                                         if lv.get("reason"):
-                                            st.caption(f"사유: {lv['reason']}")
+                                            st.caption(t("leave_reason_label").format(lv['reason']))
                                     with pa2:
-                                        if st.button("✅ 승인", key=f"approve_leave_{lv['id']}"):
+                                        if st.button(t("leave_approve"), key=f"approve_leave_{lv['id']}"):
                                             supabase.table("leave_requests").update({
                                                 "status": "approved",
                                                 "approved_by": user["id"],
                                                 "approved_at": datetime.now().isoformat()
                                             }).eq("id", lv["id"]).execute()
-                                            st.success("승인됨"); st.rerun()
+                                            st.success(t("leave_approved")); st.rerun()
                                     with pa3:
-                                        if st.button("❌ 반려", key=f"reject_leave_{lv['id']}"):
+                                        if st.button(t("leave_reject"), key=f"reject_leave_{lv['id']}"):
                                             supabase.table("leave_requests").update({
                                                 "status": "rejected",
                                                 "approved_by": user["id"],
                                                 "approved_at": datetime.now().isoformat()
                                             }).eq("id", lv["id"]).execute()
-                                            st.warning("반려됨"); st.rerun()
+                                            st.warning(t("leave_rejected")); st.rerun()
 
                 with org_tab3:
                     if is_lead:
                         st.subheader("📤 업무지시 발송")
                         with st.container(border=True):
-                            wo_title = st.text_input("제목", key="wo_title_inp")
-                            wo_content = st.text_area("내용", height=120, key="wo_content_inp")
+                            wo_title = st.text_input(t("work_order_title"), key="wo_title_inp")
+                            wo_content = st.text_area(t("work_order_content"), height=120, key="wo_content_inp")
                             wc1, wc2 = st.columns(2)
                             with wc1:
                                 wo_priority = st.selectbox("우선순위",
@@ -3934,7 +4111,7 @@ else:
                                     }).execute()
                                     st.success(f"✅ {new_name} 등록됨!"); st.rerun()
                                 except Exception as e:
-                                    st.error(f"오류: {str(e)}")
+                                    st.error(t("error_msg").format(str(e)))
                             else:
                                 st.warning("이름과 이메일을 입력해주세요.")
 
