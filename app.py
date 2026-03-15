@@ -1213,6 +1213,58 @@ Text to translate:
     except Exception:
         return ""
 
+def learn_keywords_from_report(content, result, severity, category):
+    """보고서에서 위험 키워드를 자동 추출해서 학습"""
+    if severity < 3:
+        return  # 심각도 3 미만은 학습 안함
+    try:
+        msg = client.messages.create(
+            model="claude-sonnet-4-20250514", max_tokens=200,
+            messages=[{"role": "user", "content": f"""아래 아동 안전 보고서에서 YouTube/네이버 검색에 사용할 수 있는 위험 키워드 3~5개를 추출하세요.
+검색 키워드로 쓸 수 있는 2~5단어 조합으로 추출하세요.
+
+분류: {category}
+심각도: {severity}
+내용/URL: {str(content)[:200]}
+분석결과: {str(result)[:300]}
+
+반드시 아래 형식으로만 (한 줄에 하나씩):
+키워드1
+키워드2
+키워드3"""}]
+        )
+        keywords = [k.strip() for k in msg.content[0].text.strip().splitlines() if k.strip() and len(k.strip()) > 2]
+        for kw in keywords[:5]:
+            try:
+                existing = supabase.table("learned_keywords").select("id,use_count").eq("keyword", kw).execute()
+                if existing.data:
+                    supabase.table("learned_keywords").update({
+                        "use_count": existing.data[0]["use_count"] + 1,
+                        "last_used_at": datetime.now().isoformat(),
+                        "category": category,
+                        "severity": severity,
+                    }).eq("keyword", kw).execute()
+                else:
+                    supabase.table("learned_keywords").insert({
+                        "keyword": kw,
+                        "source_url": str(content)[:200],
+                        "category": category,
+                        "severity": severity,
+                        "use_count": 1,
+                    }).execute()
+            except:
+                pass
+    except:
+        pass
+
+def get_learned_keywords(limit=20):
+    """학습된 키워드 중 자주 사용된 것 반환"""
+    try:
+        res = supabase.table("learned_keywords").select("keyword,use_count,category").order("use_count", desc=True).limit(limit).execute()
+        return [r["keyword"] for r in (res.data or [])]
+    except:
+        return []
+
 def save_report(content, result, severity, category, platform="manual"):
     try:
         saved_search = list(st.session_state.search_results)
@@ -1239,6 +1291,11 @@ def save_report(content, result, severity, category, platform="manual"):
         }).execute()
         if "youtube.com" in content:
             supabase.table("analyzed_urls").update({"reported": True}).eq("url", content).execute()
+
+        # 키워드 자동 학습 (백그라운드)
+        if severity >= 3:
+            learn_keywords_from_report(content, result, severity, category)
+
         st.session_state.report_count = get_month_count(st.session_state.user["id"])
         st.session_state.search_results = saved_search
         st.session_state.recommend_results = saved_recommend
@@ -1550,6 +1607,10 @@ def generate_recommend_keywords(platform="general"):
         ],
     }
     pool = keyword_pools.get(platform, keyword_pools["general"])
+    # 학습된 키워드 추가 (최대 5개)
+    learned = get_learned_keywords(limit=10)
+    if learned:
+        pool = pool + learned
     return random.sample(pool, min(10, len(pool)))
 
 def get_video_comments(video_id, max_comments=30):
@@ -4074,8 +4135,8 @@ else:
         if (is_admin or is_super) and tab8:
             with tab8:
                 st.subheader(t("admin_title"))
-                admin_tab1, admin_tab2, admin_tab3, admin_tab4, admin_tab5, admin_tab6, admin_tab7 = st.tabs([
-                    t("admin_team"), t("admin_assign"), t("admin_token"), t("admin_email"), t("admin_log"), "💬 채팅 토큰", "📡 채널 모니터링"
+                admin_tab1, admin_tab2, admin_tab3, admin_tab4, admin_tab5, admin_tab6, admin_tab7, admin_tab8 = st.tabs([
+                    t("admin_team"), t("admin_assign"), t("admin_token"), t("admin_email"), t("admin_log"), "💬 채팅 토큰", "📡 채널 모니터링", "🧠 키워드 학습"
                 ])
 
                 # 팀 현황
@@ -4490,3 +4551,55 @@ else:
                                     total_risky += len(risky_scan)
                                 prog.progress((i+1)/len(channels))
                             st.success(f"✅ 전체 스캔 완료 — 위험 콘텐츠 {total_risky}개 발견")
+
+                with admin_tab8:
+                    st.subheader("🧠 키워드 자동 학습 현황")
+                    st.caption("심각도 3 이상 보고서에서 자동 추출된 위험 키워드입니다. 자동 검색 시 활용됩니다.")
+
+                    try:
+                        kw_data = supabase.table("learned_keywords").select("*").order("use_count", desc=True).execute().data or []
+
+                        if not kw_data:
+                            st.info("아직 학습된 키워드가 없습니다. 심각도 3 이상 보고서를 작성하면 자동으로 키워드가 학습됩니다.")
+                        else:
+                            # 통계
+                            kc1, kc2, kc3 = st.columns(3)
+                            kc1.metric("총 학습 키워드", f"{len(kw_data)}개")
+                            kc2.metric("평균 사용 횟수", f"{sum(k['use_count'] for k in kw_data)/len(kw_data):.1f}회")
+                            kc3.metric("최다 사용", f"{max(k['use_count'] for k in kw_data)}회")
+
+                            st.divider()
+
+                            # 키워드 목록
+                            import pandas as pd
+                            df_kw = pd.DataFrame([{
+                                "키워드": k["keyword"],
+                                "분류": k.get("category",""),
+                                "심각도": k.get("severity",""),
+                                "사용횟수": k["use_count"],
+                                "최근사용": str(k.get("last_used_at",""))[:10],
+                            } for k in kw_data])
+                            st.dataframe(df_kw, use_container_width=True)
+
+                            # CSV 다운로드
+                            csv_kw = df_kw.to_csv(index=False, encoding="utf-8-sig")
+                            st.download_button("📥 키워드 목록 CSV 다운로드", data=csv_kw.encode("utf-8-sig"),
+                                file_name=f"learned_keywords_{date.today().strftime('%Y%m%d')}.csv", mime="text/csv")
+
+                            st.divider()
+
+                            # 개별 삭제
+                            st.markdown("**🗑️ 키워드 삭제**")
+                            del_kw = st.selectbox("삭제할 키워드 선택", ["선택하세요"] + [k["keyword"] for k in kw_data])
+                            if st.button("🗑️ 선택 키워드 삭제", key="del_kw_btn"):
+                                if del_kw != "선택하세요":
+                                    supabase.table("learned_keywords").delete().eq("keyword", del_kw).execute()
+                                    st.success(f"✅ '{del_kw}' 삭제됐습니다!")
+                                    st.rerun()
+
+                            if st.button("🗑️ 전체 키워드 초기화", key="clear_kw_btn", type="secondary"):
+                                supabase.table("learned_keywords").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+                                st.success("✅ 전체 키워드가 초기화됐습니다!")
+                                st.rerun()
+                    except Exception as e:
+                        st.error(f"키워드 학습 데이터 불러오기 오류: {str(e)}")
