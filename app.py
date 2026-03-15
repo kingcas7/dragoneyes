@@ -345,7 +345,7 @@ LANG = {
         "home_text_btn":"📝 텍스트 분석","home_yt_btn":"🎬 유튜브 분석","home_rep_btn":"📁 보고서 목록",
         "widget_placeholder":"📈 향후 통계 위젯이 추가될 공간입니다",
         "chat_example":"chat_example",
-        "chat_example_short":"chat_example_short",
+        "chat_example_short":"💡 예: '보고서 작성할 때 주의사항은?'",
         "col_name":"이름","col_month":"이번달","col_goal":"목표","col_rate":"달성률","col_total":"누적",
         "monthly_this":"이번달","write_report_btn":"📋 보고서 작성",
         "dragon_monitoring":"🐉 드래곤파더",
@@ -363,7 +363,7 @@ LANG = {
         "work_team_fail":"팀 현황 불러오기 실패: {}","work_no_member":"work_no_member",
         "work_preview":"work_preview","work_write":"보고서 작성",
         "work_prev_btn":"◀ 이전","work_next_btn":"다음 ▶",
-        "work_goto":"work_goto","work_dragon_btn":"🐉 드래곤아이즈 자동 추천 리스트 생성",
+        "work_goto":"🚀 바로가기","work_dragon_btn":"🐉 드래곤아이즈 자동 추천 리스트 생성",
         "work_total":"총 {}건 | {}/{}p",
         # 팝업
         "popup_close":"✖ 닫기","popup_write":"popup_write",
