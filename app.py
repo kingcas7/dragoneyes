@@ -344,6 +344,7 @@ LANG = {
         "dragon_fs_btn":"🐲 큰 화면에서 드래곤파더와 대화하기",
         "home_text_btn":"📝 텍스트 분석","home_yt_btn":"🎬 유튜브 분석","home_rep_btn":"📁 보고서 목록",
         "widget_placeholder":"📈 향후 통계 위젯이 추가될 공간입니다",
+        "chat_caption":"아동 안전 모니터링 관련 질문을 해보세요. 질문은 300자 이내로 입력해주세요.",
         "chat_example":"💡 예: '이 댓글이 그루밍 패턴인지 분석해줘' / '보고서 작성 주의사항은?' / 'Roblox 위험 패턴은?'",
         "chat_example_short":"💡 예: '보고서 작성할 때 주의사항은?'",
         "col_name":"이름","col_month":"이번달","col_goal":"목표","col_rate":"달성률","col_total":"누적",
@@ -1758,7 +1759,7 @@ else:
         _unread_cnt = len(get_unread_announcements(user["id"]))
     except:
         _unread_cnt = 0
-    _notice_label = f"📢 공지 🔴{_unread_cnt}" if _unread_cnt > 0 else "📢 공지"
+    _notice_label = f"{t('hdr_notice')} 🔴{_unread_cnt}" if _unread_cnt > 0 else t("hdr_notice")
 
     st.markdown("""
     <style>
