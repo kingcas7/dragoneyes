@@ -2405,10 +2405,10 @@ else:
             chat_info = can_use_chat(user["id"])
             da1, da2 = st.columns([4, 2])
             with da1:
-                st.markdown('''
+                st.markdown(f'''
                 <div style="padding:2px 0 0 0; line-height:1.2;">
-                    <span style="font-size:1.4rem; font-weight:700; color:#1d4ed8;">🐲 드래곤파더</span>
-                    <span style="font-size:0.95rem; color:#60a5fa; margin-left:8px;">✨ {t("chat_caption")[:15]}...</span>
+                    <span style="font-size:1.4rem; font-weight:700; color:#1d4ed8;">🐲 {t("dragon_monitoring")}</span>
+                    <span style="font-size:0.95rem; color:#60a5fa; margin-left:8px;">✨ {t("chat_caption")[:20]}...</span>
                 </div>
                 ''', unsafe_allow_html=True)
             with da2:
@@ -2507,7 +2507,7 @@ else:
         # ── 오른쪽: 통계 (상단) + 모니터링 버튼 (하단) ──
         with right_col:
 
-            st.markdown('<div style="font-size:0.82rem; font-weight:600; color:#94a3b8; margin:0 0 4px 0;">📊 통계 & 현황</div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="font-size:0.82rem; font-weight:600; color:#94a3b8; margin:0 0 4px 0;">📊 {t("admin_team")[:5]}</div>', unsafe_allow_html=True)
 
             # ① 통계 카드
             try:
@@ -2560,7 +2560,7 @@ else:
 
             # ③ 모니터링 버튼 (하단)
             st.markdown('<div style="font-size:0.82rem; font-weight:600; color:#94a3b8; margin-bottom:4px;">🐉 모니터링</div>', unsafe_allow_html=True)
-            if st.button("🐉 드래곤아이즈 자동 추천 리스트 생성", use_container_width=True, type="primary", key="home_dragon_btn"):
+            if st.button(t("work_dragon_btn"), use_container_width=True, type="primary", key="home_dragon_btn"):
                 st.session_state.current_page = "home"
                 st.session_state.active_tab = 3
                 st.rerun()
