@@ -1172,11 +1172,11 @@ else:
 
     page = st.session_state.current_page
 
-    # ── 미확인 공지 팝업 ──
+    # ── 미확인 공지 팝업 (로그인 후 한 번만) ──
     unread_ann = get_unread_announcements(user["id"])
-    if unread_ann and "ann_popup_shown" not in st.session_state:
-        st.session_state.ann_popup_shown = True
-        latest = supabase.table("announcements").select("*").eq("id", unread_ann[0]["id"]).execute().data
+    if unread_ann and not st.session_state.get("ann_popup_dismissed"):
+        ann_id = unread_ann[0]["id"]
+        latest = supabase.table("announcements").select("*").eq("id", ann_id).execute().data
         if latest:
             ann = latest[0]
             type_color = {"notice": "🔵", "work_order": "🟠", "urgent": "🚨"}.get(ann["type"], "📢")
@@ -1184,12 +1184,18 @@ else:
             with st.container(border=True):
                 st.markdown(f"### {type_color} {type_label}")
                 st.markdown(f"**{ann['title']}**")
-                st.markdown(ann["content"])
+                st.markdown(f'<div style="color:#1e293b;">{ann["content"]}</div>', unsafe_allow_html=True)
                 st.caption(f"발송일: {str(ann.get('created_at',''))[:10]}")
-                if st.button("✅ 확인", key="ann_popup_confirm"):
-                    mark_announcement_read(ann["id"], user["id"])
-                    st.session_state.pop("ann_popup_shown", None)
-                    st.rerun()
+                bc1, bc2 = st.columns(2)
+                with bc1:
+                    if st.button("✅ 확인 (다시 보지 않음)", key="ann_popup_confirm", use_container_width=True, type="primary"):
+                        mark_announcement_read(ann["id"], user["id"])
+                        st.session_state.ann_popup_dismissed = True
+                        st.rerun()
+                with bc2:
+                    if st.button("나중에 확인", key="ann_popup_later", use_container_width=True):
+                        st.session_state.ann_popup_dismissed = True
+                        st.rerun()
 
     # ── 상단 헤더 ──
     _show_admin_btn = is_admin or is_super
