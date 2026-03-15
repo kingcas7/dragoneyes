@@ -276,7 +276,7 @@ LANG = {
         "comment_sent":"✅ {}님께 전송됐습니다!","comment_empty":"코멘트 내용을 입력해주세요.",
         "email_bulk":"📧 선택 보고서 일괄 이메일 발송","email_recipient":"수신자 선택","email_subject":"제목",
         "email_memo":"추가 메모 (선택)","email_send":"📧 선택된 수신자에게 일괄 발송 (UI 미리보기)",
-        "email_preview":"📄 발송 미리보기","email_no_rec":"등록된 수신자가 없습니다. 관리자 탭에서 수신자를 추가하세요.",
+        "email_preview":"📄 발송 미리보기","email_no_rec":t("no_recipients"),
         "email_single":"📧 발송","email_sent_ok":"✅ {}에게 발송 예정으로 저장됨",
         "new_recipient":"**새 수신자 등록**","rec_name":"이름 / 기관명","rec_email":"이메일","rec_type":"유형",
         "rec_memo":"메모 (선택)","rec_add":"➕ 수신자 등록","rec_added":"✅ {} 등록됨!",
@@ -320,7 +320,7 @@ LANG = {
         # 채널 모니터링
         "ch_monitor_title":t("ch_monitor_title"),
         "ch_monitor_caption":t("ch_monitor_caption"),
-        "ch_no_channels":"아직 등록된 모니터링 채널이 없습니다. 자동 검색을 실행하면 위험 채널이 자동 등록됩니다.",
+        "ch_no_channels":t("ch_no_channels"),
         "ch_total":"총 {}개 채널 모니터링 중","ch_stat_channels":t("ch_stat_channels"),
         "ch_stat_avg":t("ch_stat_avg"),"ch_stat_total":t("ch_stat_total"),
         "ch_view":"▶️ 채널 보기","ch_scan":t("ch_scan"),"ch_scan_ing":"스캔 중...",
@@ -418,6 +418,33 @@ LANG = {
         "deactivate":"❌ Deactivate","activate":"✅ Activate",
         "save_error":"Save error: {}","delete_error":"Delete error: {}","error":"Error: {}","no_url":"Please enter a URL.",
         # announcement popup
+# 2nd pass
+        "logout_help":"Logout","translate_ok":"✅ Translation complete!",
+        "unassigned_team":"Unassigned","no_new_video":"No new videos found.",
+        "monthly_limit_short":"Monthly limit reached.",
+        "filter_all":"All",
+        "history_types":["All","🐉 General","🎮 Roblox","⛏️ Minecraft","🔍 Keyword"],
+        "report_cats":["All","Safe","Spam","Inappropriate","Adult","Grooming","Unclassified"],
+        "no_reports_yet":"No reports yet!",
+        "naver_api_error":"Naver API key is not set.",
+        "chat_caption":"Ask questions about child safety monitoring. Max 300 characters.",
+        "ann_new":"➕ New Notice / Work Order","ann_type":"Type","ann_title_label":"Title",
+        "ann_content_label":"Content","ann_target":"Recipients","ann_team_sel":"Select Team",
+        "ann_user_sel":"Select User","ann_sent":"✅ Notice sent!",
+        "ann_title_empty":"Please enter a title and content.",
+        "ann_filter_type":"Type Filter","ann_filter_period":"Period","ann_filter_search":"Search",
+        "ann_filter_period_opts":["All","This Month","This Week"],"ann_search_ph":"Search title...",
+        "ann_none":"No announcements.",
+        "org_new_team":"➕ Create New Team","org_team_name":"Team Name","org_team_desc":"Description (optional)",
+        "org_leader":"Assign Leader","org_create_team":"✅ Create Team","org_team_name_empty":"Please enter a team name.",
+        "org_add_member":"Add Member",
+        "leave_type":"Type","leave_reason":"Reason (optional)",
+        "leave_submitted":"✅ Request submitted!","leave_date_error":"End date is before start date.",
+        "leave_none":"No requests.","leave_pending":"✅ Pending Approvals",
+        "leave_pending_none":"No pending requests.",
+        "profile_subject_body_empty":"Please enter both subject and message.",
+        "no_english":"⬜ No English translation — please translate in detail view first.",
+        "no_recipients":"No recipients registered.",
         "ann_confirm":"✅ Confirm (Don't show again)","ann_later":"Remind me later","ann_date":"Sent:",
         # work page
         "work_title":"💼 Work — {}","work_team_status":"📊 Team Work Status",
@@ -552,6 +579,33 @@ LANG = {
         "deactivate":"❌ 無効化","activate":"✅ 有効化",
         "save_error":"保存エラー: {}","delete_error":"削除エラー: {}","error":"エラー: {}","no_url":"URLを入力してください。",
         # 公知ポップアップ
+# 2次翻訳
+        "logout_help":"ログアウト","translate_ok":"✅ 翻訳完了！",
+        "unassigned_team":"未割り当て","no_new_video":"新しい動画がありません。",
+        "monthly_limit_short":"今月の上限に達しました。",
+        "filter_all":"すべて",
+        "history_types":["すべて","🐉 一般","🎮 Roblox","⛏️ Minecraft","🔍 キーワード"],
+        "report_cats":["すべて","安全","スパム","不適切","成人向け","グルーミング","未分類"],
+        "no_reports_yet":"まだレポートがありません！",
+        "naver_api_error":"Naver APIキーが設定されていません。",
+        "chat_caption":"子どもの安全モニタリングに関する質問をどうぞ。300文字以内で入力してください。",
+        "ann_new":"➕ 新規公知 / 業務指示作成","ann_type":"種別","ann_title_label":"タイトル",
+        "ann_content_label":"内容","ann_target":"受信対象","ann_team_sel":"チーム選択",
+        "ann_user_sel":"ユーザー選択","ann_sent":"✅ 公知が送信されました！",
+        "ann_title_empty":"タイトルと内容を入力してください。",
+        "ann_filter_type":"種別フィルター","ann_filter_period":"期間","ann_filter_search":"検索",
+        "ann_filter_period_opts":["すべて","今月","今週"],"ann_search_ph":"タイトル検索...",
+        "ann_none":"公知事項がありません。",
+        "org_new_team":"➕ 新規チーム作成","org_team_name":"チーム名","org_team_desc":"説明（任意）",
+        "org_leader":"リーダー指定","org_create_team":"✅ チーム作成","org_team_name_empty":"チーム名を入力してください。",
+        "org_add_member":"メンバー追加",
+        "leave_type":"種別","leave_reason":"理由（任意）",
+        "leave_submitted":"✅ 申請が受け付けられました！","leave_date_error":"終了日が開始日より前です。",
+        "leave_none":"申請履歴がありません。","leave_pending":"✅ 承認待ちリスト",
+        "leave_pending_none":"待機中の申請がありません。",
+        "profile_subject_body_empty":"件名と内容を両方入力してください。",
+        "no_english":"⬜ 英語翻訳なし — 詳細画面で先に翻訳してください。",
+        "no_recipients":"受信者が登録されていません。",
         "ann_confirm":"✅ 確認（次回から表示しない）","ann_later":"後で確認","ann_date":"送信日:",
         # 作業ページ
         "work_title":"💼 作業 — {}さん","work_team_status":"📊 チーム別業務状況",
@@ -1566,7 +1620,7 @@ else:
             if st.button("👤 사용자", use_container_width=True, key="hdr_profile_btn"):
                 go_to("user_profile"); st.rerun()
         with bc_logout:
-            if st.button("🚪", use_container_width=True, help="로그아웃"):
+            if st.button("🚪", use_container_width=True, help=t("logout_help")):
                 st.query_params.clear()
                 for k in list(st.session_state.keys()):
                     del st.session_state[k]
@@ -1711,7 +1765,7 @@ else:
                             }).eq("id", r["id"]).execute()
                             st.session_state.selected_report["result_en"] = new_result_en
                             st.session_state.selected_report["content_en"] = new_content_en
-                            st.success("✅ 번역 완료!")
+                            st.success(t("translate_ok"))
                             st.rerun()
                         except Exception as e:
                             st.error(t("save_error", str(e)))
@@ -2000,14 +2054,14 @@ else:
             pc1, pc2 = st.columns(2)
             with pc1:
                 st.text_input(t("profile_name"), value=user.get("name",""), disabled=True)
-                st.text_input("이메일", value=user.get("email",""), disabled=True)
+                st.text_input(t("profile_email"), value=user.get("email",""), disabled=True)
                 st.text_input(t("profile_team"), value=user.get("team_id","미배정"), disabled=True)
                 st.text_input(t("profile_role"), value=role_label(user.get("role_v2","user")), disabled=True)
             with pc2:
                 new_phone = st.text_input("📱 연락처 (휴대폰)", value=user.get("phone",""), placeholder="010-0000-0000")
                 new_birth = st.text_input("🎂 생년월일", value=user.get("birthdate",""), placeholder="1990-01-01")
-                new_addr = st.text_input("🏠 주소", value=user.get("address",""), placeholder="서울시 ...")
-                new_emergency = st.text_input("🆘 비상연락처", value=user.get("emergency_contact",""), placeholder="관계 / 010-0000-0000")
+                new_addr = st.text_input(t("profile_addr"), value=user.get("address",""), placeholder=t("profile_addr_ph"))
+                new_emergency = st.text_input(t("profile_emergency"), value=user.get("emergency_contact",""), placeholder=t("profile_emergency_ph"))
 
             if st.button(t("profile_save"), type="primary", use_container_width=True):
                 try:
@@ -2072,7 +2126,7 @@ else:
                     except Exception as e:
                         st.error(f"전송 오류: {str(e)}")
                 else:
-                    st.warning("제목과 내용을 모두 입력해주세요.")
+                    st.warning(t("profile_subject_body_empty"))
 
         # ── 디렉터 이상: 전체 사용자 정보 엑셀 출력 ──
         if is_dir:
@@ -2214,7 +2268,7 @@ else:
                 reason = chat_info.get("reason")
                 if reason == "daily": st.warning(f"오늘 한도({CHAT_DAILY_LIMIT}턴) 도달")
                 elif reason == "weekly": st.warning(f"이번 주 한도({CHAT_WEEKLY_LIMIT}턴) 도달")
-                elif reason == "monthly": st.warning("이번 달 한도 도달.")
+                elif reason == "monthly": st.warning(t("monthly_limit_short"))
 
             ic1, ic2 = st.columns([5, 1])
             with ic1:
@@ -2223,7 +2277,7 @@ else:
                     max_chars=300, disabled=not chat_info["ok"], key="home_chat_input"
                 )
             with ic2:
-                if st.button("🗑️", help="대화 초기화", key="clear_chat_home"):
+                if st.button("🗑️", help=t("chat_clear"), key="clear_chat_home"):
                     st.session_state.chat_history = []; st.rerun()
 
             if home_input and chat_info["ok"]:
@@ -2376,7 +2430,7 @@ else:
                     key="main_chat_input"
                 )
             with ic2:
-                if st.button("🗑️", help="대화 초기화", key="clear_chat_top"):
+                if st.button("🗑️", help=t("chat_clear"), key="clear_chat_top"):
                     st.session_state.chat_history = []; st.rerun()
 
             if user_input and chat_info["ok"]:
@@ -2555,7 +2609,7 @@ else:
                         if skipped > 0:
                             st.caption(f"⏭️ 이미 분석한 영상 {skipped}개 제외됨")
                         if not videos:
-                            st.warning("새로운 영상이 없습니다."); st.stop()
+                            st.warning(t("no_new_video")); st.stop()
                         st.info(f"새 영상 {len(videos)}개 분석 시작...")
                         results = []; prog = st.progress(0)
                         for i, video in enumerate(videos):
@@ -2720,7 +2774,7 @@ else:
 
             fc1, fc2, fc3 = st.columns(3)
             with fc1:
-                ftype = st.selectbox(t("filter_type"), ["전체","🐉 일반추천","🎮 Roblox추천","⛏️ Minecraft추천","🔍 키워드탐색"])
+                ftype = st.selectbox(t("filter_type"), LANG.get(st.session_state.get("lang","ko"),LANG["ko"]).get("history_types",["전체","🐉 일반추천","🎮 Roblox추천","⛏️ Minecraft추천","🔍 키워드탐색"]))
             with fc2:
                 freported = st.selectbox(t("filter_reported"), ["전체",t("reported"),t("not_reported")])
             with fc3:
@@ -2804,7 +2858,7 @@ else:
                 with fc1:
                     fsev = st.selectbox(t("filter_sev"), ["전체","1","2","3","4","5"])
                 with fc2:
-                    fcat = st.selectbox(t("filter_cat"), ["전체","안전","스팸","부적절","성인","그루밍","미분류"])
+                    fcat = st.selectbox(t("filter_cat"), LANG.get(st.session_state.get("lang","ko"),LANG["ko"]).get("report_cats",["전체","안전","스팸","부적절","성인","그루밍","미분류"]))
                 with fc3:
                     fwriter = st.selectbox(t("filter_writer"), ["전체"] + list(set(umap_r.values())))
 
@@ -2863,7 +2917,7 @@ else:
                                     if len(filtered) > 3:
                                         st.caption(f"... and {len(filtered)-3} more reports")
                         else:
-                            st.info("등록된 수신자가 없습니다. 관리자 탭에서 수신자를 추가하세요.")
+                            st.info(t("no_recipients"))
 
                 for r in filtered:
                     sev = r.get("severity",0); icon = sev_icon(sev)
@@ -2913,7 +2967,7 @@ else:
                                             st.markdown("**🇺🇸 English**")
                                             st.caption(str(r.get("result_en",""))[:300] + "...")
                                         else:
-                                            st.warning("⬜ 영어 번역 없음 — 상세보기에서 먼저 번역해주세요.")
+                                            st.warning(t("no_english"))
 
                                 ec1, ec2 = st.columns(2)
                                 with ec1:
@@ -2933,7 +2987,7 @@ else:
                                     if st.button("취소", key=f"cancel_email_{r['id']}"):
                                         st.session_state[f"show_email_{r['id']}"] = False; st.rerun()
                             else:
-                                st.warning("등록된 수신자가 없습니다.")
+                                st.warning(t("no_recipients"))
                                 if st.button("닫기", key=f"close_email_{r['id']}"):
                                     st.session_state[f"show_email_{r['id']}"] = False; st.rerun()
                     st.divider()
@@ -2970,19 +3024,19 @@ else:
                     for c in cmts.data:
                         st.info(f"📝 {c['content']}\n\n_{str(c['created_at'])[:10]}_")
             else:
-                st.info("아직 보고서가 없습니다!")
+                st.info(t("no_reports_yet"))
 
         # ── 네이버 탐색 ──
         with tab_naver:
             st.subheader(t("naver_title"))
             if not NAVER_CLIENT_ID:
-                st.error("네이버 API 키가 설정되지 않았습니다. .env 파일에 NAVER_CLIENT_ID와 NAVER_CLIENT_SECRET을 추가하세요.")
+                st.error(t("naver_api_error"))
             else:
                 n1, n2 = st.columns([3,1])
                 with n1:
                     naver_query = st.text_input(t("naver_query"), placeholder=t("naver_query_ph"))
                 with n2:
-                    naver_type = st.selectbox(t("naver_type"), ["카페", "블로그", "뉴스", "전체"])
+                    naver_type = st.selectbox(t("naver_type"), [t("naver_cafe"), t("naver_blog"), t("naver_news"), t("naver_all")])
 
                 naver_cols = st.columns(3)
                 with naver_cols[0]:
@@ -3203,7 +3257,7 @@ else:
                 elif reason == "monthly":
                     st.warning(f"📌 이번 달 한도에 도달했습니다. 관리자에게 추가 토큰을 요청하세요.")
             else:
-                st.caption("아동 안전 모니터링 관련 질문을 해보세요. 질문은 300자 이내로 입력해주세요.")
+                st.caption(t("chat_caption"))
 
             st.divider()
 
@@ -3256,24 +3310,24 @@ else:
                 st.subheader("📢 공지사항")
 
                 if is_high:
-                    with st.expander("➕ 새 공지 / 업무지시 작성", expanded=False):
-                        ann_type = st.selectbox("유형", ["notice","work_order","urgent"],
+                    with st.expander(t("ann_new"), expanded=False):
+                        ann_type = st.selectbox(t("ann_type"), ["notice","work_order","urgent"],
                             format_func=lambda x:{"notice":"🔵 공지사항","work_order":"🟠 업무지시","urgent":"🚨 긴급공지"}[x],
                             key="ann_type_sel")
-                        ann_title = st.text_input("제목", key="ann_title_inp")
-                        ann_content = st.text_area("내용", height=150, key="ann_content_inp")
+                        ann_title = st.text_input(t("ann_title_label"), key="ann_title_inp")
+                        ann_content = st.text_area(t("ann_content_label"), height=150, key="ann_content_inp")
 
                         all_teams_ann = get_all_teams()
                         all_users_ann = get_all_users()
-                        target_type = st.selectbox("수신 대상", ["all","team","user"],
+                        target_type = st.selectbox(t("ann_target"), ["all","team","user"],
                             format_func=lambda x:{"all":"📢 전체","team":"👥 특정 팀","user":"👤 특정 사용자"}[x],
                             key="ann_target_type")
                         target_id = None
                         if target_type == "team" and all_teams_ann:
-                            sel_team = st.selectbox("팀 선택", all_teams_ann, format_func=lambda x: x["name"], key="ann_target_team")
+                            sel_team = st.selectbox(t("ann_team_sel"), all_teams_ann, format_func=lambda x: x["name"], key="ann_target_team")
                             target_id = sel_team["id"] if sel_team else None
                         elif target_type == "user" and all_users_ann:
-                            sel_user = st.selectbox("사용자 선택", all_users_ann, format_func=lambda x: f'{x["name"]} ({x.get("email","")})', key="ann_target_user")
+                            sel_user = st.selectbox(t("ann_user_sel"), all_users_ann, format_func=lambda x: f'{x["name"]} ({x.get("email","")})', key="ann_target_user")
                             target_id = sel_user["id"] if sel_user else None
 
                         if st.button("📤 발송", type="primary", key="ann_send_btn"):
@@ -3287,22 +3341,22 @@ else:
                                         "target_type": target_type,
                                         "target_id": str(target_id) if target_id else None,
                                     }).execute()
-                                    st.success("✅ 공지가 발송됐습니다!")
+                                    st.success(t("ann_sent"))
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"오류: {str(e)}")
                             else:
-                                st.warning("제목과 내용을 입력해주세요.")
+                                st.warning(t("ann_title_empty"))
 
                 fc1, fc2, fc3 = st.columns(3)
                 with fc1:
-                    filter_type = st.selectbox("유형 필터", ["전체","notice","work_order","urgent"],
+                    filter_type = st.selectbox(t("ann_filter_type"), ["전체","notice","work_order","urgent"],
                         format_func=lambda x:{"전체":"전체","notice":"🔵 공지사항","work_order":"🟠 업무지시","urgent":"🚨 긴급공지"}.get(x,x),
                         key="ann_filter_type")
                 with fc2:
                     filter_period = st.selectbox("기간", ["전체","이번달","이번주"], key="ann_filter_period")
                 with fc3:
-                    filter_search = st.text_input("검색", placeholder="제목 검색...", key="ann_filter_search")
+                    filter_search = st.text_input(t("ann_filter_search"), placeholder=t("ann_search_ph"), key="ann_filter_search")
 
                 try:
                     ann_query = supabase.table("announcements").select("*").eq("is_deleted", False).order("created_at", desc=True).limit(100)
@@ -3334,7 +3388,7 @@ else:
                 target_label_map = {"all":"전체","team":"특정팀","user":"특정사용자"}
 
                 if not announcements_list:
-                    st.info("공지사항이 없습니다.")
+                    st.info(t("ann_none"))
                 else:
                     st.caption(f"총 {len(announcements_list)}건")
                     for ann in announcements_list:
@@ -3384,14 +3438,14 @@ else:
                     umap_org = {u["id"]: u["name"] for u in all_users_org}
 
                     if is_high:
-                        with st.expander("➕ 새 팀 생성", expanded=False):
-                            new_team_name = st.text_input("팀 이름", key="new_team_name")
-                            new_team_desc = st.text_input("설명 (선택)", key="new_team_desc")
+                        with st.expander(t("org_new_team"), expanded=False):
+                            new_team_name = st.text_input(t("org_team_name"), key="new_team_name")
+                            new_team_desc = st.text_input(t("org_team_desc"), key="new_team_desc")
                             leader_candidates = [u for u in all_users_org if u.get("role_v2") in ("team_leader","user","director","group_leader","superadmin")]
                             sel_leader = st.selectbox("팀장 지정", [None]+leader_candidates,
                                 format_func=lambda x: "지정 안함" if x is None else x["name"],
                                 key="new_team_leader")
-                            if st.button("✅ 팀 생성", key="create_team_btn"):
+                            if st.button(t("org_create_team"), key="create_team_btn"):
                                 if new_team_name:
                                     supabase.table("teams").insert({
                                         "name": new_team_name,
@@ -3401,7 +3455,7 @@ else:
                                     st.success(f"✅ {new_team_name} 팀이 생성됐습니다!")
                                     st.rerun()
                                 else:
-                                    st.warning("팀 이름을 입력해주세요.")
+                                    st.warning(t("org_team_name_empty"))
 
                     if not all_teams_org:
                         st.info(t("work_no_teams"))
@@ -3466,7 +3520,7 @@ else:
                             leave_start = st.date_input("시작일", key="leave_start")
                         with lc3:
                             leave_end = st.date_input("종료일", key="leave_end")
-                        leave_reason = st.text_input("사유 (선택)", key="leave_reason")
+                        leave_reason = st.text_input(t("leave_reason"), key="leave_reason")
                         if st.button("📤 신청", type="primary", key="leave_submit"):
                             if leave_start <= leave_end:
                                 supabase.table("leave_requests").insert({
@@ -3477,15 +3531,15 @@ else:
                                     "reason": leave_reason,
                                     "status": "pending"
                                 }).execute()
-                                st.success("✅ 신청이 접수됐습니다!")
+                                st.success(t("leave_submitted"))
                                 st.rerun()
                             else:
-                                st.warning("종료일이 시작일보다 빠릅니다.")
+                                st.warning(t("leave_date_error"))
 
                     st.subheader("📋 내 신청 현황")
                     my_leaves = supabase.table("leave_requests").select("*").eq("user_id", user["id"]).order("created_at", desc=True).limit(20).execute().data or []
                     if not my_leaves:
-                        st.info("신청 내역이 없습니다.")
+                        st.info(t("leave_none"))
                     else:
                         for lv in my_leaves:
                             lv_icon = leave_type_map.get(lv["type"],"📝")
@@ -3493,7 +3547,7 @@ else:
 
                     if is_lead:
                         st.divider()
-                        st.subheader("✅ 승인 대기 목록")
+                        st.subheader(t("leave_pending"))
                         try:
                             if is_high:
                                 pending_leaves = supabase.table("leave_requests").select("*").eq("status","pending").order("created_at", desc=True).execute().data or []
@@ -3509,7 +3563,7 @@ else:
 
                         umap3 = {u["id"]: u["name"] for u in get_all_users()}
                         if not pending_leaves:
-                            st.info("대기 중인 신청이 없습니다.")
+                            st.info(t("leave_pending_none"))
                         else:
                             for lv in pending_leaves:
                                 req_name = umap3.get(lv.get("user_id",""), "알 수 없음")
@@ -3580,7 +3634,7 @@ else:
                                     st.success("✅ 업무지시가 발송됐습니다!")
                                     st.rerun()
                                 else:
-                                    st.warning("제목과 내용을 입력해주세요.")
+                                    st.warning(t("ann_title_empty"))
 
                     st.subheader("📥 수신 업무지시")
                     try:
@@ -3984,7 +4038,7 @@ else:
                     channels = get_watched_channels()
 
                     if not channels:
-                        st.info("아직 등록된 모니터링 채널이 없습니다. 자동 검색을 실행하면 위험 채널이 자동 등록됩니다.")
+                        st.info(t("ch_no_channels"))
                     else:
                         st.success(f"총 {len(channels)}개 채널 모니터링 중")
 
