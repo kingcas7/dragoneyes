@@ -7,7 +7,7 @@ from supabase import create_client
 from datetime import date, datetime, timedelta
 import pandas as pd
 import requests
-# v2026.03.14-1743 — 공지사항 텍스트 색상, 드래곤파더 버튼 위치 수정
+# v2026.03.15 — 보고서↔탐색URL 양방향 연결, YouTube 메타데이터 30일 보관 정책, 모바일 PWA 최적화
 load_dotenv()
 
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
@@ -1344,7 +1344,18 @@ def save_report(content, result, severity, category, platform="manual"):
                 if content and "youtube.com" not in content:
                     content_en = translate_to_english(content)
 
-        supabase.table("reports").insert({
+        # analyzed_urls에서 해당 URL의 id 조회 (양방향 연결용)
+        analyzed_url_id = None
+        if content and ("youtube.com" in content or "youtu.be" in content):
+            try:
+                au = supabase.table("analyzed_urls").select("id").eq("url", content).execute()
+                if au.data:
+                    analyzed_url_id = au.data[0]["id"]
+            except Exception:
+                pass
+
+        # 보고서 저장
+        res = supabase.table("reports").insert({
             "user_id": st.session_state.user["id"],
             "content": content,
             "result": result,
@@ -1353,11 +1364,20 @@ def save_report(content, result, severity, category, platform="manual"):
             "platform": platform,
             "result_en": result_en,
             "content_en": content_en,
+            "analyzed_url_id": analyzed_url_id,  # analyzed_urls 연결
         }).execute()
-        if "youtube.com" in content:
+
+        # 보고서 ID 가져와서 analyzed_urls에 역방향 연결
+        if res.data and analyzed_url_id:
+            report_id = res.data[0]["id"]
+            supabase.table("analyzed_urls").update({
+                "reported": True,
+                "report_id": report_id,  # reports 역방향 연결
+            }).eq("url", content).execute()
+        elif "youtube.com" in content or "youtu.be" in content:
             supabase.table("analyzed_urls").update({"reported": True}).eq("url", content).execute()
 
-        # 키워드 자동 학습 (백그라운드)
+        # 키워드 자동 학습 (심각도 3 이상)
         if severity >= 3:
             learn_keywords_from_report(content, result, severity, category)
 
@@ -1386,6 +1406,11 @@ def get_analyzed_urls():
         return set()
 
 def mark_url_analyzed(url, title="", search_type="keyword", assigned_to=None):
+    """URL 분석 기록 저장 — YouTube API 이용약관 준수:
+    - 영상 제목(title)은 탐색 히스토리 UI 표시 목적으로만 보관
+    - analyzed_at 기준 30일 경과 데이터는 자동 삭제 (메타데이터 보관 기간 정책)
+    - URL은 중복 분석 방지를 위해 1000건 한도로 보관
+    """
     try:
         data = {
             "url": url,
@@ -1395,8 +1420,17 @@ def mark_url_analyzed(url, title="", search_type="keyword", assigned_to=None):
             "assigned_at": datetime.now().isoformat() if assigned_to else None,
         }
         supabase.table("analyzed_urls").upsert(data).execute()
+
+        # 30일 경과 데이터 자동 삭제 (YouTube API 메타데이터 보관 기간 정책)
+        cutoff = (datetime.now() - timedelta(days=30)).isoformat()
+        try:
+            supabase.table("analyzed_urls").delete().lt("analyzed_at", cutoff).execute()
+        except Exception:
+            pass
+
+        # 1000건 초과 시 오래된 것부터 삭제
         all_urls = supabase.table("analyzed_urls").select("id").order("analyzed_at", desc=False).execute()
-        if len(all_urls.data) > 1000:
+        if all_urls.data and len(all_urls.data) > 1000:
             old_ids = [r["id"] for r in all_urls.data[:len(all_urls.data)-1000]]
             for oid in old_ids:
                 supabase.table("analyzed_urls").delete().eq("id", oid).execute()
@@ -2069,6 +2103,18 @@ else:
             d4.metric(t("written_by"), author_name)
             st.caption(f"{t('written_at')}: {str(r.get('created_at',''))[:16]}" +
                       (f"  |  {t('updated_at')}: {str(r.get('updated_at',''))[:16]}" if r.get('updated_at') else ""))
+
+            # 보고서 고유번호 + 탐색 URL 연결 표시
+            report_uid = r.get("id","")
+            analyzed_url_id = r.get("analyzed_url_id")
+            rc_id1, rc_id2 = st.columns(2)
+            with rc_id1:
+                st.markdown(f"<span style='font-size:0.78rem;color:#64748b;'>🔖 보고서 번호: <code style='background:#f1f5f9;padding:2px 6px;border-radius:4px;color:#1d4ed8;font-weight:700;'>#{report_uid[:8].upper() if report_uid else 'N/A'}</code></span>", unsafe_allow_html=True)
+            with rc_id2:
+                if analyzed_url_id:
+                    st.markdown(f"<span style='font-size:0.78rem;color:#64748b;'>🔗 탐색 기록 연결: <code style='background:#f0fdf4;padding:2px 6px;border-radius:4px;color:#16a34a;font-weight:700;'>#{analyzed_url_id[:8].upper()}</code></span>", unsafe_allow_html=True)
+                else:
+                    st.markdown(f"<span style='font-size:0.78rem;color:#94a3b8;'>🔗 탐색 기록 연결: 없음</span>", unsafe_allow_html=True)
             st.divider()
             st.markdown(t("content"))
             cv = r.get("content","")
@@ -3355,16 +3401,30 @@ else:
                 reported_badge = "✅ 보고서 작성" if d.get("reported") else "⏳ 미작성"
                 assigned_name = user_map.get(d.get("assigned_to",""), t("unassigned"))
                 analyzed_date = str(d.get("analyzed_at",""))[:16]
+                report_id = d.get("report_id")
+                # 보고서 고유번호 앞 8자리 표시
+                report_no = f"📋 #{report_id[:8].upper()}" if report_id else ""
 
                 ca, cb = st.columns([5,1])
                 with ca:
                     st.markdown(f"**{d.get('title','(제목없음)')}**")
-                    st.caption(f"{stype} | {analyzed_date} | 담당: {assigned_name} | {reported_badge}")
+                    st.caption(f"{stype} | {analyzed_date} | 담당: {assigned_name} | {reported_badge} {report_no}")
                 with cb:
                     if "youtube.com" in d.get("url","") or "youtu.be" in d.get("url",""):
                         if st.button(t("yt_open_link"), key=f"hist_open_{d['id']}"):
                             st.session_state.hist_popup_id = d["id"]; st.rerun()
-                    if not d.get("reported"):
+                    if d.get("reported") and report_id:
+                        # 보고서 바로 보기 버튼
+                        if st.button("📄 보고서", key=f"hist_rep_view_{d['id']}"):
+                            try:
+                                rep = supabase.table("reports").select("*").eq("id", report_id).execute()
+                                if rep.data:
+                                    st.session_state.selected_report = rep.data[0]
+                                    go_to("report_detail", from_tab=4)
+                                    st.rerun()
+                            except Exception:
+                                pass
+                    elif not d.get("reported"):
                         if st.button(t("write_btn"), key=f"hist_{d['id']}"):
                             open_report_form(d["url"], "", 1, "안전", "YouTube", from_tab=4); st.rerun()
                 st.divider()
@@ -3450,11 +3510,13 @@ else:
                     writer = umap_r.get(r.get("user_id",""), "알 수 없음")
                     can_edit_r = is_admin or r.get("user_id") == user["id"]
                     en_badge = " ✅🌐EN" if r.get("result_en") else " ⬜번역없음"
+                    report_no = f"#{r['id'][:8].upper()}"
+                    link_badge = f" 🔗" if r.get("analyzed_url_id") else ""
 
                     ca, cb, cc, cd = st.columns([5, 1, 1, 1])
                     with ca:
                         st.markdown(f"{icon} **{r.get('category','-')}** | {r.get('platform','-')} | {created} | 👤 {writer} |{en_badge}")
-                        st.caption(preview+"...")
+                        st.caption(f"🔖 {report_no}{link_badge}  |  {preview}...")
                     with cb:
                         if st.button(t("detail"), key=f"det_{r['id']}"):
                             st.session_state.selected_report = r
