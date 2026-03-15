@@ -998,6 +998,7 @@ def go_to(page, from_tab=None):
     st.session_state.prev_tab = st.session_state.get("active_tab", 0)
     if from_tab is not None:
         st.session_state.active_tab = from_tab
+        st.session_state.prev_tab = from_tab  # 돌아올 탭도 from_tab으로 고정
     st.session_state.current_page = page
 
 def go_back():
@@ -1435,9 +1436,12 @@ else:
                             final += f"\n\n[{t('memo')}]\n{report_memo}"
                         if save_report(report_content, final, report_severity, report_category, report_platform.lower()):
                             prev = st.session_state.prev_page
+                            prev_tab = st.session_state.get("prev_tab", 0)
                             st.session_state.prefill_content = ""
                             st.session_state.prefill_result = ""
                             st.session_state.current_page = prev
+                            st.session_state.active_tab = prev_tab  # 탭 복원
+                            st.success("✅ 보고서가 제출됐습니다!")
                             st.rerun()
                     else:
                         st.warning(t("enter_content"))
