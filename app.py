@@ -950,6 +950,25 @@ def generate_recommend_keywords(platform="general"):
     pool = keyword_pools.get(platform, keyword_pools["general"])
     return random.sample(pool, min(10, len(pool)))
 
+def get_video_comments(video_id, max_comments=30):
+    """유튜브 영상 댓글 수집 — 위험 패턴 탐지용"""
+    try:
+        res = youtube.commentThreads().list(
+            part="snippet",
+            videoId=video_id,
+            maxResults=max_comments,
+            order="relevance",
+            textFormat="plainText"
+        ).execute()
+        comments = []
+        for item in res.get("items", []):
+            text = item["snippet"]["topLevelComment"]["snippet"]["textDisplay"]
+            if len(text.strip()) > 2:
+                comments.append(text.strip()[:200])
+        return comments
+    except:
+        return []  # 댓글 비활성화 or API 오류시 빈 리스트
+
 def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="keyword", assigned_to=None):
     if analyzed_urls is None:
         analyzed_urls = set()
@@ -976,6 +995,19 @@ def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="
         channel = item["snippet"]["channelTitle"]
         published = item["snippet"].get("publishedAt", "")[:10]
 
+        # 댓글 수집
+        comments = get_video_comments(vid, max_comments=30)
+        comment_text = ""
+        if comments:
+            # 위험 키워드 포함 댓글 우선 필터링
+            danger_keywords = ["카카오", "카톡", "디스코드", "인스타", "텔레그램",
+                              "나이", "학교", "만나", "사진", "영상", "선물",
+                              "친구해", "여친", "남친", "좋아해", "사랑해"]
+            flagged = [c for c in comments if any(k in c for k in danger_keywords)]
+            normal = [c for c in comments if c not in flagged]
+            selected = (flagged + normal)[:15]
+            comment_text = "\n".join([f"- {c}" for c in selected])
+
         msg = client.messages.create(
             model="claude-sonnet-4-20250514", max_tokens=500,
             messages=[{"role": "user", "content": f"""당신은 아동 온라인 안전 전문 분석가입니다. 아래 유튜브 영상이 아동·청소년에게 위험한지 매우 엄격하게 분석하세요.
@@ -984,6 +1016,7 @@ def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="
 채널: {channel}
 업로드일: {published}
 설명: {desc}
+{"댓글 샘플:" + chr(10) + comment_text if comment_text else "댓글: 없음 또는 비활성화"}
 
 【위험 신호 체크리스트 — 하나라도 해당하면 심각도 3 이상】
 ① 그루밍: 성인이 어린이/청소년에게 친구/연인 관계 유도, 나이 묻기, 학교 묻기
@@ -996,9 +1029,12 @@ def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="
 ⑧ 가출/납치: 가출 조장, 만남 장소 공유
 ⑨ 자해/폭력: 자해 방법, 폭력 챌린지 유도
 
+【댓글 분석 주의사항】
+- 댓글에서 연락처 요청, 만남 유도, 나이/학교 묻기 패턴이 있으면 심각도 +1
+- 댓글이 없어도 제목/설명만으로 위험 판단 가능
+
 【중요】
 - 제목/설명이 애매하거나 의심스러우면 심각도를 높게 잡으세요
-- "피해 예방" "교육용" 뉴스 형식이어도 실제 위험 정보 포함시 심각도 높게
 - 안전으로 분류하려면 명백히 교육적이거나 공식 채널이어야 함
 
 반드시 아래 형식으로만 답변하세요:
