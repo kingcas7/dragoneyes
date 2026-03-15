@@ -2678,6 +2678,7 @@ else:
             ("youtube", t("tab_youtube")),
             ("keyword", t("tab_keyword")),
             ("naver",   "🟢 네이버 탐색"),
+            ("discord", "💬 디스코드 탐색"),
             ("history", t("tab_history")),
             ("reports", t("tab_reports")),
             ("stats",   t("tab_stats")),
@@ -2720,6 +2721,7 @@ else:
         tab3      = tab_map["keyword"]
         tab4      = tab_map["dragon"]
         tab_naver = tab_map["naver"]
+        tab_discord = tab_map["discord"]
         tab5      = tab_map["history"]
         tab6      = tab_map["reports"]
         tab7      = tab_map["stats"]
@@ -2980,6 +2982,188 @@ else:
                         st.caption(f"✅ [{r.get('keyword','')}] {r['title']}")
                 if st.button(t("dragon_clear")):
                     st.session_state.recommend_results = []; st.rerun()
+
+        # ── 디스코드 탐색 ──
+        with tab_discord:
+            st.subheader("💬 디스코드 위험 서버·콘텐츠 탐색")
+            st.caption("유튜브/네이버에서 디스코드 유도 콘텐츠를 탐지합니다. 디스코드 초대 링크·서버명·채널 관련 위험 패턴을 분석합니다.")
+
+            dc1, dc2 = st.columns([3, 1])
+            with dc1:
+                discord_query = st.text_input("🔍 검색어", placeholder="예: 디스코드 서버 초대 10대, 디코 여자친구 구함")
+            with dc2:
+                discord_platform = st.selectbox("플랫폼", ["유튜브", "네이버 카페", "네이버 블로그"])
+
+            # 자동 키워드 생성
+            discord_kw_pool = [
+                # 미성년자 타깃 디스코드 서버
+                "디스코드 서버 초대 중학생", "디코 여자친구 구함 10대",
+                "디스코드 한국 10대 서버", "디코 초등학생 채팅방",
+                "디스코드 여중생 서버 초대", "디코 나이 상관없는 서버",
+                # 그루밍 유도
+                "디스코드 친구 구함 여자", "디코 카톡 교환 10대",
+                "디스코드 롤플레이 성인", "디코 비밀 채널 초대",
+                # 도박/사기
+                "디스코드 무료 나이트로 사기", "디코 게임 아이템 사기",
+                "디스코드 도박방 초대", "디코 불법 배팅방",
+                # 협박/섹스토션
+                "디스코드 사진 요구 협박", "디코 영상통화 협박",
+            ]
+
+            dkw1, dkw2, dkw3 = st.columns(3)
+            with dkw1:
+                if st.button("🐉 위험 키워드 자동 생성", key="discord_auto_kw", use_container_width=True):
+                    import random
+                    st.session_state.discord_kw = random.choice(discord_kw_pool)
+                    st.info(f"🔑 키워드: **{st.session_state.discord_kw}**")
+            with dkw2:
+                do_discord_search = st.button("🔍 탐색 시작", key="discord_search_btn", use_container_width=True, type="primary")
+            with dkw3:
+                discord_count = st.slider("결과 수", 5, 20, 10, key="discord_count")
+
+            # 검색 실행
+            if do_discord_search and discord_query:
+                if discord_platform == "유튜브":
+                    with st.spinner(f"유튜브에서 '{discord_query}' 탐색 중..."):
+                        try:
+                            sr = youtube.search().list(
+                                part="snippet", q=discord_query + " 디스코드",
+                                type="video", maxResults=discord_count + 5,
+                                relevanceLanguage="ko", order="date",
+                                regionCode="KR", safeSearch="none"
+                            ).execute()
+
+                            results = []
+                            for item in sr.get("items", []):
+                                vid = item["id"]["videoId"]
+                                title = item["snippet"]["title"]
+                                desc = item["snippet"].get("description","")[:300]
+                                channel = item["snippet"]["channelTitle"]
+                                published = item["snippet"].get("publishedAt","")[:10]
+                                url = f"https://www.youtube.com/watch?v={vid}"
+
+                                # 댓글에서 디스코드 링크 패턴 탐지
+                                comments = get_video_comments(vid, max_comments=30)
+                                discord_comments = [c for c in comments if
+                                    any(kw in c.lower() for kw in ["discord.gg", "discord.com/invite", "디스코드", "디코", ".gg/"])]
+
+                                msg = client.messages.create(
+                                    model="claude-sonnet-4-20250514", max_tokens=300,
+                                    messages=[{"role":"user","content":f"""아동 안전 전문가로서 이 영상이 아동·청소년을 디스코드로 유인하는 위험 콘텐츠인지 분석하세요.
+
+제목: {title}
+채널: {channel}
+설명: {desc}
+디스코드 관련 댓글 수: {len(discord_comments)}개
+디스코드 댓글 샘플: {chr(10).join(discord_comments[:5]) if discord_comments else "없음"}
+
+위험 패턴:
+① 미성년자 디스코드 서버 초대/홍보
+② 개인정보(나이/학교/연락처) 요구
+③ 성적 접근 또는 그루밍 시도
+④ 도박/사기 서버 유도
+⑤ 협박/섹스토션
+
+반드시 아래 형식으로만:
+심각도: (1~5)
+분류: (안전/그루밍/섹스토션/도박/사기/개인정보)
+위험신호: (구체적 패턴)
+이유: (한 줄)"""}]
+                                )
+                                rt = msg.content[0].text
+                                sev = extract_severity(rt)
+                                cat = extract_category(rt)
+
+                                results.append({
+                                    "title": title, "channel": channel, "url": url,
+                                    "published": published, "severity": sev,
+                                    "category": cat, "analysis": rt,
+                                    "discord_comments": len(discord_comments)
+                                })
+
+                            results.sort(key=lambda x: x["severity"], reverse=True)
+                            risky = [r for r in results if r["severity"] >= 2]
+                            safe = [r for r in results if r["severity"] < 2]
+
+                            sev_icon = {1:"✅",2:"🟡",3:"🟠",4:"🔴",5:"🚨"}
+
+                            if risky:
+                                st.markdown(f"### 🚨 위험 감지 ({len(risky)}개)")
+                                for r in risky:
+                                    with st.expander(f"{sev_icon.get(r['severity'],'⚪')} {r['title'][:60]}"):
+                                        rc1, rc2 = st.columns(2)
+                                        rc1.markdown(f"**심각도:** {r['severity']} | **분류:** {r['category']}")
+                                        rc2.markdown(f"**💬 디스코드 댓글:** {r['discord_comments']}개")
+                                        for line in r['analysis'].splitlines():
+                                            if "위험신호:" in line or "이유:" in line:
+                                                st.markdown(f"**{line}**")
+                                        bc1, bc2 = st.columns(2)
+                                        with bc1:
+                                            st.markdown(f"[▶️ 영상 보기]({r['url']})")
+                                        with bc2:
+                                            if st.button("📋 보고서 작성", key=f"dc_rep_{r['url'][-10:]}"):
+                                                open_report_form(r['url'], r['analysis'], r['severity'], r['category'], "discord", from_tab=4)
+                                                st.rerun()
+                            else:
+                                st.success("🟢 위험한 콘텐츠가 발견되지 않았습니다.")
+
+                            if safe:
+                                with st.expander(f"✅ 안전 ({len(safe)}개)"):
+                                    for r in safe:
+                                        st.caption(f"✅ {r['title'][:60]}")
+                        except Exception as e:
+                            st.error(f"탐색 오류: {str(e)}")
+
+                else:  # 네이버
+                    search_type = "cafearticle" if "카페" in discord_platform else "blog"
+                    with st.spinner(f"네이버에서 '{discord_query}' 탐색 중..."):
+                        try:
+                            headers = {"X-Naver-Client-Id": NAVER_CLIENT_ID, "X-Naver-Client-Secret": NAVER_CLIENT_SECRET}
+                            resp = requests.get(
+                                f"https://openapi.naver.com/v1/search/{search_type}.json",
+                                headers=headers,
+                                params={"query": discord_query + " 디스코드", "display": discord_count, "sort": "date"},
+                                timeout=10
+                            )
+                            items = resp.json().get("items", []) if resp.status_code == 200 else []
+
+                            analyzed = []
+                            for item in items:
+                                import re as _re
+                                title = _re.sub(r'<[^>]+>', '', item.get("title",""))
+                                desc = _re.sub(r'<[^>]+>', '', item.get("description",""))
+                                link = item.get("link","")
+
+                                msg = client.messages.create(
+                                    model="claude-sonnet-4-20250514", max_tokens=200,
+                                    messages=[{"role":"user","content":f"""제목: {title}
+내용: {desc}
+
+이 게시물이 아동·청소년을 디스코드로 유인하는 위험 게시물인지 분석하세요.
+심각도: (1~5)
+분류: (안전/그루밍/도박/사기/개인정보)
+이유: (한 줄)"""}]
+                                )
+                                rt = msg.content[0].text
+                                sev = extract_severity(rt)
+                                analyzed.append({"title":title,"desc":desc,"link":link,"severity":sev,"analysis":rt})
+
+                            analyzed.sort(key=lambda x: x["severity"], reverse=True)
+                            risky = [a for a in analyzed if a["severity"] >= 2]
+
+                            if risky:
+                                st.markdown(f"### 🚨 위험 게시물 ({len(risky)}개)")
+                                for a in risky:
+                                    with st.expander(f"🔴 {a['title'][:60]}"):
+                                        st.markdown(a["analysis"])
+                                        st.markdown(f"[🔗 원문 보기]({a['link']})")
+                            else:
+                                st.success("🟢 위험한 게시물이 없습니다.")
+                        except Exception as e:
+                            st.error(f"탐색 오류: {str(e)}")
+
+            elif do_discord_search and not discord_query:
+                st.warning("검색어를 입력하세요.")
 
         # ── 탐색 히스토리 ──
         with tab5:
