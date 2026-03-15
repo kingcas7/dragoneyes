@@ -351,6 +351,7 @@ LANG = {
         "dragon_monitoring":"🐉 드래곤파더",
         "monthly_limit_warn":"monthly_limit_warn",
         "unit_items":"건",
+        "banner_line1":"이 곳은 온라인 유해 컨텐츠를 모니터링하는 Claude 기반의 Agent AI 드래곤파더와 함께 작업하는 곳입니다.","banner_line2":"어린이 아동학대, 그루밍, 성폭력, 도박 등과 관련한 다양한 불법 컨텐츠를 감시합니다.","badge_intl":"국제기관 가이드라인 준수","badge_ncmec":"NCMEC 가이드라인 준수","badge_iwf":"IWF 글로벌 기준","home_footer":"이곳은 최승현님이 만드는 Agent AI 드래곤파더 월드입니다.","ann_unread":"미확인",
         "save_error":"저장 오류: {}","delete_error":"삭제 오류: {}","error":"오류: {}","no_url":"URL을 입력해주세요.",
         # 공지 팝업
         "ann_confirm":"ann_confirm","ann_later":"ann_later","ann_date":"발송일:",
@@ -554,6 +555,7 @@ LANG = {
         "dragon_monitoring":"🐉 DragonFather",
         "monthly_limit_warn":"📌 Monthly limit reached. Ask admin for more tokens.",
         "unit_items":"",
+        "banner_line1":"This is a place to work with Claude-based Agent AI DragonFather to monitor harmful online content.","banner_line2":"We monitor illegal content related to child abuse, grooming, sexual violence, and gambling.","badge_intl":"International Guidelines Compliant","badge_ncmec":"NCMEC Guidelines","badge_iwf":"IWF Global Standards","home_footer":"This is the Agent AI DragonFather World created by SeungHyun Choi.","ann_unread":"Unread",
         "save_error":"Save error: {}","delete_error":"Delete error: {}","error":"Error: {}","no_url":"Please enter a URL.",
         # announcement popup
 # 2nd pass
@@ -784,6 +786,7 @@ LANG = {
         "dragon_monitoring":"🐉 ドラゴンファーザー",
         "monthly_limit_warn":"📌 今月の上限に達しました。管理者に追加を申請してください。",
         "unit_items":"件",
+        "banner_line1":"ここはClaude基盤のAgent AI ドラゴンファーザーと共にオンライン有害コンテンツをモニタリングする場所です。","banner_line2":"子どもへの性的虐待、グルーミング、性暴力、ギャンブル等の違法コンテンツを監視します。","badge_intl":"国際機関ガイドライン準拠","badge_ncmec":"NCMECガイドライン","badge_iwf":"IWFグローバル基準","home_footer":"ここはChoi SeungHyunが作るAgent AI ドラゴンファーザーワールドです。","ann_unread":"未確認",
         "save_error":"保存エラー: {}","delete_error":"削除エラー: {}","error":"エラー: {}","no_url":"URLを入力してください。",
         # 公知ポップアップ
 # 2次翻訳
@@ -1846,14 +1849,14 @@ else:
         margin-bottom: -0.5rem;
     ">
         <div style="color:white; font-size:0.88rem; line-height:1.6;">
-            🛡️ <strong>이 곳은 온라인 유해 컨텐츠를 모니터링하는 Claude 기반의 Agent AI 드래곤파더와 함께 작업하는 곳입니다.</strong><br>
-            어린이 아동학대, 그루밍, 성폭력, 도박 등과 관련한 다양한 불법 컨텐츠를 감시합니다.
+            🛡️ <strong>{t("banner_line1")}</strong><br>
+            {t("banner_line2")}
         </div>
         <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; justify-content:flex-end;">
-            <span style="color:#94a3b8; font-size:0.68rem; font-weight:600; letter-spacing:0.05em; white-space:nowrap; margin-right:2px;">🛡️ 국제기관 가이드라인 준수</span>
-            <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #2563eb55;color:#60a5fa;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;">🇺🇸 NCMEC 가이드라인 준수</span>
+            <span style="color:#94a3b8; font-size:0.68rem; font-weight:600; letter-spacing:0.05em; white-space:nowrap; margin-right:2px;">🛡️ {t("badge_intl")}</span>
+            <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #2563eb55;color:#60a5fa;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;">🇺🇸 {t("badge_ncmec")}</span>
             <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #7c3aed55;color:#a78bfa;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;">🌍 WeProtect Global Alliance</span>
-            <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #059669aa;color:#34d399;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;">🇬🇧 IWF 글로벌 기준</span>
+            <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #059669aa;color:#34d399;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;">🇬🇧 {t("badge_iwf")}</span>
             <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #d9770655;color:#fb923c;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;">⚙️ Tech Coalition</span>
         </div>
     </div>
@@ -2405,7 +2408,7 @@ else:
                 st.markdown('''
                 <div style="padding:2px 0 0 0; line-height:1.2;">
                     <span style="font-size:1.4rem; font-weight:700; color:#1d4ed8;">🐲 드래곤파더</span>
-                    <span style="font-size:0.95rem; color:#60a5fa; margin-left:8px;">✨ t("chat_caption")[:20]</span>
+                    <span style="font-size:0.95rem; color:#60a5fa; margin-left:8px;">✨ {t("dragon_caption")[:15]}...</span>
                 </div>
                 ''', unsafe_allow_html=True)
             with da2:
@@ -2451,7 +2454,7 @@ else:
                             padding:5px 10px; margin:3px 0; font-size:0.8rem;">
                             {icon_h} <strong style="color:#f1f5f9;">{ann_h['title']}</strong>
                             <span style="color:#94a3b8; margin-left:6px; font-size:0.72rem;">{ann_date_h}</span>
-                            <span style="background:#e94560; color:white; border-radius:4px; padding:1px 5px; font-size:0.65rem; margin-left:4px;">미확인</span>
+                            <span style="background:#e94560; color:white; border-radius:4px; padding:1px 5px; font-size:0.65rem; margin-left:4px;">{t("ann_unread")}</span>
                         </div>
                         """, unsafe_allow_html=True)
             except:
@@ -2581,7 +2584,7 @@ else:
             font-size: 0.88rem;
             letter-spacing: 0.04em;
         ">
-            🐉 이곳은 <strong style="color:#60a5fa;">최승현</strong>님이 만드는 Agent AI 드래곤파더 월드입니다.
+            🐉 {t("home_footer")}
         </div>
         """, unsafe_allow_html=True)
 
