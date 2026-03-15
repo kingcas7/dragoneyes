@@ -27,93 +27,170 @@ NAVER_CLIENT_ID, NAVER_CLIENT_SECRET = get_naver_keys()
 
 st.set_page_config(page_title="DragonEyes / 드래곤아이즈", page_icon="🐉", layout="wide")
 
+# PWA 메타태그 추가
+st.markdown("""
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DragonEyes">
+<meta name="theme-color" content="#0f3460">
+</head>
+""", unsafe_allow_html=True)
+
 # ── 모바일 반응형 CSS ──
 st.markdown("""
 <style>
+/* ════════════════════════════════
+   모바일 최적화 CSS (Android PWA)
+   ════════════════════════════════ */
+
 /* 모바일 기본 (768px 이하) */
 @media (max-width: 768px) {
 
     /* 전체 여백 축소 */
     .block-container {
-        padding: 0.5rem 0.5rem !important;
+        padding: 0.3rem 0.4rem !important;
         max-width: 100% !important;
     }
 
-    /* 컬럼을 모바일에서 세로로 */
+    /* 컬럼 세로 배치 */
     [data-testid="column"] {
         width: 100% !important;
         flex: 1 1 100% !important;
         min-width: 100% !important;
     }
 
-    /* 버튼 크게 */
-    button[kind="primary"], button[kind="secondary"] {
-        font-size: 1rem !important;
-        padding: 0.6rem 0.8rem !important;
+    /* 버튼 터치 친화적 */
+    button {
         min-height: 2.8rem !important;
-        width: 100% !important;
+        font-size: 0.95rem !important;
+    }
+    button[kind="primary"] {
+        min-height: 3rem !important;
+        font-size: 1rem !important;
     }
 
-    /* 입력창 크게 */
+    /* 입력창 */
     input, textarea, select {
         font-size: 1rem !important;
         min-height: 2.5rem !important;
     }
 
-    /* 탭 글자 작게 (탭이 많아서) */
+    /* 탭 스크롤 가능하게 */
+    [data-testid="stTabs"] {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
     button[data-baseweb="tab"] {
-        font-size: 0.7rem !important;
-        padding: 0.3rem 0.3rem !important;
+        font-size: 0.68rem !important;
+        padding: 0.25rem 0.4rem !important;
+        white-space: nowrap !important;
+        min-width: fit-content !important;
+    }
+
+    /* 배너 모바일 축소 */
+    div[style*="grid-template-columns: 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* 헤더 버튼 작게 */
+    [data-testid="stHorizontalBlock"] button {
+        padding: 0.2rem 0.3rem !important;
+        font-size: 0.75rem !important;
+        min-height: 2.2rem !important;
     }
 
     /* 메트릭 카드 */
     [data-testid="metric-container"] {
-        padding: 0.3rem !important;
+        padding: 0.2rem !important;
+    }
+    [data-testid="metric-container"] label {
+        font-size: 0.65rem !important;
+    }
+    [data-testid="metric-container"] [data-testid="stMetricValue"] {
+        font-size: 1.1rem !important;
     }
 
     /* 사이드바 숨김 */
-    [data-testid="stSidebar"] {
-        display: none !important;
-    }
+    [data-testid="stSidebar"] { display: none !important; }
 
     /* 헤더 폰트 */
-    h1 { font-size: 1.4rem !important; }
-    h2 { font-size: 1.2rem !important; }
-    h3 { font-size: 1rem !important; }
+    h1 { font-size: 1.2rem !important; }
+    h2 { font-size: 1rem !important; }
+    h3 { font-size: 0.9rem !important; }
 
-    /* 테이블 스크롤 */
+    /* 테이블 가로 스크롤 */
     [data-testid="stDataFrame"] {
         overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
     }
 
-    /* 채팅창 높이 축소 */
-    [data-testid="stVerticalBlockBorderWrapper"] {
-        min-height: auto !important;
+    /* expander 터치 */
+    [data-testid="stExpander"] summary {
+        min-height: 2.5rem !important;
+        display: flex !important;
+        align-items: center !important;
     }
 
-    /* 드래곤파더 채팅 높이 모바일 조정 */
-    div[style*="height: 320px"] {
-        height: 200px !important;
+    /* 채팅 입력창 */
+    [data-testid="stChatInput"] textarea {
+        font-size: 1rem !important;
+    }
+
+    /* 드래곤파더 채팅 높이 */
+    div[style*="height: 340px"] { height: 220px !important; }
+    div[style*="height: 320px"] { height: 200px !important; }
+    div[style*="height: 250px"] { height: 180px !important; }
+
+    /* 컨테이너 높이 모바일 조정 */
+    div[style*="height: 420px"] { height: auto !important; max-height: 300px !important; overflow-y: auto !important; }
+    div[style*="height: 360px"] { height: auto !important; max-height: 280px !important; overflow-y: auto !important; }
+    div[style*="height: 290px"] { height: auto !important; max-height: 250px !important; overflow-y: auto !important; }
+
+    /* 이미지/비디오 */
+    img, video, iframe { max-width: 100% !important; }
+
+    /* 로그인 화면 */
+    [data-testid="stForm"] {
+        padding: 1rem !important;
+    }
+
+    /* 통계 카드 모바일 */
+    div[style*="display:flex;gap:6px"] {
+        flex-wrap: wrap !important;
+        gap: 4px !important;
+    }
+    div[style*="display:flex;gap:12px"] {
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+    }
+
+    /* 알림 메시지 */
+    [data-testid="stAlert"] {
+        font-size: 0.85rem !important;
+        padding: 0.5rem !important;
     }
 }
 
 /* 태블릿 (768px ~ 1024px) */
 @media (min-width: 769px) and (max-width: 1024px) {
-    .block-container {
-        padding: 1rem !important;
-    }
+    .block-container { padding: 0.8rem !important; }
     button[data-baseweb="tab"] {
-        font-size: 0.8rem !important;
-        padding: 0.4rem 0.4rem !important;
+        font-size: 0.78rem !important;
+        padding: 0.35rem 0.4rem !important;
+    }
+    [data-testid="column"] {
+        min-width: 45% !important;
     }
 }
 
-/* 배너 아래 공백 제거 */
+/* ── 공통 PC/모바일 스타일 ── */
 .block-container {
-    padding-top: 1.2rem !important;
+    padding-top: 1rem !important;
     padding-bottom: 0.4rem !important;
 }
-/* Streamlit 기본 요소 간격 최소화 */
 [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlockBorderWrapper"],
 [data-testid="stVerticalBlock"] > div:first-child {
     margin-top: 0 !important;
@@ -123,37 +200,24 @@ h1 { font-size: 1.5rem !important; margin: 0 !important; }
 h2 { font-size: 1.1rem !important; margin: 0 !important; }
 h3 { font-size: 0.95rem !important; margin: 0 !important; }
 hr { margin: 0.25rem 0 !important; }
-
-[data-testid="metric-container"] {
-    padding: 0.15rem 0.25rem !important;
-}
-[data-testid="metric-container"] label {
-    font-size: 0.72rem !important;
-}
-[data-testid="metric-container"] [data-testid="stMetricValue"] {
-    font-size: 1.1rem !important;
-}
-[data-testid="metric-container"] [data-testid="stMetricDelta"] {
-    font-size: 0.68rem !important;
-}
-[data-testid="stHeading"] {
-    margin: 0.1rem 0 !important;
-}
-[data-testid="stVerticalBlock"] > div {
-    gap: 0.25rem !important;
-}
-[data-testid="stHorizontalBlock"] {
-    gap: 0.4rem !important;
-    align-items: center !important;
-}
-[data-testid="stProgressBar"] {
-    margin: 0.15rem 0 !important;
-}
-button[kind="secondary"] {
-    padding: 0.25rem 0.4rem !important;
-    font-size: 0.82rem !important;
-}
+[data-testid="metric-container"] { padding: 0.15rem 0.25rem !important; }
+[data-testid="metric-container"] label { font-size: 0.72rem !important; }
+[data-testid="metric-container"] [data-testid="stMetricValue"] { font-size: 1.1rem !important; }
+[data-testid="metric-container"] [data-testid="stMetricDelta"] { font-size: 0.68rem !important; }
+[data-testid="stHeading"] { margin: 0.1rem 0 !important; }
+[data-testid="stVerticalBlock"] > div { gap: 0.25rem !important; }
+[data-testid="stHorizontalBlock"] { gap: 0.4rem !important; align-items: center !important; }
+[data-testid="stProgressBar"] { margin: 0.15rem 0 !important; }
+button[kind="secondary"] { padding: 0.25rem 0.4rem !important; font-size: 0.82rem !important; }
 p { margin-bottom: 0.2rem !important; }
+
+/* PWA 스타일 — 상태바 영역 대응 */
+@media (display-mode: standalone) {
+    .block-container {
+        padding-top: env(safe-area-inset-top, 1rem) !important;
+        padding-bottom: env(safe-area-inset-bottom, 0.4rem) !important;
+    }
+}
 </style>
 """, unsafe_allow_html=True)
 
