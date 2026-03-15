@@ -27,16 +27,17 @@ NAVER_CLIENT_ID, NAVER_CLIENT_SECRET = get_naver_keys()
 
 st.set_page_config(page_title="DragonEyes / 드래곤아이즈", page_icon="🐉", layout="wide")
 
-# PWA 메타태그 추가
+# PWA 메타태그 (숨김 처리)
 st.markdown("""
-<head>
+<style>
+head { display: none !important; }
+</style>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="DragonEyes">
 <meta name="theme-color" content="#0f3460">
-</head>
 """, unsafe_allow_html=True)
 
 # ── 모바일 반응형 CSS ──
