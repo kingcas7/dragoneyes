@@ -1836,7 +1836,7 @@ else:
                     del st.session_state[k]
                 st.rerun()
 
-    st.markdown("""
+    st.markdown(f"""
     <div style="
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -2408,7 +2408,7 @@ else:
                 st.markdown('''
                 <div style="padding:2px 0 0 0; line-height:1.2;">
                     <span style="font-size:1.4rem; font-weight:700; color:#1d4ed8;">🐲 드래곤파더</span>
-                    <span style="font-size:0.95rem; color:#60a5fa; margin-left:8px;">✨ {t("dragon_caption")[:15]}...</span>
+                    <span style="font-size:0.95rem; color:#60a5fa; margin-left:8px;">✨ {t("chat_caption")[:15]}...</span>
                 </div>
                 ''', unsafe_allow_html=True)
             with da2:
@@ -2546,7 +2546,7 @@ else:
                 pass
 
             # ② 위젯 공간 (중간)
-            st.markdown("""
+            st.markdown(f"""
             <div style="
                 border: 2px dashed #334155;
                 border-radius: 10px;
@@ -2576,7 +2576,7 @@ else:
                     st.session_state.current_page = "home"; st.rerun()
 
         # ── 하단 중앙 문구 ──
-        st.markdown("""
+        st.markdown(f"""
         <div style="
             text-align: center;
             padding: 18px 0 6px 0;
