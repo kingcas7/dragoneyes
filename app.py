@@ -344,7 +344,7 @@ LANG = {
         "dragon_fs_btn":"🐲 큰 화면에서 드래곤파더와 대화하기",
         "home_text_btn":"📝 텍스트 분석","home_yt_btn":"🎬 유튜브 분석","home_rep_btn":"📁 보고서 목록",
         "widget_placeholder":"📈 향후 통계 위젯이 추가될 공간입니다",
-        "chat_example":"chat_example",
+        "chat_example":"💡 예: '이 댓글이 그루밍 패턴인지 분석해줘' / '보고서 작성 주의사항은?' / 'Roblox 위험 패턴은?'",
         "chat_example_short":"💡 예: '보고서 작성할 때 주의사항은?'",
         "col_name":"이름","col_month":"이번달","col_goal":"목표","col_rate":"달성률","col_total":"누적",
         "monthly_this":"이번달","write_report_btn":"📋 보고서 작성",
@@ -352,6 +352,7 @@ LANG = {
         "monthly_limit_warn":"monthly_limit_warn",
         "unit_items":"건",
         "banner_line1":"이 곳은 온라인 유해 컨텐츠를 모니터링하는 Claude 기반의 Agent AI 드래곤파더와 함께 작업하는 곳입니다.","banner_line2":"어린이 아동학대, 그루밍, 성폭력, 도박 등과 관련한 다양한 불법 컨텐츠를 감시합니다.","badge_intl":"국제기관 가이드라인 준수","badge_ncmec":"NCMEC 가이드라인 준수","badge_iwf":"IWF 글로벌 기준","home_footer":"이곳은 최승현님이 만드는 Agent AI 드래곤파더 월드입니다.","ann_unread":"미확인",
+        "hdr_work":"💼 일하기","hdr_home":"🏠 홈","hdr_write":"📋 작성","hdr_notice":"📢 공지","hdr_admin":"👑 관리자","hdr_profile":"👤 사용자",
         "save_error":"저장 오류: {}","delete_error":"삭제 오류: {}","error":"오류: {}","no_url":"URL을 입력해주세요.",
         # 공지 팝업
         "ann_confirm":"ann_confirm","ann_later":"ann_later","ann_date":"발송일:",
@@ -556,6 +557,7 @@ LANG = {
         "monthly_limit_warn":"📌 Monthly limit reached. Ask admin for more tokens.",
         "unit_items":"",
         "banner_line1":"This is a place to work with Claude-based Agent AI DragonFather to monitor harmful online content.","banner_line2":"We monitor illegal content related to child abuse, grooming, sexual violence, and gambling.","badge_intl":"International Guidelines Compliant","badge_ncmec":"NCMEC Guidelines","badge_iwf":"IWF Global Standards","home_footer":"This is the Agent AI DragonFather World created by SeungHyun Choi.","ann_unread":"Unread",
+        "hdr_work":"💼 Work","hdr_home":"🏠 Home","hdr_write":"📋 Write","hdr_notice":"📢 Notice","hdr_admin":"👑 Admin","hdr_profile":"👤 Profile",
         "save_error":"Save error: {}","delete_error":"Delete error: {}","error":"Error: {}","no_url":"Please enter a URL.",
         # announcement popup
 # 2nd pass
@@ -787,6 +789,7 @@ LANG = {
         "monthly_limit_warn":"📌 今月の上限に達しました。管理者に追加を申請してください。",
         "unit_items":"件",
         "banner_line1":"ここはClaude基盤のAgent AI ドラゴンファーザーと共にオンライン有害コンテンツをモニタリングする場所です。","banner_line2":"子どもへの性的虐待、グルーミング、性暴力、ギャンブル等の違法コンテンツを監視します。","badge_intl":"国際機関ガイドライン準拠","badge_ncmec":"NCMECガイドライン","badge_iwf":"IWFグローバル基準","home_footer":"ここはChoi SeungHyunが作るAgent AI ドラゴンファーザーワールドです。","ann_unread":"未確認",
+        "hdr_work":"💼 作業","hdr_home":"🏠 ホーム","hdr_write":"📋 作成","hdr_notice":"📢 公知","hdr_admin":"👑 管理者","hdr_profile":"👤 ユーザー",
         "save_error":"保存エラー: {}","delete_error":"削除エラー: {}","error":"エラー: {}","no_url":"URLを入力してください。",
         # 公知ポップアップ
 # 2次翻訳
@@ -1807,13 +1810,13 @@ else:
             if st.button("🇯🇵", use_container_width=True, key="flag_ja", help="日本語"):
                 st.session_state.lang = "ja"; st.rerun()
         with bc_work:
-            if st.button("💼 일하기", use_container_width=True, key="hdr_work_btn"):
+            if st.button(t("hdr_work"), use_container_width=True, key="hdr_work_btn"):
                 go_to("work_page"); st.rerun()
         with bc_home:
             if st.button("🏠 홈", use_container_width=True):
                 go_home(); st.rerun()
         with bc_write:
-            if st.button("📋 작성", use_container_width=True):
+            if st.button(t("hdr_write"), use_container_width=True):
                 open_report_form(from_tab=st.session_state.active_tab); st.rerun()
         with bc_notice:
             if st.button(_notice_label, use_container_width=True, key="hdr_notice_btn"):
@@ -1822,12 +1825,12 @@ else:
                 st.rerun()
         if _show_admin_btn:
             with bc_admin:
-                if st.button("👑 관리자", use_container_width=True, key="hdr_admin_btn"):
+                if st.button(t("hdr_admin"), use_container_width=True, key="hdr_admin_btn"):
                     st.session_state.current_page = "home"
                     st.session_state.active_tab = 99
                     st.rerun()
         with bc_profile:
-            if st.button("👤 사용자", use_container_width=True, key="hdr_profile_btn"):
+            if st.button(t("hdr_profile"), use_container_width=True, key="hdr_profile_btn"):
                 go_to("user_profile"); st.rerun()
         with bc_logout:
             if st.button("🚪", use_container_width=True, help=t("logout_help")):
