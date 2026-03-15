@@ -2115,16 +2115,16 @@ else:
         active_tab_idx = st.session_state.get("active_tab", 0)
 
         tab_defs = [
-            ("text",    t("tab_text")),
+            ("dragon",  t("tab_dragon")),
             ("youtube", t("tab_youtube")),
             ("keyword", t("tab_keyword")),
-            ("dragon",  t("tab_dragon")),
             ("naver",   "🟢 네이버 탐색"),
             ("history", t("tab_history")),
             ("reports", t("tab_reports")),
             ("stats",   t("tab_stats")),
             ("notice",  "📢 공지사항"),
             ("chat",    "🐲 드래곤파더"),
+            ("text",    t("tab_text")),
         ]
         if is_admin or is_lead or is_super:
             tab_defs.append(("org", "🏢 조직관리"))
