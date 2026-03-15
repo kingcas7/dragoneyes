@@ -341,6 +341,16 @@ LANG = {
         "write_report_help":"보고서 작성",
         "unassigned_label":"unassigned_label",
         "naver_safe_cnt":"✅ 안전 판정 ({}개)",
+        "dragon_fs_btn":"🐲 큰 화면에서 드래곤파더와 대화하기",
+        "home_text_btn":"📝 텍스트 분석","home_yt_btn":"🎬 유튜브 분석","home_rep_btn":"📁 보고서 목록",
+        "widget_placeholder":"📈 향후 통계 위젯이 추가될 공간입니다",
+        "chat_example":t("chat_example"),
+        "chat_example_short":t("chat_example_short"),
+        "col_name":"이름","col_month":"이번달","col_goal":"목표","col_rate":"달성률","col_total":"누적",
+        "monthly_this":"이번달","write_report_btn":"📋 보고서 작성",
+        "dragon_monitoring":"🐉 드래곤파더",
+        "monthly_limit_warn":t("monthly_limit_warn"),
+        "unit_items":"건",
         "save_error":"저장 오류: {}","delete_error":"삭제 오류: {}","error":"오류: {}","no_url":"URL을 입력해주세요.",
         # 공지 팝업
         "ann_confirm":"ann_confirm","ann_later":"ann_later","ann_date":"발송일:",
@@ -534,6 +544,16 @@ LANG = {
         "write_report_help":"Write Report",
         "unassigned_label":"Unassigned",
         "naver_safe_cnt":"✅ Safe ({})",
+        "dragon_fs_btn":"🐲 Chat with DragonFather in Fullscreen",
+        "home_text_btn":"📝 Text Analysis","home_yt_btn":"🎬 YouTube Analysis","home_rep_btn":"📁 Reports",
+        "widget_placeholder":"📈 Statistics widget will be added here",
+        "chat_example":"💡 e.g. 'Analyze this comment for grooming patterns' / 'Report writing tips?' / 'Roblox risk patterns?'",
+        "chat_example_short":"💡 e.g. 'What to check when writing a report?'",
+        "col_name":"Name","col_month":"This Month","col_goal":"Goal","col_rate":"Rate","col_total":"Total",
+        "monthly_this":"This Month","write_report_btn":"📋 Write Report",
+        "dragon_monitoring":"🐉 DragonFather",
+        "monthly_limit_warn":"📌 Monthly limit reached. Ask admin for more tokens.",
+        "unit_items":"",
         "save_error":"Save error: {}","delete_error":"Delete error: {}","error":"Error: {}","no_url":"Please enter a URL.",
         # announcement popup
 # 2nd pass
@@ -754,6 +774,16 @@ LANG = {
         "write_report_help":"レポート作成",
         "unassigned_label":"未割り当て",
         "naver_safe_cnt":"✅ 安全判定（{}件）",
+        "dragon_fs_btn":"🐲 フルスクリーンでドラゴンファーザーと会話",
+        "home_text_btn":"📝 テキスト分析","home_yt_btn":"🎬 YouTube分析","home_rep_btn":"📁 レポート一覧",
+        "widget_placeholder":"📈 今後、統計ウィジェットが追加される予定です",
+        "chat_example":"💡 例: 'このコメントはグルーミングパターン？' / 'レポート作成の注意点は？' / 'Robloxのリスクパターンは？'",
+        "chat_example_short":"💡 例: 'レポート作成時の注意点は？'",
+        "col_name":"名前","col_month":"今月","col_goal":"目標","col_rate":"達成率","col_total":"累計",
+        "monthly_this":"今月","write_report_btn":"📋 レポート作成",
+        "dragon_monitoring":"🐉 ドラゴンファーザー",
+        "monthly_limit_warn":"📌 今月の上限に達しました。管理者に追加を申請してください。",
+        "unit_items":"件",
         "save_error":"保存エラー: {}","delete_error":"削除エラー: {}","error":"エラー: {}","no_url":"URLを入力してください。",
         # 公知ポップアップ
 # 2次翻訳
@@ -1994,7 +2024,7 @@ else:
         with chat_box:
             if not st.session_state.chat_history:
                 st.caption("💡 예: '이 댓글이 그루밍 패턴인지 분석해줘'")
-                st.caption("💡 예: '보고서 작성할 때 주의사항은?'")
+                st.caption(t("chat_example_short"))
                 st.caption("💡 예: 'Roblox에서 흔한 위험 패턴은?'")
                 st.caption("💡 예: '오늘 점심 뭐 먹을까?' '농담 해줘' 등 자유롭게!")
             for msg in st.session_state.chat_history:
@@ -2014,7 +2044,7 @@ else:
         ic1, ic2 = st.columns([6, 1])
         with ic1:
             fs_input = st.chat_input(
-                "드래곤파더에게 뭐든 물어보세요... (300자)" if chat_info["ok"] else "사용 불가",
+                t("chat_input_ph") if chat_info["ok"] else t("chat_disabled"),
                 max_chars=300, disabled=not chat_info["ok"], key="dragon_fs_input"
             )
         with ic2:
@@ -2023,7 +2053,7 @@ else:
 
         if fs_input and chat_info["ok"]:
             st.session_state.chat_history.append({"role": "user", "content": fs_input})
-            with st.spinner("🐲 드래곤파더가 답변 중..."):
+            with st.spinner("🐲 " + t("dragon_caption")[:10] + "..."):
                 try:
                     api_history = [{"role": m["role"], "content": m["content"]} for m in st.session_state.chat_history[:-1]]
                     response = chat_with_ai(api_history, fs_input, lang)
@@ -2052,10 +2082,10 @@ else:
 
         # 달성률 카드
         st.markdown(f"""<div style="display:flex;gap:6px;margin:10px 0 6px 0;">
-            <div style="flex:1;background:linear-gradient(135deg,#0ea5e9,#06b6d4);border-radius:8px;padding:5px 8px;text-align:center;"><div style="font-size:0.62rem;color:#e0f7ff;">이번달 보고서</div><div style="font-size:1rem;font-weight:700;color:#fff;">{month_cnt}건</div><div style="font-size:0.58rem;color:#bae6fd;">목표 {target}건</div></div>
-            <div style="flex:1;background:linear-gradient(135deg,#10b981,#34d399);border-radius:8px;padding:5px 8px;text-align:center;"><div style="font-size:0.62rem;color:#d1fae5;">달성률</div><div style="font-size:1rem;font-weight:700;color:#fff;">{rate}%</div><div style="font-size:0.58rem;color:#a7f3d0;">목표 대비</div></div>
-            <div style="flex:1;background:linear-gradient(135deg,#f59e0b,#fbbf24);border-radius:8px;padding:5px 8px;text-align:center;"><div style="font-size:0.62rem;color:#fef3c7;">드래곤 토큰</div><div style="font-size:1rem;font-weight:700;color:#fff;">{token_info["monthly_remaining"]}회</div><div style="font-size:0.58rem;color:#fde68a;">남음</div></div>
-            <div style="flex:1;background:linear-gradient(135deg,#ec4899,#f472b6);border-radius:8px;padding:5px 8px;text-align:center;"><div style="font-size:0.62rem;color:#fce7f3;">탐색 히스토리</div><div style="font-size:1rem;font-weight:700;color:#fff;">{history_cnt}건</div><div style="font-size:0.58rem;color:#fbcfe8;">대기중</div></div>
+            <div style="flex:1;background:linear-gradient(135deg,#0ea5e9,#06b6d4);border-radius:8px;padding:5px 8px;text-align:center;"><div style="font-size:0.62rem;color:#e0f7ff;">{t("month_report")}</div><div style="font-size:1rem;font-weight:700;color:#fff;">{month_cnt}{t("unit_reports")}</div><div style="font-size:0.58rem;color:#bae6fd;">{t("goal").format(target)}</div></div>
+            <div style="flex:1;background:linear-gradient(135deg,#10b981,#34d399);border-radius:8px;padding:5px 8px;text-align:center;"><div style="font-size:0.62rem;color:#d1fae5;">{t("achievement")}</div><div style="font-size:1rem;font-weight:700;color:#fff;">{rate}%</div><div style="font-size:0.58rem;color:#a7f3d0;">{t("goal").format(target)}</div></div>
+            <div style="flex:1;background:linear-gradient(135deg,#f59e0b,#fbbf24);border-radius:8px;padding:5px 8px;text-align:center;"><div style="font-size:0.62rem;color:#fef3c7;">{t("dragon_token")}</div><div style="font-size:1rem;font-weight:700;color:#fff;">{token_info["monthly_remaining"]}{t("unit_times")}</div><div style="font-size:0.58rem;color:#fde68a;">{t("token_remain").format(token_info["monthly_remaining"])[:3]}</div></div>
+            <div style="flex:1;background:linear-gradient(135deg,#ec4899,#f472b6);border-radius:8px;padding:5px 8px;text-align:center;"><div style="font-size:0.62rem;color:#fce7f3;">{t("tab_history")}</div><div style="font-size:1rem;font-weight:700;color:#fff;">{history_cnt}{t("unit_reports")}</div><div style="font-size:0.58rem;color:#fbcfe8;">{t("pending_list")}</div></div>
         </div><div style="background:#334155;border-radius:4px;height:4px;margin:0 0 6px 0;"><div style="background:{"#22c55e" if rate>=100 else "#f59e0b" if rate>=50 else "#e94560"};width:{rate}%;height:4px;border-radius:4px;"></div></div>""", unsafe_allow_html=True)
 
         # 페이지네이션 미리 계산
@@ -2116,7 +2146,7 @@ else:
                                 with st.expander(f"🏢 **{team['name']}** | 팀장: {leader.get('name','미지정')} | {len(members)}명", expanded=True):
                                     if members:
                                         ch = st.columns([2.5,1,1,1,1])
-                                        ch[0].markdown("**이름**"); ch[1].markdown("**이번달**"); ch[2].markdown("**목표**"); ch[3].markdown("**달성률**"); ch[4].markdown("**누적**")
+                                        ch[0].markdown(t("col_name")); ch[1].markdown(t("col_month")); ch[2].markdown(t("col_goal")); ch[3].markdown(t("col_rate")); ch[4].markdown(t("col_total"))
                                         for m in members:
                                             mr = [r for r in all_reports_dash if r["user_id"]==m["id"]]
                                             mm = len([r for r in mr if r["created_at"][:7]==this_month])
@@ -2137,7 +2167,7 @@ else:
                                 for u in no_team:
                                     ur = [r for r in all_reports_dash if r["user_id"]==u["id"]]
                                     um = len([r for r in ur if r["created_at"][:7]==this_month])
-                                    st.caption(f"{role_icon(u.get('role_v2','user'))} {u['name']} | 이번달 {um}건")
+                                    st.caption(f"{role_icon(u.get('role_v2','user'))} {u['name']} | {t('monthly_this')} {um}{t('unit_reports')}")
                     except Exception as e:
                         st.warning(t("team_fail_msg").format(str(e)))
                 elif _role == "team_leader":
@@ -2148,7 +2178,7 @@ else:
                             ar = supabase.table("reports").select("user_id,created_at").execute().data or []
                             if tm:
                                 ch = st.columns([2.5,1,1,1,1])
-                                ch[0].markdown("**이름**"); ch[1].markdown("**이번달**"); ch[2].markdown("**목표**"); ch[3].markdown("**달성률**"); ch[4].markdown("**누적**")
+                                ch[0].markdown(t("col_name")); ch[1].markdown(t("col_month")); ch[2].markdown(t("col_goal")); ch[3].markdown(t("col_rate")); ch[4].markdown(t("col_total"))
                                 for m in tm:
                                     mr = [r for r in ar if r["user_id"]==m["id"]]
                                     mm = len([r for r in mr if r["created_at"][:7]==this_month])
@@ -2375,11 +2405,11 @@ else:
                 st.markdown('''
                 <div style="padding:2px 0 0 0; line-height:1.2;">
                     <span style="font-size:1.4rem; font-weight:700; color:#1d4ed8;">🐲 드래곤파더</span>
-                    <span style="font-size:0.95rem; color:#60a5fa; margin-left:8px;">✨ Agent AI 드래곤파더에게 말을 걸어보세요</span>
+                    <span style="font-size:0.95rem; color:#60a5fa; margin-left:8px;">✨ t("chat_caption")[:20]</span>
                 </div>
                 ''', unsafe_allow_html=True)
             with da2:
-                if st.button("🐲 큰 화면에서 드래곤파더와 대화하기", key="dragon_fs_btn", use_container_width=True):
+                if st.button(t("dragon_fs_btn"), key="dragon_fs_btn", use_container_width=True):
                     go_to("dragon_chat"); st.rerun()
 
             today_u = chat_info.get('today_used',0)
@@ -2431,7 +2461,7 @@ else:
             with chat_box:
                 if not st.session_state.chat_history:
                     st.caption("💡 예: '이 댓글이 그루밍 패턴인지 분석해줘'")
-                    st.caption("💡 예: '보고서 작성할 때 주의사항은?'")
+                    st.caption(t("chat_example_short"))
                     st.caption("💡 예: 'Roblox에서 흔한 위험 패턴은?'")
                 for msg in st.session_state.chat_history[-10:]:
                     if msg["role"] == "user":
@@ -2450,7 +2480,7 @@ else:
             ic1, ic2 = st.columns([5, 1])
             with ic1:
                 home_input = st.chat_input(
-                    "드래곤파더에게 질문하세요... (300자)" if chat_info["ok"] else "사용 불가",
+                    t("chat_input_ph") if chat_info["ok"] else t("chat_disabled"),
                     max_chars=300, disabled=not chat_info["ok"], key="home_chat_input"
                 )
             with ic2:
@@ -2459,7 +2489,7 @@ else:
 
             if home_input and chat_info["ok"]:
                 st.session_state.chat_history.append({"role": "user", "content": home_input})
-                with st.spinner("🐲 드래곤파더가 답변 중..."):
+                with st.spinner("🐲 " + t("dragon_caption")[:10] + "..."):
                     try:
                         api_history = [{"role": m["role"], "content": m["content"]} for m in st.session_state.chat_history[:-1]]
                         response = chat_with_ai(api_history, home_input, lang)
@@ -2490,19 +2520,19 @@ else:
                 st.markdown(f"""
                 <div style="display:flex; gap:12px; padding:0 8px 0 16px; margin-bottom:4px;">
                     <div style="flex:1; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:10px 14px;">
-                        <div style="font-size:0.7rem; color:#3b82f6; margin-bottom:2px; font-weight:600;">📅 이번달</div>
+                        <div style="font-size:0.7rem; color:#3b82f6; margin-bottom:2px; font-weight:600;">{t("month_report")}</div>
                         <div style="font-size:1.5rem; font-weight:700; color:#1d4ed8; line-height:1.1;">{month_cnt_h}건</div>
-                        <div style="font-size:0.65rem; color:#64748b;">↑ 목표 {target_h}건</div>
+                        <div style="font-size:0.65rem; color:#64748b;">↑ {t("goal").format(target_h)}</div>
                     </div>
                     <div style="flex:1; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:10px 14px;">
-                        <div style="font-size:0.7rem; color:#16a34a; margin-bottom:2px; font-weight:600;">🎯 달성률</div>
+                        <div style="font-size:0.7rem; color:#16a34a; margin-bottom:2px; font-weight:600;">{t("achievement")}</div>
                         <div style="font-size:1.5rem; font-weight:700; color:{'#16a34a' if rate_h>=100 else '#d97706' if rate_h>=50 else '#dc2626'}; line-height:1.1;">{rate_h}%</div>
-                        <div style="font-size:0.65rem; color:#64748b;">목표 대비</div>
+                        <div style="font-size:0.65rem; color:#64748b;">{t("goal").format(target_h)[:6]}</div>
                     </div>
                     <div style="flex:1; background:#faf5ff; border:1px solid #e9d5ff; border-radius:8px; padding:10px 14px;">
-                        <div style="font-size:0.7rem; color:#7c3aed; margin-bottom:2px; font-weight:600;">🐉 토큰</div>
+                        <div style="font-size:0.7rem; color:#7c3aed; margin-bottom:2px; font-weight:600;">{t("dragon_token")}</div>
                         <div style="font-size:1.5rem; font-weight:700; color:#7c3aed; line-height:1.1;">{token_info_h['monthly_remaining']}회</div>
-                        <div style="font-size:0.65rem; color:#64748b;">남은 횟수</div>
+                        <div style="font-size:0.65rem; color:#64748b;">{t("token_remain").format("")}</div>
                     </div>
                 </div>
                 <div style="background:#e2e8f0; border-radius:4px; height:6px; margin:0 8px 8px 16px;">
@@ -2522,7 +2552,7 @@ else:
                 color: #475569;
                 font-size: 0.82rem;
                 margin-bottom: 10px;
-            ">📈 향후 통계 위젯이 추가될 공간입니다</div>
+            ">{t("widget_placeholder")}</div>
             """, unsafe_allow_html=True)
 
             # ③ 모니터링 버튼 (하단)
@@ -2533,13 +2563,13 @@ else:
                 st.rerun()
             qa1, qa2, qa3 = st.columns(3)
             with qa1:
-                if st.button("📝 텍스트 분석", use_container_width=True, key="home_text_btn"):
+                if st.button(t("home_text_btn"), use_container_width=True, key="home_text_btn"):
                     st.session_state.current_page = "home"; st.rerun()
             with qa2:
-                if st.button("🎬 유튜브 분석", use_container_width=True, key="home_yt_btn"):
+                if st.button(t("home_yt_btn"), use_container_width=True, key="home_yt_btn"):
                     st.session_state.current_page = "home"; st.rerun()
             with qa3:
-                if st.button("📁 보고서 목록", use_container_width=True, key="home_rep_btn"):
+                if st.button(t("home_rep_btn"), use_container_width=True, key="home_rep_btn"):
                     st.session_state.current_page = "home"; st.rerun()
 
         # ── 하단 중앙 문구 ──
@@ -2585,7 +2615,7 @@ else:
                             with st.chat_message("assistant", avatar="🐲"):
                                 st.write(msg["content"])
             else:
-                st.caption("💡 예: '이 댓글이 그루밍 패턴인지 분석해줘' / '보고서 작성 주의사항은?' / 'Roblox 위험 패턴은?'")
+                st.caption(t("chat_example"))
 
             if not chat_info["ok"]:
                 reason = chat_info.get("reason")
@@ -2596,12 +2626,12 @@ else:
                 elif reason == "weekly":
                     st.warning(f"📌 이번 주 한도({CHAT_WEEKLY_LIMIT}턴) 도달. 다음 주 월요일에 재시작됩니다.")
                 elif reason == "monthly":
-                    st.warning("📌 이번 달 한도 도달. 관리자에게 추가 토큰을 요청하세요.")
+                    st.warning(t("monthly_limit_warn"))
 
             ic1, ic2 = st.columns([6, 1])
             with ic1:
                 user_input = st.chat_input(
-                    "드래곤파더에게 질문하세요... (최대 300자)" if chat_info["ok"] else "사용 불가 상태입니다",
+                    t("chat_input_ph") if chat_info["ok"] else t("chat_disabled"),
                     max_chars=300,
                     disabled=not chat_info["ok"],
                     key="main_chat_input"
@@ -2612,7 +2642,7 @@ else:
 
             if user_input and chat_info["ok"]:
                 st.session_state.chat_history.append({"role": "user", "content": user_input})
-                with st.spinner("🐲 드래곤파더가 답변 중..."):
+                with st.spinner("🐲 " + t("dragon_caption")[:10] + "..."):
                     try:
                         api_history = [
                             {"role": m["role"], "content": m["content"]}
@@ -2832,7 +2862,7 @@ else:
                             st.write(r["analysis"])
                         with cb:
                             st.markdown(f"**[▶️ 유튜브 열기]({r['url']})**")
-                            if st.button("📋 보고서 작성", key=f"sr_{r['id']}"):
+                            if st.button(t("write_report_btn"), key=f"sr_{r['id']}"):
                                 open_report_form(r["url"],r["analysis"],r["severity"],r["category"],"YouTube",from_tab=2); st.rerun()
                 if st.button(t("kw_clear")):
                     st.session_state.search_results = []; st.rerun()
@@ -2936,7 +2966,7 @@ else:
                                 st.write(r["analysis"])
                             with cb:
                                 st.markdown(f"**[▶️ 유튜브 열기]({r['url']})**")
-                                if st.button("📋 보고서 작성", key=f"rec_{r['id']}"):
+                                if st.button(t("write_report_btn"), key=f"rec_{r['id']}"):
                                     open_report_form(r["url"],r["analysis"],r["severity"],r["category"],"YouTube",from_tab=3); st.rerun()
                 with st.expander(t("safe_count").format(len(safe))):
                     for r in safe:
@@ -3454,7 +3484,7 @@ else:
                 user_input = st.chat_input(t("chat_input_ph"), max_chars=300)
                 if user_input:
                     st.session_state.chat_history.append({"role": "user", "content": user_input})
-                    with st.spinner("🐲 드래곤파더가 답변 중..."):
+                    with st.spinner("🐲 " + t("dragon_caption")[:10] + "..."):
                         try:
                             api_history = [
                                 {"role": m["role"], "content": m["content"]}
