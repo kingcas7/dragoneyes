@@ -4288,6 +4288,9 @@ else:
                             df_r["created_at"] = pd.to_datetime(df_r["created_at"])
                             this_month = date.today().strftime("%Y-%m")
                             df_r["month"] = df_r["created_at"].dt.strftime("%Y-%m")
+                            # 팀명 매핑
+                            _all_teams_map = supabase.table("teams").select("id,name").execute().data or []
+                            team_map = {t["id"]: t["name"] for t in _all_teams_map}
                             summary = []
                             for u in all_users_data.data:
                                 ur = df_r[df_r["user_id"]==u["id"]]
