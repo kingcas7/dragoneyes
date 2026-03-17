@@ -4298,8 +4298,17 @@ else:
                                 tgt = u.get("monthly_target",10)
                                 rt = min(int(len(mr)/tgt*100),100) if tgt>0 else 0
                                 ti = get_token_info(u["id"])
-                                _role_label_str = role_label(u.get("role_v2","user"))
+                                _role_v2 = u.get("role_v2","user")
+                                _role_label_str = role_label(_role_v2)
                                 team_name = team_map.get(u.get("team_id",""), "")
+                                # 팀원이고 팀이 있으면 "{팀명} 팀원" 으로 role 표시
+                                if _role_v2 == "user" and team_name:
+                                    # 같은 팀 팀원 중 몇 번째인지 계산
+                                    _same_team = [x for x in summary if x.get("_team_id") == u.get("team_id","")]
+                                    _member_no = len(_same_team) + 1
+                                    _role_label_str = f"👤 {team_name} 팀원{_member_no}"
+                                elif _role_v2 == "user" and not team_name:
+                                    _role_label_str = "👤 팀미지정"
                                 team_badge = f" [{team_name}]" if team_name else ""
                                 summary.append({
                                     t("profile_role"): _role_label_str,
@@ -4310,10 +4319,12 @@ else:
                                     "누적": len(ur),
                                     "드래곤토큰": f"{ti['used_count']}/{MONTHLY_DRAGON_LIMIT+ti.get('extra_tokens',0)}회",
                                     "_role_v2": u.get("role_v2","user"),
+                                    "_team_id": u.get("team_id",""),
                                 })
                             summary.sort(key=lambda x: ROLE_ORDER.get(x.get("_role_v2","user"), 99))
                             for s in summary:
                                 s.pop("_role_v2", None)
+                                s.pop("_team_id", None)
                             st.caption(f"전체 사용자 {len(summary)}명")
                             df_summary = pd.DataFrame(summary)
                             st.dataframe(df_summary, use_container_width=True)
