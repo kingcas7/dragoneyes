@@ -7,7 +7,7 @@ from supabase import create_client
 from datetime import date, datetime, timedelta
 import pandas as pd
 import requests
-# v2026.03.15 — 보고서↔탐색URL 양방향 연결, YouTube 메타데이터 30일 보관 정책, 모바일 PWA 최적화
+# v2026.03.17 — 전체 사용자 현황 팀명 표시, 역할 정렬 (그룹장→디렉터→팀장→팀원)
 load_dotenv()
 
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
@@ -266,6 +266,14 @@ ROLE_ICONS = {
     "team_leader":    "👔",
     "user":           "👤",
     "admin":          "⚙️",
+}
+
+ROLE_ORDER = {
+    "superadmin": 0,
+    "group_leader": 1, "group_leader_2": 1, "group_leader_3": 1, "group_leader_4": 1,
+    "director": 2, "director_2": 2, "director_3": 2, "director_4": 2,
+    "team_leader": 3,
+    "user": 4, "admin": 5,
 }
 
 def role_label(role_v2):
@@ -4288,15 +4296,21 @@ else:
                                 rt = min(int(len(mr)/tgt*100),100) if tgt>0 else 0
                                 ti = get_token_info(u["id"])
                                 _role_label_str = role_label(u.get("role_v2","user"))
+                                team_name = team_map.get(u.get("team_id",""), "")
+                                team_badge = f" [{team_name}]" if team_name else ""
                                 summary.append({
                                     t("profile_role"): _role_label_str,
-                                    t("profile_name"): u["name"] + "  (" + u.get("email","") + ")",
+                                    t("profile_name"): u["name"] + f" ({u.get('email','')})" + team_badge,
                                     "이번달": len(mr),
                                     "목표": tgt,
                                     "달성률": f"{rt}%",
                                     "누적": len(ur),
-                                    "드래곤토큰": f"{ti['used_count']}/{MONTHLY_DRAGON_LIMIT+ti.get('extra_tokens',0)}회"
+                                    "드래곤토큰": f"{ti['used_count']}/{MONTHLY_DRAGON_LIMIT+ti.get('extra_tokens',0)}회",
+                                    "_role_v2": u.get("role_v2","user"),
                                 })
+                            summary.sort(key=lambda x: ROLE_ORDER.get(x.get("_role_v2","user"), 99))
+                            for s in summary:
+                                s.pop("_role_v2", None)
                             st.caption(f"전체 사용자 {len(summary)}명")
                             df_summary = pd.DataFrame(summary)
                             st.dataframe(df_summary, use_container_width=True)
