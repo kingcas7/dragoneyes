@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>GARAK 4.0</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --bg:#080d18;--s1:#0e1626;--s2:#152033;--s3:#1c2d45;
+  --b1:rgba(30,58,95,.5);--b2:rgba(30,58,95,.25);
+  --t1:#e8f0fc;--t2:#7d9bbf;--t3:#4a6a8a;
+  --a1:#00e8bc;--a2:#4f9cf9;--a4:#f4c430;
+  --red:#ff4554;--org:#ffa502;--pur:#a855f7;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;background:var(--bg);color:var(--t1);font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;overflow:hidden;}
+
+/* 모바일 컨테이너 */
+#app{max-width:430px;margin:0 auto;position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;}
+#login{max-width:430px;margin:0 auto;left:50%;transform:translateX(-50%);width:100%;}
+button{font-family:inherit;border:none;cursor:pointer;background:none;color:inherit;}
+
+/* 로그인 */
+#login{position:fixed;inset:0;background:var(--bg);z-index:1000;display:flex;align-items:center;justify-content:center;padding:24px;}
+.login-box{width:100%;max-width:340px;}
+.login-title{font-size:42px;font-weight:900;letter-spacing:-2px;text-align:center;margin-bottom:8px;}
+.login-sub{font-size:13px;color:var(--t2);text-align:center;margin-bottom:40px;}
+.role-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px;}
+.role-card{padding:14px 8px;border-radius:14px;border:1.5px solid var(--b1);background:var(--s1);cursor:pointer;text-align:center;transition:all .15s;}
+.role-card.sel{border-color:var(--a1);background:rgba(0,232,188,.05);}
+.role-ic{font-size:22px;display:block;margin-bottom:4px;}
+.role-name{font-size:11px;font-weight:700;}
+.role-desc{font-size:9px;color:var(--t3);}
+.btn-enter{width:100%;padding:16px;border-radius:14px;background:var(--a1);color:#080d18;font-size:16px;font-weight:800;border:none;cursor:pointer;opacity:.4;}
+.btn-enter.on{opacity:1;}
+
+/* 앱 */
+#app{display:none;position:fixed;inset:0;flex-direction:column;}
+#app.on{display:flex;}
+.topbar{height:52px;padding:0 16px;display:flex;align-items:center;gap:10px;background:rgba(8,13,24,.95);border-bottom:1px solid var(--b2);flex-shrink:0;}
+.tb-name{font-size:13px;font-weight:700;flex:1;}
+.tb-gkid{font-size:10px;font-family:monospace;color:var(--a1);background:rgba(0,232,188,.08);padding:2px 7px;border-radius:6px;}
+.scroll{flex:1;overflow-y:auto;background:var(--bg);}
+.page{display:none;padding:16px;}
+.page.on{display:block;}
+.tabbar{height:58px;background:rgba(14,22,38,.97);border-top:1px solid var(--b2);display:flex;align-items:center;padding:0 4px;flex-shrink:0;}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;cursor:pointer;}
+.tab.on{color:var(--a1);}
+.tab-ic{font-size:22px;opacity:.45;}
+.tab.on .tab-ic{opacity:1;}
+.tab-lb{font-size:9px;color:var(--t3);}
+.tab.on .tab-lb{color:var(--a1);font-weight:700;}
+
+/* 카드 */
+.card{background:var(--s1);border:1px solid var(--b1);border-radius:16px;padding:14px;margin-bottom:12px;}
+.btn{padding:12px 16px;border-radius:12px;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;width:100%;}
+.btn-p{background:var(--a1);color:#080d18;}
+.btn-s{background:var(--s2);border:1px solid var(--b1);color:var(--t1);}
+.finput{width:100%;background:var(--s2);border:1px solid var(--b1);color:var(--t1);border-radius:10px;padding:11px 12px;font-size:13px;outline:none;font-family:inherit;}
+.finput:focus{border-color:var(--a2);}
+.flabel{font-size:11px;color:var(--t2);margin-bottom:5px;display:block;font-weight:600;}
+.fgroup{margin-bottom:12px;}
+.tag{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;}
+.tag-g{background:rgba(0,232,188,.12);color:var(--a1);}
+.tag-b{background:rgba(79,156,249,.12);color:var(--a2);}
+.tag-y{background:rgba(244,196,48,.12);color:var(--a4);}
+.tag-r{background:rgba(255,69,84,.12);color:var(--red);}
+
+/* 토스트 */
+#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(14,22,38,.96);border:1px solid var(--b1);color:var(--t1);padding:10px 18px;border-radius:24px;font-size:13px;font-weight:600;z-index:300;opacity:0;transition:opacity .3s;pointer-events:none;}
+#toast.on{opacity:1;}
+
+/* 시트 */
+.sheet-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:none;align-items:flex-end;justify-content:center;}
+.sheet-overlay.on{display:flex;}
+.sheet{background:var(--s1);border-radius:24px 24px 0 0;width:100%;max-width:480px;max-height:85vh;overflow-y:auto;padding:20px 16px 40px;}
+.sheet-title{font-size:16px;font-weight:800;margin-bottom:16px;}
+</style>
+</head>
+<body>
+
+<!-- 로그인 -->
+<div id="login">
+  <div class="login-box">
+    <div class="login-title">GARAK 4.0</div>
+    <div class="login-sub">가락시장 스마트 유통 플랫폼</div>
+    <div class="role-grid">
+      <div class="role-card" data-role="producer_ind"><span class="role-ic">🌾</span><span class="role-name">생산자(개인)</span><span class="role-desc">출하·정산</span></div>
+      <div class="role-card" data-role="merchant_ind"><span class="role-ic">🛒</span><span class="role-name">중도매인</span><span class="role-desc">경매·거래</span></div>
+      <div class="role-card" data-role="wholesale"><span class="role-ic">🏛</span><span class="role-name">청과법인</span><span class="role-desc">경매주관·정산</span></div>
+      <div class="role-card" data-role="transport"><span class="role-ic">🚛</span><span class="role-name">운송업체</span><span class="role-desc">콜·배송</span></div>
+      <div class="role-card" data-role="warehouse_owner"><span class="role-ic">🏭</span><span class="role-name">물류창고</span><span class="role-desc">창고·임대</span></div>
+      <div class="role-card" data-role="admin"><span class="role-ic">⚙️</span><span class="role-name">관리자</span><span class="role-desc">전체모니터링</span></div>
+    </div>
+    <div style="margin-bottom:16px;">
+      <label class="flabel">이름 / 상호명</label>
+      <input class="finput" id="login-name" placeholder="홍길동 / 드레곤팜" style="margin-bottom:8px;">
+      <label class="flabel">휴대폰 번호</label>
+      <input class="finput" id="login-tel" placeholder="010-0000-0000" type="tel">
+    </div>
+    <button class="btn-enter" id="btn-enter" onclick="doLogin()">입장하기 →</button>
+  </div>
+</div>
+
+<!-- 앱 -->
+<div id="app">
+  <div class="topbar">
+    <span id="tb-ic" style="font-size:18px;">🌾</span>
+    <span class="tb-name" id="tb-name">생산자</span>
+    <span class="tb-gkid" id="tb-gkid">GK-P-000001</span>
+    <span style="font-size:12px;color:var(--t2);" id="clock">00:00</span>
+  </div>
+  <div class="scroll" id="scroll">
+    <div class="page on" id="page-home">
+      <div id="home-content"></div>
+    </div>
+    <div class="page" id="page-eform">
+      <div id="eform-content"></div>
+    </div>
+    <div class="page" id="page-stats">
+      <div style="font-size:18px;font-weight:800;margin-bottom:16px;">📊 통계</div>
+      <div class="card"><div style="font-size:13px;color:var(--t2);">준비 중...</div></div>
+    </div>
+    <div class="page" id="page-profile">
+      <div id="profile-content"></div>
+    </div>
+  </div>
+  <div class="tabbar" id="tabbar"></div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── Supabase 설정 ──
+const SUPABASE_URL = 'https://stqmgwwpuphqflwtekuy.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_E5FHlxYRRSgXWF_CYyBYTA_wTUZQtQ2'; // ← 여기에 키 입력
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ── 역할 데이터 ──
+const ROLES = {
+  producer_ind:  {n:'생산자(개인)',  ic:'🌾', gkp:'GK-P', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'📤',lb:'송장',pg:'eform'},{ic:'📊',lb:'통계',pg:'stats'},{ic:'👤',lb:'내정보',pg:'profile'}]},
+  merchant_ind:  {n:'중도매인',      ic:'🛒', gkp:'GK-M', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'📬',lb:'송장',pg:'eform'},{ic:'📊',lb:'통계',pg:'stats'},{ic:'👤',lb:'내정보',pg:'profile'}]},
+  wholesale:     {n:'청과법인',      ic:'🏛', gkp:'GK-W', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'🔨',lb:'경매',pg:'eform'},{ic:'📊',lb:'통계',pg:'stats'},{ic:'👤',lb:'내정보',pg:'profile'}]},
+  transport:     {n:'운송업체',      ic:'🚛', gkp:'GK-T', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'📞',lb:'콜',pg:'eform'},{ic:'📊',lb:'통계',pg:'stats'},{ic:'👤',lb:'내정보',pg:'profile'}]},
+  warehouse_owner:{n:'물류창고',     ic:'🏭', gkp:'GK-S', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'🏭',lb:'창고',pg:'eform'},{ic:'📊',lb:'통계',pg:'stats'},{ic:'👤',lb:'내정보',pg:'profile'}]},
+  admin:         {n:'관리자',        ic:'⚙️', gkp:'GK-A', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'전표',pg:'eform'},{ic:'📊',lb:'통계',pg:'stats'},{ic:'👤',lb:'내정보',pg:'profile'}]},
+};
+
+let curRole='', curGkid='', curUser=null;
+
+// ── 역할 선택 ──
+document.querySelectorAll('.role-card').forEach(card=>{
+  card.addEventListener('click',()=>{
+    document.querySelectorAll('.role-card').forEach(c=>c.classList.remove('sel'));
+    card.classList.add('sel');
+    curRole = card.dataset.role;
+    document.getElementById('btn-enter').classList.add('on');
+  });
+});
+
+// ── 로그인 ──
+async function doLogin(){
+  if(!curRole){toast('역할을 선택하세요');return;}
+  const name = document.getElementById('login-name').value.trim();
+  const tel  = document.getElementById('login-tel').value.trim();
+  if(!name){toast('이름을 입력하세요');return;}
+
+  const r = ROLES[curRole];
+  curGkid = r.gkp+'-'+String(Math.floor(Math.random()*99999)+1).padStart(6,'0');
+
+  // Supabase에 저장
+  try {
+    await db.from('users').insert({
+      gkid: curGkid, name, role: curRole, tel
+    });
+  } catch(e){ console.log('저장 오류:', e); }
+
+  // 앱 시작
+  document.getElementById('login').style.display='none';
+  document.getElementById('app').classList.add('on');
+  document.getElementById('tb-ic').textContent = r.ic;
+  document.getElementById('tb-name').textContent = r.n;
+  document.getElementById('tb-gkid').textContent = curGkid;
+  buildTabbar();
+  startClock();
+  renderHome();
+}
+
+// ── 탭바 ──
+function buildTabbar(){
+  const r = ROLES[curRole];
+  document.getElementById('tabbar').innerHTML = r.tabs.map(t=>
+    `<div class="tab" onclick="goTab('${t.pg}')" data-pg="${t.pg}">
+      <span class="tab-ic">${t.ic}</span>
+      <span class="tab-lb">${t.lb}</span>
+    </div>`
+  ).join('');
+  goTab('home');
+}
+
+function goTab(pg){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  const p = document.getElementById('page-'+pg);
+  if(p) p.classList.add('on');
+  document.querySelectorAll(`[data-pg="${pg}"]`).forEach(t=>t.classList.add('on'));
+  document.getElementById('scroll').scrollTop=0;
+  if(pg==='home') renderHome();
+  if(pg==='eform') renderEform();
+  if(pg==='profile') renderProfile();
+}
+
+// ── 홈 ──
+function renderHome(){
+  const r = ROLES[curRole];
+  document.getElementById('home-content').innerHTML=`
+    <div style="margin-bottom:20px;">
+      <div style="font-size:11px;color:var(--a1);letter-spacing:2px;margin-bottom:6px;">GARAK 4.0</div>
+      <div style="font-size:22px;font-weight:800;">안녕하세요 👋</div>
+      <div style="font-size:14px;color:var(--t2);margin-top:4px;">${r.n} · ${curGkid}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">
+      <div class="card" style="cursor:pointer;" onclick="goTab('eform')">
+        <div style="font-size:10px;color:var(--t2);">오늘 전표</div>
+        <div style="font-size:24px;font-weight:800;color:var(--a1);" id="cnt-eform">0건</div>
+      </div>
+      <div class="card">
+        <div style="font-size:10px;color:var(--t2);">미정산</div>
+        <div style="font-size:20px;font-weight:800;color:var(--a4);">₩0</div>
+      </div>
+    </div>
+    <div class="card">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px;">✨ AI 가이드 · ${r.n}</div>
+      <div style="font-size:12px;color:var(--t2);line-height:1.8;">
+        📌 송장을 작성하고 청과법인에 전송하세요<br>
+        📌 거래처를 등록하면 더 편리해요<br>
+        📌 통계에서 가격 동향을 확인하세요
+      </div>
+    </div>`;
+  loadHomeStats();
+}
+
+async function loadHomeStats(){
+  const today = new Date().toISOString().split('T')[0];
+  const {data} = await db.from('eforms').select('id').eq('seller_gkid', curGkid).gte('created_at', today);
+  const el = document.getElementById('cnt-eform');
+  if(el && data) el.textContent = data.length+'건';
+}
+
+// ── 전표 ──
+async function renderEform(){
+  const el = document.getElementById('eform-content');
+  el.innerHTML=`
+    <div style="font-size:18px;font-weight:800;margin-bottom:16px;">📋 전자전표</div>
+    <button class="btn btn-p" style="margin-bottom:16px;" onclick="openInvoiceSheet()">+ 새 송장 만들기</button>
+    <div id="eform-list"><div style="color:var(--t2);font-size:12px;text-align:center;padding:20px;">불러오는 중...</div></div>`;
+  const {data, error} = await db.from('eforms').select('*').order('created_at',{ascending:false}).limit(20);
+  const listEl = document.getElementById('eform-list');
+  if(!data||!data.length){
+    listEl.innerHTML='<div style="color:var(--t2);font-size:12px;text-align:center;padding:20px;">전표가 없습니다</div>';
+    return;
+  }
+  listEl.innerHTML = data.map(e=>{
+    const amt = (e.qty||0)*(e.price||0);
+    return `<div class="card" style="margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <div style="font-size:13px;font-weight:700;">${e.item} ${e.qty}${e.unit}</div>
+        <span class="tag tag-g">${e.status}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--t2);">
+        <span>${e.seller} → ${e.buyer}</span>
+        <span style="color:var(--a4);font-weight:700;">₩${amt.toLocaleString()}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── 송장 시트 ──
+function openInvoiceSheet(){
+  document.getElementById('sh-invoice').classList.add('on');
+}
+function closeInvoiceSheet(){
+  document.getElementById('sh-invoice').classList.remove('on');
+}
+
+async function submitInvoice(){
+  const item  = document.getElementById('inv-item').value;
+  const qty   = parseInt(document.getElementById('inv-qty').value)||0;
+  const price = parseInt(document.getElementById('inv-price').value)||0;
+  const buyer = document.getElementById('inv-buyer').value.trim();
+  if(!item||!qty||!buyer){toast('품목, 수량, 수취인을 입력하세요');return;}
+
+  const now = new Date();
+  const id = 'GK-'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'-'+String(Math.floor(Math.random()*9999)).padStart(4,'0');
+
+  const {error} = await db.from('eforms').insert({
+    id, item, unit:'박스', qty, price,
+    seller: ROLES[curRole].n,
+    seller_gkid: curGkid,
+    buyer,
+    status:'대기',
+    ship_date: new Date().toISOString().split('T')[0]
+  });
+
+  if(error){toast('오류: '+error.message);return;}
+  toast('✅ 전표 발행 완료! '+id);
+  closeInvoiceSheet();
+  renderEform();
+}
+
+// ── 내정보 ──
+function renderProfile(){
+  const r = ROLES[curRole];
+  document.getElementById('profile-content').innerHTML=`
+    <div style="font-size:18px;font-weight:800;margin-bottom:16px;">👤 내 정보</div>
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+        <div style="width:48px;height:48px;border-radius:14px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:24px;">${r.ic}</div>
+        <div>
+          <div style="font-size:16px;font-weight:800;">${r.n}</div>
+          <div style="font-family:monospace;color:var(--a1);font-size:12px;">${curGkid}</div>
+        </div>
+      </div>
+      <button class="btn btn-s" onclick="if(confirm('로그아웃 하시겠습니까?'))location.reload()">로그아웃</button>
+    </div>`;
+}
+
+// ── 시계 ──
+function startClock(){
+  const t=()=>document.getElementById('clock').textContent=new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+  t();setInterval(t,1000);
+}
+
+// ── 토스트 ──
+let _tt;
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('on');
+  if(_tt)clearTimeout(_tt);
+  _tt=setTimeout(()=>el.classList.remove('on'),2800);
+}
+</script>
+
+<!-- 송장 시트 -->
+<div class="sheet-overlay" id="sh-invoice">
+  <div class="sheet">
+    <div class="sheet-title">📋 새 송장 만들기</div>
+    <div class="fgroup">
+      <label class="flabel">품목</label>
+      <select class="finput" id="inv-item">
+        <option value="">선택하세요</option>
+        <option>사과</option><option>배</option><option>감자</option>
+        <option>배추</option><option>마늘</option><option>양파</option>
+        <option>딸기</option><option>토마토</option><option>고추</option>
+      </select>
+    </div>
+    <div class="fgroup">
+      <label class="flabel">수량 (박스)</label>
+      <input class="finput" id="inv-qty" type="number" placeholder="100" inputmode="numeric">
+    </div>
+    <div class="fgroup">
+      <label class="flabel">단가 (원/박스)</label>
+      <input class="finput" id="inv-price" type="number" placeholder="32000" inputmode="numeric">
+    </div>
+    <div class="fgroup">
+      <label class="flabel">수취인 (청과법인명)</label>
+      <input class="finput" id="inv-buyer" placeholder="한국청과">
+    </div>
+    <button class="btn btn-p" style="margin-bottom:10px;" onclick="submitInvoice()">전표 발행하기</button>
+    <button class="btn btn-s" onclick="closeInvoiceSheet()">취소</button>
+  </div>
+</div>
+
+</body>
+</html>
