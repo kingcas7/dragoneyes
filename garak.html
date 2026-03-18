@@ -84,7 +84,8 @@ button{font-family:inherit;border:none;cursor:pointer;background:none;color:inhe
 <!-- 로그인 -->
 <div id="login">
   <!-- 랜딩 -->
-<div id="login-landing" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;overflow-y:auto;z-index:1;"></div>
+<div id="login-landing" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;overflow-y:auto;">
+```
 
     <div style="width:100%;max-width:340px;text-align:center;">
       <div style="margin-bottom:44px;">
@@ -261,11 +262,16 @@ let curRole='', curGkid='', curUser=null;
 
 // 저장된 로그인 정보 불러오기
 function showScreen(screen){
-  document.getElementById('login-landing').style.display  = screen==='landing'  ? 'flex'  : 'none';
-  document.getElementById('login-register').style.display = screen==='register' ? 'block' : 'none';
-  document.getElementById('login-login').style.display    = screen==='login'    ? 'block' : 'none';
+  var landing  = document.getElementById('login-landing');
+  var register = document.getElementById('login-register');
+  var loginDiv = document.getElementById('login-login');
+  if(landing)  landing.style.display  = screen==='landing'  ? 'flex'  : 'none';
+  if(register) register.style.display = screen==='register' ? 'block' : 'none';
+  if(loginDiv) loginDiv.style.display = screen==='login'    ? 'block' : 'none';
   curRole = '';
   document.querySelectorAll('.role-card').forEach(c=>c.classList.remove('sel'));
+  var btnLogin = document.getElementById('btn-login');
+  if(btnLogin) btnLogin.style.opacity='0.35';
 }
 function loadSavedLogin(){
   const saved = localStorage.getItem('garak_user');
