@@ -104,65 +104,67 @@ button{font-family:inherit;border:none;cursor:pointer;background:none;color:inhe
     </div>
   </div>
 
-  <!-- 가입하기 -->
-  <div id="login-register" style="display:none;position:absolute;inset:0;overflow-y:auto;">
-    <div style="position:sticky;top:0;z-index:10;background:rgba(8,13,24,.95);backdrop-filter:blur(12px);padding:14px 20px;border-bottom:1px solid var(--b1);">
-      <div style="display:flex;align-items:center;gap:12px;">
-        <button onclick="showScreen('landing')" style="background:none;border:none;color:var(--t2);font-size:14px;cursor:pointer;">← 뒤로</button>
-        <div style="flex:1;font-size:16px;font-weight:800;">🌱 가입하기</div>
-        <button onclick="doLogin()"
-          style="padding:11px 22px;border-radius:12px;background:linear-gradient(135deg,#00e8bc,#4f9cf9);color:#080d18;font-size:14px;font-weight:800;border:none;cursor:pointer;">
-          완료 →
-        </button>
-      </div>
+<!-- 가입하기 -->
+<div id="login-register" style="display:none;position:absolute;inset:0;overflow-y:auto;">
+  <div style="position:sticky;top:0;z-index:10;background:rgba(8,13,24,.95);backdrop-filter:blur(12px);padding:12px 20px;border-bottom:1px solid var(--b1);">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <button onclick="showScreen('landing')" style="background:none;border:none;color:var(--t2);font-size:14px;cursor:pointer;">← 뒤로</button>
+      <div style="flex:1;font-size:15px;font-weight:800;">🌱 가입하기</div>
+      <button onclick="doLogin()" style="padding:9px 18px;border-radius:12px;background:linear-gradient(135deg,#00e8bc,#4f9cf9);color:#080d18;font-size:13px;font-weight:800;border:none;cursor:pointer;">완료 →</button>
     </div>
-    <div style="padding:20px 20px 60px;">
-      <div style="font-size:12px;color:var(--t2);margin-bottom:16px;">역할을 선택하고 정보를 입력하세요</div>
-      <div style="font-size:10px;font-weight:700;color:var(--a1);margin:8px 0 4px;">🌾 농축산 유통</div>
-      <div class="role-grid">
-        <div class="role-card" data-role="producer_ind"><span class="role-ic">🌾</span><span class="role-name">생산자(개인)</span><span class="role-desc">출하·정산</span></div>
-        <div class="role-card" data-role="merchant_ind"><span class="role-ic">🛒</span><span class="role-name">중도매인</span><span class="role-desc">경매·거래</span></div>
-        <div class="role-card" data-role="wholesale"><span class="role-ic">🏛</span><span class="role-name">청과법인</span><span class="role-desc">경매주관·정산</span></div>
-        <div class="role-card" data-role="transport"><span class="role-ic">🚛</span><span class="role-name">운송업체</span><span class="role-desc">콜·배송</span></div>
+  </div>
+  <div style="padding:12px 16px 40px;">
+    <div style="font-size:11px;color:var(--t2);margin-bottom:10px;">역할을 선택하고 정보를 입력하세요</div>
+
+    <div style="font-size:9px;font-weight:700;color:var(--a1);margin:6px 0 3px;">🌾 농수산 유통</div>
+    <div class="role-grid">
+      <div class="role-card" data-role="producer_ind"><span class="role-ic">🌾</span><span class="role-name">생산자(개인)</span><span class="role-desc">출하·정산</span></div>
+      <div class="role-card" data-role="producer_corp"><span class="role-ic">🏢</span><span class="role-name">생산자(법인)</span><span class="role-desc">법인출하</span></div>
+      <div class="role-card" data-role="merchant_ind"><span class="role-ic">🛒</span><span class="role-name">중도매인</span><span class="role-desc">경매·거래</span></div>
+      <div class="role-card" data-role="wholesale"><span class="role-ic">🏛</span><span class="role-name">청과법인</span><span class="role-desc">경매주관</span></div>
+    </div>
+
+    <div style="font-size:9px;font-weight:700;color:var(--a4);margin:6px 0 3px;">🏭 물류·운송</div>
+    <div class="role-grid">
+      <div class="role-card" data-role="warehouse_owner"><span class="role-ic">🏭</span><span class="role-name">물류창고</span><span class="role-desc">창고·임대</span></div>
+      <div class="role-card" data-role="transport"><span class="role-ic">🚛</span><span class="role-name">운송업체</span><span class="role-desc">콜·배송</span></div>
+    </div>
+
+    <div style="font-size:9px;font-weight:700;color:var(--a2);margin:6px 0 3px;">🏛 주무감독기관</div>
+    <div class="role-grid">
+      <div class="role-card" data-role="gov_garaksa"><span class="role-ic">🏛</span><span class="role-name">가락시장관리공단</span><span class="role-desc">시장관리</span></div>
+      <div class="role-card" data-role="gov_seoul"><span class="role-ic">🌆</span><span class="role-name">서울시</span><span class="role-desc">행정·지원</span></div>
+      <div class="role-card" data-role="gov_nts"><span class="role-ic">🏦</span><span class="role-name">국세청</span><span class="role-desc">세금·계산서</span></div>
+      <div class="role-card" data-role="gov_public"><span class="role-ic">🏢</span><span class="role-name">공공기관</span><span class="role-desc">지자체·부처</span></div>
+    </div>
+
+    <div style="font-size:9px;font-weight:700;color:#c084fc;margin:6px 0 3px;">🧾 세무·회계·법률</div>
+    <div class="role-grid">
+      <div class="role-card" data-role="tax_agent"><span class="role-ic">🧾</span><span class="role-name">세무사</span><span class="role-desc">세무신고</span></div>
+      <div class="role-card" data-role="accounting"><span class="role-ic">📊</span><span class="role-name">회계사</span><span class="role-desc">회계감사</span></div>
+      <div class="role-card" data-role="labor_agent"><span class="role-ic">👷</span><span class="role-name">노무사</span><span class="role-desc">노무·인사</span></div>
+      <div class="role-card" data-role="lawyer"><span class="role-ic">⚖️</span><span class="role-name">변호사</span><span class="role-desc">법률자문</span></div>
+    </div>
+
+    <div style="font-size:9px;font-weight:700;color:var(--org);margin:6px 0 3px;">✈️ 수입·통관 · ⚙️ 시스템</div>
+    <div class="role-grid">
+      <div class="role-card" data-role="customs"><span class="role-ic">✈️</span><span class="role-name">관세사</span><span class="role-desc">수입통관</span></div>
+      <div class="role-card" data-role="admin_agent"><span class="role-ic">📜</span><span class="role-name">행정사</span><span class="role-desc">행정대리</span></div>
+      <div class="role-card" data-role="admin"><span class="role-ic">⚙️</span><span class="role-name">관리자</span><span class="role-desc">전체모니터링</span></div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
+      <div>
+        <div style="font-size:10px;color:var(--t2);margin-bottom:4px;font-weight:600;">이름 / 상호명 *</div>
+        <input type="text" class="finput" id="login-name" placeholder="홍길동 / 드레곤팜">
       </div>
-      <div style="font-size:10px;font-weight:700;color:var(--a4);margin:8px 0 4px;">🏭 물류·창고
-        <div class="role-grid">
-  <div class="role-card" data-role="warehouse_owner"><span class="role-ic">🏭</span><span class="role-name">물류창고</span><span class="role-desc">창고·임대</span></div>
-</div>
-        <div style="font-size:10px;font-weight:700;color:var(--a2);margin:8px 0 4px;">🏛 공공기관</div>
-<div class="role-grid">
-  <div class="role-card" data-role="gov_garaksa"><span class="role-ic">🏛</span><span class="role-name">가락시장관리공단</span><span class="role-desc">시장관리·인허가</span></div>
-  <div class="role-card" data-role="gov_seoul"><span class="role-ic">🌆</span><span class="role-name">서울시</span><span class="role-desc">행정·규제·지원</span></div>
-  <div class="role-card" data-role="gov_nts"><span class="role-ic">🏦</span><span class="role-name">국세청</span><span class="role-desc">세금·전자세금계산서</span></div>
-  <div class="role-card" data-role="gov_etc"><span class="role-ic">🏢</span><span class="role-name">기타 공공기관</span><span class="role-desc">기타 행정</span></div>
-</div>
-<div style="font-size:10px;font-weight:700;color:#c084fc;margin:8px 0 4px;">🧾 세무·회계·법률</div>
-<div class="role-grid">
-  <div class="role-card" data-role="tax_agent"><span class="role-ic">🧾</span><span class="role-name">세무사</span><span class="role-desc">세무신고·기장</span></div>
-  <div class="role-card" data-role="accounting"><span class="role-ic">📊</span><span class="role-name">회계사</span><span class="role-desc">회계감사·컨설팅</span></div>
-  <div class="role-card" data-role="labor_agent"><span class="role-ic">👷</span><span class="role-name">노무사</span><span class="role-desc">노무·인사관리</span></div>
-  <div class="role-card" data-role="lawyer"><span class="role-ic">⚖️</span><span class="role-name">변호사</span><span class="role-desc">법률자문·계약</span></div>
-</div>
-<div style="font-size:10px;font-weight:700;color:var(--org);margin:8px 0 4px;">✈️ 수입·통관</div>
-<div class="role-grid">
-  <div class="role-card" data-role="customs"><span class="role-ic">✈️</span><span class="role-name">관세사</span><span class="role-desc">수입통관·관세환급</span></div>
-  <div class="role-card" data-role="admin_agent"><span class="role-ic">📜</span><span class="role-name">행정사</span><span class="role-desc">행정대리·인허가</span></div>
-  <div class="role-card" data-role="admin"><span class="role-ic">⚙️</span><span class="role-name">관리자</span><span class="role-desc">전체모니터링</span></div>
-</div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:10px;margin-top:18px;">
-        <div>
-          <div style="font-size:11px;color:var(--t2);margin-bottom:5px;font-weight:600;">이름 / 상호명 *</div>
-          <input type="text" class="finput" id="login-name" placeholder="홍길동 / 드레곤팜">
-        </div>
-        <div>
-          <div style="font-size:11px;color:var(--t2);margin-bottom:5px;font-weight:600;">휴대폰 번호 *</div>
-          <input type="tel" class="finput" id="login-tel" placeholder="010-0000-0000">
-        </div>
+      <div>
+        <div style="font-size:10px;color:var(--t2);margin-bottom:4px;font-weight:600;">휴대폰 번호 *</div>
+        <input type="tel" class="finput" id="login-tel" placeholder="010-0000-0000">
       </div>
     </div>
   </div>
-
+</div>
   <!-- 로그인 -->
   <div id="login-login" style="display:none;position:absolute;inset:0;overflow-y:auto;">
     <div style="position:sticky;top:0;z-index:10;background:rgba(8,13,24,.95);backdrop-filter:blur(12px);padding:14px 20px;border-bottom:1px solid var(--b1);">
