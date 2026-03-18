@@ -326,16 +326,6 @@ async function doLogin(){
   // 로컬 저장
   localStorage.setItem('garak_user', JSON.stringify({role:curRole, gkid:curGkid, name:finalName}));
 
-  // 앱 시작
-  document.getElementById('login').style.display='none';
-  document.getElementById('app').classList.add('on');
-  document.getElementById('tb-ic').textContent = r.ic;
-  document.getElementById('tb-name').textContent = r.n;
-  document.getElementById('tb-gkid').textContent = curGkid;
-  buildTabbar();
-  startClock();
-  renderHome();
-}
   if(!curRole){toast('역할을 선택하세요');return;}
   const name = document.getElementById('login-name').value.trim();
   const tel  = document.getElementById('login-tel').value.trim();
