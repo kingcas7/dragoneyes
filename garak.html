@@ -300,6 +300,36 @@ document.querySelectorAll('.role-card').forEach(card=>{
 
 // ── 로그인 ──
 async function doLogin(){
+  if(!curRole){ toast('역할을 선택하세요'); return; }
+  const r = ROLES[curRole];
+  
+  // 이름 입력 확인 (없으면 임시 이름 사용)
+  const nameEl = document.getElementById('login-name');
+  const name = nameEl ? nameEl.value.trim() : '';
+  const finalName = name || (r.n + ' 사용자');
+  
+  curGkid = r.gkp+'-'+String(Math.floor(Math.random()*99999)+1).padStart(6,'0');
+
+  // Supabase에 저장
+  try {
+    await db.from('users').insert({
+      gkid: curGkid, name: finalName, role: curRole, tel: ''
+    });
+  } catch(e){ console.log('저장 오류:', e); }
+
+  // 로컬 저장
+  localStorage.setItem('garak_user', JSON.stringify({role:curRole, gkid:curGkid, name:finalName}));
+
+  // 앱 시작
+  document.getElementById('login').style.display='none';
+  document.getElementById('app').classList.add('on');
+  document.getElementById('tb-ic').textContent = r.ic;
+  document.getElementById('tb-name').textContent = r.n;
+  document.getElementById('tb-gkid').textContent = curGkid;
+  buildTabbar();
+  startClock();
+  renderHome();
+}
   if(!curRole){toast('역할을 선택하세요');return;}
   const name = document.getElementById('login-name').value.trim();
   const tel  = document.getElementById('login-tel').value.trim();
