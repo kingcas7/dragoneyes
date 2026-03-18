@@ -326,22 +326,16 @@ async function doLogin(){
   // 로컬 저장
   localStorage.setItem('garak_user', JSON.stringify({role:curRole, gkid:curGkid, name:finalName}));
 
-  if(!curRole){toast('역할을 선택하세요');return;}
-  const name = document.getElementById('login-name').value.trim();
-  const tel  = document.getElementById('login-tel').value.trim();
-  if(!name){toast('이름을 입력하세요');return;}
-
+async function doLogin(){
+  if(!curRole){ toast('역할을 선택하세요'); return; }
   const r = ROLES[curRole];
+  const nameEl = document.getElementById('login-name');
+  const finalName = (nameEl && nameEl.value.trim()) || (r.n + ' 사용자');
   curGkid = r.gkp+'-'+String(Math.floor(Math.random()*99999)+1).padStart(6,'0');
-
-  // Supabase에 저장
   try {
-    await db.from('users').insert({
-      gkid: curGkid, name, role: curRole, tel
-    });
+    await db.from('users').insert({ gkid: curGkid, name: finalName, role: curRole, tel: '' });
   } catch(e){ console.log('저장 오류:', e); }
-
-  // 앱 시작
+  localStorage.setItem('garak_user', JSON.stringify({role:curRole, gkid:curGkid, name:finalName}));
   document.getElementById('login').style.display='none';
   document.getElementById('app').classList.add('on');
   document.getElementById('tb-ic').textContent = r.ic;
@@ -351,7 +345,6 @@ async function doLogin(){
   startClock();
   renderHome();
 }
-
 // ── 탭바 ──
 function buildTabbar(){
   const r = ROLES[curRole];
