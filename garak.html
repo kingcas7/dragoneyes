@@ -232,7 +232,7 @@ const ROLES = {
 let curRole='', curGkid='';
 
 // 화면 전환
-function showScreen(screen){
+window.showScreen = function(screen){
   document.getElementById('login-landing').style.display  = screen==='landing'  ? 'flex'  : 'none';
   document.getElementById('login-register').style.display = screen==='register' ? 'block' : 'none';
   document.getElementById('login-login').style.display    = screen==='login'    ? 'block' : 'none';
