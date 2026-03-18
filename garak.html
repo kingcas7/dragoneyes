@@ -82,27 +82,93 @@ button{font-family:inherit;border:none;cursor:pointer;background:none;color:inhe
 
 <!-- 로그인 -->
 <div id="login">
-  <div class="login-box">
-    <div class="login-title">GARAK 4.0</div>
-    <div class="login-sub">가락시장 스마트 유통 플랫폼</div>
-    <div class="role-grid">
-      <div class="role-card" data-role="producer_ind"><span class="role-ic">🌾</span><span class="role-name">생산자(개인)</span><span class="role-desc">출하·정산</span></div>
-      <div class="role-card" data-role="merchant_ind"><span class="role-ic">🛒</span><span class="role-name">중도매인</span><span class="role-desc">경매·거래</span></div>
-      <div class="role-card" data-role="wholesale"><span class="role-ic">🏛</span><span class="role-name">청과법인</span><span class="role-desc">경매주관·정산</span></div>
-      <div class="role-card" data-role="transport"><span class="role-ic">🚛</span><span class="role-name">운송업체</span><span class="role-desc">콜·배송</span></div>
-      <div class="role-card" data-role="warehouse_owner"><span class="role-ic">🏭</span><span class="role-name">물류창고</span><span class="role-desc">창고·임대</span></div>
-      <div class="role-card" data-role="admin"><span class="role-ic">⚙️</span><span class="role-name">관리자</span><span class="role-desc">전체모니터링</span></div>
+  <!-- 랜딩 -->
+  <div id="login-landing" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;overflow-y:auto;">
+    <div style="width:100%;max-width:340px;text-align:center;">
+      <div style="margin-bottom:44px;">
+        <p style="font-size:9px;letter-spacing:5px;color:var(--a1);font-weight:700;margin:0 0 14px;">AI SMART DISTRIBUTION</p>
+        <h1 style="font-size:46px;font-weight:900;letter-spacing:-2px;line-height:1;margin:0 0 10px;">GARAK 4.0</h1>
+        <p style="font-size:13px;color:var(--t2);margin:0;">가락시장 스마트 유통 플랫폼</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:11px;">
+        <button onclick="showScreen('register')"
+          style="width:100%;padding:18px;border-radius:16px;background:linear-gradient(135deg,#00e8bc,#4f9cf9);color:#080d18;font-size:16px;font-weight:800;border:none;cursor:pointer;box-shadow:0 8px 28px rgba(0,232,188,.3);">
+          🌱 가입하기
+        </button>
+        <button onclick="showScreen('login')"
+          style="width:100%;padding:18px;border-radius:16px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.13);color:#fff;font-size:16px;font-weight:700;cursor:pointer;">
+          🔑 로그인
+        </button>
+      </div>
     </div>
-    <div style="margin-bottom:16px;">
-      <label class="flabel">이름 / 상호명</label>
-      <input class="finput" id="login-name" placeholder="홍길동 / 드레곤팜" style="margin-bottom:8px;">
-      <label class="flabel">휴대폰 번호</label>
-      <input class="finput" id="login-tel" placeholder="010-0000-0000" type="tel">
-    </div>
-    <button class="btn-enter" id="btn-enter" onclick="doLogin()">입장하기 →</button>
   </div>
-</div>
 
+  <!-- 가입하기 -->
+  <div id="login-register" style="display:none;position:absolute;inset:0;overflow-y:auto;">
+    <div style="position:sticky;top:0;z-index:10;background:rgba(8,13,24,.95);backdrop-filter:blur(12px);padding:14px 20px;border-bottom:1px solid var(--b1);">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button onclick="showScreen('landing')" style="background:none;border:none;color:var(--t2);font-size:14px;cursor:pointer;">← 뒤로</button>
+        <div style="flex:1;font-size:16px;font-weight:800;">🌱 가입하기</div>
+        <button onclick="doLogin()"
+          style="padding:11px 22px;border-radius:12px;background:linear-gradient(135deg,#00e8bc,#4f9cf9);color:#080d18;font-size:14px;font-weight:800;border:none;cursor:pointer;">
+          완료 →
+        </button>
+      </div>
+    </div>
+    <div style="padding:20px 20px 60px;">
+      <div style="font-size:12px;color:var(--t2);margin-bottom:16px;">역할을 선택하고 정보를 입력하세요</div>
+      <div style="font-size:10px;font-weight:700;color:var(--a1);margin:8px 0 4px;">🌾 농축산 유통</div>
+      <div class="role-grid">
+        <div class="role-card" data-role="producer_ind"><span class="role-ic">🌾</span><span class="role-name">생산자(개인)</span><span class="role-desc">출하·정산</span></div>
+        <div class="role-card" data-role="merchant_ind"><span class="role-ic">🛒</span><span class="role-name">중도매인</span><span class="role-desc">경매·거래</span></div>
+        <div class="role-card" data-role="wholesale"><span class="role-ic">🏛</span><span class="role-name">청과법인</span><span class="role-desc">경매주관·정산</span></div>
+        <div class="role-card" data-role="transport"><span class="role-ic">🚛</span><span class="role-name">운송업체</span><span class="role-desc">콜·배송</span></div>
+      </div>
+      <div style="font-size:10px;font-weight:700;color:var(--a4);margin:8px 0 4px;">🏭 물류·창고</div>
+      <div class="role-grid">
+        <div class="role-card" data-role="warehouse_owner"><span class="role-ic">🏭</span><span class="role-name">물류창고</span><span class="role-desc">창고·임대</span></div>
+        <div class="role-card" data-role="admin"><span class="role-ic">⚙️</span><span class="role-name">관리자</span><span class="role-desc">전체모니터링</span></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:18px;">
+        <div>
+          <div style="font-size:11px;color:var(--t2);margin-bottom:5px;font-weight:600;">이름 / 상호명 *</div>
+          <input type="text" class="finput" id="login-name" placeholder="홍길동 / 드레곤팜">
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--t2);margin-bottom:5px;font-weight:600;">휴대폰 번호 *</div>
+          <input type="tel" class="finput" id="login-tel" placeholder="010-0000-0000">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 로그인 -->
+  <div id="login-login" style="display:none;position:absolute;inset:0;overflow-y:auto;">
+    <div style="position:sticky;top:0;z-index:10;background:rgba(8,13,24,.95);backdrop-filter:blur(12px);padding:14px 20px;border-bottom:1px solid var(--b1);">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button onclick="showScreen('landing')" style="background:none;border:none;color:var(--t2);font-size:14px;cursor:pointer;">← 뒤로</button>
+        <div style="flex:1;font-size:16px;font-weight:800;">🔑 로그인</div>
+        <button onclick="doLogin()" id="btn-login"
+          style="padding:11px 22px;border-radius:12px;background:linear-gradient(135deg,#00e8bc,#4f9cf9);color:#080d18;font-size:14px;font-weight:800;border:none;cursor:pointer;opacity:.35;">
+          입장하기 →
+        </button>
+      </div>
+    </div>
+    <div style="padding:20px 20px 60px;">
+      <div style="font-size:12px;color:var(--t2);margin-bottom:16px;">역할을 선택하고 입장하세요</div>
+      <div style="font-size:10px;font-weight:700;color:var(--a1);margin:8px 0 4px;">🌾 농축산 유통</div>
+      <div class="role-grid">
+        <div class="role-card" data-role="producer_ind"><span class="role-ic">🌾</span><span class="role-name">생산자(개인)</span><span class="role-desc">출하·정산</span></div>
+        <div class="role-card" data-role="merchant_ind"><span class="role-ic">🛒</span><span class="role-name">중도매인</span><span class="role-desc">경매·거래</span></div>
+        <div class="role-card" data-role="wholesale"><span class="role-ic">🏛</span><span class="role-name">청과법인</span><span class="role-desc">경매주관·정산</span></div>
+        <div class="role-card" data-role="transport"><span class="role-ic">🚛</span><span class="role-name">운송업체</span><span class="role-desc">콜·배송</span></div>
+      </div>
+      <div style="font-size:10px;font-weight:700;color:var(--a4);margin:8px 0 4px;">🏭 물류·창고</div>
+      <div class="role-grid">
+        <div class="role-card" data-role="warehouse_owner"><span class="role-ic">🏭</span><span class="role-name">물류창고</span><span class="role-desc">창고·임대</span></div>
+        <div class="role-card" data-role="admin"><span class="role-ic">⚙️</span><span class="role-name">관리자</span><span class="role-desc">전체모니터링</span></div>
+      </div>
+    </div>
 <!-- 앱 -->
 <div id="app">
   <div class="topbar">
