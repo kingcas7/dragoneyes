@@ -81,8 +81,8 @@ button{font-family:inherit;border:none;cursor:pointer;background:none;color:inhe
         <p style="font-size:13px;color:var(--t2);margin:0;">가락시장 스마트 유통 플랫폼</p>
       </div>
       <div style="display:flex;flex-direction:column;gap:11px;">
-        <button onclick="showScreen('register')" style="width:100%;padding:18px;border-radius:16px;background:linear-gradient(135deg,#00e8bc,#4f9cf9);color:#080d18;font-size:16px;font-weight:800;border:none;cursor:pointer;box-shadow:0 8px 28px rgba(0,232,188,.3);">🌱 가입하기</button>
-        <button onclick="showScreen('login')" style="width:100%;padding:18px;border-radius:16px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.13);color:#fff;font-size:16px;font-weight:700;cursor:pointer;">🔑 로그인</button>
+        <button onclick="window.showScreen('register')" style="width:100%;padding:18px;border-radius:16px;background:linear-gradient(135deg,#00e8bc,#4f9cf9);color:#080d18;font-size:16px;font-weight:800;border:none;cursor:pointer;box-shadow:0 8px 28px rgba(0,232,188,.3);">🌱 가입하기</button>
+        <button onclick="window.showScreen('login')" style="width:100%;padding:18px;border-radius:16px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.13);color:#fff;font-size:16px;font-weight:700;cursor:pointer;">🔑 로그인</button>
       </div>
     </div>
   </div>
@@ -90,7 +90,7 @@ button{font-family:inherit;border:none;cursor:pointer;background:none;color:inhe
   <!-- 가입하기 -->
   <div id="login-register">
     <div style="position:sticky;top:0;z-index:10;background:rgba(8,13,24,.95);backdrop-filter:blur(12px);padding:12px 16px;border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:12px;">
-      <button onclick="showScreen('landing')" style="color:var(--t2);font-size:14px;">← 뒤로</button>
+      <button onclick="window.showScreen('landing')" style="color:var(--t2);font-size:14px;">← 뒤로</button>
       <div style="flex:1;font-size:15px;font-weight:800;">🌱 가입하기</div>
       <button onclick="doLogin()" style="padding:9px 18px;border-radius:12px;background:linear-gradient(135deg,#00e8bc,#4f9cf9);color:#080d18;font-size:13px;font-weight:800;border:none;">완료 →</button>
     </div>
