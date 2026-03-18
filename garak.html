@@ -20,7 +20,7 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:'Apple SD
 #app{max-width:430px;margin:0 auto;position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;}
 button{font-family:inherit;border:none;cursor:pointer;background:none;color:inherit;}
 /* 로그인 */
-#login{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;overflow:hidden;background:var(--bg);z-index:1000;}.login-box{width:100%;max-width:340px;}
+#login{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;overflow:hidden;background:var(--bg);z-index:100;}
 .login-title{font-size:42px;font-weight:900;letter-spacing:-2px;text-align:center;margin-bottom:8px;}
 .login-sub{font-size:13px;color:var(--t2);text-align:center;margin-bottom:40px;}
 .role-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px;}
@@ -37,7 +37,7 @@ button{font-family:inherit;border:none;cursor:pointer;background:none;color:inhe
 .btn-enter.on{opacity:1;}
 
 /* 앱 */
-#app{display:none;position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;flex-direction:column;}
+#app{display:none;position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;flex-direction:column;z-index:0;}
 #app.on{display:flex;}
 .topbar{height:52px;padding:0 16px;display:flex;align-items:center;gap:10px;background:rgba(8,13,24,.95);border-bottom:1px solid var(--b2);flex-shrink:0;}
 .tb-name{font-size:13px;font-weight:700;flex:1;}
