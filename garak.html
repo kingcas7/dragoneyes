@@ -36,7 +36,7 @@ button{font-family:inherit;border:none;cursor:pointer;background:none;color:inhe
 .btn-enter.on{opacity:1;}
 
 /* 앱 */
-#app{display:none;position:fixed;inset:0;flex-direction:column;}
+#app{display:none;position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;flex-direction:column;}
 #app.on{display:flex;}
 .topbar{height:52px;padding:0 16px;display:flex;align-items:center;gap:10px;background:rgba(8,13,24,.95);border-bottom:1px solid var(--b2);flex-shrink:0;}
 .tb-name{font-size:13px;font-weight:700;flex:1;}
