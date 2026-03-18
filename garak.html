@@ -214,6 +214,13 @@ const ROLES = {
 let curRole='', curGkid='', curUser=null;
 
 // 저장된 로그인 정보 불러오기
+function showScreen(screen){
+  document.getElementById('login-landing').style.display  = screen==='landing'  ? 'flex'  : 'none';
+  document.getElementById('login-register').style.display = screen==='register' ? 'block' : 'none';
+  document.getElementById('login-login').style.display    = screen==='login'    ? 'block' : 'none';
+  curRole = '';
+  document.querySelectorAll('.role-card').forEach(c=>c.classList.remove('sel'));
+}
 function loadSavedLogin(){
   const saved = localStorage.getItem('garak_user');
   if(saved){
