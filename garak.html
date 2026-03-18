@@ -43,6 +43,7 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
 .btn-p{background:var(--a1);color:#080d18;}
 .btn-s{background:var(--s2);border:1px solid var(--b1);color:var(--t1);}
 .btn-r{background:rgba(255,69,84,.1);border:1px solid rgba(255,69,84,.3);color:var(--red);}
+.btn-y{background:rgba(244,196,48,.12);border:1px solid rgba(244,196,48,.3);color:var(--a4);}
 .finput{width:100%;background:var(--s2);border:1px solid var(--b1);color:var(--t1);border-radius:10px;padding:11px 12px;font-size:13px;outline:none;font-family:inherit;}
 .finput:focus{border-color:var(--a2);}
 .flabel{font-size:11px;color:var(--t2);margin-bottom:5px;display:block;font-weight:600;}
@@ -54,6 +55,7 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
 .tag-y{background:rgba(244,196,48,.12);color:var(--a4);}
 .tag-r{background:rgba(255,69,84,.12);color:var(--red);}
 .tag-o{background:rgba(255,165,2,.12);color:var(--org);}
+.tag-p{background:rgba(168,85,247,.12);color:var(--pur);}
 
 .role-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px;margin-bottom:4px;}
 .role-card{padding:6px 3px;border-radius:8px;border:1.5px solid var(--b1);background:var(--s1);cursor:pointer;text-align:center;transition:all .15s;touch-action:manipulation;}
@@ -63,33 +65,45 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
 .role-desc{font-size:7px;color:var(--t3);display:block;}
 .role-label{font-size:9px;font-weight:700;margin:5px 0 2px;padding-left:1px;}
 
-/* 송장 스텝 */
 .step-bar{display:flex;align-items:center;margin-bottom:20px;}
-.step-dot{width:28px;height:28px;border-radius:50%;border:2px solid var(--b1);background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--t3);flex-shrink:0;}
+.step-dot{width:26px;height:26px;border-radius:50%;border:2px solid var(--b1);background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--t3);flex-shrink:0;}
 .step-dot.done{background:var(--a1);border-color:var(--a1);color:#080d18;}
 .step-dot.cur{background:rgba(0,232,188,.15);border-color:var(--a1);color:var(--a1);}
-.step-line{flex:1;height:2px;background:var(--b1);margin:0 4px;}
+.step-line{flex:1;height:2px;background:var(--b1);margin:0 3px;}
 .step-line.done{background:var(--a1);}
 
-/* 원산지 버튼 */
-.origin-btn{flex:1;padding:10px;border-radius:10px;text-align:center;cursor:pointer;font-size:12px;font-weight:700;border:1.5px solid var(--b1);background:var(--s2);color:var(--t2);transition:all .15s;}
+.origin-btn{flex:1;padding:10px;border-radius:10px;text-align:center;cursor:pointer;font-size:12px;font-weight:700;border:1.5px solid var(--b1);background:var(--s2);color:var(--t2);transition:all .15s;touch-action:manipulation;}
 .origin-btn.sel{border-color:var(--a1);background:rgba(0,232,188,.08);color:var(--a1);}
-
-/* 출하요청 버튼 */
-.req-btn{flex:1;padding:10px 6px;border-radius:10px;text-align:center;cursor:pointer;font-size:11px;font-weight:700;border:1.5px solid var(--b1);background:var(--s2);color:var(--t2);transition:all .15s;}
+.req-btn{flex:1;padding:10px 6px;border-radius:10px;text-align:center;cursor:pointer;font-size:11px;font-weight:700;border:1.5px solid var(--b1);background:var(--s2);color:var(--t2);transition:all .15s;touch-action:manipulation;}
 .req-btn.sel{border-color:var(--a4);background:rgba(244,196,48,.08);color:var(--a4);}
 
-/* 정산 박스 */
+/* 배송방식 버튼 */
+.delivery-btn{flex:1;padding:14px 8px;border-radius:14px;text-align:center;cursor:pointer;border:1.5px solid var(--b1);background:var(--s2);transition:all .15s;touch-action:manipulation;}
+.delivery-btn.sel{border-color:var(--a1);background:rgba(0,232,188,.06);}
+.delivery-btn .d-ic{font-size:28px;display:block;margin-bottom:6px;}
+.delivery-btn .d-name{font-size:12px;font-weight:700;}
+.delivery-btn .d-desc{font-size:10px;color:var(--t2);margin-top:2px;}
+
 .settle-row{display:flex;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--b2);font-size:12px;}
 .settle-total{display:flex;justify-content:space-between;padding:12px 14px;background:rgba(0,232,188,.06);border:1.5px solid rgba(0,232,188,.3);border-radius:12px;margin-top:8px;}
 
-#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(14,22,38,.96);border:1px solid var(--b1);color:var(--t1);padding:10px 18px;border-radius:24px;font-size:13px;font-weight:600;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;}
+/* 상태 타임라인 */
+.timeline{padding:12px 0;}
+.tl-item{display:flex;gap:12px;margin-bottom:12px;}
+.tl-dot{width:12px;height:12px;border-radius:50%;background:var(--b1);flex-shrink:0;margin-top:3px;}
+.tl-dot.done{background:var(--a1);}
+.tl-dot.cur{background:var(--a4);}
+.tl-line{width:2px;background:var(--b1);margin-left:5px;margin-top:-6px;margin-bottom:-6px;}
+.tl-line.done{background:var(--a1);}
+
+#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(14,22,38,.96);border:1px solid var(--b1);color:var(--t1);padding:10px 18px;border-radius:24px;font-size:13px;font-weight:600;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;max-width:90vw;}
 #toast.on{opacity:1;}
 
 .sheet-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:none;align-items:flex-end;justify-content:center;}
 .sheet-overlay.on{display:flex;}
-.sheet{background:var(--s1);border-radius:24px 24px 0 0;width:100%;max-width:430px;max-height:90vh;overflow-y:auto;padding:20px 16px 40px;}
-.sheet-title{font-size:16px;font-weight:800;margin-bottom:4px;}
+.sheet{background:var(--s1);border-radius:24px 24px 0 0;width:100%;max-width:430px;max-height:92vh;overflow-y:auto;padding:20px 16px 40px;}
+.sheet-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+.sheet-title{font-size:16px;font-weight:800;}
 .sheet-sub{font-size:11px;color:var(--t2);margin-bottom:16px;}
 </style>
 </head>
@@ -105,102 +119,26 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
         <p style="font-size:13px;color:var(--t2);margin:0;">가락시장 스마트 유통 플랫폼</p>
       </div>
       <div style="display:flex;flex-direction:column;gap:11px;">
-        <button onclick="window.showScreen('register')" style="width:100%;padding:18px;border-radius:16px;background:linear-gradient(135deg,#00e8bc,#4f9cf9);color:#080d18;font-size:16px;font-weight:800;border:none;cursor:pointer;">🌱 가입하기</button>
-        <button onclick="window.showScreen('login')" style="width:100%;padding:18px;border-radius:16px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.13);color:#fff;font-size:16px;font-weight:700;cursor:pointer;">🔑 로그인</button>
+        <button onclick="window.showScreen('register')" style="width:100%;padding:18px;border-radius:16px;background:linear-gradient(135deg,#00e8bc,#4f9cf9);color:#080d18;font-size:16px;font-weight:800;border:none;">🌱 가입하기</button>
+        <button onclick="window.showScreen('login')" style="width:100%;padding:18px;border-radius:16px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.13);color:#fff;font-size:16px;font-weight:700;">🔑 로그인</button>
       </div>
     </div>
   </div>
-
-  <!-- 가입하기 -->
   <div id="login-register">
     <div style="position:sticky;top:0;z-index:10;background:rgba(8,13,24,.95);backdrop-filter:blur(12px);padding:12px 16px;border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:12px;">
       <button onclick="window.showScreen('landing')" style="color:var(--t2);font-size:14px;">← 뒤로</button>
       <div style="flex:1;font-size:15px;font-weight:800;">🌱 가입하기</div>
       <button onclick="window.doLogin()" style="padding:9px 18px;border-radius:12px;background:linear-gradient(135deg,#00e8bc,#4f9cf9);color:#080d18;font-size:13px;font-weight:800;border:none;">완료 →</button>
     </div>
-    <div style="padding:12px 16px 40px;">
-      <div class="role-label" style="color:var(--a1);">🌾 농수산 유통</div>
-      <div class="role-grid">
-        <div class="role-card" data-role="producer_ind"><span class="role-ic">🌾</span><span class="role-name">생산자(개인)</span><span class="role-desc">출하·정산</span></div>
-        <div class="role-card" data-role="producer_corp"><span class="role-ic">🏢</span><span class="role-name">생산자(법인)</span><span class="role-desc">법인출하</span></div>
-        <div class="role-card" data-role="merchant_ind"><span class="role-ic">🛒</span><span class="role-name">중도매인</span><span class="role-desc">경매·거래</span></div>
-        <div class="role-card" data-role="wholesale"><span class="role-ic">🏛</span><span class="role-name">청과법인</span><span class="role-desc">경매주관</span></div>
-      </div>
-      <div class="role-label" style="color:var(--a4);">🏭 물류·운송</div>
-      <div class="role-grid">
-        <div class="role-card" data-role="warehouse_owner"><span class="role-ic">🏭</span><span class="role-name">물류창고</span><span class="role-desc">창고·임대</span></div>
-        <div class="role-card" data-role="transport"><span class="role-ic">🚛</span><span class="role-name">운송업체</span><span class="role-desc">콜·배송</span></div>
-      </div>
-      <div class="role-label" style="color:var(--a2);">🏛 주무감독기관</div>
-      <div class="role-grid">
-        <div class="role-card" data-role="gov_garaksa"><span class="role-ic">🏛</span><span class="role-name">가락시장관리공단</span><span class="role-desc">시장관리</span></div>
-        <div class="role-card" data-role="gov_seoul"><span class="role-ic">🌆</span><span class="role-name">서울시</span><span class="role-desc">행정·지원</span></div>
-        <div class="role-card" data-role="gov_nts"><span class="role-ic">🏦</span><span class="role-name">국세청</span><span class="role-desc">세금·계산서</span></div>
-        <div class="role-card" data-role="gov_public"><span class="role-ic">🏢</span><span class="role-name">공공기관</span><span class="role-desc">지자체·부처</span></div>
-      </div>
-      <div class="role-label" style="color:#c084fc;">🧾 세무·회계·법률</div>
-      <div class="role-grid">
-        <div class="role-card" data-role="tax_agent"><span class="role-ic">🧾</span><span class="role-name">세무사</span><span class="role-desc">세무신고</span></div>
-        <div class="role-card" data-role="accounting"><span class="role-ic">📊</span><span class="role-name">회계사</span><span class="role-desc">회계감사</span></div>
-        <div class="role-card" data-role="labor_agent"><span class="role-ic">👷</span><span class="role-name">노무사</span><span class="role-desc">노무·인사</span></div>
-        <div class="role-card" data-role="lawyer"><span class="role-ic">⚖️</span><span class="role-name">변호사</span><span class="role-desc">법률자문</span></div>
-      </div>
-      <div class="role-label" style="color:var(--org);">✈️ 수입통관 · ⚙️ 시스템</div>
-      <div class="role-grid">
-        <div class="role-card" data-role="customs"><span class="role-ic">✈️</span><span class="role-name">관세사</span><span class="role-desc">수입통관</span></div>
-        <div class="role-card" data-role="admin_agent"><span class="role-ic">📜</span><span class="role-name">행정사</span><span class="role-desc">행정대리</span></div>
-        <div class="role-card" data-role="admin"><span class="role-ic">⚙️</span><span class="role-name">관리자</span><span class="role-desc">전체모니터링</span></div>
-      </div>
-      <div style="margin-top:12px;">
-        <div class="flabel">이름 / 상호명 *</div>
-        <input type="text" class="finput" id="reg-name" placeholder="홍길동 / 드레곤팜" style="margin-bottom:8px;">
-        <div class="flabel">휴대폰 번호</div>
-        <input type="tel" class="finput" id="reg-tel" placeholder="010-0000-0000">
-      </div>
-    </div>
+    <div style="padding:12px 16px 40px;" id="reg-role-area"></div>
   </div>
-
-  <!-- 로그인 -->
   <div id="login-login">
     <div style="position:sticky;top:0;z-index:10;background:rgba(8,13,24,.95);backdrop-filter:blur(12px);padding:12px 16px;border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:12px;">
       <button onclick="window.showScreen('landing')" style="color:var(--t2);font-size:14px;">← 뒤로</button>
       <div style="flex:1;font-size:15px;font-weight:800;">🔑 로그인</div>
       <button onclick="window.doLogin()" style="padding:9px 18px;border-radius:12px;background:linear-gradient(135deg,#00e8bc,#4f9cf9);color:#080d18;font-size:13px;font-weight:800;border:none;">입장 →</button>
     </div>
-    <div style="padding:12px 16px 40px;">
-      <div class="role-label" style="color:var(--a1);">🌾 농수산 유통</div>
-      <div class="role-grid">
-        <div class="role-card" data-role="producer_ind"><span class="role-ic">🌾</span><span class="role-name">생산자(개인)</span><span class="role-desc">출하·정산</span></div>
-        <div class="role-card" data-role="producer_corp"><span class="role-ic">🏢</span><span class="role-name">생산자(법인)</span><span class="role-desc">법인출하</span></div>
-        <div class="role-card" data-role="merchant_ind"><span class="role-ic">🛒</span><span class="role-name">중도매인</span><span class="role-desc">경매·거래</span></div>
-        <div class="role-card" data-role="wholesale"><span class="role-ic">🏛</span><span class="role-name">청과법인</span><span class="role-desc">경매주관</span></div>
-      </div>
-      <div class="role-label" style="color:var(--a4);">🏭 물류·운송</div>
-      <div class="role-grid">
-        <div class="role-card" data-role="warehouse_owner"><span class="role-ic">🏭</span><span class="role-name">물류창고</span><span class="role-desc">창고·임대</span></div>
-        <div class="role-card" data-role="transport"><span class="role-ic">🚛</span><span class="role-name">운송업체</span><span class="role-desc">콜·배송</span></div>
-      </div>
-      <div class="role-label" style="color:var(--a2);">🏛 주무감독기관</div>
-      <div class="role-grid">
-        <div class="role-card" data-role="gov_garaksa"><span class="role-ic">🏛</span><span class="role-name">가락시장관리공단</span><span class="role-desc">시장관리</span></div>
-        <div class="role-card" data-role="gov_seoul"><span class="role-ic">🌆</span><span class="role-name">서울시</span><span class="role-desc">행정·지원</span></div>
-        <div class="role-card" data-role="gov_nts"><span class="role-ic">🏦</span><span class="role-name">국세청</span><span class="role-desc">세금·계산서</span></div>
-        <div class="role-card" data-role="gov_public"><span class="role-ic">🏢</span><span class="role-name">공공기관</span><span class="role-desc">지자체·부처</span></div>
-      </div>
-      <div class="role-label" style="color:#c084fc;">🧾 세무·회계·법률</div>
-      <div class="role-grid">
-        <div class="role-card" data-role="tax_agent"><span class="role-ic">🧾</span><span class="role-name">세무사</span><span class="role-desc">세무신고</span></div>
-        <div class="role-card" data-role="accounting"><span class="role-ic">📊</span><span class="role-name">회계사</span><span class="role-desc">회계감사</span></div>
-        <div class="role-card" data-role="labor_agent"><span class="role-ic">👷</span><span class="role-name">노무사</span><span class="role-desc">노무·인사</span></div>
-        <div class="role-card" data-role="lawyer"><span class="role-ic">⚖️</span><span class="role-name">변호사</span><span class="role-desc">법률자문</span></div>
-      </div>
-      <div class="role-label" style="color:var(--org);">✈️ 수입통관 · ⚙️ 시스템</div>
-      <div class="role-grid">
-        <div class="role-card" data-role="customs"><span class="role-ic">✈️</span><span class="role-name">관세사</span><span class="role-desc">수입통관</span></div>
-        <div class="role-card" data-role="admin_agent"><span class="role-ic">📜</span><span class="role-name">행정사</span><span class="role-desc">행정대리</span></div>
-        <div class="role-card" data-role="admin"><span class="role-ic">⚙️</span><span class="role-name">관리자</span><span class="role-desc">전체모니터링</span></div>
-      </div>
-    </div>
+    <div style="padding:12px 16px 40px;" id="login-role-area"></div>
   </div>
 </div>
 
@@ -215,6 +153,7 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
   <div class="scroll" id="scroll">
     <div class="page on" id="page-home"><div id="home-content"></div></div>
     <div class="page" id="page-invoice"><div id="invoice-content"></div></div>
+    <div class="page" id="page-call"><div id="call-content"></div></div>
     <div class="page" id="page-stats">
       <div style="font-size:18px;font-weight:800;margin-bottom:16px;">📊 통계</div>
       <div class="card"><div style="font-size:13px;color:var(--t2);">준비 중...</div></div>
@@ -229,17 +168,15 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
 <!-- ══ 송장 작성 시트 ══ -->
 <div class="sheet-overlay" id="sh-invoice">
   <div class="sheet">
-    <div class="sheet-title">📋 송장 만들기</div>
+    <div class="sheet-hd">
+      <div class="sheet-title">📋 송장 만들기</div>
+      <button onclick="window.closeSheet('sh-invoice')" style="color:var(--t2);font-size:20px;">✕</button>
+    </div>
     <div class="sheet-sub">모든 항목 입력 시 송장이 완성됩니다</div>
-
-    <!-- 진행 스텝 -->
     <div class="step-bar">
-      <div class="step-dot cur" id="sd1">1</div>
-      <div class="step-line" id="sl1"></div>
-      <div class="step-dot" id="sd2">2</div>
-      <div class="step-line" id="sl2"></div>
-      <div class="step-dot" id="sd3">3</div>
-      <div class="step-line" id="sl3"></div>
+      <div class="step-dot cur" id="sd1">1</div><div class="step-line" id="sl1"></div>
+      <div class="step-dot" id="sd2">2</div><div class="step-line" id="sl2"></div>
+      <div class="step-dot" id="sd3">3</div><div class="step-line" id="sl3"></div>
       <div class="step-dot" id="sd4">4</div>
     </div>
 
@@ -248,50 +185,32 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
       <div style="font-size:13px;font-weight:700;color:var(--a1);margin-bottom:12px;">📬 Step 1 · 수취인 정보</div>
       <div class="fgroup">
         <div class="flabel">거래처명 *</div>
-        <input class="finput" id="inv-buyer-name" placeholder="한국청과 / 서울중도매">
+        <input class="finput" id="inv-buyer-name" placeholder="한국청과 / 서울중도매" oninput="window.onBuyerInput()">
+        <div id="ai-buyer-suggest" style="display:none;margin-top:6px;background:rgba(79,156,249,.06);border:1px solid rgba(79,156,249,.2);border-radius:10px;padding:8px 10px;">
+          <div style="font-size:10px;color:var(--a2);font-weight:700;margin-bottom:5px;">🤖 AI 추천 거래처</div>
+          <div id="ai-buyer-list"></div>
+        </div>
       </div>
       <div class="frow">
-        <div class="fgroup" style="margin:0;">
-          <div class="flabel">담당자명</div>
-          <input class="finput" id="inv-buyer-contact" placeholder="김대표">
-        </div>
-        <div class="fgroup" style="margin:0;">
-          <div class="flabel">연락처</div>
-          <input class="finput" id="inv-buyer-tel" placeholder="010-0000-0000" type="tel">
-        </div>
+        <div class="fgroup" style="margin:0;"><div class="flabel">담당자</div><input class="finput" id="inv-buyer-contact" placeholder="김대표"></div>
+        <div class="fgroup" style="margin:0;"><div class="flabel">연락처</div><input class="finput" id="inv-buyer-tel" placeholder="010-0000-0000" type="tel"></div>
       </div>
-      <div class="fgroup" style="margin-top:10px;">
-        <div class="flabel">배송 주소</div>
-        <input class="finput" id="inv-buyer-addr" placeholder="서울 송파구 가락로 320">
-      </div>
-      <!-- AI 추천 거래처 -->
-      <div id="ai-buyer-suggest" style="background:rgba(79,156,249,.06);border:1px solid rgba(79,156,249,.2);border-radius:10px;padding:10px 12px;margin-top:4px;display:none;">
-        <div style="font-size:10px;color:var(--a2);font-weight:700;margin-bottom:6px;">🤖 AI 추천 거래처</div>
-        <div id="ai-buyer-list"></div>
-      </div>
-      <button class="btn btn-p" style="margin-top:8px;" onclick="window.invNextStep(2)">다음 → 상품 정보</button>
+      <div class="fgroup" style="margin-top:10px;"><div class="flabel">배송 주소</div><input class="finput" id="inv-buyer-addr" placeholder="서울 송파구 가락로 320"></div>
+      <button class="btn btn-p" style="margin-top:4px;" onclick="window.invNextStep(2)">다음 → 상품 정보</button>
     </div>
 
-    <!-- Step2: 상품 정보 -->
+    <!-- Step2: 상품 -->
     <div id="inv-step2" style="display:none;">
       <div style="font-size:13px;font-weight:700;color:var(--a1);margin-bottom:12px;">📦 Step 2 · 상품 정보</div>
-
-      <!-- 원산지 -->
       <div class="fgroup">
         <div class="flabel">원산지 *</div>
         <div style="display:flex;gap:8px;margin-bottom:8px;">
           <div class="origin-btn sel" id="origin-domestic" onclick="window.selOrigin('domestic')">🇰🇷 국내산</div>
           <div class="origin-btn" id="origin-import" onclick="window.selOrigin('import')">✈️ 수입산</div>
         </div>
-        <div id="origin-domestic-detail">
-          <input class="finput" id="inv-origin-region" placeholder="예: 경북 의성군, 전남 나주시">
-        </div>
-        <div id="origin-import-detail" style="display:none;">
-          <input class="finput" id="inv-origin-country" placeholder="원산지 국가 예: 미국, 칠레, 중국">
-        </div>
+        <div id="origin-domestic-detail"><input class="finput" id="inv-origin-region" placeholder="예: 경북 의성군"></div>
+        <div id="origin-import-detail" style="display:none;"><input class="finput" id="inv-origin-country" placeholder="원산지 국가: 미국, 칠레, 중국..."></div>
       </div>
-
-      <!-- 상품명 -->
       <div class="fgroup">
         <div class="flabel">상품명 *</div>
         <select class="finput" id="inv-item" onchange="window.onItemChange()">
@@ -301,31 +220,19 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
           <option>고추</option><option>포도</option><option>복숭아</option><option>수박</option>
           <option>참외</option><option>무</option><option>당근</option><option>오이</option>
         </select>
-        <!-- AI 시세 표시 -->
         <div id="ai-price-suggest" style="display:none;margin-top:6px;padding:8px 10px;background:rgba(244,196,48,.06);border:1px solid rgba(244,196,48,.2);border-radius:8px;font-size:11px;"></div>
       </div>
-
       <div class="frow">
-        <div class="fgroup" style="margin:0;">
-          <div class="flabel">단가 (원/박스) *</div>
-          <input class="finput" id="inv-price" type="number" placeholder="32000" inputmode="decimal" oninput="window.calcTotal()">
-        </div>
-        <div class="fgroup" style="margin:0;">
-          <div class="flabel">수량 (박스) *</div>
-          <input class="finput" id="inv-qty" type="number" placeholder="100" inputmode="decimal" oninput="window.calcTotal()">
-        </div>
+        <div class="fgroup" style="margin:0;"><div class="flabel">단가 (원/박스) *</div><input class="finput" id="inv-price" type="number" placeholder="32000" inputmode="decimal" oninput="window.calcTotal()"></div>
+        <div class="fgroup" style="margin:0;"><div class="flabel">수량 (박스) *</div><input class="finput" id="inv-qty" type="number" placeholder="100" inputmode="decimal" oninput="window.calcTotal()"></div>
       </div>
-
-      <!-- 총 물품대금 자동계산 -->
-      <div id="inv-total-box" style="padding:12px 14px;background:rgba(0,232,188,.06);border:1.5px solid rgba(0,232,188,.3);border-radius:12px;margin-bottom:12px;display:none;">
+      <div id="inv-total-box" style="display:none;padding:12px 14px;background:rgba(0,232,188,.06);border:1.5px solid rgba(0,232,188,.3);border-radius:12px;margin-bottom:12px;">
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <span style="font-size:12px;color:var(--t2);">총 물품대금</span>
           <span id="inv-total-amt" style="font-size:20px;font-weight:900;color:var(--a1);">₩0</span>
         </div>
-        <div id="inv-total-detail" style="font-size:10px;color:var(--t2);margin-top:4px;"></div>
+        <div id="inv-total-detail" style="font-size:10px;color:var(--t2);margin-top:3px;"></div>
       </div>
-
-      <!-- 출하 요청사항 -->
       <div class="fgroup">
         <div class="flabel">출하 요청사항 (복수 선택 가능)</div>
         <div style="display:flex;gap:8px;">
@@ -337,79 +244,92 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
           <div id="ai-min-price-suggest" style="font-size:10px;color:var(--a2);margin-top:4px;"></div>
         </div>
         <div id="req-consign-detail" style="display:none;margin-top:8px;">
-          <input class="finput" id="inv-consign-rate" type="number" placeholder="위탁 수수료율 (%)" inputmode="decimal">
+          <input class="finput" id="inv-consign-rate" type="number" placeholder="위탁 수수료율 (%)">
         </div>
       </div>
-
       <div style="display:flex;gap:8px;">
         <button class="btn btn-s" style="flex:.4;" onclick="window.invNextStep(1)">← 뒤로</button>
-        <button class="btn btn-p" style="flex:.6;" onclick="window.invNextStep(3)">다음 → 배송 정보</button>
+        <button class="btn btn-p" style="flex:.6;" onclick="window.invNextStep(3)">다음 → 배송 방식</button>
       </div>
     </div>
 
-    <!-- Step3: 배송차량 -->
+    <!-- Step3: 배송 방식 -->
     <div id="inv-step3" style="display:none;">
-      <div style="font-size:13px;font-weight:700;color:var(--a1);margin-bottom:12px;">🚛 Step 3 · 배송차량 정보</div>
-
-      <!-- AI 차량 추천 -->
-      <div id="ai-truck-suggest" style="background:rgba(244,196,48,.06);border:1px solid rgba(244,196,48,.2);border-radius:10px;padding:10px 12px;margin-bottom:12px;">
-        <div style="font-size:10px;color:var(--a4);font-weight:700;margin-bottom:4px;">🤖 AI 추천 차량</div>
-        <div id="ai-truck-text" style="font-size:12px;color:var(--t1);">수량을 입력하면 적합 차량을 추천해드려요</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div style="font-size:13px;font-weight:700;color:var(--a1);">🚛 Step 3 · 배송 방식</div>
+        <button onclick="window.openMemo()" style="padding:6px 10px;border-radius:8px;background:var(--s2);border:1px solid var(--b1);font-size:11px;color:var(--t2);">📝 기재사항</button>
       </div>
-
-      <div class="fgroup">
-        <div class="flabel">차량 종류 *</div>
-        <select class="finput" id="inv-truck-type" onchange="window.onTruckChange()">
-          <option value="">선택하세요</option>
-          <option value="용달">용달 (0.5톤)</option>
-          <option value="1톤">1톤 트럭</option>
-          <option value="1톤냉장">1톤 냉장</option>
-          <option value="2.5톤">2.5톤 트럭</option>
-          <option value="2.5톤냉장">2.5톤 냉장</option>
-          <option value="5톤">5톤 트럭</option>
-          <option value="5톤냉장">5톤 냉장</option>
-          <option value="5톤냉동">5톤 냉동</option>
-          <option value="11톤">11톤 트럭</option>
-        </select>
-      </div>
-      <div class="frow">
-        <div class="fgroup" style="margin:0;">
-          <div class="flabel">차량번호 *</div>
-          <input class="finput" id="inv-truck-num" placeholder="12가 3456">
+      <div style="display:flex;gap:10px;margin-bottom:16px;">
+        <div class="delivery-btn" id="dmode-call" onclick="window.selDelivery('call')">
+          <span class="d-ic">🚛</span>
+          <span class="d-name">차량배차요청</span>
+          <span class="d-desc">화물콜 발송</span>
         </div>
-        <div class="fgroup" style="margin:0;">
-          <div class="flabel">기사 이름 *</div>
-          <input class="finput" id="inv-driver-name" placeholder="홍길동">
+        <div class="delivery-btn" id="dmode-self" onclick="window.selDelivery('self')">
+          <span class="d-ic">🚗</span>
+          <span class="d-name">자차배송</span>
+          <span class="d-desc">직접/섭외 차량</span>
         </div>
       </div>
-      <div class="fgroup">
-        <div class="flabel">기사 연락처 *</div>
-        <input class="finput" id="inv-driver-tel" placeholder="010-0000-0000" type="tel">
+
+      <!-- 자차배송 입력 -->
+      <div id="self-delivery-form" style="display:none;">
+        <div style="background:rgba(0,232,188,.04);border:1px solid rgba(0,232,188,.15);border-radius:12px;padding:12px;margin-bottom:12px;">
+          <div style="font-size:11px;color:var(--a1);font-weight:700;margin-bottom:10px;">🚗 차량 정보</div>
+          <div class="fgroup" style="margin-bottom:8px;">
+            <div class="flabel">차량 종류 *</div>
+            <select class="finput" id="self-truck-type">
+              <option value="">선택하세요</option>
+              <option>용달(0.5톤)</option><option>1톤 트럭</option><option>1톤 냉장</option>
+              <option>2.5톤 트럭</option><option>2.5톤 냉장</option>
+              <option>5톤 트럭</option><option>5톤 냉장</option><option>5톤 냉동</option><option>11톤 트럭</option>
+            </select>
+          </div>
+          <div class="frow" style="margin-bottom:8px;">
+            <div><div class="flabel">차량번호 *</div><input class="finput" id="self-truck-num" placeholder="12가 3456"></div>
+            <div><div class="flabel">기사 이름 *</div><input class="finput" id="self-driver-name" placeholder="홍길동"></div>
+          </div>
+          <div><div class="flabel">기사 연락처 *</div><input class="finput" id="self-driver-tel" placeholder="010-0000-0000" type="tel"></div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-s" style="flex:.4;" onclick="window.invNextStep(2)">← 뒤로</button>
+          <button class="btn btn-p" style="flex:.6;" onclick="window.invNextStep(4)">다음 → 정산 확인</button>
+        </div>
       </div>
 
-      <!-- 운송비 자동계산 -->
-      <div id="truck-fee-box" style="display:none;padding:10px 12px;background:rgba(79,156,249,.06);border:1px solid rgba(79,156,249,.2);border-radius:10px;margin-bottom:12px;font-size:12px;">
-        <div style="color:var(--a2);font-weight:700;margin-bottom:4px;">🚛 예상 운송비</div>
-        <div id="truck-fee-text" style="color:var(--t1);"></div>
+      <!-- 배차요청 안내 -->
+      <div id="call-delivery-info" style="display:none;">
+        <div style="background:rgba(244,196,48,.04);border:1px solid rgba(244,196,48,.2);border-radius:12px;padding:12px;margin-bottom:12px;">
+          <div style="font-size:11px;color:var(--a4);font-weight:700;margin-bottom:6px;">🚛 화물콜 시스템 연동</div>
+          <div style="font-size:12px;color:var(--t2);line-height:1.7;">
+            다음 단계에서 화물콜 페이지로 이동해요.<br>
+            AI가 거리·중량 분석 후 운송비를 추천해드려요.
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-s" style="flex:.4;" onclick="window.invNextStep(2)">← 뒤로</button>
+          <button class="btn btn-p" style="flex:.6;background:linear-gradient(135deg,var(--a4),var(--org));" onclick="window.invNextStep(4)">다음 → 정산 확인</button>
+        </div>
       </div>
 
-      <div style="display:flex;gap:8px;">
-        <button class="btn btn-s" style="flex:.4;" onclick="window.invNextStep(2)">← 뒤로</button>
-        <button class="btn btn-p" style="flex:.6;" onclick="window.invNextStep(4)">다음 → 정산 확인</button>
-      </div>
+      <div id="delivery-select-hint" style="text-align:center;padding:16px;color:var(--t2);font-size:12px;">배송 방식을 선택해주세요</div>
     </div>
 
-    <!-- Step4: 정산 미리보기 & 최종 발송 -->
+    <!-- Step4: 정산 미리보기 -->
     <div id="inv-step4" style="display:none;">
-      <div style="font-size:13px;font-weight:700;color:var(--a1);margin-bottom:12px;">💰 Step 4 · 정산 미리보기</div>
-
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div style="font-size:13px;font-weight:700;color:var(--a1);">💰 Step 4 · 정산 미리보기</div>
+        <button onclick="window.openMemo()" style="padding:6px 10px;border-radius:8px;background:var(--s2);border:1px solid var(--b1);font-size:11px;color:var(--t2);">📝 기재사항</button>
+      </div>
       <div id="inv-settle-preview" class="card" style="margin-bottom:12px;"></div>
-
+      <div id="inv-memo-preview" style="display:none;margin-bottom:10px;padding:10px 12px;background:rgba(79,156,249,.06);border:1px solid rgba(79,156,249,.2);border-radius:10px;">
+        <div style="font-size:10px;color:var(--a2);font-weight:700;margin-bottom:4px;">📝 기재사항</div>
+        <div id="inv-memo-preview-text" style="font-size:12px;color:var(--t1);white-space:pre-line;"></div>
+      </div>
       <div style="padding:10px 12px;background:rgba(255,165,2,.06);border:1px solid rgba(255,165,2,.2);border-radius:10px;margin-bottom:12px;font-size:11px;color:var(--t2);line-height:1.7;">
         📌 실제 정산금액은 경매/위탁 완료 후 확정됩니다<br>
         📌 차감항목은 거래처 계약 조건에 따라 변동될 수 있습니다
       </div>
-
       <div style="display:flex;gap:8px;">
         <button class="btn btn-s" style="flex:.4;" onclick="window.invNextStep(3)">← 뒤로</button>
         <button class="btn btn-p" style="flex:.6;background:linear-gradient(135deg,var(--a1),var(--a2));" onclick="window.submitInvoice()">📤 송장 발송!</button>
@@ -418,11 +338,138 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
   </div>
 </div>
 
-<!-- 송장 상세 시트 -->
+<!-- ══ 기재사항 시트 ══ -->
+<div class="sheet-overlay" id="sh-memo">
+  <div class="sheet">
+    <div class="sheet-hd">
+      <div class="sheet-title">📝 기재사항 추가</div>
+      <button onclick="window.closeSheet('sh-memo')" style="color:var(--t2);font-size:20px;">✕</button>
+    </div>
+    <div class="sheet-sub">송장에 추가 정보를 기재하세요</div>
+    <div class="fgroup">
+      <div class="flabel">임시 운전자 정보 (본인 외 다른 기사인 경우)</div>
+      <div class="frow" style="margin-bottom:8px;">
+        <div><div class="flabel">성명</div><input class="finput" id="memo-driver-name" placeholder="홍길동"></div>
+        <div><div class="flabel">연락처</div><input class="finput" id="memo-driver-tel" placeholder="010-0000-0000" type="tel"></div>
+      </div>
+    </div>
+    <div class="fgroup">
+      <div class="flabel">화물 취급 주의사항</div>
+      <select class="finput" id="memo-caution" style="margin-bottom:6px;">
+        <option value="">선택하세요</option>
+        <option>❄️ 냉장 유지 필수 (2~8℃)</option>
+        <option>🧊 냉동 유지 필수 (-18℃ 이하)</option>
+        <option>⚠️ 충격 주의 - 파손 위험</option>
+        <option>💧 습기 주의</option>
+        <option>☀️ 직사광선 차단</option>
+        <option>📦 적재 방향 주의 (이 면 위로)</option>
+      </select>
+    </div>
+    <div class="fgroup">
+      <div class="flabel">수취인에게 전달 메시지</div>
+      <textarea class="finput" id="memo-message" rows="3" placeholder="예: A등급 위주 선별했습니다. 신선도 유지를 위해 빠른 처리 부탁드립니다." style="resize:none;"></textarea>
+    </div>
+    <div class="fgroup">
+      <div class="flabel">기타 특이사항</div>
+      <textarea class="finput" id="memo-extra" rows="2" placeholder="기타 메모..." style="resize:none;"></textarea>
+    </div>
+    <button class="btn btn-p" onclick="window.saveMemo()">📝 기재사항 저장</button>
+  </div>
+</div>
+
+<!-- ══ 화물콜 시트 ══ -->
+<div class="sheet-overlay" id="sh-call">
+  <div class="sheet">
+    <div class="sheet-hd">
+      <div class="sheet-title">🚛 화물차 배차요청</div>
+      <button onclick="window.closeSheet('sh-call')" style="color:var(--t2);font-size:20px;">✕</button>
+    </div>
+    <div class="sheet-sub">AI가 거리·중량 분석 후 운송비를 추천해드려요</div>
+
+    <div class="fgroup">
+      <div class="flabel">화물 종류 *</div>
+      <select class="finput" id="call-item" onchange="window.onCallItemChange()">
+        <option value="">선택하세요</option>
+        <option>사과</option><option>배</option><option>감자</option><option>배추</option>
+        <option>마늘</option><option>양파</option><option>딸기</option><option>토마토</option>
+        <option>고추</option><option>기타농산물</option>
+      </select>
+    </div>
+    <div class="frow">
+      <div class="fgroup" style="margin:0;"><div class="flabel">수량 (박스)</div><input class="finput" id="call-qty" type="number" placeholder="100" inputmode="decimal" oninput="window.onCallQtyChange()"></div>
+      <div class="fgroup" style="margin:0;"><div class="flabel">적재중량 (kg)</div><input class="finput" id="call-weight" type="number" placeholder="자동계산" inputmode="decimal"></div>
+    </div>
+    <div class="fgroup">
+      <div class="flabel">필요 차량 종류 *</div>
+      <select class="finput" id="call-truck-type" onchange="window.onCallTruckChange()">
+        <option value="">AI 추천 또는 직접 선택</option>
+        <option value="용달">용달 (0.5톤)</option>
+        <option value="1톤">1톤 트럭</option>
+        <option value="1톤냉장">1톤 냉장</option>
+        <option value="2.5톤">2.5톤 트럭</option>
+        <option value="2.5톤냉장">2.5톤 냉장</option>
+        <option value="5톤">5톤 트럭</option>
+        <option value="5톤냉장">5톤 냉장</option>
+        <option value="5톤냉동">5톤 냉동</option>
+        <option value="11톤">11톤 트럭</option>
+      </select>
+      <div id="ai-call-truck" style="display:none;margin-top:6px;font-size:11px;padding:6px 10px;background:rgba(244,196,48,.06);border:1px solid rgba(244,196,48,.2);border-radius:8px;"></div>
+    </div>
+
+    <!-- 단독/혼적 -->
+    <div class="fgroup">
+      <div class="flabel">적재 방식</div>
+      <div style="display:flex;gap:8px;">
+        <div id="load-solo" onclick="window.selLoad('solo')" style="flex:1;padding:10px;border-radius:10px;text-align:center;cursor:pointer;border:1.5px solid var(--a1);background:rgba(0,232,188,.06);font-size:12px;font-weight:700;color:var(--a1);">단독 화물</div>
+        <div id="load-mixed" onclick="window.selLoad('mixed')" style="flex:1;padding:10px;border-radius:10px;text-align:center;cursor:pointer;border:1.5px solid var(--b1);background:var(--s2);font-size:12px;font-weight:700;color:var(--t2);">혼적 (합짐)</div>
+      </div>
+    </div>
+
+    <div class="fgroup">
+      <div class="flabel">출발지 *</div>
+      <input class="finput" id="call-origin" placeholder="예: 경북 의성군 단촌면" oninput="window.onCallRouteChange()">
+    </div>
+    <div class="fgroup">
+      <div class="flabel">도착지 * <span style="font-size:10px;color:var(--t2);">(거래처 자동연동)</span></div>
+      <input class="finput" id="call-dest" placeholder="서울 송파구 가락로 320 (가락시장)" oninput="window.onCallRouteChange()">
+    </div>
+
+    <!-- 경유지 -->
+    <div class="fgroup">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <div class="flabel" style="margin:0;">경유지</div>
+        <div onclick="window.toggleWaypoint()" id="waypoint-toggle" style="padding:4px 10px;border-radius:8px;background:var(--s2);border:1px solid var(--b1);font-size:11px;cursor:pointer;">+ 경유지 추가</div>
+      </div>
+      <div id="waypoint-form" style="display:none;">
+        <input class="finput" id="call-waypoint" placeholder="경유지 주소">
+        <div style="margin-top:6px;padding:8px 10px;background:rgba(255,69,84,.06);border:1px solid rgba(255,69,84,.2);border-radius:8px;font-size:11px;color:var(--red);">
+          ⚠️ 경유지가 있는 경우 경유지별 별도 송장 작성이 필요합니다
+        </div>
+      </div>
+    </div>
+
+    <!-- AI 운송비 추천 -->
+    <div id="ai-fare-box" style="display:none;background:rgba(0,232,188,.06);border:1.5px solid rgba(0,232,188,.3);border-radius:12px;padding:12px;margin-bottom:12px;">
+      <div style="font-size:11px;color:var(--a1);font-weight:700;margin-bottom:8px;">🤖 AI 운송비 추천</div>
+      <div id="ai-fare-detail" style="font-size:12px;color:var(--t1);line-height:1.8;"></div>
+      <div style="margin-top:8px;">
+        <div class="flabel">운송비 (출하자 수정 가능)</div>
+        <input class="finput" id="call-fare" type="number" placeholder="0" inputmode="decimal">
+        <div style="font-size:10px;color:var(--t2);margin-top:4px;">※ 배차가 안될 경우 금액을 올려서 재요청하세요</div>
+      </div>
+    </div>
+
+    <button class="btn btn-p" style="background:linear-gradient(135deg,var(--a4),var(--org));" onclick="window.submitCall()">
+      🚛 배차 요청 발송
+    </button>
+  </div>
+</div>
+
+<!-- ══ 송장 상세 시트 ══ -->
 <div class="sheet-overlay" id="sh-invoice-detail">
   <div class="sheet">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-      <div class="sheet-title" style="margin:0;">📋 송장 상세</div>
+    <div class="sheet-hd">
+      <div class="sheet-title">📋 송장 상세</div>
       <button onclick="window.closeSheet('sh-invoice-detail')" style="color:var(--t2);font-size:20px;">✕</button>
     </div>
     <div id="invoice-detail-body"></div>
@@ -438,11 +485,11 @@ const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ══ 역할 데이터 ══
 const ROLES = {
-  producer_ind:   {n:'생산자(개인)',  ic:'🌾', gkp:'GK-P', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'송장',pg:'invoice'},{ic:'📊',lb:'통계',pg:'stats'},{ic:'👤',lb:'내정보',pg:'profile'}]},
-  producer_corp:  {n:'생산자(법인)',  ic:'🏢', gkp:'GK-C', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'송장',pg:'invoice'},{ic:'📊',lb:'통계',pg:'stats'},{ic:'👤',lb:'내정보',pg:'profile'}]},
-  merchant_ind:   {n:'중도매인',      ic:'🛒', gkp:'GK-M', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'📬',lb:'수신',pg:'invoice'},{ic:'📊',lb:'통계',pg:'stats'},{ic:'👤',lb:'내정보',pg:'profile'}]},
+  producer_ind:   {n:'생산자(개인)',  ic:'🌾', gkp:'GK-P', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'송장',pg:'invoice'},{ic:'🚛',lb:'화물콜',pg:'call'},{ic:'👤',lb:'내정보',pg:'profile'}]},
+  producer_corp:  {n:'생산자(법인)',  ic:'🏢', gkp:'GK-C', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'송장',pg:'invoice'},{ic:'🚛',lb:'화물콜',pg:'call'},{ic:'👤',lb:'내정보',pg:'profile'}]},
+  merchant_ind:   {n:'중도매인',      ic:'🛒', gkp:'GK-M', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'📬',lb:'수신송장',pg:'invoice'},{ic:'📊',lb:'통계',pg:'stats'},{ic:'👤',lb:'내정보',pg:'profile'}]},
   wholesale:      {n:'청과법인',      ic:'🏛', gkp:'GK-W', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'🔨',lb:'경매',pg:'invoice'},{ic:'📊',lb:'통계',pg:'stats'},{ic:'👤',lb:'내정보',pg:'profile'}]},
-  transport:      {n:'운송업체',      ic:'🚛', gkp:'GK-T', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'📞',lb:'배차',pg:'invoice'},{ic:'📊',lb:'통계',pg:'stats'},{ic:'👤',lb:'내정보',pg:'profile'}]},
+  transport:      {n:'운송업체',      ic:'🚛', gkp:'GK-T', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'📞',lb:'배차콜',pg:'call'},{ic:'📋',lb:'이력',pg:'invoice'},{ic:'👤',lb:'내정보',pg:'profile'}]},
   warehouse_owner:{n:'물류창고',      ic:'🏭', gkp:'GK-S', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'🏭',lb:'창고',pg:'invoice'},{ic:'📊',lb:'통계',pg:'stats'},{ic:'👤',lb:'내정보',pg:'profile'}]},
   gov_garaksa:    {n:'가락시장관리공단',ic:'🏛',gkp:'GK-G', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'📊',lb:'현황',pg:'stats'},{ic:'👤',lb:'내정보',pg:'profile'}]},
   gov_seoul:      {n:'서울시',        ic:'🌆', gkp:'GK-G', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'📊',lb:'현황',pg:'stats'},{ic:'👤',lb:'내정보',pg:'profile'}]},
@@ -457,31 +504,107 @@ const ROLES = {
   admin:          {n:'관리자',        ic:'⚙️', gkp:'GK-A', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'전표',pg:'invoice'},{ic:'📊',lb:'통계',pg:'stats'},{ic:'👤',lb:'내정보',pg:'profile'}]},
 };
 
+const ROLE_GROUPS = [
+  {label:'🌾 농수산 유통', color:'var(--a1)', roles:['producer_ind','producer_corp','merchant_ind','wholesale']},
+  {label:'🏭 물류·운송',  color:'var(--a4)', roles:['warehouse_owner','transport']},
+  {label:'🏛 주무감독기관',color:'var(--a2)', roles:['gov_garaksa','gov_seoul','gov_nts','gov_public']},
+  {label:'🧾 세무·회계·법률',color:'#c084fc',roles:['tax_agent','accounting','labor_agent','lawyer']},
+  {label:'✈️ 수입통관·시스템',color:'var(--org)',roles:['customs','admin_agent','admin']},
+];
+
+const ROLE_INFO = {
+  producer_ind:{ic:'🌾',name:'생산자(개인)',desc:'출하·정산'},
+  producer_corp:{ic:'🏢',name:'생산자(법인)',desc:'법인출하'},
+  merchant_ind:{ic:'🛒',name:'중도매인',desc:'경매·거래'},
+  wholesale:{ic:'🏛',name:'청과법인',desc:'경매주관'},
+  warehouse_owner:{ic:'🏭',name:'물류창고',desc:'창고·임대'},
+  transport:{ic:'🚛',name:'운송업체',desc:'콜·배송'},
+  gov_garaksa:{ic:'🏛',name:'가락시장관리공단',desc:'시장관리'},
+  gov_seoul:{ic:'🌆',name:'서울시',desc:'행정·지원'},
+  gov_nts:{ic:'🏦',name:'국세청',desc:'세금·계산서'},
+  gov_public:{ic:'🏢',name:'공공기관',desc:'지자체·부처'},
+  tax_agent:{ic:'🧾',name:'세무사',desc:'세무신고'},
+  accounting:{ic:'📊',name:'회계사',desc:'회계감사'},
+  labor_agent:{ic:'👷',name:'노무사',desc:'노무·인사'},
+  lawyer:{ic:'⚖️',name:'변호사',desc:'법률자문'},
+  customs:{ic:'✈️',name:'관세사',desc:'수입통관'},
+  admin_agent:{ic:'📜',name:'행정사',desc:'행정대리'},
+  admin:{ic:'⚙️',name:'관리자',desc:'전체모니터링'},
+};
+
 // ══ AI 데이터 ══
 const AI_PRICES = {
-  사과:32000, 배:28000, 감자:11000, 배추:8500, 마늘:28000,
-  양파:12000, 딸기:55000, 토마토:22000, 고추:45000, 포도:38000,
-  복숭아:35000, 수박:25000, 참외:22000, 무:5500, 당근:15000, 오이:18000
+  사과:32000,배:28000,감자:11000,배추:8500,마늘:28000,
+  양파:12000,딸기:55000,토마토:22000,고추:45000,포도:38000,
+  복숭아:35000,수박:25000,참외:22000,무:5500,당근:15000,오이:18000
 };
 const TRUCK_FEES = {
-  용달:80000, '1톤':100000, '1톤냉장':140000,
-  '2.5톤':150000, '2.5톤냉장':200000,
-  '5톤':220000, '5톤냉장':290000, '5톤냉동':330000, '11톤':400000
+  용달:80000,'1톤':100000,'1톤냉장':140000,
+  '2.5톤':150000,'2.5톤냉장':200000,
+  '5톤':220000,'5톤냉장':290000,'5톤냉동':330000,'11톤':400000
 };
+const KG_PER_BOX = {사과:15,배:15,감자:20,배추:20,마늘:10,양파:20,딸기:2,토마토:5,고추:10,포도:5};
 const COLD_ITEMS = ['딸기','포도','복숭아','토마토','수박','참외'];
+const AI_BUYERS = ['한국청과','서울청과','중앙청과','농협청과','동화청과','서울중도매','강남청과상회'];
 
 // ══ 상태 ══
 let curRole='', curGkid='', curUserName='';
-let invData = {};
-let invReqs = {auction:false, consign:false};
+let invReqs = {auction:false,consign:false};
 let invOrigin = 'domestic';
+let invDelivery = '';
+let invMemo = {};
 let INVOICES = [];
+let CALLS = [];
+let callLoadType = 'solo';
+
+// ══ 역할 카드 렌더 ══
+function renderRoleCards(containerId){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  el.innerHTML = ROLE_GROUPS.map(g=>`
+    <div class="role-label" style="color:${g.color};">${g.label}</div>
+    <div class="role-grid">
+      ${g.roles.map(r=>{
+        const info = ROLE_INFO[r];
+        return `<div class="role-card" data-role="${r}">
+          <span class="role-ic">${info.ic}</span>
+          <span class="role-name">${info.name}</span>
+          <span class="role-desc">${info.desc}</span>
+        </div>`;
+      }).join('')}
+    </div>`).join('') + `
+    <div style="margin-top:12px;">
+      <div class="flabel">이름 / 상호명 *</div>
+      <input type="text" class="finput" id="reg-name" placeholder="홍길동 / 드레곤팜" style="margin-bottom:8px;">
+      <div class="flabel">휴대폰 번호</div>
+      <input type="tel" class="finput" id="reg-tel" placeholder="010-0000-0000">
+    </div>`;
+}
+
+function renderLoginRoleCards(containerId){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  el.innerHTML = ROLE_GROUPS.map(g=>`
+    <div class="role-label" style="color:${g.color};">${g.label}</div>
+    <div class="role-grid">
+      ${g.roles.map(r=>{
+        const info = ROLE_INFO[r];
+        return `<div class="role-card" data-role="${r}">
+          <span class="role-ic">${info.ic}</span>
+          <span class="role-name">${info.name}</span>
+          <span class="role-desc">${info.desc}</span>
+        </div>`;
+      }).join('')}
+    </div>`).join('');
+}
 
 // ══ 화면 전환 ══
 window.showScreen = function(screen){
   document.getElementById('login-landing').style.display  = screen==='landing'  ? 'flex'  : 'none';
   document.getElementById('login-register').style.display = screen==='register' ? 'block' : 'none';
   document.getElementById('login-login').style.display    = screen==='login'    ? 'block' : 'none';
+  if(screen==='register') renderRoleCards('reg-role-area');
+  if(screen==='login')    renderLoginRoleCards('login-role-area');
   curRole='';
   document.querySelectorAll('.role-card').forEach(c=>c.classList.remove('sel'));
 };
@@ -503,7 +626,7 @@ document.addEventListener('touchend', function(e){
     card.classList.add('sel');
     curRole = card.dataset.role;
   }
-}, {passive:false});
+},{passive:false});
 
 // ══ 로그인 ══
 window.doLogin = async function(){
@@ -515,31 +638,28 @@ window.doLogin = async function(){
   curUserName = (nameEl && nameEl.value.trim()) || r.n+' 사용자';
   const finalTel = (telEl && telEl.value.trim()) || '';
   curGkid = r.gkp+'-'+String(Math.floor(Math.random()*99999)+1).padStart(6,'0');
-  try {
-    await db.from('users').insert({gkid:curGkid, name:curUserName, role:curRole, tel:finalTel});
-  } catch(e){ console.log('DB 오류:', e); }
-  localStorage.setItem('garak_user', JSON.stringify({role:curRole, gkid:curGkid, name:curUserName}));
+  try{ await db.from('users').insert({gkid:curGkid,name:curUserName,role:curRole,tel:finalTel}); }catch(e){ console.log(e); }
+  localStorage.setItem('garak_user',JSON.stringify({role:curRole,gkid:curGkid,name:curUserName}));
   startApp(r);
 };
 
 function startApp(r){
-  document.getElementById('login').style.display = 'none';
+  document.getElementById('login').style.display='none';
   document.getElementById('app').classList.add('on');
-  document.getElementById('tb-ic').textContent   = r.ic;
-  document.getElementById('tb-name').textContent = r.n;
-  document.getElementById('tb-gkid').textContent = curGkid;
+  document.getElementById('tb-ic').textContent=r.ic;
+  document.getElementById('tb-name').textContent=r.n;
+  document.getElementById('tb-gkid').textContent=curGkid;
   buildTabbar();
   startClock();
   renderHome();
 }
 
-// ══ 저장된 로그인 ══
 function loadSavedLogin(){
-  const saved = localStorage.getItem('garak_user');
+  const saved=localStorage.getItem('garak_user');
   if(saved){
-    const u = JSON.parse(saved);
-    curRole = u.role; curGkid = u.gkid; curUserName = u.name||'';
-    const r = ROLES[curRole];
+    const u=JSON.parse(saved);
+    curRole=u.role; curGkid=u.gkid; curUserName=u.name||'';
+    const r=ROLES[curRole];
     if(r) startApp(r);
   }
 }
@@ -547,40 +667,37 @@ loadSavedLogin();
 
 // ══ 탭바 ══
 function buildTabbar(){
-  const r = ROLES[curRole];
-  document.getElementById('tabbar').innerHTML = r.tabs.map(t=>
+  const r=ROLES[curRole];
+  document.getElementById('tabbar').innerHTML=r.tabs.map(t=>
     `<div class="tab" onclick="goTab('${t.pg}')" data-pg="${t.pg}">
-      <span class="tab-ic">${t.ic}</span>
-      <span class="tab-lb">${t.lb}</span>
-    </div>`
-  ).join('');
+      <span class="tab-ic">${t.ic}</span><span class="tab-lb">${t.lb}</span>
+    </div>`).join('');
   goTab('home');
 }
 
 function goTab(pg){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
-  const p = document.getElementById('page-'+pg);
+  const p=document.getElementById('page-'+pg);
   if(p) p.classList.add('on');
   document.querySelectorAll(`[data-pg="${pg}"]`).forEach(t=>t.classList.add('on'));
   document.getElementById('scroll').scrollTop=0;
   if(pg==='home')    renderHome();
   if(pg==='invoice') renderInvoicePage();
+  if(pg==='call')    renderCallPage();
   if(pg==='profile') renderProfile();
 }
 
 // ══ 홈 ══
 function renderHome(){
-  const r = ROLES[curRole];
-  const isProducer = ['producer_ind','producer_corp'].includes(curRole);
+  const r=ROLES[curRole];
+  const isProducer=['producer_ind','producer_corp'].includes(curRole);
   document.getElementById('home-content').innerHTML=`
     <div style="margin-bottom:16px;">
       <div style="font-size:10px;color:var(--a1);letter-spacing:2px;margin-bottom:4px;">GARAK 4.0</div>
       <div style="font-size:20px;font-weight:800;">안녕하세요 ${curUserName||r.n} 님 👋</div>
       <div style="font-size:12px;color:var(--t2);margin-top:3px;">${r.n} · ${curGkid}</div>
     </div>
-
-    <!-- AI 오늘의 시세 요약 -->
     <div style="background:rgba(0,232,188,.06);border:1px solid rgba(0,232,188,.2);border-radius:14px;padding:12px 14px;margin-bottom:12px;">
       <div style="font-size:11px;color:var(--a1);font-weight:700;margin-bottom:8px;">🤖 AI 오늘의 시세</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
@@ -591,74 +708,55 @@ function renderHome(){
           </div>`).join('')}
       </div>
     </div>
-
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
       <div class="card" style="cursor:pointer;" onclick="goTab('invoice')">
         <div style="font-size:10px;color:var(--t2);">${isProducer?'내 송장':'수신 송장'}</div>
-        <div style="font-size:24px;font-weight:800;color:var(--a1);" id="cnt-invoice">0건</div>
+        <div style="font-size:24px;font-weight:800;color:var(--a1);">${INVOICES.length}건</div>
       </div>
-      <div class="card">
-        <div style="font-size:10px;color:var(--t2);">미정산</div>
-        <div style="font-size:20px;font-weight:800;color:var(--a4);">₩0</div>
+      <div class="card" style="cursor:pointer;" onclick="goTab('call')">
+        <div style="font-size:10px;color:var(--t2);">화물콜</div>
+        <div style="font-size:24px;font-weight:800;color:var(--a4);">${CALLS.length}건</div>
       </div>
     </div>
-
-    ${isProducer ? `
-    <button class="btn btn-p" onclick="window.openInvoiceSheet()" style="margin-bottom:12px;padding:16px;font-size:15px;font-weight:800;">
-      📋 새 송장 만들기
-    </button>` : ''}
-
-    <!-- 최근 송장 -->
+    ${isProducer?`<button class="btn btn-p" onclick="window.openInvoiceSheet()" style="margin-bottom:12px;padding:16px;font-size:15px;font-weight:800;">📋 새 송장 만들기</button>`:''}
     <div class="card">
       <div style="font-size:13px;font-weight:700;margin-bottom:10px;">📋 최근 송장</div>
       <div id="home-invoice-list">
-        <div style="font-size:12px;color:var(--t2);text-align:center;padding:16px;">송장이 없습니다</div>
+        ${INVOICES.length?INVOICES.slice(0,3).map(inv=>renderInvoiceCardSmall(inv)).join(''):'<div style="font-size:12px;color:var(--t2);text-align:center;padding:16px;">송장이 없습니다</div>'}
       </div>
     </div>`;
-  renderHomeInvoices();
 }
 
-function renderHomeInvoices(){
-  const el = document.getElementById('home-invoice-list');
-  if(!el) return;
-  if(!INVOICES.length){
-    el.innerHTML='<div style="font-size:12px;color:var(--t2);text-align:center;padding:16px;">송장이 없습니다</div>';
-    return;
-  }
-  el.innerHTML = INVOICES.slice(0,3).map(inv=>{
-    const statusColor = {draft:'var(--t2)', sent:'var(--a2)', delivered:'var(--a1)', confirmed:'var(--a4)', eform:'var(--pur)'}[inv.status]||'var(--t2)';
-    const statusText  = {draft:'작성중', sent:'발송됨', delivered:'배송중', confirmed:'수령확인', eform:'전표완료'}[inv.status]||inv.status;
-    return `<div onclick="window.openInvoiceDetail('${inv.id}')" style="padding:10px 0;border-bottom:1px solid var(--b2);cursor:pointer;">
-      <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-        <span style="font-size:13px;font-weight:700;">${inv.item} ${inv.qty}박스</span>
-        <span class="tag" style="background:${statusColor}18;color:${statusColor};">${statusText}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--t2);">
-        <span>→ ${inv.buyer_name}</span>
-        <span style="color:var(--a4);font-weight:700;">₩${((inv.qty||0)*(inv.price||0)).toLocaleString()}</span>
-      </div>
-    </div>`;
-  }).join('');
+function renderInvoiceCardSmall(inv){
+  const statusColor={draft:'var(--t2)',sent:'var(--a2)',transit:'var(--org)',confirmed:'var(--a1)',reported:'var(--a4)',eform:'var(--pur)'}[inv.status]||'var(--t2)';
+  const statusText={draft:'작성중',sent:'발송됨',transit:'배송중',confirmed:'수령확인',reported:'출하신고',eform:'전표완료'}[inv.status]||inv.status;
+  return `<div onclick="window.openInvoiceDetail('${inv.id}')" style="padding:10px 0;border-bottom:1px solid var(--b2);cursor:pointer;">
+    <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+      <span style="font-size:13px;font-weight:700;">${inv.item} ${inv.qty}박스</span>
+      <span class="tag" style="background:${statusColor}18;color:${statusColor};">${statusText}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--t2);">
+      <span>→ ${inv.buyer_name}</span>
+      <span style="color:var(--a4);font-weight:700;">₩${((inv.qty||0)*(inv.price||0)).toLocaleString()}</span>
+    </div>
+  </div>`;
 }
 
 // ══ 송장 페이지 ══
 function renderInvoicePage(){
-  const isProducer = ['producer_ind','producer_corp'].includes(curRole);
+  const isProducer=['producer_ind','producer_corp'].includes(curRole);
   document.getElementById('invoice-content').innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
       <div style="font-size:18px;font-weight:800;">📋 ${isProducer?'내 송장':'수신 송장'}</div>
       ${isProducer?'<button class="btn btn-p" style="width:auto;padding:8px 14px;font-size:12px;" onclick="window.openInvoiceSheet()">+ 새 송장</button>':''}
     </div>
-    <div id="invoice-list-content">
-      ${INVOICES.length ? INVOICES.map(inv=>renderInvoiceCard(inv)).join('') :
-        '<div style="text-align:center;padding:40px 20px;color:var(--t2);"><div style="font-size:40px;margin-bottom:10px;">📭</div><div>송장이 없습니다</div></div>'}
-    </div>`;
+    ${INVOICES.length?INVOICES.map(inv=>renderInvoiceCard(inv)).join(''):'<div style="text-align:center;padding:40px 20px;color:var(--t2);"><div style="font-size:40px;margin-bottom:10px;">📭</div><div>송장이 없습니다</div></div>'}`;
 }
 
 function renderInvoiceCard(inv){
-  const statusColor = {draft:'var(--t2)', sent:'var(--a2)', delivered:'var(--org)', confirmed:'var(--a1)', eform:'var(--pur)'}[inv.status]||'var(--t2)';
-  const statusText  = {draft:'작성중', sent:'발송됨', delivered:'배송중', confirmed:'수령확인', eform:'전표완료'}[inv.status]||inv.status;
-  const total = (inv.qty||0)*(inv.price||0);
+  const statusColor={draft:'var(--t2)',sent:'var(--a2)',transit:'var(--org)',confirmed:'var(--a1)',reported:'var(--a4)',eform:'var(--pur)'}[inv.status]||'var(--t2)';
+  const statusText={draft:'작성중',sent:'발송됨',transit:'배송중',confirmed:'수령확인',reported:'출하신고',eform:'전표완료'}[inv.status]||inv.status;
+  const total=(inv.qty||0)*(inv.price||0);
   return `<div onclick="window.openInvoiceDetail('${inv.id}')" class="card" style="cursor:pointer;margin-bottom:8px;">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
       <div>
@@ -678,276 +776,515 @@ function renderInvoiceCard(inv){
         <span>물품대금</span><span style="color:var(--a4);font-weight:700;">₩${total.toLocaleString()}</span>
       </div>
     </div>
-    ${inv.truck_num ? `<div style="margin-top:6px;font-size:10px;color:var(--t2);">🚛 ${inv.truck_type} · ${inv.truck_num} · ${inv.driver_name}</div>` : ''}
-    ${inv.req_auction||inv.req_consign ? `<div style="margin-top:4px;display:flex;gap:4px;">
+    <div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">
+      ${inv.delivery_type==='call'?'<span class="tag tag-y">🚛 배차요청</span>':'<span class="tag tag-g">🚗 자차배송</span>'}
       ${inv.req_auction?'<span class="tag tag-y">🔨 경매희망</span>':''}
       ${inv.req_consign?'<span class="tag tag-b">🤝 위탁판매</span>':''}
-    </div>`:''}
+      ${inv.memo&&inv.memo.message?'<span class="tag" style="background:rgba(79,156,249,.12);color:var(--a2);">📝 기재사항</span>':''}
+    </div>
+    ${inv.truck_num?`<div style="margin-top:5px;font-size:10px;color:var(--t2);">🚛 ${inv.truck_type} · ${inv.truck_num} · ${inv.driver_name}</div>`:''}
   </div>`;
 }
 
 // ══ 송장 상세 ══
 window.openInvoiceDetail = function(id){
-  const inv = INVOICES.find(x=>x.id===id);
+  const inv=INVOICES.find(x=>x.id===id);
   if(!inv) return;
-  const total = (inv.qty||0)*(inv.price||0);
-  const truckFee = TRUCK_FEES[inv.truck_type]||0;
-  const unloadFee = (inv.qty||0)*350;
-  const commissionFee = Math.round(total*0.04);
-  const platformFee = Math.round(total*0.005);
-  const netAmt = total - truckFee - unloadFee - commissionFee - platformFee;
+  const total=(inv.qty||0)*(inv.price||0);
+  const truckFee=TRUCK_FEES[inv.truck_type]||0;
+  const unloadFee=(inv.qty||0)*350;
+  const commFee=Math.round(total*0.04);
+  const platFee=Math.round(total*0.005);
+  const netAmt=total-truckFee-unloadFee-commFee-platFee;
+  const statusText={draft:'작성중',sent:'발송됨',transit:'배송중',confirmed:'수령확인',reported:'출하신고',eform:'전표완료'};
+  const steps=['draft','sent','transit','confirmed','reported','eform'];
+  const curIdx=steps.indexOf(inv.status);
 
   document.getElementById('invoice-detail-body').innerHTML=`
+    <!-- 송장 헤더 -->
     <div style="background:rgba(244,196,48,.05);border:1px solid rgba(244,196,48,.2);border-radius:12px;padding:12px;margin-bottom:14px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
         <div style="font-size:15px;font-weight:800;">${inv.item} ${inv.qty}박스</div>
-        <span class="tag" style="background:var(--a2)18;color:var(--a2);">${inv.status}</span>
+        <span class="tag tag-y">${statusText[inv.status]||inv.status}</span>
       </div>
-      <div style="font-family:monospace;font-size:11px;color:var(--a1);margin-bottom:8px;">${inv.id}</div>
+      <div style="font-family:monospace;font-size:11px;color:var(--a1);margin-bottom:10px;">${inv.id}</div>
       ${[
-        ['수취인', inv.buyer_name],
-        ['연락처', inv.buyer_tel||'-'],
-        ['배송지', inv.buyer_addr||'-'],
-        ['원산지', inv.origin_type==='import'?'✈️ 수입산('+inv.origin_detail+')':'🇰🇷 국내산('+inv.origin_detail+')'],
-        ['단가', '₩'+inv.price.toLocaleString()+'/박스'],
-        ['수량', inv.qty+'박스'],
-        ['총물품대금', '₩'+total.toLocaleString()],
-        ['차량', inv.truck_type+' '+inv.truck_num],
-        ['기사', inv.driver_name+' '+inv.driver_tel],
+        ['수취인',inv.buyer_name],['연락처',inv.buyer_tel||'-'],['배송지',inv.buyer_addr||'-'],
+        ['원산지',inv.origin_type==='import'?'✈️ 수입산('+inv.origin_detail+')':'🇰🇷 국내산('+inv.origin_detail+')'],
+        ['단가','₩'+inv.price.toLocaleString()+'/박스'],['수량',inv.qty+'박스'],
+        ['총물품대금','₩'+total.toLocaleString()],
+        ['배송방식',inv.delivery_type==='call'?'🚛 배차요청':'🚗 자차배송'],
+        ...(inv.truck_num?[['차량',inv.truck_type+' '+inv.truck_num],['기사',inv.driver_name+' '+inv.driver_tel]]:[]),
       ].map(r=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--b2);">
         <span style="color:var(--t2);">${r[0]}</span>
         <span style="font-weight:600;">${r[1]}</span>
       </div>`).join('')}
     </div>
 
+    <!-- 기재사항 -->
+    ${inv.memo&&(inv.memo.message||inv.memo.caution||inv.memo.driverName)?`
+    <div style="background:rgba(79,156,249,.06);border:1px solid rgba(79,156,249,.2);border-radius:12px;padding:12px;margin-bottom:12px;">
+      <div style="font-size:12px;font-weight:700;color:var(--a2);margin-bottom:8px;">📝 기재사항</div>
+      ${inv.memo.driverName?`<div style="font-size:11px;color:var(--t2);margin-bottom:4px;">임시운전자: <strong style="color:var(--t1);">${inv.memo.driverName} ${inv.memo.driverTel||''}</strong></div>`:''}
+      ${inv.memo.caution?`<div style="font-size:11px;color:var(--t2);margin-bottom:4px;">취급주의: <strong style="color:var(--a4);">${inv.memo.caution}</strong></div>`:''}
+      ${inv.memo.message?`<div style="font-size:11px;color:var(--t1);white-space:pre-line;">${inv.memo.message}</div>`:''}
+    </div>`:''}
+
+    <!-- 상태 타임라인 -->
+    <div style="font-size:13px;font-weight:700;margin-bottom:10px;">📍 배송 현황</div>
+    <div class="card" style="margin-bottom:12px;">
+      ${['작성됨','발송됨','배송중','수령확인','출하신고','전표완료'].map((s,i)=>`
+        <div style="display:flex;align-items:flex-start;gap:10px;${i<5?'margin-bottom:8px;':''}">
+          <div style="width:20px;height:20px;border-radius:50%;flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:10px;
+            background:${i<curIdx?'var(--a1)':i===curIdx?'var(--a4)':'var(--s3)'};
+            border:2px solid ${i<=curIdx?i===curIdx?'var(--a4)':'var(--a1)':'var(--b1)'};
+            color:${i<curIdx?'#080d18':i===curIdx?'#080d18':'var(--t3)'};">
+            ${i<curIdx?'✓':''}
+          </div>
+          <div style="font-size:12px;color:${i<=curIdx?'var(--t1)':'var(--t3)'};font-weight:${i===curIdx?700:400};padding-top:1px;">${s}
+            ${i===curIdx?'<span style="font-size:10px;color:var(--a4);margin-left:4px;">← 현재</span>':''}
+          </div>
+        </div>`).join('')}
+    </div>
+
     <!-- 정산 예상 -->
     <div style="font-size:13px;font-weight:700;margin-bottom:8px;">💰 정산 예상</div>
     <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;overflow:hidden;margin-bottom:10px;">
       ${[
-        ['총 물품대금', total, 'var(--a4)', true],
-        ['운송비', -truckFee, 'var(--red)', false],
-        ['하역비 ('+inv.qty+'박스×₩350)', -unloadFee, 'var(--red)', false],
-        ['청과법인 수수료 (4%)', -commissionFee, 'var(--red)', false],
-        ['플랫폼 수수료 (0.5%)', -platformFee, 'var(--red)', false],
+        ['총 물품대금',total,'var(--a4)',true],
+        ['운송비',-truckFee,'var(--red)',false],
+        ['하역비 ('+inv.qty+'박스×₩350)',-unloadFee,'var(--red)',false],
+        ['청과법인 수수료 (4%)',-commFee,'var(--red)',false],
+        ['플랫폼 수수료 (0.5%)',-platFee,'var(--red)',false],
       ].map(r=>`<div class="settle-row">
         <span style="color:${r[3]?'var(--t1)':'var(--t2)'};">${r[0]}</span>
         <span style="color:${r[2]};font-weight:${r[3]?800:600};">${r[1]>=0?'':'- '}₩${Math.abs(r[1]).toLocaleString()}</span>
       </div>`).join('')}
     </div>
-    <div class="settle-total">
-      <div><div style="font-size:11px;color:var(--t2);">예상 수령액</div><div style="font-size:10px;color:var(--t2);">실제 금액은 경매 후 확정</div></div>
+    <div class="settle-total" style="margin-bottom:14px;">
+      <div><div style="font-size:11px;color:var(--t2);">예상 수령액</div><div style="font-size:10px;color:var(--t2);">경매 후 확정</div></div>
       <div style="font-size:22px;font-weight:900;color:var(--a1);">₩${netAmt.toLocaleString()}</div>
     </div>
 
-    <!-- 상태 버튼 -->
-    <div style="margin-top:14px;display:flex;gap:8px;">
-      ${inv.status==='sent' ? `<button class="btn btn-p" onclick="window.confirmDelivery('${inv.id}')">✅ 수령 확인</button>` : ''}
-      ${inv.status==='confirmed' && ['merchant_ind','wholesale'].includes(curRole) ? `<button class="btn" style="background:var(--pur);color:#fff;" onclick="window.convertToEform('${inv.id}')">📄 전표 전환</button>` : ''}
+    <!-- 액션 버튼 -->
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      ${inv.status==='sent'?`<button class="btn" style="background:var(--a2);color:#fff;" onclick="window.updateInvStatus('${inv.id}','transit')">🚛 배송 시작</button>`:''}
+      ${inv.status==='transit'&&['merchant_ind','wholesale'].includes(curRole)?`<button class="btn btn-p" onclick="window.updateInvStatus('${inv.id}','confirmed')">✅ 수령 확인 (배송완료)</button>`:''}
+      ${inv.status==='confirmed'&&['merchant_ind','wholesale'].includes(curRole)?`<button class="btn" style="background:var(--a4);color:#080d18;" onclick="window.updateInvStatus('${inv.id}','reported')">📢 출하 신고</button>`:''}
+      ${inv.status==='reported'&&['merchant_ind','wholesale'].includes(curRole)?`<button class="btn" style="background:var(--pur);color:#fff;" onclick="window.convertToEform('${inv.id}')">📄 전표 전환 ${inv.req_auction?'· 🔨 경매 등록':''}</button>`:''}
     </div>`;
   window.openSheet('sh-invoice-detail');
 };
 
-// ══ 수령 확인 ══
-window.confirmDelivery = function(id){
-  const inv = INVOICES.find(x=>x.id===id);
-  if(inv){ inv.status='confirmed'; }
+window.updateInvStatus = function(id, status){
+  const inv=INVOICES.find(x=>x.id===id);
+  if(inv){ inv.status=status; }
+  const msg={transit:'🚛 배송이 시작됐습니다!',confirmed:'✅ 수령 확인! 배송차량 임무 완료',reported:'📢 출하 신고 완료!'}[status]||'상태 업데이트';
   window.closeSheet('sh-invoice-detail');
-  toast('✅ 수령 확인 완료! 배송 임무 종료');
+  toast(msg);
   renderInvoicePage();
-  renderHomeInvoices();
+  renderHome();
 };
 
-// ══ 전표 전환 ══
 window.convertToEform = function(id){
-  const inv = INVOICES.find(x=>x.id===id);
-  if(inv){
-    inv.status='eform';
-    // 경매 신청 시 경매 목록에 자동 추가
-    if(inv.req_auction){
-      toast('📄 전표 전환 완료! 🔨 '+inv.buyer_name+' 오늘 경매 목록에 자동 등록됨');
-    } else {
-      toast('📄 전표 전환 완료!');
+  const inv=INVOICES.find(x=>x.id===id);
+  if(inv){ inv.status='eform'; }
+  window.closeSheet('sh-invoice-detail');
+  if(inv&&inv.req_auction) toast('📄 전표 전환! 🔨 경매 목록에 자동 등록됐어요');
+  else toast('📄 전표 전환 완료!');
+  renderInvoicePage();
+};
+
+// ══ 화물콜 페이지 ══
+function renderCallPage(){
+  const isTransport = curRole==='transport';
+  document.getElementById('call-content').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div style="font-size:18px;font-weight:800;">🚛 ${isTransport?'배차 콜':'화물차 배차요청'}</div>
+      ${!isTransport?'<button class="btn btn-p" style="width:auto;padding:8px 14px;font-size:12px;" onclick="window.openCallSheet()">+ 배차요청</button>':''}
+    </div>
+    ${CALLS.length?CALLS.map(call=>renderCallCard(call,isTransport)).join(''):`
+    <div style="text-align:center;padding:40px 20px;color:var(--t2);">
+      <div style="font-size:40px;margin-bottom:10px;">🚛</div>
+      <div style="margin-bottom:16px;">${isTransport?'수신된 배차 콜이 없습니다':'배차 요청이 없습니다'}</div>
+      ${!isTransport?'<button class="btn btn-p" style="max-width:200px;margin:0 auto;" onclick="window.openCallSheet()">+ 배차요청 하기</button>':''}
+    </div>`}`;
+}
+
+function renderCallCard(call, isTransport){
+  const statusColor={pending:'var(--a4)',accepted:'var(--a1)',loading:'var(--org)',done:'var(--t2)'}[call.status]||'var(--t2)';
+  const statusText={pending:'배차대기',accepted:'배차확정',loading:'상차중',done:'완료'}[call.status]||call.status;
+  return `<div class="card" style="margin-bottom:8px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+      <div>
+        <div style="font-size:14px;font-weight:800;">${call.item} ${call.qty}박스</div>
+        <div style="font-size:10px;font-family:monospace;color:var(--t2);margin-top:2px;">${call.id}</div>
+      </div>
+      <span class="tag" style="background:${statusColor}18;color:${statusColor};">${statusText}</span>
+    </div>
+    <div style="background:var(--s2);border-radius:8px;padding:8px 10px;font-size:11px;color:var(--t2);margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+        <span>출발</span><span style="color:var(--t1);">${call.origin}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+        <span>도착</span><span style="color:var(--t1);">${call.dest}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+        <span>차량</span><span>${call.truck_type} · ${call.load_type==='solo'?'단독':'혼적'}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;">
+        <span>운송비</span><span style="color:var(--a4);font-weight:700;">₩${(call.fare||0).toLocaleString()}</span>
+      </div>
+    </div>
+    ${isTransport&&call.status==='pending'?`
+    <div style="display:flex;gap:6px;">
+      <button class="btn btn-r" style="flex:.4;" onclick="window.rejectCall('${call.id}')">거절</button>
+      <button class="btn btn-p" style="flex:.6;" onclick="window.acceptCall('${call.id}')">✅ 수락</button>
+    </div>`:''}
+    ${isTransport&&call.status==='accepted'?`
+    <button class="btn btn-y" onclick="window.startLoading('${call.id}')">📦 상차 시작</button>`:''}
+    ${isTransport&&call.status==='loading'?`
+    <button class="btn btn-p" onclick="window.completeLoading('${call.id}')">🚛 상차 완료 · 송장 확인</button>`:''}
+  </div>`;
+}
+
+window.acceptCall = function(id){
+  const call=CALLS.find(x=>x.id===id);
+  if(call){ call.status='accepted'; }
+  toast('✅ 배차 수락! 출하자에게 알림 발송됨');
+  renderCallPage();
+};
+window.rejectCall = function(id){
+  const call=CALLS.find(x=>x.id===id);
+  if(call){ call.status='rejected'; }
+  toast('배차를 거절했습니다');
+  renderCallPage();
+};
+window.startLoading = function(id){
+  const call=CALLS.find(x=>x.id===id);
+  if(call){ call.status='loading'; }
+  toast('📦 상차를 시작합니다');
+  renderCallPage();
+};
+window.completeLoading = function(id){
+  const call=CALLS.find(x=>x.id===id);
+  if(call){
+    call.status='done';
+    // 연결된 송장 상태 업데이트
+    if(call.inv_id){
+      const inv=INVOICES.find(x=>x.id===call.inv_id);
+      if(inv){ inv.status='transit'; inv.truck_type=call.truck_type; inv.truck_num=call.truck_num||'확인필요'; inv.driver_name=call.driver_name||'기사'; inv.driver_tel=call.driver_tel||''; }
     }
   }
-  window.closeSheet('sh-invoice-detail');
-  renderInvoicePage();
+  toast('🚛 상차 완료! 송장이 확정됐습니다. 배송 추적 시작!');
+  renderCallPage();
+  renderHome();
 };
 
-// ══ 송장 시트 열기 ══
+// ══ 화물콜 시트 ══
+window.openCallSheet = function(invId){
+  ['call-item','call-qty','call-weight','call-truck-type','call-origin','call-dest','call-waypoint','call-fare'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  document.getElementById('ai-call-truck').style.display='none';
+  document.getElementById('ai-fare-box').style.display='none';
+  document.getElementById('waypoint-form').style.display='none';
+  callLoadType='solo';
+  window.selLoad('solo');
+  // 거래처 주소 자동입력
+  if(invId){
+    const inv=INVOICES.find(x=>x.id===invId);
+    if(inv){
+      const destEl=document.getElementById('call-dest');
+      if(destEl) destEl.value=inv.buyer_addr||inv.buyer_name;
+      const itemEl=document.getElementById('call-item');
+      if(itemEl) itemEl.value=inv.item;
+      const qtyEl=document.getElementById('call-qty');
+      if(qtyEl){ qtyEl.value=inv.qty; window.onCallQtyChange(); }
+    }
+  }
+  window.openSheet('sh-call');
+};
+
+window.onCallItemChange = function(){
+  window.onCallQtyChange();
+};
+
+window.onCallQtyChange = function(){
+  const qty=parseInt(document.getElementById('call-qty').value)||0;
+  const item=document.getElementById('call-item').value;
+  if(!qty) return;
+  const kgPerBox=KG_PER_BOX[item]||15;
+  const totalKg=qty*kgPerBox;
+  const weightEl=document.getElementById('call-weight');
+  if(weightEl) weightEl.value=totalKg;
+  // AI 차량 추천
+  const isColed=COLD_ITEMS.includes(item);
+  let rec='';
+  if(totalKg<=500) rec=isColed?'1톤냉장':'용달';
+  else if(totalKg<=1000) rec=isColed?'1톤냉장':'1톤';
+  else if(totalKg<=2500) rec=isColed?'2.5톤냉장':'2.5톤';
+  else if(totalKg<=5000) rec=isColed?'5톤냉장':'5톤';
+  else rec='11톤';
+  const aiEl=document.getElementById('ai-call-truck');
+  if(aiEl){
+    aiEl.style.display='block';
+    aiEl.innerHTML=`🤖 AI 추천: <strong style="color:var(--a4);">${rec}</strong> (${totalKg.toLocaleString()}kg)${isColed?' · ❄️ 냉장 필요':''}`;
+  }
+  const selEl=document.getElementById('call-truck-type');
+  if(selEl) selEl.value=rec;
+  window.onCallRouteChange();
+};
+
+window.onCallTruckChange = function(){
+  window.onCallRouteChange();
+};
+
+window.onCallRouteChange = function(){
+  const origin=document.getElementById('call-origin').value.trim();
+  const dest=document.getElementById('call-dest').value.trim();
+  const truck=document.getElementById('call-truck-type').value;
+  if(!origin||!dest||!truck) return;
+  // AI 거리 추정 (실제는 Maps API 연동 필요, 현재는 로직 시뮬레이션)
+  const baseFee=TRUCK_FEES[truck.replace('냉장','').replace('냉동','')]||150000;
+  const coldExtra=truck.includes('냉장')||truck.includes('냉동')?50000:0;
+  const distExtra=origin.includes('경북')||origin.includes('경남')||origin.includes('전남')||origin.includes('전북')?80000:
+                  origin.includes('강원')||origin.includes('충청')?50000:20000;
+  const mixedDiscount=callLoadType==='mixed'?-Math.round((baseFee+distExtra)*0.3):0;
+  const totalFare=baseFee+coldExtra+distExtra+mixedDiscount;
+  const fareEl=document.getElementById('call-fare');
+  if(fareEl) fareEl.value=totalFare;
+  const box=document.getElementById('ai-fare-box');
+  const detail=document.getElementById('ai-fare-detail');
+  if(box&&detail){
+    box.style.display='block';
+    detail.innerHTML=`
+      기본요금: ₩${baseFee.toLocaleString()}<br>
+      ${coldExtra?'냉장/냉동 할증: +₩'+coldExtra.toLocaleString()+'<br>':''}
+      거리 할증: +₩${distExtra.toLocaleString()}<br>
+      ${mixedDiscount?'혼적 할인: ₩'+mixedDiscount.toLocaleString()+'<br>':''}
+      <strong style="color:var(--a1);">AI 추천 운송비: ₩${totalFare.toLocaleString()}</strong>`;
+  }
+};
+
+window.selLoad = function(type){
+  callLoadType=type;
+  ['solo','mixed'].forEach(t=>{
+    const el=document.getElementById('load-'+t);
+    if(el){
+      el.style.borderColor=t===type?'var(--a1)':'var(--b1)';
+      el.style.background=t===type?'rgba(0,232,188,.06)':'var(--s2)';
+      el.style.color=t===type?'var(--a1)':'var(--t2)';
+    }
+  });
+  window.onCallRouteChange();
+};
+
+window.toggleWaypoint = function(){
+  const form=document.getElementById('waypoint-form');
+  const btn=document.getElementById('waypoint-toggle');
+  const isOpen=form.style.display!=='none';
+  form.style.display=isOpen?'none':'block';
+  if(btn) btn.textContent=isOpen?'+ 경유지 추가':'− 경유지 제거';
+};
+
+window.submitCall = function(){
+  const item=document.getElementById('call-item').value;
+  const qty=parseInt(document.getElementById('call-qty').value)||0;
+  const truck=document.getElementById('call-truck-type').value;
+  const origin=document.getElementById('call-origin').value.trim();
+  const dest=document.getElementById('call-dest').value.trim();
+  const fare=parseInt(document.getElementById('call-fare').value)||0;
+  if(!item||!qty){ toast('화물 정보를 입력하세요'); return; }
+  if(!truck){ toast('차량 종류를 선택하세요'); return; }
+  if(!origin||!dest){ toast('출발지와 도착지를 입력하세요'); return; }
+  if(!fare){ toast('운송비를 입력하세요'); return; }
+  const now=new Date();
+  const id='CALL-'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'-'+String(Math.floor(Math.random()*9999)).padStart(4,'0');
+  CALLS.unshift({
+    id, item, qty, truck_type:truck,
+    origin, dest,
+    load_type:callLoadType, fare,
+    status:'pending',
+    requester_gkid:curGkid,
+    created_at:now.toISOString(),
+  });
+  window.closeSheet('sh-call');
+  toast('🚛 배차 요청 발송! 주변 운송업자에게 알림 발송됨');
+  renderCallPage();
+  renderHome();
+};
+
+// ══ 송장 시트 ══
 window.openInvoiceSheet = function(){
-  invData = {};
-  invReqs = {auction:false, consign:false};
-  invOrigin = 'domestic';
-  // 폼 초기화
+  invReqs={auction:false,consign:false};
+  invOrigin='domestic';
+  invDelivery='';
+  invMemo={};
   ['inv-buyer-name','inv-buyer-contact','inv-buyer-tel','inv-buyer-addr',
    'inv-origin-region','inv-origin-country','inv-price','inv-qty',
-   'inv-min-price','inv-consign-rate','inv-truck-num','inv-driver-name','inv-driver-tel'
-  ].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
-  document.getElementById('inv-item').value='';
-  document.getElementById('inv-truck-type').value='';
+   'inv-min-price','inv-consign-rate',
+   'self-truck-num','self-driver-name','self-driver-tel'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  const itemEl=document.getElementById('inv-item'); if(itemEl) itemEl.value='';
+  const truckEl=document.getElementById('self-truck-type'); if(truckEl) truckEl.value='';
   document.getElementById('inv-total-box').style.display='none';
-  document.getElementById('truck-fee-box').style.display='none';
   document.getElementById('ai-price-suggest').style.display='none';
   document.getElementById('req-auction-detail').style.display='none';
   document.getElementById('req-consign-detail').style.display='none';
+  document.getElementById('ai-buyer-suggest').style.display='none';
   document.querySelectorAll('.req-btn').forEach(b=>b.classList.remove('sel'));
+  document.getElementById('self-delivery-form').style.display='none';
+  document.getElementById('call-delivery-info').style.display='none';
+  document.getElementById('delivery-select-hint').style.display='block';
+  document.getElementById('dmode-call').className='delivery-btn';
+  document.getElementById('dmode-self').className='delivery-btn';
   window.invNextStep(1);
   window.openSheet('sh-invoice');
-
-  // AI: 거래처 추천 표시
-  setTimeout(window.showAIBuyerSuggest, 300);
+  setTimeout(window.showAIBuyerSuggest, 400);
 };
 
-// ══ AI 거래처 추천 ══
 window.showAIBuyerSuggest = function(){
-  const buyers = ['한국청과','서울청과','중앙청과','농협청과','서울중도매','강남청과상회'];
-  const el = document.getElementById('ai-buyer-list');
-  const box = document.getElementById('ai-buyer-suggest');
+  const el=document.getElementById('ai-buyer-list');
+  const box=document.getElementById('ai-buyer-suggest');
   if(!el||!box) return;
-  el.innerHTML = buyers.map(b=>`
-    <div onclick="window.selectAIBuyer('${b}')" style="display:inline-block;margin:2px;padding:5px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;font-size:11px;cursor:pointer;">
-      ${b}
-    </div>`).join('');
+  el.innerHTML=AI_BUYERS.map(b=>`
+    <div onclick="window.selectAIBuyer('${b}')" style="display:inline-block;margin:2px;padding:4px 9px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;font-size:11px;cursor:pointer;">${b}</div>`).join('');
   box.style.display='block';
 };
 
+window.onBuyerInput = function(){
+  const val=document.getElementById('inv-buyer-name').value.trim();
+  if(!val) window.showAIBuyerSuggest();
+  else document.getElementById('ai-buyer-suggest').style.display='none';
+};
+
 window.selectAIBuyer = function(name){
-  document.getElementById('inv-buyer-name').value = name;
+  document.getElementById('inv-buyer-name').value=name;
   document.getElementById('ai-buyer-suggest').style.display='none';
   toast('✅ '+name+' 선택됨');
 };
 
-// ══ 스텝 이동 ══
 window.invNextStep = function(step){
   [1,2,3,4].forEach(i=>{
-    document.getElementById('inv-step'+i).style.display = i===step?'block':'none';
+    document.getElementById('inv-step'+i).style.display=i===step?'block':'none';
   });
-  // 스텝 바 업데이트
   [1,2,3,4].forEach(i=>{
-    const dot = document.getElementById('sd'+i);
-    const line = document.getElementById('sl'+i);
-    if(dot){
-      dot.className = 'step-dot'+(i<step?' done':i===step?' cur':'');
-      dot.textContent = i<step?'✓':String(i);
-    }
-    if(line && i<4) line.className = 'step-line'+(i<step?' done':'');
+    const dot=document.getElementById('sd'+i);
+    const line=document.getElementById('sl'+i);
+    if(dot){ dot.className='step-dot'+(i<step?' done':i===step?' cur':''); dot.textContent=i<step?'✓':String(i); }
+    if(line&&i<4) line.className='step-line'+(i<step?' done':'');
   });
-  // Step3 진입 시 AI 차량 추천
-  if(step===3) window.aiTruckRecommend();
-  // Step4 진입 시 정산 미리보기
   if(step===4) window.renderSettlePreview();
 };
 
-// ══ 원산지 선택 ══
 window.selOrigin = function(type){
-  invOrigin = type;
-  document.getElementById('origin-domestic').className = 'origin-btn'+(type==='domestic'?' sel':'');
-  document.getElementById('origin-import').className   = 'origin-btn'+(type==='import'?' sel':'');
-  document.getElementById('origin-domestic-detail').style.display = type==='domestic'?'block':'none';
-  document.getElementById('origin-import-detail').style.display   = type==='import'?'block':'none';
+  invOrigin=type;
+  document.getElementById('origin-domestic').className='origin-btn'+(type==='domestic'?' sel':'');
+  document.getElementById('origin-import').className='origin-btn'+(type==='import'?' sel':'');
+  document.getElementById('origin-domestic-detail').style.display=type==='domestic'?'block':'none';
+  document.getElementById('origin-import-detail').style.display=type==='import'?'block':'none';
 };
 
-// ══ 상품 선택 시 AI 시세 추천 ══
 window.onItemChange = function(){
-  const item = document.getElementById('inv-item').value;
-  const box  = document.getElementById('ai-price-suggest');
+  const item=document.getElementById('inv-item').value;
+  const box=document.getElementById('ai-price-suggest');
   if(!item||!box) return;
-  const price = AI_PRICES[item];
-  const isColed = COLD_ITEMS.includes(item);
+  const price=AI_PRICES[item];
+  const isColed=COLD_ITEMS.includes(item);
   if(price){
     box.style.display='block';
-    box.innerHTML = `🤖 <strong style="color:var(--a4);">오늘 시세: ₩${price.toLocaleString()}/박스</strong>${isColed?' · ❄️ 냉장/냉동 차량 권장':''}`;
-    // 시세 자동 입력
-    const priceEl = document.getElementById('inv-price');
-    if(priceEl && !priceEl.value) priceEl.value = price;
+    box.innerHTML=`🤖 오늘 시세: <strong style="color:var(--a4);">₩${price.toLocaleString()}/박스</strong>${isColed?' · ❄️ 냉장차량 권장':''}`;
+    const priceEl=document.getElementById('inv-price');
+    if(priceEl&&!priceEl.value) priceEl.value=price;
     window.calcTotal();
   }
 };
 
-// ══ 총액 계산 ══
 window.calcTotal = function(){
-  const price = parseInt(document.getElementById('inv-price').value)||0;
-  const qty   = parseInt(document.getElementById('inv-qty').value)||0;
-  const total = price * qty;
-  const box   = document.getElementById('inv-total-box');
-  const amt   = document.getElementById('inv-total-amt');
-  const detail= document.getElementById('inv-total-detail');
+  const price=parseInt(document.getElementById('inv-price').value)||0;
+  const qty=parseInt(document.getElementById('inv-qty').value)||0;
+  const total=price*qty;
+  const box=document.getElementById('inv-total-box');
   if(price&&qty&&box){
     box.style.display='block';
-    amt.textContent = '₩'+total.toLocaleString();
-    detail.textContent = `₩${price.toLocaleString()} × ${qty}박스`;
-    // AI 최저가 추천
-    const item = document.getElementById('inv-item').value;
-    const minPriceHint = document.getElementById('ai-min-price-suggest');
-    if(minPriceHint && item){
-      const recMin = Math.round((AI_PRICES[item]||price)*0.85);
-      minPriceHint.textContent = `🤖 AI 추천 최저가: ₩${recMin.toLocaleString()} (시세의 85%)`;
-    }
+    document.getElementById('inv-total-amt').textContent='₩'+total.toLocaleString();
+    document.getElementById('inv-total-detail').textContent=`₩${price.toLocaleString()} × ${qty}박스`;
+    const item=document.getElementById('inv-item').value;
+    const hint=document.getElementById('ai-min-price-suggest');
+    if(hint&&item){ hint.textContent=`🤖 AI 추천 최저가: ₩${Math.round((AI_PRICES[item]||price)*0.85).toLocaleString()} (시세 85%)`; }
   }
 };
 
-// ══ 출하 요청 토글 ══
 window.toggleReq = function(type){
-  invReqs[type] = !invReqs[type];
-  document.getElementById('req-'+type).className = 'req-btn'+(invReqs[type]?' sel':'');
-  document.getElementById('req-'+type+'-detail').style.display = invReqs[type]?'block':'none';
+  invReqs[type]=!invReqs[type];
+  document.getElementById('req-'+type).className='req-btn'+(invReqs[type]?' sel':'');
+  document.getElementById('req-'+type+'-detail').style.display=invReqs[type]?'block':'none';
 };
 
-// ══ 차량 선택 시 운송비 ══
-window.onTruckChange = function(){
-  const type = document.getElementById('inv-truck-type').value;
-  const fee  = TRUCK_FEES[type]||0;
-  const box  = document.getElementById('truck-fee-box');
-  const text = document.getElementById('truck-fee-text');
-  if(type&&box){
-    box.style.display='block';
-    text.textContent = `${type} → 예상 운송비 ₩${fee.toLocaleString()}`;
+window.selDelivery = function(type){
+  invDelivery=type;
+  document.getElementById('dmode-call').className='delivery-btn'+(type==='call'?' sel':'');
+  document.getElementById('dmode-self').className='delivery-btn'+(type==='self'?' sel':'');
+  document.getElementById('self-delivery-form').style.display=type==='self'?'block':'none';
+  document.getElementById('call-delivery-info').style.display=type==='call'?'block':'none';
+  document.getElementById('delivery-select-hint').style.display='none';
+};
+
+// ══ 기재사항 ══
+window.openMemo = function(){
+  document.getElementById('memo-driver-name').value=invMemo.driverName||'';
+  document.getElementById('memo-driver-tel').value=invMemo.driverTel||'';
+  document.getElementById('memo-caution').value=invMemo.caution||'';
+  document.getElementById('memo-message').value=invMemo.message||'';
+  document.getElementById('memo-extra').value=invMemo.extra||'';
+  window.openSheet('sh-memo');
+};
+
+window.saveMemo = function(){
+  invMemo={
+    driverName:document.getElementById('memo-driver-name').value.trim(),
+    driverTel:document.getElementById('memo-driver-tel').value.trim(),
+    caution:document.getElementById('memo-caution').value,
+    message:document.getElementById('memo-message').value.trim(),
+    extra:document.getElementById('memo-extra').value.trim(),
+  };
+  window.closeSheet('sh-memo');
+  // 미리보기 업데이트
+  const prev=document.getElementById('inv-memo-preview');
+  const prevText=document.getElementById('inv-memo-preview-text');
+  const hasContent=invMemo.driverName||invMemo.caution||invMemo.message||invMemo.extra;
+  if(prev){ prev.style.display=hasContent?'block':'none'; }
+  if(prevText&&hasContent){
+    let txt='';
+    if(invMemo.driverName) txt+=`임시운전자: ${invMemo.driverName} ${invMemo.driverTel}\n`;
+    if(invMemo.caution)    txt+=`취급주의: ${invMemo.caution}\n`;
+    if(invMemo.message)    txt+=invMemo.message;
+    prevText.textContent=txt.trim();
   }
-};
-
-// ══ AI 차량 추천 ══
-window.aiTruckRecommend = function(){
-  const qty  = parseInt(document.getElementById('inv-qty').value)||0;
-  const item = document.getElementById('inv-item').value;
-  const el   = document.getElementById('ai-truck-text');
-  if(!el) return;
-  if(!qty){ el.textContent='수량을 입력하면 적합 차량을 추천해드려요'; return; }
-
-  const isColed = COLD_ITEMS.includes(item);
-  let rec = '';
-  if(qty<=50)       rec = isColed?'1톤냉장':'1톤';
-  else if(qty<=100) rec = isColed?'2.5톤냉장':'2.5톤';
-  else if(qty<=200) rec = isColed?'5톤냉장':'5톤';
-  else              rec = '11톤';
-
-  const fee = TRUCK_FEES[rec]||0;
-  el.innerHTML = `<strong style="color:var(--a4);">${rec}</strong> 추천 (${qty}박스 기준)${isColed?' · ❄️ 냉장 필요':''}<br><span style="color:var(--t2);">예상 운송비: ₩${fee.toLocaleString()}</span>`;
-
-  // 자동 선택
-  const sel = document.getElementById('inv-truck-type');
-  if(sel){ sel.value=rec; window.onTruckChange(); }
+  toast('📝 기재사항 저장됨');
 };
 
 // ══ 정산 미리보기 ══
 window.renderSettlePreview = function(){
-  const price = parseInt(document.getElementById('inv-price').value)||0;
-  const qty   = parseInt(document.getElementById('inv-qty').value)||0;
-  const total = price*qty;
-  const truck = document.getElementById('inv-truck-type').value;
-  const truckFee = TRUCK_FEES[truck]||0;
-  const unloadFee = qty*350;
-  const commFee = Math.round(total*0.04);
-  const platFee = Math.round(total*0.005);
-  const netAmt  = total - truckFee - unloadFee - commFee - platFee;
-
+  const price=parseInt(document.getElementById('inv-price').value)||0;
+  const qty=parseInt(document.getElementById('inv-qty').value)||0;
+  const total=price*qty;
+  const truck=invDelivery==='self'?(document.getElementById('self-truck-type').value||''):'';
+  const truckFee=TRUCK_FEES[truck]||0;
+  const unloadFee=qty*350;
+  const commFee=Math.round(total*0.04);
+  const platFee=Math.round(total*0.005);
+  const netAmt=total-truckFee-unloadFee-commFee-platFee;
   document.getElementById('inv-settle-preview').innerHTML=`
     <div style="font-size:12px;font-weight:700;margin-bottom:10px;">💰 예상 정산 내역</div>
     ${[
-      ['총 물품대금', total, 'var(--a4)', true],
-      ['① 운송비', -truckFee, 'var(--red)', false],
-      ['② 하역비 ('+qty+'박스×₩350)', -unloadFee, 'var(--red)', false],
-      ['③ 청과법인 수수료 (4%)', -commFee, 'var(--red)', false],
-      ['④ 플랫폼 수수료 (0.5%)', -platFee, 'var(--red)', false],
+      ['총 물품대금',total,'var(--a4)',true],
+      ['① 운송비',-(truckFee||0),'var(--red)',false],
+      ['② 하역비 ('+qty+'박스×₩350)',-(unloadFee||0),'var(--red)',false],
+      ['③ 청과법인 수수료 (4%)',-(commFee||0),'var(--red)',false],
+      ['④ 플랫폼 수수료 (0.5%)',-(platFee||0),'var(--red)',false],
     ].map(r=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--b2);font-size:12px;">
       <span style="color:${r[3]?'var(--t1)':'var(--t2)'};">${r[0]}</span>
       <span style="color:${r[2]};font-weight:${r[3]?800:600};">${r[1]>=0?'':'- '}₩${Math.abs(r[1]).toLocaleString()}</span>
@@ -956,63 +1293,69 @@ window.renderSettlePreview = function(){
       <span style="font-size:13px;font-weight:700;">예상 수령액</span>
       <span style="font-size:20px;font-weight:900;color:var(--a1);">₩${netAmt.toLocaleString()}</span>
     </div>
-    <div style="font-size:10px;color:var(--t2);margin-top:4px;">* 경매/위탁 완료 후 실제 금액 확정</div>`;
+    <div style="font-size:10px;color:var(--t2);margin-top:4px;">* 배차요청인 경우 실제 운송비 확정 후 재계산</div>`;
+  // 기재사항 미리보기
+  const hasMemo=invMemo.driverName||invMemo.caution||invMemo.message||invMemo.extra;
+  const prev=document.getElementById('inv-memo-preview');
+  if(prev) prev.style.display=hasMemo?'block':'none';
 };
 
 // ══ 송장 발송 ══
 window.submitInvoice = function(){
-  const buyerName = document.getElementById('inv-buyer-name').value.trim();
-  const item      = document.getElementById('inv-item').value;
-  const price     = parseInt(document.getElementById('inv-price').value)||0;
-  const qty       = parseInt(document.getElementById('inv-qty').value)||0;
-  const truckNum  = document.getElementById('inv-truck-num').value.trim();
-  const driverName= document.getElementById('inv-driver-name').value.trim();
-  const driverTel = document.getElementById('inv-driver-tel').value.trim();
-  const truckType = document.getElementById('inv-truck-type').value;
-
+  const buyerName=document.getElementById('inv-buyer-name').value.trim();
+  const item=document.getElementById('inv-item').value;
+  const price=parseInt(document.getElementById('inv-price').value)||0;
+  const qty=parseInt(document.getElementById('inv-qty').value)||0;
   if(!buyerName){ toast('수취인을 입력하세요'); window.invNextStep(1); return; }
   if(!item||!price||!qty){ toast('상품 정보를 입력하세요'); window.invNextStep(2); return; }
-  if(!truckNum||!driverName||!driverTel||!truckType){ toast('배송차량 정보를 입력하면 송장이 완성됩니다'); window.invNextStep(3); return; }
-
-  const now = new Date();
-  const id = 'INV-'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'-'+String(Math.floor(Math.random()*9999)).padStart(4,'0');
-
-  const inv = {
+  if(!invDelivery){ toast('배송 방식을 선택하세요'); window.invNextStep(3); return; }
+  if(invDelivery==='self'){
+    const truckNum=document.getElementById('self-truck-num').value.trim();
+    const driverName=document.getElementById('self-driver-name').value.trim();
+    const driverTel=document.getElementById('self-driver-tel').value.trim();
+    const truckType=document.getElementById('self-truck-type').value;
+    if(!truckNum||!driverName||!driverTel||!truckType){ toast('배송차량 정보를 모두 입력하세요'); window.invNextStep(3); return; }
+  }
+  const now=new Date();
+  const id='INV-'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'-'+String(Math.floor(Math.random()*9999)).padStart(4,'0');
+  const truckType=invDelivery==='self'?document.getElementById('self-truck-type').value:'';
+  const inv={
     id, status:'sent',
-    seller_name: curUserName, seller_gkid: curGkid,
-    buyer_name: buyerName,
-    buyer_tel:  document.getElementById('inv-buyer-tel').value,
-    buyer_addr: document.getElementById('inv-buyer-addr').value,
-    origin_type: invOrigin,
-    origin_detail: invOrigin==='domestic'
-      ? (document.getElementById('inv-origin-region').value||'')
-      : (document.getElementById('inv-origin-country').value||''),
+    seller_name:curUserName, seller_gkid:curGkid,
+    buyer_name:buyerName,
+    buyer_tel:document.getElementById('inv-buyer-tel').value,
+    buyer_addr:document.getElementById('inv-buyer-addr').value,
+    origin_type:invOrigin,
+    origin_detail:invOrigin==='domestic'?document.getElementById('inv-origin-region').value:document.getElementById('inv-origin-country').value,
     item, price, qty,
-    req_auction: invReqs.auction,
-    req_consign: invReqs.consign,
-    min_price: invReqs.auction ? (parseInt(document.getElementById('inv-min-price').value)||0) : 0,
-    truck_type: truckType,
-    truck_num: truckNum,
-    driver_name: driverName,
-    driver_tel: driverTel,
-    created_at: now.toISOString(),
+    req_auction:invReqs.auction,
+    req_consign:invReqs.consign,
+    min_price:invReqs.auction?(parseInt(document.getElementById('inv-min-price').value)||0):0,
+    delivery_type:invDelivery,
+    truck_type:truckType,
+    truck_num:invDelivery==='self'?document.getElementById('self-truck-num').value:'',
+    driver_name:invDelivery==='self'?document.getElementById('self-driver-name').value:'',
+    driver_tel:invDelivery==='self'?document.getElementById('self-driver-tel').value:'',
+    memo:Object.keys(invMemo).length?invMemo:null,
+    created_at:now.toISOString(),
   };
-
   INVOICES.unshift(inv);
   window.closeSheet('sh-invoice');
-  toast('📤 송장 발송 완료! '+id);
+  // 배차요청이면 화물콜 시트 열기
+  if(invDelivery==='call'){
+    toast('📋 송장 저장됨! 배차 요청을 작성해주세요');
+    setTimeout(()=>window.openCallSheet(id), 600);
+  } else {
+    toast('📤 송장 발송 완료! '+buyerName+'에게 알림 발송됨');
+  }
   renderHome();
   renderInvoicePage();
-
-  // Supabase 저장 시도
-  db.from('invoices').insert(inv).then(({error})=>{
-    if(error) console.log('저장 오류:', error);
-  });
+  db.from('invoices').insert(inv).catch(e=>console.log(e));
 };
 
 // ══ 내정보 ══
 function renderProfile(){
-  const r = ROLES[curRole];
+  const r=ROLES[curRole];
   document.getElementById('profile-content').innerHTML=`
     <div style="font-size:18px;font-weight:800;margin-bottom:16px;">👤 내 정보</div>
     <div class="card">
@@ -1028,17 +1371,14 @@ function renderProfile(){
     </div>`;
 }
 
-// ══ 시트 ══
 window.openSheet  = function(id){ document.getElementById(id).classList.add('on'); };
 window.closeSheet = function(id){ document.getElementById(id).classList.remove('on'); };
 
-// ══ 시계 ══
 function startClock(){
   const t=()=>document.getElementById('clock').textContent=new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
   t(); setInterval(t,1000);
 }
 
-// ══ 토스트 ══
 let _tt;
 function toast(msg){
   const el=document.getElementById('toast');
