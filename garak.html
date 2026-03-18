@@ -249,6 +249,14 @@ document.addEventListener('click', function(e){
     curRole = card.dataset.role;
   }
 });
+document.addEventListener('touchend', function(e){
+  const card = e.target.closest('.role-card[data-role]');
+  if(card){
+    e.preventDefault();
+    document.querySelectorAll('.role-card').forEach(c=>c.classList.remove('sel'));
+    card.classList.add('sel');
+    curRole = card.dataset.role;
+  }
 
 // 로그인
 async function doLogin(){
