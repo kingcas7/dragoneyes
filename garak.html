@@ -244,29 +244,68 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
     <!-- Step3: 배송 방식 -->
     <div id="inv-step3" style="display:none;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-        <div style="font-size:13px;font-weight:700;color:var(--a1);">🚛 Step 3 · 배송 방식</div>
+        <div style="font-size:13px;font-weight:700;color:var(--a1);">🚛 Step 3 · 배송방식 · 주소 · 차량</div>
         <button onclick="window.openMemo()" style="padding:6px 10px;border-radius:8px;background:var(--s2);border:1px solid var(--b1);font-size:11px;color:var(--t2);">📝 기재사항</button>
       </div>
-      <div style="display:flex;gap:10px;margin-bottom:16px;">
-        <div class="delivery-btn" id="dmode-call" onclick="window.selDelivery('call')">
-          <span class="d-ic">🚛</span>
-          <span class="d-name">차량배차요청</span>
-          <span class="d-desc">화물콜 발송</span>
+
+      <!-- 배송방식 선택 -->
+      <div class="fgroup">
+        <div class="flabel">배송 방식 *</div>
+        <div style="display:flex;gap:10px;margin-bottom:4px;">
+          <div class="delivery-btn" id="dmode-call" onclick="window.selDelivery('call')">
+            <span class="d-ic">🚛</span>
+            <span class="d-name">차량배차요청</span>
+            <span class="d-desc">화물콜 발송</span>
+          </div>
+          <div class="delivery-btn" id="dmode-self" onclick="window.selDelivery('self')">
+            <span class="d-ic">🚗</span>
+            <span class="d-name">자차배송</span>
+            <span class="d-desc">직접/섭외 차량</span>
+          </div>
         </div>
-        <div class="delivery-btn" id="dmode-self" onclick="window.selDelivery('self')">
-          <span class="d-ic">🚗</span>
-          <span class="d-name">자차배송</span>
-          <span class="d-desc">직접/섭외 차량</span>
+        <div id="delivery-select-hint" style="text-align:center;padding:8px;color:var(--t2);font-size:11px;">배송 방식을 선택해주세요</div>
+      </div>
+
+      <!-- 공통: 상차/하차 주소 -->
+      <div id="delivery-address-form" style="display:none;">
+        <div class="fgroup">
+          <div class="flabel">📍 상차 주소 (출발지) *</div>
+          <input class="finput" id="inv-origin-addr" placeholder="예: 경북 의성군 단촌면 000번지" oninput="window.onInvRouteChange()">
+        </div>
+        <div class="fgroup">
+          <div class="flabel">📍 하차 주소 (도착지) *</div>
+          <input class="finput" id="inv-dest-addr" placeholder="서울 송파구 가락로 320 (가락시장)" oninput="window.onInvRouteChange()">
+          <div style="font-size:10px;color:var(--t2);margin-top:3px;">거래처 주소 입력 시 자동연동</div>
+        </div>
+
+        <!-- 경유지 -->
+        <div class="fgroup">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="flabel" style="margin:0;">경유지</div>
+            <div onclick="window.toggleInvWaypoint()" id="inv-waypoint-toggle" style="padding:3px 9px;border-radius:7px;background:var(--s2);border:1px solid var(--b1);font-size:11px;cursor:pointer;color:var(--t2);">+ 추가</div>
+          </div>
+          <div id="inv-waypoint-form" style="display:none;margin-top:6px;">
+            <input class="finput" id="inv-waypoint" placeholder="경유지 주소">
+            <div style="margin-top:5px;padding:7px 10px;background:rgba(255,69,84,.06);border:1px solid rgba(255,69,84,.2);border-radius:8px;font-size:11px;color:var(--red);">
+              ⚠️ 경유지가 있는 경우 경유지별 별도 송장 작성 필요
+            </div>
+          </div>
+        </div>
+
+        <!-- AI 거리/운송비 표시 -->
+        <div id="inv-route-ai" style="display:none;background:rgba(0,232,188,.06);border:1px solid rgba(0,232,188,.2);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:11px;">
+          <div style="color:var(--a1);font-weight:700;margin-bottom:4px;">🤖 AI 경로 분석</div>
+          <div id="inv-route-ai-text" style="color:var(--t1);line-height:1.7;"></div>
         </div>
       </div>
 
-      <!-- 자차배송 입력 -->
+      <!-- 자차배송: 차량 정보 -->
       <div id="self-delivery-form" style="display:none;">
-        <div style="background:rgba(0,232,188,.04);border:1px solid rgba(0,232,188,.15);border-radius:12px;padding:12px;margin-bottom:12px;">
+        <div style="background:rgba(0,232,188,.04);border:1px solid rgba(0,232,188,.15);border-radius:12px;padding:12px;margin-bottom:10px;">
           <div style="font-size:11px;color:var(--a1);font-weight:700;margin-bottom:10px;">🚗 차량 정보</div>
           <div class="fgroup" style="margin-bottom:8px;">
             <div class="flabel">차량 종류 *</div>
-            <select class="finput" id="self-truck-type">
+            <select class="finput" id="self-truck-type" onchange="window.onSelfTruckChange()">
               <option value="">선택하세요</option>
               <option>용달(0.5톤)</option><option>1톤 트럭</option><option>1톤 냉장</option>
               <option>2.5톤 트럭</option><option>2.5톤 냉장</option>
@@ -279,28 +318,35 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
           </div>
           <div><div class="flabel">기사 연락처 *</div><input class="finput" id="self-driver-tel" placeholder="010-0000-0000" type="tel"></div>
         </div>
-        <div style="display:flex;gap:8px;">
-          <button class="btn btn-s" style="flex:.4;" onclick="window.invNextStep(2)">← 뒤로</button>
-          <button class="btn btn-p" style="flex:.6;" onclick="window.invNextStep(4)">다음 → 정산 확인</button>
-        </div>
       </div>
 
-      <!-- 배차요청 안내 -->
+      <!-- 배차요청: 차량 종류 선택 -->
       <div id="call-delivery-info" style="display:none;">
-        <div style="background:rgba(244,196,48,.04);border:1px solid rgba(244,196,48,.2);border-radius:12px;padding:12px;margin-bottom:12px;">
-          <div style="font-size:11px;color:var(--a4);font-weight:700;margin-bottom:6px;">🚛 화물콜 시스템 연동</div>
-          <div style="font-size:12px;color:var(--t2);line-height:1.7;">
-            다음 단계에서 화물콜 페이지로 이동해요.<br>
-            AI가 거리·중량 분석 후 운송비를 추천해드려요.
+        <div style="background:rgba(244,196,48,.04);border:1px solid rgba(244,196,48,.2);border-radius:12px;padding:12px;margin-bottom:10px;">
+          <div style="font-size:11px;color:var(--a4);font-weight:700;margin-bottom:8px;">🚛 필요 차량 선택</div>
+          <div class="fgroup" style="margin:0;">
+            <div class="flabel">차량 종류 *</div>
+            <select class="finput" id="call-truck-type-inv" onchange="window.onInvRouteChange()">
+              <option value="">AI 자동추천 또는 직접 선택</option>
+              <option value="용달">용달 (0.5톤)</option>
+              <option value="1톤">1톤 트럭</option>
+              <option value="1톤냉장">1톤 냉장</option>
+              <option value="2.5톤">2.5톤 트럭</option>
+              <option value="2.5톤냉장">2.5톤 냉장</option>
+              <option value="5톤">5톤 트럭</option>
+              <option value="5톤냉장">5톤 냉장</option>
+              <option value="5톤냉동">5톤 냉동</option>
+              <option value="11톤">11톤 트럭</option>
+            </select>
+            <div id="inv-ai-truck" style="display:none;margin-top:5px;font-size:11px;padding:5px 9px;background:rgba(244,196,48,.06);border:1px solid rgba(244,196,48,.2);border-radius:7px;"></div>
           </div>
         </div>
-        <div style="display:flex;gap:8px;">
-          <button class="btn btn-s" style="flex:.4;" onclick="window.invNextStep(2)">← 뒤로</button>
-          <button class="btn btn-p" style="flex:.6;background:linear-gradient(135deg,var(--a4),var(--org));" onclick="window.invNextStep(4)">다음 → 정산 확인</button>
-        </div>
       </div>
 
-      <div id="delivery-select-hint" style="text-align:center;padding:16px;color:var(--t2);font-size:12px;">배송 방식을 선택해주세요</div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button class="btn btn-s" style="flex:.4;" onclick="window.invNextStep(2)">← 뒤로</button>
+        <button class="btn btn-p" style="flex:.6;" onclick="window.invNextStep(4)">다음 → 정산 확인</button>
+      </div>
     </div>
 
     <!-- Step4: 정산 미리보기 -->
@@ -467,7 +513,7 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
 <script>
 // ══ Supabase ══
 const SUPABASE_URL = 'https://stqmgwwpuphqflwtekuy.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_E5FHlxYRRSgXWF_CYyBYTA_wTUZQt02';
+const SUPABASE_KEY = 'YOUR_PUBLISHABLE_KEY_HERE';
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -1120,11 +1166,17 @@ window.openInvoiceSheet = function(){
     const el=document.getElementById(id); if(el) el.value='';
   });
   const truckEl=document.getElementById('self-truck-type'); if(truckEl) truckEl.value='';
-  ['inv-total-box','ai-price-suggest','req-auction-detail','req-consign-detail','ai-buyer-suggest'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  document.getElementById('inv-total-box').style.display='none';
+  document.getElementById('ai-price-suggest').style.display='none';
+  document.getElementById('req-auction-detail').style.display='none';
+  document.getElementById('req-consign-detail').style.display='none';
+  document.getElementById('ai-buyer-suggest').style.display='none';
   document.querySelectorAll('.req-btn').forEach(b=>b.classList.remove('sel'));
-  ['self-delivery-form','call-delivery-info'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  ['self-delivery-form','call-delivery-info','delivery-address-form','inv-waypoint-form','inv-route-ai','inv-ai-truck'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
   const dsh=document.getElementById('delivery-select-hint');if(dsh)dsh.style.display='block';
   ['dmode-call','dmode-self'].forEach(id=>{const el=document.getElementById(id);if(el)el.className='delivery-btn';});
+  ['inv-origin-addr','inv-dest-addr','inv-waypoint'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  window._invFare=0; window._invTruck='';
   window.invNextStep(1);
   window.openSheet('sh-invoice');
   setTimeout(window.showAIBuyerSuggest, 400);
@@ -1302,7 +1354,7 @@ function renderProductList(){
 
       <!-- 소계 -->
       <div style="text-align:right;font-size:12px;color:var(--t2);">
-        소계: <strong id="p-sub-${p.id}" style="color:var(--a4);">₩${((p.price||0)*(p.qty||0)).toLocaleString()}</strong>
+        소계: <strong id="p-sub-\${p.id}" style="color:var(--a4);">₩\${((p.price||0)*(p.qty||0)).toLocaleString()}</strong>
       </div>
     </div>`).join('');
 }
@@ -1320,6 +1372,66 @@ window.selDelivery = function(type){
   document.getElementById('self-delivery-form').style.display=type==='self'?'block':'none';
   document.getElementById('call-delivery-info').style.display=type==='call'?'block':'none';
   document.getElementById('delivery-select-hint').style.display='none';
+  document.getElementById('delivery-address-form').style.display='block';
+  // 하차지 자동입력 (거래처 주소)
+  const destEl=document.getElementById('inv-dest-addr');
+  const buyerAddr=document.getElementById('inv-buyer-addr').value;
+  const buyerName=document.getElementById('inv-buyer-name').value;
+  if(destEl&&!destEl.value){ destEl.value=buyerAddr||buyerName; }
+  // AI 차량 추천 (배차요청)
+  if(type==='call') window.aiInvTruckRecommend();
+};
+
+window.aiInvTruckRecommend = function(){
+  const qty = products.reduce((s,p)=>s+p.qty,0);
+  const item = products.length>0?products[0].item:'';
+  const isColed = COLD_ITEMS.includes(item);
+  let rec='';
+  if(qty<=30) rec=isColed?'1톤냉장':'용달';
+  else if(qty<=80) rec=isColed?'1톤냉장':'1톤';
+  else if(qty<=150) rec=isColed?'2.5톤냉장':'2.5톤';
+  else if(qty<=300) rec=isColed?'5톤냉장':'5톤';
+  else rec='11톤';
+  const aiEl=document.getElementById('inv-ai-truck');
+  const selEl=document.getElementById('call-truck-type-inv');
+  if(aiEl){ aiEl.style.display='block'; aiEl.innerHTML='🤖 AI 추천: <strong style="color:var(--a4);">'+rec+'</strong> ('+qty+'박스 기준)'+(isColed?' · ❄️ 냉장 필요':''); }
+  if(selEl&&!selEl.value) selEl.value=rec;
+  window.onInvRouteChange();
+};
+
+window.onSelfTruckChange = function(){
+  window.onInvRouteChange();
+};
+
+window.onInvRouteChange = function(){
+  const origin=document.getElementById('inv-origin-addr').value.trim();
+  const dest=document.getElementById('inv-dest-addr').value.trim();
+  const truck=invDelivery==='self'
+    ?(document.getElementById('self-truck-type').value||'')
+    :(document.getElementById('call-truck-type-inv').value||'');
+  if(!origin||!dest) return;
+  const baseFee=TRUCK_FEES[truck.replace('냉장','').replace('냉동','')]||150000;
+  const coldExtra=(truck.includes('냉장')||truck.includes('냉동'))?50000:0;
+  const distExtra=origin.includes('경북')||origin.includes('경남')||origin.includes('전남')||origin.includes('전북')?80000:
+                  origin.includes('강원')||origin.includes('충청')||origin.includes('충남')||origin.includes('충북')?50000:20000;
+  const totalFare=baseFee+coldExtra+distExtra;
+  const box=document.getElementById('inv-route-ai');
+  const text=document.getElementById('inv-route-ai-text');
+  if(box&&text){
+    box.style.display='block';
+    text.innerHTML=`출발: ${origin}<br>도착: ${dest}<br>${truck?'차량: '+truck+'<br>':''}예상 운송비: <strong style="color:var(--a4);">₩${totalFare.toLocaleString()}</strong>`;
+    // 운송비 저장
+    window._invFare = totalFare;
+    window._invTruck = truck;
+  }
+};
+
+window.toggleInvWaypoint = function(){
+  const form=document.getElementById('inv-waypoint-form');
+  const btn=document.getElementById('inv-waypoint-toggle');
+  const isOpen=form.style.display!=='none';
+  form.style.display=isOpen?'none':'block';
+  if(btn) btn.textContent=isOpen?'+ 추가':'− 제거';
 };
 
 // ══ 기재사항 ══
@@ -1361,8 +1473,8 @@ window.renderSettlePreview = function(){
   const validProducts=products.filter(p=>p.item&&p.price&&p.qty);
   const total=validProducts.reduce((s,p)=>s+(p.price*p.qty),0);
   const qty=validProducts.reduce((s,p)=>s+p.qty,0);
-  const truck=invDelivery==='self'?(document.getElementById('self-truck-type').value||''):'';
-  const truckFee=TRUCK_FEES[truck]||0;
+  const truck=invDelivery==='self'?(document.getElementById('self-truck-type').value||''):(document.getElementById('call-truck-type-inv')?document.getElementById('call-truck-type-inv').value:'');
+  const truckFee=window._invFare||TRUCK_FEES[truck]||0;
   const unloadFee=qty*350;
   const commFee=Math.round(total*0.04);
   const platFee=Math.round(total*0.005);
@@ -1422,6 +1534,9 @@ window.submitInvoice = function(){
     total_amt:totalAmt,
     origin_type:mainProduct.origin,
     origin_detail:mainProduct.originDetail,
+    origin_addr:document.getElementById('inv-origin-addr').value,
+    dest_addr:document.getElementById('inv-dest-addr').value,
+    est_fare:window._invFare||0,
     req_auction:invReqs.auction,
     req_consign:invReqs.consign,
     min_price:invReqs.auction?(parseInt(document.getElementById('inv-min-price').value)||0):0,
