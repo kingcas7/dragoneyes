@@ -317,6 +317,11 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
             <div><div class="flabel">기사 이름 *</div><input class="finput" id="self-driver-name" placeholder="홍길동"></div>
           </div>
           <div><div class="flabel">기사 연락처 *</div><input class="finput" id="self-driver-tel" placeholder="010-0000-0000" type="tel"></div>
+          <div style="margin-top:8px;">
+            <div class="flabel">운송비 (선택입력)</div>
+            <input class="finput" id="self-transport-fee" type="number" placeholder="예: 150000 (없으면 비워두세요)" inputmode="decimal">
+            <div style="font-size:10px;color:var(--t2);margin-top:3px;">정산 시 차감항목에 반영됩니다</div>
+          </div>
         </div>
       </div>
 
@@ -366,7 +371,7 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
       </div>
       <div style="display:flex;gap:8px;">
         <button class="btn btn-s" style="flex:.4;" onclick="window.invNextStep(3)">← 뒤로</button>
-        <button class="btn btn-p" style="flex:.6;background:linear-gradient(135deg,var(--a1),var(--a2));" onclick="window.submitInvoice()">✅ 송장 준비 완료</button>
+        <button class="btn btn-p" id="btn-submit-inv" style="flex:.6;background:linear-gradient(135deg,var(--a1),var(--a2));" onclick="window.submitInvoice()">✅ 송장 준비 완료</button>
       </div>
     </div>
   </div>
@@ -902,7 +907,9 @@ window.openInvoiceDetail = function(id){
 
     <!-- 액션 버튼 -->
     <div style="display:flex;flex-direction:column;gap:8px;">
-      ${inv.status==='ready'&&!['call'].includes(inv.delivery_type)?`<button class="btn" style="background:var(--a2);color:#fff;" onclick="window.updateInvStatus('${inv.id}','transit')">🚛 배송 시작 (자차)</button>`:''}
+      \${inv.status==='ready'&&inv.delivery_type!=='call'?\`
+      <button class="btn" style="background:var(--a2);color:#fff;" onclick="window.updateInvStatus('\${inv.id}','transit')">🚛 배송 시작 확인</button>\`:''}      \${inv.status==='transit'&&['merchant_ind','wholesale'].includes(curRole)?\`
+      <button class="btn btn-p" onclick="window.updateInvStatus('\${inv.id}','confirmed')">✅ 배송 확인 (물건 도착)</button>\`:''}
       ${inv.status==='transit'&&['merchant_ind','wholesale'].includes(curRole)?`<button class="btn btn-p" onclick="window.updateInvStatus('${inv.id}','confirmed')">✅ 수령 확인 (배송완료)</button>`:''}
       ${inv.status==='confirmed'&&['merchant_ind','wholesale'].includes(curRole)?`<button class="btn" style="background:var(--a4);color:#080d18;" onclick="window.updateInvStatus('${inv.id}','reported')">📢 출하 신고</button>`:''}
       ${inv.status==='reported'&&['merchant_ind','wholesale'].includes(curRole)?`<button class="btn" style="background:var(--pur);color:#fff;" onclick="window.convertToEform('${inv.id}')">📄 전표 전환 ${inv.req_auction?'· 🔨 경매 등록':''}</button>`:''}
@@ -913,7 +920,7 @@ window.openInvoiceDetail = function(id){
 window.updateInvStatus = function(id, status){
   const inv=INVOICES.find(x=>x.id===id);
   if(inv){ inv.status=status; }
-  const msg={transit:'🚛 배송이 시작됐습니다!',confirmed:'✅ 수령 확인! 배송차량 임무 완료',reported:'📢 출하 신고 완료!'}[status]||'상태 업데이트';
+  const msg={transit:'🚛 배송이 시작됐습니다!',confirmed:'✅ 배송 확인 완료! 이제 출하신고를 해주세요 📢',reported:'📢 출하 신고 완료!'}[status]||'상태 업데이트';
   window.closeSheet('sh-invoice-detail');
   toast(msg);
   renderInvoicePage();
@@ -1470,11 +1477,23 @@ window.saveMemo = function(){
 
 // ══ 정산 미리보기 ══
 window.renderSettlePreview = function(){
+  // 배송방식에 따라 버튼 텍스트 변경
+  const btn = document.getElementById('btn-submit-inv');
+  if(btn){
+    if(invDelivery==='call'){
+      btn.innerHTML='🚛 차량부르기';
+      btn.style.background='linear-gradient(135deg,var(--a4),var(--org))';
+    } else {
+      btn.innerHTML='✅ 송장 준비 완료';
+      btn.style.background='linear-gradient(135deg,var(--a1),var(--a2))';
+    }
+  }
   const validProducts=products.filter(p=>p.item&&p.price&&p.qty);
   const total=validProducts.reduce((s,p)=>s+(p.price*p.qty),0);
   const qty=validProducts.reduce((s,p)=>s+p.qty,0);
   const truck=invDelivery==='self'?(document.getElementById('self-truck-type').value||''):(document.getElementById('call-truck-type-inv')?document.getElementById('call-truck-type-inv').value:'');
-  const truckFee=window._invFare||TRUCK_FEES[truck]||0;
+  const selfFee=parseInt((document.getElementById('self-transport-fee')||{}).value)||0;
+  const truckFee=invDelivery==='self'?(selfFee||TRUCK_FEES[truck]||0):(window._invFare||0);
   const unloadFee=qty*350;
   const commFee=Math.round(total*0.04);
   const platFee=Math.round(total*0.005);
@@ -1536,7 +1555,7 @@ window.submitInvoice = function(){
     origin_detail:mainProduct.originDetail,
     origin_addr:document.getElementById('inv-origin-addr').value,
     dest_addr:document.getElementById('inv-dest-addr').value,
-    est_fare:window._invFare||0,
+    est_fare:window._invFare||parseInt((document.getElementById('self-transport-fee')||{}).value)||0,
     req_auction:invReqs.auction,
     req_consign:invReqs.consign,
     min_price:invReqs.auction?(parseInt(document.getElementById('inv-min-price').value)||0):0,
@@ -1551,14 +1570,14 @@ window.submitInvoice = function(){
   INVOICES.unshift(inv);
   window.closeSheet('sh-invoice');
   if(invDelivery==='call'){
-    toast('📋 송장 저장됨! 배차 요청을 작성해주세요');
+    toast('🚛 차량부르기! 화물콜을 작성해주세요');
     setTimeout(()=>window.openCallSheet(id), 600);
   } else {
-    toast('📤 송장 발송 완료! '+buyerName+'에게 알림 발송됨');
+    toast('✅ 송장 준비 완료! '+buyerName+'에게 알림 발송됨 📬');
   }
   renderHome();
   renderInvoicePage();
-  db.from('invoices').insert({...inv,products:JSON.stringify(inv.products)}).catch(e=>console.log(e));
+  try{ db.from('invoices').insert({...inv,products:JSON.stringify(inv.products||[])}); }catch(e){ console.log('DB:', e); }
 };
 
 // ══ 내정보 ══
