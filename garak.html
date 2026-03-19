@@ -320,7 +320,7 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
       </div>
       <div style="display:flex;gap:8px;">
         <button class="btn btn-s" style="flex:.4;" onclick="window.invNextStep(3)">← 뒤로</button>
-        <button class="btn btn-p" style="flex:.6;background:linear-gradient(135deg,var(--a1),var(--a2));" onclick="window.submitInvoice()">📤 송장 발송!</button>
+        <button class="btn btn-p" style="flex:.6;background:linear-gradient(135deg,var(--a1),var(--a2));" onclick="window.submitInvoice()">✅ 송장 준비 완료</button>
       </div>
     </div>
   </div>
@@ -716,8 +716,8 @@ function renderHome(){
 }
 
 function renderInvoiceCardSmall(inv){
-  const statusColor={draft:'var(--t2)',sent:'var(--a2)',transit:'var(--org)',confirmed:'var(--a1)',reported:'var(--a4)',eform:'var(--pur)'}[inv.status]||'var(--t2)';
-  const statusText={draft:'작성중',sent:'발송됨',transit:'배송중',confirmed:'수령확인',reported:'출하신고',eform:'전표완료'}[inv.status]||inv.status;
+  const statusColor={draft:'var(--t2)',ready:'var(--a2)',transit:'var(--org)',confirmed:'var(--a1)',reported:'var(--a4)',eform:'var(--pur)'}[inv.status]||'var(--t2)';
+  const statusText={draft:'작성중',ready:'준비완료',transit:'배송중',confirmed:'수령확인',reported:'출하신고',eform:'전표완료'}[inv.status]||inv.status;
   return `<div onclick="window.openInvoiceDetail('${inv.id}')" style="padding:10px 0;border-bottom:1px solid var(--b2);cursor:pointer;">
     <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
       <span style="font-size:13px;font-weight:700;">${inv.item} ${inv.qty}박스</span>
@@ -742,8 +742,8 @@ function renderInvoicePage(){
 }
 
 function renderInvoiceCard(inv){
-  const statusColor={draft:'var(--t2)',sent:'var(--a2)',transit:'var(--org)',confirmed:'var(--a1)',reported:'var(--a4)',eform:'var(--pur)'}[inv.status]||'var(--t2)';
-  const statusText={draft:'작성중',sent:'발송됨',transit:'배송중',confirmed:'수령확인',reported:'출하신고',eform:'전표완료'}[inv.status]||inv.status;
+  const statusColor={draft:'var(--t2)',ready:'var(--a2)',transit:'var(--org)',confirmed:'var(--a1)',reported:'var(--a4)',eform:'var(--pur)'}[inv.status]||'var(--t2)';
+  const statusText={draft:'작성중',ready:'준비완료',transit:'배송중',confirmed:'수령확인',reported:'출하신고',eform:'전표완료'}[inv.status]||inv.status;
   const total=(inv.qty||0)*(inv.price||0);
   return `<div onclick="window.openInvoiceDetail('${inv.id}')" class="card" style="cursor:pointer;margin-bottom:8px;">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
@@ -785,7 +785,7 @@ window.openInvoiceDetail = function(id){
   const platFee=Math.round(total*0.005);
   const netAmt=total-truckFee-unloadFee-commFee-platFee;
   const statusText={draft:'작성중',sent:'발송됨',transit:'배송중',confirmed:'수령확인',reported:'출하신고',eform:'전표완료'};
-  const steps=['draft','sent','transit','confirmed','reported','eform'];
+  const steps=['draft','ready','transit','confirmed','reported','eform'];
   const curIdx=steps.indexOf(inv.status);
 
   document.getElementById('invoice-detail-body').innerHTML=`
@@ -821,7 +821,7 @@ window.openInvoiceDetail = function(id){
     <!-- 상태 타임라인 -->
     <div style="font-size:13px;font-weight:700;margin-bottom:10px;">📍 배송 현황</div>
     <div class="card" style="margin-bottom:12px;">
-      ${['작성됨','발송됨','배송중','수령확인','출하신고','전표완료'].map((s,i)=>`
+      ${['작성됨','준비완료','배송중','수령확인','출하신고','전표완료'].map((s,i)=>`
         <div style="display:flex;align-items:flex-start;gap:10px;${i<5?'margin-bottom:8px;':''}">
           <div style="width:20px;height:20px;border-radius:50%;flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:10px;
             background:${i<curIdx?'var(--a1)':i===curIdx?'var(--a4)':'var(--s3)'};
@@ -856,7 +856,7 @@ window.openInvoiceDetail = function(id){
 
     <!-- 액션 버튼 -->
     <div style="display:flex;flex-direction:column;gap:8px;">
-      ${inv.status==='sent'?`<button class="btn" style="background:var(--a2);color:#fff;" onclick="window.updateInvStatus('${inv.id}','transit')">🚛 배송 시작</button>`:''}
+      ${inv.status==='ready'&&!['call'].includes(inv.delivery_type)?`<button class="btn" style="background:var(--a2);color:#fff;" onclick="window.updateInvStatus('${inv.id}','transit')">🚛 배송 시작 (자차)</button>`:''}
       ${inv.status==='transit'&&['merchant_ind','wholesale'].includes(curRole)?`<button class="btn btn-p" onclick="window.updateInvStatus('${inv.id}','confirmed')">✅ 수령 확인 (배송완료)</button>`:''}
       ${inv.status==='confirmed'&&['merchant_ind','wholesale'].includes(curRole)?`<button class="btn" style="background:var(--a4);color:#080d18;" onclick="window.updateInvStatus('${inv.id}','reported')">📢 출하 신고</button>`:''}
       ${inv.status==='reported'&&['merchant_ind','wholesale'].includes(curRole)?`<button class="btn" style="background:var(--pur);color:#fff;" onclick="window.convertToEform('${inv.id}')">📄 전표 전환 ${inv.req_auction?'· 🔨 경매 등록':''}</button>`:''}
@@ -900,8 +900,8 @@ function renderCallPage(){
 }
 
 function renderCallCard(call, isTransport){
-  const statusColor={pending:'var(--a4)',accepted:'var(--a1)',loading:'var(--org)',done:'var(--t2)'}[call.status]||'var(--t2)';
-  const statusText={pending:'배차대기',accepted:'배차확정',loading:'상차중',done:'완료'}[call.status]||call.status;
+  const statusColor={pending:'var(--a4)',accepted:'var(--a1)',done:'var(--t2)'}[call.status]||'var(--t2)';
+  const statusText={pending:'배차대기',accepted:'배차확정',done:'완료'}[call.status]||call.status;
   return `<div class="card" style="margin-bottom:8px;">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
       <div>
@@ -930,9 +930,10 @@ function renderCallCard(call, isTransport){
       <button class="btn btn-p" style="flex:.6;" onclick="window.acceptCall('${call.id}')">✅ 수락</button>
     </div>`:''}
     ${isTransport&&call.status==='accepted'?`
-    <button class="btn btn-y" onclick="window.startLoading('${call.id}')">📦 상차 시작</button>`:''}
-    ${isTransport&&call.status==='loading'?`
-    <button class="btn btn-p" onclick="window.completeLoading('${call.id}')">🚛 상차 완료 · 송장 확인</button>`:''}
+    <div style="background:rgba(0,232,188,.06);border:1px solid rgba(0,232,188,.2);border-radius:10px;padding:10px;margin-bottom:8px;font-size:11px;color:var(--t2);">
+      📋 송장 내용을 확인하고 상차 완료 후 아래 버튼을 눌러주세요
+    </div>
+    <button class="btn btn-p" onclick="window.completeLoading('${call.id}')">📋 송장접수 완료</button>`:''}
   </div>`;
 }
 
@@ -948,23 +949,26 @@ window.rejectCall = function(id){
   toast('배차를 거절했습니다');
   renderCallPage();
 };
-window.startLoading = function(id){
-  const call=CALLS.find(x=>x.id===id);
-  if(call){ call.status='loading'; }
-  toast('📦 상차를 시작합니다');
-  renderCallPage();
-};
+
 window.completeLoading = function(id){
   const call=CALLS.find(x=>x.id===id);
   if(call){
     call.status='done';
-    // 연결된 송장 상태 업데이트
-    if(call.inv_id){
-      const inv=INVOICES.find(x=>x.id===call.inv_id);
-      if(inv){ inv.status='transit'; inv.truck_type=call.truck_type; inv.truck_num=call.truck_num||'확인필요'; inv.driver_name=call.driver_name||'기사'; inv.driver_tel=call.driver_tel||''; }
+    // 연결된 송장 상태 → 배송중 활성화
+    const linked = INVOICES.find(x=>x.id===call.inv_id || (x.buyer_name&&call.dest&&call.dest.includes(x.buyer_name)));
+    if(linked){
+      linked.status='transit';
+      linked.truck_type=call.truck_type||'';
+      linked.truck_num=call.truck_num||'';
+      linked.driver_name=call.driver_name||'';
+      linked.driver_tel=call.driver_tel||'';
+    } else {
+      // inv_id 없어도 준비완료 상태 송장 활성화
+      const readyInv = INVOICES.find(x=>x.status==='ready');
+      if(readyInv){ readyInv.status='transit'; }
     }
   }
-  toast('🚛 상차 완료! 송장이 확정됐습니다. 배송 추적 시작!');
+  toast('📋 송장접수 완료! 생산자·거래처에 출발 알림 발송됨 🚛');
   renderCallPage();
   renderHome();
 };
@@ -1116,12 +1120,17 @@ window.openInvoiceSheet = function(){
     const el=document.getElementById(id); if(el) el.value='';
   });
   const truckEl=document.getElementById('self-truck-type'); if(truckEl) truckEl.value='';
-  const tb=document.getElementById('inv-total-box'); if(tb) tb.style.display='none';
-  ['ai-price-suggest','req-auction-detail','req-consign-detail','ai-buyer-suggest'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='none'; });
+  document.getElementById('inv-total-box').style.display='none';
+  document.getElementById('ai-price-suggest').style.display='none';
+  document.getElementById('req-auction-detail').style.display='none';
+  document.getElementById('req-consign-detail').style.display='none';
+  document.getElementById('ai-buyer-suggest').style.display='none';
   document.querySelectorAll('.req-btn').forEach(b=>b.classList.remove('sel'));
-  ['self-delivery-form','call-delivery-info'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='none'; });
-  const dsh=document.getElementById('delivery-select-hint'); if(dsh) dsh.style.display='block';
-  ['dmode-call','dmode-self'].forEach(id=>{ const el=document.getElementById(id); if(el) el.className='delivery-btn'; });
+  document.getElementById('self-delivery-form').style.display='none';
+  document.getElementById('call-delivery-info').style.display='none';
+  document.getElementById('delivery-select-hint').style.display='block';
+  document.getElementById('dmode-call').className='delivery-btn';
+  document.getElementById('dmode-self').className='delivery-btn';
   window.invNextStep(1);
   window.openSheet('sh-invoice');
   setTimeout(window.showAIBuyerSuggest, 400);
@@ -1210,6 +1219,9 @@ window.onProductChange = function(id, field, value){
     if(iBtn){ iBtn.className='origin-btn'+(value==='import'?' sel':''); }
   }
   calcTotalAll();
+  // 해당 상품 소계 즉시 업데이트
+  const subEl = document.getElementById('p-sub-'+id);
+  if(subEl){ const pp=products.find(x=>x.id===id); if(pp) subEl.textContent='₩'+((pp.price||0)*(pp.qty||0)).toLocaleString(); }
 };
 
 function showAIPriceHint(id, item){
@@ -1296,7 +1308,7 @@ function renderProductList(){
 
       <!-- 소계 -->
       <div style="text-align:right;font-size:12px;color:var(--t2);">
-        소계: <strong style="color:var(--a4);">₩${((p.price||0)*(p.qty||0)).toLocaleString()}</strong>
+        소계: <strong id="p-sub-\${p.id}" style="color:var(--a4);">₩\${((p.price||0)*(p.qty||0)).toLocaleString()}</strong>
       </div>
     </div>`).join('');
 }
