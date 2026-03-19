@@ -278,18 +278,13 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
           <div style="font-size:10px;color:var(--t2);margin-top:3px;">거래처 주소 입력 시 자동연동</div>
         </div>
 
-        <!-- 경유지 -->
+        <!-- 경유지 (복수 추가 가능) -->
         <div class="fgroup">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <div class="flabel" style="margin:0;">경유지</div>
-            <div onclick="window.toggleInvWaypoint()" id="inv-waypoint-toggle" style="padding:3px 9px;border-radius:7px;background:var(--s2);border:1px solid var(--b1);font-size:11px;cursor:pointer;color:var(--t2);">+ 추가</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+            <div class="flabel" style="margin:0;">경유지 <span style="font-size:10px;color:var(--t2);">(여러 곳 추가 가능)</span></div>
+            <div onclick="window.addWaypoint()" style="padding:4px 10px;border-radius:7px;background:rgba(0,232,188,.08);border:1px solid rgba(0,232,188,.3);font-size:11px;cursor:pointer;color:var(--a1);font-weight:700;">+ 경유지 추가</div>
           </div>
-          <div id="inv-waypoint-form" style="display:none;margin-top:6px;">
-            <input class="finput" id="inv-waypoint" placeholder="경유지 주소">
-            <div style="margin-top:5px;padding:7px 10px;background:rgba(255,69,84,.06);border:1px solid rgba(255,69,84,.2);border-radius:8px;font-size:11px;color:var(--red);">
-              ⚠️ 경유지가 있는 경우 경유지별 별도 송장 작성 필요
-            </div>
-          </div>
+          <div id="inv-waypoints-list"></div>
         </div>
 
         <!-- AI 거리/운송비 표시 -->
@@ -1173,13 +1168,19 @@ window.openInvoiceSheet = function(){
     const el=document.getElementById(id); if(el) el.value='';
   });
   const truckEl=document.getElementById('self-truck-type'); if(truckEl) truckEl.value='';
-  ['inv-total-box','ai-price-suggest','req-auction-detail','req-consign-detail','ai-buyer-suggest'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  document.getElementById('inv-total-box').style.display='none';
+  document.getElementById('ai-price-suggest').style.display='none';
+  document.getElementById('req-auction-detail').style.display='none';
+  document.getElementById('req-consign-detail').style.display='none';
+  document.getElementById('ai-buyer-suggest').style.display='none';
   document.querySelectorAll('.req-btn').forEach(b=>b.classList.remove('sel'));
   ['self-delivery-form','call-delivery-info','delivery-address-form','inv-waypoint-form','inv-route-ai','inv-ai-truck'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
   const dsh=document.getElementById('delivery-select-hint');if(dsh)dsh.style.display='block';
   ['dmode-call','dmode-self'].forEach(id=>{const el=document.getElementById(id);if(el)el.className='delivery-btn';});
   ['inv-origin-addr','inv-dest-addr','inv-waypoint'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   window._invFare=0; window._invTruck='';
+  waypoints=[]; waypointIdCounter=0;
+  const wpl=document.getElementById('inv-waypoints-list'); if(wpl) wpl.innerHTML='';
   window.invNextStep(1);
   window.openSheet('sh-invoice');
   setTimeout(window.showAIBuyerSuggest, 400);
@@ -1285,7 +1286,8 @@ function showAIPriceHint(id, item){
 }
 
 function calcTotalAll(){
-  const total = products.reduce((s,p)=>s+(p.price*p.qty),0);
+  const wpTotal = waypoints.reduce((ws,w)=>ws+w.wpProducts.reduce((s,p)=>s+(p.price*p.qty),0),0);
+  const total = products.reduce((s,p)=>s+(p.price*p.qty),0) + wpTotal;
   document.getElementById('inv-total-amt').textContent='₩'+total.toLocaleString();
   const details = products.filter(p=>p.item&&p.qty&&p.price)
     .map(p=>`${p.item} ${p.qty}${p.unit} × ₩${p.price.toLocaleString()} = ₩${(p.price*p.qty).toLocaleString()}`);
@@ -1357,7 +1359,7 @@ function renderProductList(){
 
       <!-- 소계 -->
       <div style="text-align:right;font-size:12px;color:var(--t2);">
-        소계: <strong id="p-sub-\${p.id}" style="color:var(--a4);">₩\${((p.price||0)*(p.qty||0)).toLocaleString()}</strong>
+        소계: <strong id="p-sub-${p.id}" style="color:var(--a4);">₩${((p.price||0)*(p.qty||0)).toLocaleString()}</strong>
       </div>
     </div>`).join('');
 }
@@ -1429,13 +1431,109 @@ window.onInvRouteChange = function(){
   }
 };
 
-window.toggleInvWaypoint = function(){
-  const form=document.getElementById('inv-waypoint-form');
-  const btn=document.getElementById('inv-waypoint-toggle');
-  const isOpen=form.style.display!=='none';
-  form.style.display=isOpen?'none':'block';
-  if(btn) btn.textContent=isOpen?'+ 추가':'− 제거';
+// ══ 경유지 시스템 ══
+let waypoints = []; // [{id, addr, products:[]}]
+let waypointIdCounter = 0;
+
+window.addWaypoint = function(){
+  const id = ++waypointIdCounter;
+  waypoints.push({id, addr:'', wpProducts:[]});
+  renderWaypoints();
 };
+
+window.removeWaypoint = function(id){
+  waypoints = waypoints.filter(w=>w.id!==id);
+  renderWaypoints();
+};
+
+window.onWaypointAddrChange = function(id, val){
+  const w = waypoints.find(x=>x.id===id);
+  if(w) w.addr = val;
+};
+
+window.addWaypointProduct = function(wid){
+  const w = waypoints.find(x=>x.id===wid);
+  if(!w) return;
+  const pid = wid*100 + (w.wpProducts.length+1);
+  w.wpProducts.push({id:pid, item:'', unit:'박스', price:0, qty:0, origin:'domestic', originDetail:''});
+  renderWaypoints();
+};
+
+window.onWaypointProductChange = function(wid, pid, field, value){
+  const w = waypoints.find(x=>x.id===wid);
+  if(!w) return;
+  const p = w.wpProducts.find(x=>x.id===pid);
+  if(!p) return;
+  p[field] = field==='price'||field==='qty'?(parseInt(value)||0):value;
+  if(field==='item' && AI_PRICES[value] && !p.price){
+    p.price = AI_PRICES[value];
+    const el = document.getElementById('wp-price-'+pid);
+    if(el) el.value = p.price;
+  }
+  calcTotalAll();
+  renderWaypoints();
+};
+
+function renderWaypoints(){
+  const el = document.getElementById('inv-waypoints-list');
+  if(!el) return;
+  if(!waypoints.length){ el.innerHTML=''; return; }
+  el.innerHTML = waypoints.map((w,idx)=>`
+    <div style="background:rgba(255,165,2,.04);border:1px solid rgba(255,165,2,.2);border-radius:12px;padding:10px 12px;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-size:11px;font-weight:700;color:var(--org);">📍 경유지 ${idx+1}</span>
+        <button onclick="window.removeWaypoint(${w.id})" style="color:var(--red);font-size:16px;">✕</button>
+      </div>
+      <input class="finput" placeholder="경유지 주소 입력" value="${w.addr||''}"
+        oninput="window.onWaypointAddrChange(${w.id},this.value)"
+        style="margin-bottom:8px;font-size:12px;padding:8px 10px;">
+      
+      <!-- 경유지 상품 -->
+      <div style="font-size:10px;color:var(--t2);margin-bottom:6px;">📦 이 경유지에서 추가 상차할 상품</div>
+      ${w.wpProducts.map(p=>`
+        <div style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:8px;margin-bottom:6px;">
+          <div style="display:flex;gap:6px;margin-bottom:5px;">
+            <div onclick="window.onWaypointProductChange(${w.id},${p.id},'origin','domestic')" 
+              style="flex:1;padding:5px;border-radius:7px;text-align:center;font-size:10px;font-weight:700;cursor:pointer;
+              border:1px solid ${p.origin==='domestic'?'var(--a1)':'var(--b1)'};
+              background:${p.origin==='domestic'?'rgba(0,232,188,.08)':'var(--s3)'};
+              color:${p.origin==='domestic'?'var(--a1)':'var(--t2)'};">🇰🇷 국내산</div>
+            <div onclick="window.onWaypointProductChange(${w.id},${p.id},'origin','import')"
+              style="flex:1;padding:5px;border-radius:7px;text-align:center;font-size:10px;font-weight:700;cursor:pointer;
+              border:1px solid ${p.origin==='import'?'var(--a1)':'var(--b1)'};
+              background:${p.origin==='import'?'rgba(0,232,188,.08)':'var(--s3)'};
+              color:${p.origin==='import'?'var(--a1)':'var(--t2)'};">✈️ 수입산</div>
+          </div>
+          <input class="finput" placeholder="${p.origin==='domestic'?'산지 (예: 경북 안동)':'원산지 국가'}" value="${p.originDetail||''}"
+            oninput="window.onWaypointProductChange(${w.id},${p.id},'originDetail',this.value)"
+            style="margin-bottom:5px;font-size:11px;padding:6px 8px;">
+          <select class="finput" onchange="window.onWaypointProductChange(${w.id},${p.id},'item',this.value)"
+            style="margin-bottom:5px;font-size:11px;padding:6px 8px;">
+            <option value="">상품명 선택</option>
+            ${ITEMS_LIST.map(i=>`<option${p.item===i?' selected':''}>${i}</option>`).join('')}
+          </select>
+          <div style="display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:4px;">
+            <select class="finput" onchange="window.onWaypointProductChange(${w.id},${p.id},'unit',this.value)"
+              style="font-size:11px;padding:6px 4px;">
+              ${UNITS_LIST.map(u=>`<option${p.unit===u?' selected':''}>${u}</option>`).join('')}
+            </select>
+            <input id="wp-price-${p.id}" class="finput" type="number" placeholder="단가" value="${p.price||''}"
+              oninput="window.onWaypointProductChange(${w.id},${p.id},'price',this.value)"
+              style="font-size:11px;padding:6px 8px;" inputmode="decimal">
+            <input class="finput" type="number" placeholder="수량" value="${p.qty||''}"
+              oninput="window.onWaypointProductChange(${w.id},${p.id},'qty',this.value)"
+              style="font-size:11px;padding:6px 8px;" inputmode="decimal">
+          </div>
+          <div style="text-align:right;font-size:11px;color:var(--t2);margin-top:4px;">
+            소계: <strong style="color:var(--a4);">₩${((p.price||0)*(p.qty||0)).toLocaleString()}</strong>
+          </div>
+        </div>`).join('')}
+      <button onclick="window.addWaypointProduct(${w.id})" 
+        style="width:100%;padding:7px;border-radius:8px;border:1px dashed var(--org);background:transparent;color:var(--org);font-size:11px;cursor:pointer;margin-top:2px;">
+        + 상품 추가
+      </button>
+    </div>`).join('');
+}
 
 // ══ 기재사항 ══
 window.openMemo = function(){
@@ -1543,6 +1641,7 @@ window.submitInvoice = function(){
     buyer_tel:document.getElementById('inv-buyer-tel').value,
     buyer_addr:document.getElementById('inv-buyer-addr').value,
     products:validProducts,
+    waypoints:waypoints.filter(w=>w.addr),
     item:validProducts.map(p=>p.item).join(', '),
     qty:validProducts.reduce((s,p)=>s+p.qty,0),
     price:Math.round(totalAmt/(validProducts.reduce((s,p)=>s+p.qty,0)||1)),
