@@ -1173,7 +1173,7 @@ window.openInvoiceSheet = function(){
     const el=document.getElementById(id); if(el) el.value='';
   });
   const truckEl=document.getElementById('self-truck-type'); if(truckEl) truckEl.value='';
-  document.getElementById('inv-total-box').style.display='none';
+  const tbx=document.getElementById('inv-total-box'); if(tbx) tbx.style.display='block';
   document.getElementById('ai-price-suggest').style.display='none';
   document.getElementById('req-auction-detail').style.display='none';
   document.getElementById('req-consign-detail').style.display='none';
