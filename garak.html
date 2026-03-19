@@ -1120,11 +1120,7 @@ window.openInvoiceSheet = function(){
     const el=document.getElementById(id); if(el) el.value='';
   });
   const truckEl=document.getElementById('self-truck-type'); if(truckEl) truckEl.value='';
-  document.getElementById('inv-total-box').style.display='none';
-  document.getElementById('ai-price-suggest').style.display='none';
-  document.getElementById('req-auction-detail').style.display='none';
-  document.getElementById('req-consign-detail').style.display='none';
-  document.getElementById('ai-buyer-suggest').style.display='none';
+  ['inv-total-box','ai-price-suggest','req-auction-detail','req-consign-detail','ai-buyer-suggest'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
   document.querySelectorAll('.req-btn').forEach(b=>b.classList.remove('sel'));
   document.getElementById('self-delivery-form').style.display='none';
   document.getElementById('call-delivery-info').style.display='none';
