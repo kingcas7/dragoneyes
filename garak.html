@@ -202,37 +202,25 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
     <!-- Step2: 상품 -->
     <div id="inv-step2" style="display:none;">
       <div style="font-size:13px;font-weight:700;color:var(--a1);margin-bottom:12px;">📦 Step 2 · 상품 정보</div>
-      <div class="fgroup">
-        <div class="flabel">원산지 *</div>
-        <div style="display:flex;gap:8px;margin-bottom:8px;">
-          <div class="origin-btn sel" id="origin-domestic" onclick="window.selOrigin('domestic')">🇰🇷 국내산</div>
-          <div class="origin-btn" id="origin-import" onclick="window.selOrigin('import')">✈️ 수입산</div>
-        </div>
-        <div id="origin-domestic-detail"><input class="finput" id="inv-origin-region" placeholder="예: 경북 의성군"></div>
-        <div id="origin-import-detail" style="display:none;"><input class="finput" id="inv-origin-country" placeholder="원산지 국가: 미국, 칠레, 중국..."></div>
-      </div>
-      <div class="fgroup">
-        <div class="flabel">상품명 *</div>
-        <select class="finput" id="inv-item" onchange="window.onItemChange()">
-          <option value="">선택하세요</option>
-          <option>사과</option><option>배</option><option>감자</option><option>배추</option>
-          <option>마늘</option><option>양파</option><option>딸기</option><option>토마토</option>
-          <option>고추</option><option>포도</option><option>복숭아</option><option>수박</option>
-          <option>참외</option><option>무</option><option>당근</option><option>오이</option>
-        </select>
-        <div id="ai-price-suggest" style="display:none;margin-top:6px;padding:8px 10px;background:rgba(244,196,48,.06);border:1px solid rgba(244,196,48,.2);border-radius:8px;font-size:11px;"></div>
-      </div>
-      <div class="frow">
-        <div class="fgroup" style="margin:0;"><div class="flabel">단가 (원/박스) *</div><input class="finput" id="inv-price" type="number" placeholder="32000" inputmode="decimal" oninput="window.calcTotal()"></div>
-        <div class="fgroup" style="margin:0;"><div class="flabel">수량 (박스) *</div><input class="finput" id="inv-qty" type="number" placeholder="100" inputmode="decimal" oninput="window.calcTotal()"></div>
-      </div>
-      <div id="inv-total-box" style="display:none;padding:12px 14px;background:rgba(0,232,188,.06);border:1.5px solid rgba(0,232,188,.3);border-radius:12px;margin-bottom:12px;">
+
+      <!-- 상품 목록 -->
+      <div id="product-list"></div>
+
+      <!-- 상품 추가 버튼 -->
+      <button onclick="window.addProduct()" style="width:100%;padding:10px;border-radius:10px;border:1.5px dashed var(--a1);background:rgba(0,232,188,.04);color:var(--a1);font-size:13px;font-weight:700;margin-bottom:12px;cursor:pointer;">
+        + 상품 추가
+      </button>
+
+      <!-- 총 물품대금 -->
+      <div id="inv-total-box" style="padding:12px 14px;background:rgba(0,232,188,.06);border:1.5px solid rgba(0,232,188,.3);border-radius:12px;margin-bottom:12px;">
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <span style="font-size:12px;color:var(--t2);">총 물품대금</span>
-          <span id="inv-total-amt" style="font-size:20px;font-weight:900;color:var(--a1);">₩0</span>
+          <span id="inv-total-amt" style="font-size:22px;font-weight:900;color:var(--a1);">₩0</span>
         </div>
-        <div id="inv-total-detail" style="font-size:10px;color:var(--t2);margin-top:3px;"></div>
+        <div id="inv-total-detail" style="font-size:10px;color:var(--t2);margin-top:4px;line-height:1.7;"></div>
       </div>
+
+      <!-- 출하 요청사항 -->
       <div class="fgroup">
         <div class="flabel">출하 요청사항 (복수 선택 가능)</div>
         <div style="display:flex;gap:8px;">
@@ -811,7 +799,7 @@ window.openInvoiceDetail = function(id){
       ${[
         ['수취인',inv.buyer_name],['연락처',inv.buyer_tel||'-'],['배송지',inv.buyer_addr||'-'],
         ['원산지',inv.origin_type==='import'?'✈️ 수입산('+inv.origin_detail+')':'🇰🇷 국내산('+inv.origin_detail+')'],
-        ['단가','₩'+inv.price.toLocaleString()+'/박스'],['수량',inv.qty+'박스'],
+        ['총수량',inv.qty+'개(합계)'],['총물품대금직접','₩'+(inv.total_amt||((inv.qty||0)*(inv.price||0))).toLocaleString()],
         ['총물품대금','₩'+total.toLocaleString()],
         ['배송방식',inv.delivery_type==='call'?'🚛 배차요청':'🚗 자차배송'],
         ...(inv.truck_num?[['차량',inv.truck_type+' '+inv.truck_num],['기사',inv.driver_name+' '+inv.driver_tel]]:[]),
@@ -1118,16 +1106,15 @@ window.submitCall = function(){
 // ══ 송장 시트 ══
 window.openInvoiceSheet = function(){
   invReqs={auction:false,consign:false};
-  invOrigin='domestic';
   invDelivery='';
   invMemo={};
+  products=[]; productIdCounter=0;
+  window.addProduct(); // 기본 1개 상품 추가
   ['inv-buyer-name','inv-buyer-contact','inv-buyer-tel','inv-buyer-addr',
-   'inv-origin-region','inv-origin-country','inv-price','inv-qty',
    'inv-min-price','inv-consign-rate',
    'self-truck-num','self-driver-name','self-driver-tel'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.value='';
   });
-  const itemEl=document.getElementById('inv-item'); if(itemEl) itemEl.value='';
   const truckEl=document.getElementById('self-truck-type'); if(truckEl) truckEl.value='';
   document.getElementById('inv-total-box').style.display='none';
   document.getElementById('ai-price-suggest').style.display='none';
@@ -1170,6 +1157,7 @@ window.invNextStep = function(step){
   [1,2,3,4].forEach(i=>{
     document.getElementById('inv-step'+i).style.display=i===step?'block':'none';
   });
+  if(step===2 && products.length===0){ window.addProduct(); }
   [1,2,3,4].forEach(i=>{
     const dot=document.getElementById('sd'+i);
     const line=document.getElementById('sl'+i);
@@ -1179,43 +1167,144 @@ window.invNextStep = function(step){
   if(step===4) window.renderSettlePreview();
 };
 
-window.selOrigin = function(type){
-  invOrigin=type;
-  document.getElementById('origin-domestic').className='origin-btn'+(type==='domestic'?' sel':'');
-  document.getElementById('origin-import').className='origin-btn'+(type==='import'?' sel':'');
-  document.getElementById('origin-domestic-detail').style.display=type==='domestic'?'block':'none';
-  document.getElementById('origin-import-detail').style.display=type==='import'?'block':'none';
+// ══ 다중 상품 관리 ══
+let products = []; // [{id, origin, originDetail, item, unit, price, qty}]
+let productIdCounter = 0;
+
+const ITEMS_LIST = ['사과','배','감자','배추','마늘','양파','딸기','토마토','고추','포도','복숭아','수박','참외','무','당근','오이','파','호박','버섯','깻잎','상추','시금치','미나리','도라지','더덕','기타'];
+const UNITS_LIST = ['박스','kg','단','망','개','묶음','포대','팩','트레이'];
+
+window.addProduct = function(){
+  const id = ++productIdCounter;
+  products.push({id, origin:'domestic', originDetail:'', item:'', unit:'박스', price:0, qty:0});
+  renderProductList();
 };
 
-window.onItemChange = function(){
-  const item=document.getElementById('inv-item').value;
-  const box=document.getElementById('ai-price-suggest');
-  if(!item||!box) return;
-  const price=AI_PRICES[item];
-  const isColed=COLD_ITEMS.includes(item);
+window.removeProduct = function(id){
+  if(products.length<=1){ toast('최소 1개 상품이 필요합니다'); return; }
+  products = products.filter(p=>p.id!==id);
+  renderProductList();
+  calcTotalAll();
+};
+
+window.onProductChange = function(id, field, value){
+  const p = products.find(x=>x.id===id);
+  if(!p) return;
+  p[field] = field==='price'||field==='qty' ? (parseInt(value)||0) : value;
+  // AI 시세 자동입력
+  if(field==='item' && value && AI_PRICES[value] && !p.price){
+    p.price = AI_PRICES[value];
+    const priceEl = document.getElementById('p-price-'+id);
+    if(priceEl) priceEl.value = p.price;
+    // 단위 자동추천
+    if(!p.unit||p.unit==='박스'){
+      const unitEl = document.getElementById('p-unit-'+id);
+      if(unitEl) unitEl.value='박스';
+      p.unit='박스';
+    }
+    showAIPriceHint(id, value);
+  }
+  if(field==='origin'){
+    const domesticEl=document.getElementById('p-origin-d-'+id);
+    const importEl=document.getElementById('p-origin-i-'+id);
+    const dBtn=document.getElementById('p-btn-d-'+id);
+    const iBtn=document.getElementById('p-btn-i-'+id);
+    if(domesticEl) domesticEl.style.display=value==='domestic'?'block':'none';
+    if(importEl)   importEl.style.display=value==='import'?'block':'none';
+    if(dBtn){ dBtn.className='origin-btn'+(value==='domestic'?' sel':''); }
+    if(iBtn){ iBtn.className='origin-btn'+(value==='import'?' sel':''); }
+  }
+  calcTotalAll();
+};
+
+function showAIPriceHint(id, item){
+  const hint = document.getElementById('p-ai-'+id);
+  if(!hint) return;
+  const price = AI_PRICES[item];
+  const isCold = COLD_ITEMS.includes(item);
   if(price){
-    box.style.display='block';
-    box.innerHTML=`🤖 오늘 시세: <strong style="color:var(--a4);">₩${price.toLocaleString()}/박스</strong>${isColed?' · ❄️ 냉장차량 권장':''}`;
-    const priceEl=document.getElementById('inv-price');
-    if(priceEl&&!priceEl.value) priceEl.value=price;
-    window.calcTotal();
+    hint.style.display='block';
+    hint.innerHTML=`🤖 오늘 시세: <strong style="color:var(--a4);">₩${price.toLocaleString()}</strong>${isCold?' · ❄️ 냉장 권장':''}`;
   }
-};
+}
 
-window.calcTotal = function(){
-  const price=parseInt(document.getElementById('inv-price').value)||0;
-  const qty=parseInt(document.getElementById('inv-qty').value)||0;
-  const total=price*qty;
-  const box=document.getElementById('inv-total-box');
-  if(price&&qty&&box){
-    box.style.display='block';
-    document.getElementById('inv-total-amt').textContent='₩'+total.toLocaleString();
-    document.getElementById('inv-total-detail').textContent=`₩${price.toLocaleString()} × ${qty}박스`;
-    const item=document.getElementById('inv-item').value;
-    const hint=document.getElementById('ai-min-price-suggest');
-    if(hint&&item){ hint.textContent=`🤖 AI 추천 최저가: ₩${Math.round((AI_PRICES[item]||price)*0.85).toLocaleString()} (시세 85%)`; }
+function calcTotalAll(){
+  const total = products.reduce((s,p)=>s+(p.price*p.qty),0);
+  document.getElementById('inv-total-amt').textContent='₩'+total.toLocaleString();
+  const details = products.filter(p=>p.item&&p.qty&&p.price)
+    .map(p=>`${p.item} ${p.qty}${p.unit} × ₩${p.price.toLocaleString()} = ₩${(p.price*p.qty).toLocaleString()}`);
+  document.getElementById('inv-total-detail').textContent = details.join('\n');
+  // AI 최저가 힌트
+  const hint=document.getElementById('ai-min-price-suggest');
+  if(hint&&products.length>0&&products[0].item){
+    const recMin=Math.round((AI_PRICES[products[0].item]||products[0].price||0)*0.85);
+    if(recMin) hint.textContent=`🤖 AI 추천 최저가: ₩${recMin.toLocaleString()} (시세 85%)`;
   }
-};
+}
+
+window.calcTotal = calcTotalAll; // 하위호환
+
+function renderProductList(){
+  const el = document.getElementById('product-list');
+  if(!el) return;
+  el.innerHTML = products.map((p,idx)=>`
+    <div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:10px 12px;margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-size:11px;font-weight:700;color:var(--a2);">📦 상품 ${idx+1}</span>
+        ${products.length>1?`<button onclick="window.removeProduct(${p.id})" style="color:var(--red);font-size:18px;padding:0 4px;">🗑</button>`:''}
+      </div>
+
+      <!-- 원산지 -->
+      <div style="margin-bottom:8px;">
+        <div class="flabel">원산지 *</div>
+        <div style="display:flex;gap:6px;margin-bottom:6px;">
+          <div id="p-btn-d-${p.id}" class="origin-btn${p.origin==='domestic'?' sel':''}" onclick="window.onProductChange(${p.id},'origin','domestic')" style="padding:7px;">🇰🇷 국내산</div>
+          <div id="p-btn-i-${p.id}" class="origin-btn${p.origin==='import'?' sel':''}" onclick="window.onProductChange(${p.id},'origin','import')" style="padding:7px;">✈️ 수입산</div>
+        </div>
+        <div id="p-origin-d-${p.id}" style="display:${p.origin==='domestic'?'block':'none'};">
+          <input class="finput" id="p-region-${p.id}" placeholder="예: 경북 의성, 전남 나주" value="${p.originDetail||''}" oninput="window.onProductChange(${p.id},'originDetail',this.value)" style="font-size:12px;padding:8px 10px;">
+        </div>
+        <div id="p-origin-i-${p.id}" style="display:${p.origin==='import'?'block':'none'};">
+          <input class="finput" id="p-country-${p.id}" placeholder="예: 미국, 칠레, 중국" value="${p.originDetail||''}" oninput="window.onProductChange(${p.id},'originDetail',this.value)" style="font-size:12px;padding:8px 10px;">
+        </div>
+      </div>
+
+      <!-- 상품명 -->
+      <div style="margin-bottom:8px;">
+        <div class="flabel">상품명 *</div>
+        <select class="finput" id="p-item-${p.id}" onchange="window.onProductChange(${p.id},'item',this.value)" style="font-size:12px;padding:8px 10px;">
+          <option value="">선택하세요</option>
+          ${ITEMS_LIST.map(i=>`<option${p.item===i?' selected':''}>${i}</option>`).join('')}
+        </select>
+        <div id="p-ai-${p.id}" style="display:${p.item&&AI_PRICES[p.item]?'block':'none'};margin-top:5px;padding:6px 9px;background:rgba(244,196,48,.06);border:1px solid rgba(244,196,48,.2);border-radius:7px;font-size:11px;">
+          ${p.item&&AI_PRICES[p.item]?`🤖 오늘 시세: <strong style="color:var(--a4);">₩${AI_PRICES[p.item].toLocaleString()}</strong>`:''}
+        </div>
+      </div>
+
+      <!-- 단위/단가/수량 -->
+      <div style="display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:6px;margin-bottom:6px;">
+        <div>
+          <div class="flabel">단위 *</div>
+          <select class="finput" id="p-unit-${p.id}" onchange="window.onProductChange(${p.id},'unit',this.value)" style="font-size:12px;padding:8px 6px;">
+            ${UNITS_LIST.map(u=>`<option${p.unit===u?' selected':''}>${u}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <div class="flabel">단가 (원) *</div>
+          <input class="finput" id="p-price-${p.id}" type="number" value="${p.price||''}" placeholder="32000" inputmode="decimal" oninput="window.onProductChange(${p.id},'price',this.value)" style="font-size:12px;padding:8px 10px;">
+        </div>
+        <div>
+          <div class="flabel">수량 *</div>
+          <input class="finput" id="p-qty-${p.id}" type="number" value="${p.qty||''}" placeholder="100" inputmode="decimal" oninput="window.onProductChange(${p.id},'qty',this.value)" style="font-size:12px;padding:8px 10px;">
+        </div>
+      </div>
+
+      <!-- 소계 -->
+      <div style="text-align:right;font-size:12px;color:var(--t2);">
+        소계: <strong style="color:var(--a4);">₩${((p.price||0)*(p.qty||0)).toLocaleString()}</strong>
+      </div>
+    </div>`).join('');
+}
 
 window.toggleReq = function(type){
   invReqs[type]=!invReqs[type];
@@ -1268,9 +1357,9 @@ window.saveMemo = function(){
 
 // ══ 정산 미리보기 ══
 window.renderSettlePreview = function(){
-  const price=parseInt(document.getElementById('inv-price').value)||0;
-  const qty=parseInt(document.getElementById('inv-qty').value)||0;
-  const total=price*qty;
+  const validProducts=products.filter(p=>p.item&&p.price&&p.qty);
+  const total=validProducts.reduce((s,p)=>s+(p.price*p.qty),0);
+  const qty=validProducts.reduce((s,p)=>s+p.qty,0);
   const truck=invDelivery==='self'?(document.getElementById('self-truck-type').value||''):'';
   const truckFee=TRUCK_FEES[truck]||0;
   const unloadFee=qty*350;
@@ -1303,11 +1392,9 @@ window.renderSettlePreview = function(){
 // ══ 송장 발송 ══
 window.submitInvoice = function(){
   const buyerName=document.getElementById('inv-buyer-name').value.trim();
-  const item=document.getElementById('inv-item').value;
-  const price=parseInt(document.getElementById('inv-price').value)||0;
-  const qty=parseInt(document.getElementById('inv-qty').value)||0;
   if(!buyerName){ toast('수취인을 입력하세요'); window.invNextStep(1); return; }
-  if(!item||!price||!qty){ toast('상품 정보를 입력하세요'); window.invNextStep(2); return; }
+  const validProducts=products.filter(p=>p.item&&p.price&&p.qty);
+  if(!validProducts.length){ toast('상품 정보를 입력하세요'); window.invNextStep(2); return; }
   if(!invDelivery){ toast('배송 방식을 선택하세요'); window.invNextStep(3); return; }
   if(invDelivery==='self'){
     const truckNum=document.getElementById('self-truck-num').value.trim();
@@ -1319,15 +1406,21 @@ window.submitInvoice = function(){
   const now=new Date();
   const id='INV-'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'-'+String(Math.floor(Math.random()*9999)).padStart(4,'0');
   const truckType=invDelivery==='self'?document.getElementById('self-truck-type').value:'';
+  const totalAmt=validProducts.reduce((s,p)=>s+(p.price*p.qty),0);
+  const mainProduct=validProducts[0];
   const inv={
     id, status:'sent',
     seller_name:curUserName, seller_gkid:curGkid,
     buyer_name:buyerName,
     buyer_tel:document.getElementById('inv-buyer-tel').value,
     buyer_addr:document.getElementById('inv-buyer-addr').value,
-    origin_type:invOrigin,
-    origin_detail:invOrigin==='domestic'?document.getElementById('inv-origin-region').value:document.getElementById('inv-origin-country').value,
-    item, price, qty,
+    products:validProducts,
+    item:validProducts.map(p=>p.item).join(', '),
+    qty:validProducts.reduce((s,p)=>s+p.qty,0),
+    price:Math.round(totalAmt/(validProducts.reduce((s,p)=>s+p.qty,0)||1)),
+    total_amt:totalAmt,
+    origin_type:mainProduct.origin,
+    origin_detail:mainProduct.originDetail,
     req_auction:invReqs.auction,
     req_consign:invReqs.consign,
     min_price:invReqs.auction?(parseInt(document.getElementById('inv-min-price').value)||0):0,
@@ -1336,12 +1429,11 @@ window.submitInvoice = function(){
     truck_num:invDelivery==='self'?document.getElementById('self-truck-num').value:'',
     driver_name:invDelivery==='self'?document.getElementById('self-driver-name').value:'',
     driver_tel:invDelivery==='self'?document.getElementById('self-driver-tel').value:'',
-    memo:Object.keys(invMemo).length?invMemo:null,
+    memo:Object.keys(invMemo).some(k=>invMemo[k])?invMemo:null,
     created_at:now.toISOString(),
   };
   INVOICES.unshift(inv);
   window.closeSheet('sh-invoice');
-  // 배차요청이면 화물콜 시트 열기
   if(invDelivery==='call'){
     toast('📋 송장 저장됨! 배차 요청을 작성해주세요');
     setTimeout(()=>window.openCallSheet(id), 600);
@@ -1350,7 +1442,7 @@ window.submitInvoice = function(){
   }
   renderHome();
   renderInvoicePage();
-  db.from('invoices').insert(inv).catch(e=>console.log(e));
+  db.from('invoices').insert({...inv,products:JSON.stringify(inv.products)}).catch(e=>console.log(e));
 };
 
 // ══ 내정보 ══
