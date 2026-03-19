@@ -1174,10 +1174,7 @@ window.openInvoiceSheet = function(){
   });
   const truckEl=document.getElementById('self-truck-type'); if(truckEl) truckEl.value='';
   const tbx=document.getElementById('inv-total-box'); if(tbx) tbx.style.display='block';
-  document.getElementById('ai-price-suggest').style.display='none';
-  document.getElementById('req-auction-detail').style.display='none';
-  document.getElementById('req-consign-detail').style.display='none';
-  document.getElementById('ai-buyer-suggest').style.display='none';
+  ['ai-price-suggest','req-auction-detail','req-consign-detail','ai-buyer-suggest'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
   document.querySelectorAll('.req-btn').forEach(b=>b.classList.remove('sel'));
   ['self-delivery-form','call-delivery-info','delivery-address-form','inv-waypoint-form','inv-route-ai','inv-ai-truck'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
   const dsh=document.getElementById('delivery-select-hint');if(dsh)dsh.style.display='block';
