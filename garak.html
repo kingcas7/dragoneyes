@@ -207,12 +207,17 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
       <div id="product-list"></div>
 
       <!-- 상품 추가 버튼 -->
-      <button onclick="window.addProduct()" style="width:100%;padding:10px;border-radius:10px;border:1.5px dashed var(--a1);background:rgba(0,232,188,.04);color:var(--a1);font-size:13px;font-weight:700;margin-bottom:12px;cursor:pointer;">
-        + 상품 추가
-      </button>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <button onclick="window.addProduct()" style="flex:1;padding:10px;border-radius:10px;border:1.5px dashed var(--a1);background:rgba(0,232,188,.04);color:var(--a1);font-size:13px;font-weight:700;cursor:pointer;">
+          + 상품 추가
+        </button>
+        <button onclick="window.openExtraInvoice()" style="padding:10px 12px;border-radius:10px;border:1.5px dashed var(--org);background:rgba(255,165,2,.04);color:var(--org);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">
+          📋 경유지<br>추가 송장
+        </button>
+      </div>
 
       <!-- 총 물품대금 -->
-      <div id="inv-total-box" style="padding:12px 14px;background:rgba(0,232,188,.06);border:1.5px solid rgba(0,232,188,.3);border-radius:12px;margin-bottom:12px;">
+      <div id="inv-total-box" style="padding:12px 14px;background:rgba(0,232,188,.06);border:1.5px solid rgba(0,232,188,.3);border-radius:12px;margin-bottom:12px;display:block;">
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <span style="font-size:12px;color:var(--t2);">총 물품대금</span>
           <span id="inv-total-amt" style="font-size:22px;font-weight:900;color:var(--a1);">₩0</span>
@@ -1288,10 +1293,14 @@ function showAIPriceHint(id, item){
 function calcTotalAll(){
   const wpTotal = waypoints.reduce((ws,w)=>ws+w.wpProducts.reduce((s,p)=>s+(p.price*p.qty),0),0);
   const total = products.reduce((s,p)=>s+(p.price*p.qty),0) + wpTotal;
-  document.getElementById('inv-total-amt').textContent='₩'+total.toLocaleString();
-  const details = products.filter(p=>p.item&&p.qty&&p.price)
+  const amtEl = document.getElementById('inv-total-amt');
+  if(amtEl) amtEl.textContent='₩'+total.toLocaleString();
+  const mainDetails = products.filter(p=>p.item&&p.qty&&p.price)
     .map(p=>`${p.item} ${p.qty}${p.unit} × ₩${p.price.toLocaleString()} = ₩${(p.price*p.qty).toLocaleString()}`);
-  document.getElementById('inv-total-detail').textContent = details.join('\n');
+  const wpDetails = waypoints.flatMap(w=>w.wpProducts.filter(p=>p.item&&p.qty&&p.price)
+    .map(p=>`[경유지] ${p.item} ${p.qty}${p.unit} × ₩${p.price.toLocaleString()} = ₩${(p.price*p.qty).toLocaleString()}`));
+  const detailEl = document.getElementById('inv-total-detail');
+  if(detailEl) detailEl.textContent = [...mainDetails,...wpDetails].join('\n');
   // AI 최저가 힌트
   const hint=document.getElementById('ai-min-price-suggest');
   if(hint&&products.length>0&&products[0].item){
@@ -1301,6 +1310,16 @@ function calcTotalAll(){
 }
 
 window.calcTotal = calcTotalAll; // 하위호환
+
+// 경유지 추가 송장 열기
+window.openExtraInvoice = function(){
+  toast('📋 경유지 추가 송장을 작성합니다. 새 송장이 열려요!');
+  window.closeSheet('sh-invoice');
+  setTimeout(()=>{
+    window.openInvoiceSheet();
+    toast('📋 경유지 추가 송장 작성 중 - 수취인/상품을 입력해주세요');
+  }, 400);
+};
 
 function renderProductList(){
   const el = document.getElementById('product-list');
@@ -1358,8 +1377,9 @@ function renderProductList(){
       </div>
 
       <!-- 소계 -->
-      <div style="text-align:right;font-size:12px;color:var(--t2);">
-        소계: <strong id="p-sub-${p.id}" style="color:var(--a4);">₩${((p.price||0)*(p.qty||0)).toLocaleString()}</strong>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;padding-top:4px;border-top:1px solid var(--b2);">
+        <span style="font-size:10px;color:var(--t2);">소계</span>
+        <strong id="p-sub-${p.id}" style="font-size:13px;color:var(--a4);">₩${((p.price||0)*(p.qty||0)).toLocaleString()}</strong>
       </div>
     </div>`).join('');
 }
