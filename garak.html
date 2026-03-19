@@ -1122,11 +1122,9 @@ window.openInvoiceSheet = function(){
   const truckEl=document.getElementById('self-truck-type'); if(truckEl) truckEl.value='';
   ['inv-total-box','ai-price-suggest','req-auction-detail','req-consign-detail','ai-buyer-suggest'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
   document.querySelectorAll('.req-btn').forEach(b=>b.classList.remove('sel'));
-  document.getElementById('self-delivery-form').style.display='none';
-  document.getElementById('call-delivery-info').style.display='none';
-  document.getElementById('delivery-select-hint').style.display='block';
-  document.getElementById('dmode-call').className='delivery-btn';
-  document.getElementById('dmode-self').className='delivery-btn';
+  ['self-delivery-form','call-delivery-info'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  const dsh=document.getElementById('delivery-select-hint');if(dsh)dsh.style.display='block';
+  ['dmode-call','dmode-self'].forEach(id=>{const el=document.getElementById(id);if(el)el.className='delivery-btn';});
   window.invNextStep(1);
   window.openSheet('sh-invoice');
   setTimeout(window.showAIBuyerSuggest, 400);
