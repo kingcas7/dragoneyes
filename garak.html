@@ -360,6 +360,81 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
   </div>
 </div>
 
+<!-- ══ 서류 업로드 시트 ══ -->
+<div class="sheet-overlay" id="sh-doc-upload">
+  <div class="sheet">
+    <div class="sheet-hd">
+      <div class="sheet-title">📎 서류 업로드</div>
+      <button onclick="window.closeSheet('sh-doc-upload')" style="color:var(--t2);font-size:20px;">✕</button>
+    </div>
+    <div class="sheet-sub">서류명을 입력하고 파일을 첨부하세요</div>
+
+    <!-- 서류명 -->
+    <div class="fgroup">
+      <div class="flabel">서류 종류 *</div>
+      <input class="finput" id="doc-name-input" placeholder="예: 사업자등록증 사본, 인허가서 등">
+    </div>
+
+    <!-- 파일 첨부 -->
+    <div class="fgroup">
+      <div class="flabel">파일 첨부 *</div>
+      <div style="border:1.5px dashed var(--b1);border-radius:12px;padding:20px;text-align:center;cursor:pointer;background:var(--s2);"
+        onclick="document.getElementById('doc-file-input').click()">
+        <div style="font-size:28px;margin-bottom:6px;">📁</div>
+        <div style="font-size:12px;color:var(--t2);">탭하여 파일 선택</div>
+        <div style="font-size:10px;color:var(--t3);margin-top:3px;">PDF, JPG, PNG, HWP (최대 10MB)</div>
+      </div>
+      <input type="file" id="doc-file-input" accept=".pdf,.jpg,.jpeg,.png,.hwp"
+        style="display:none;" onchange="window.onDocFileSelected(this)">
+      <div id="doc-file-preview" style="display:none;margin-top:8px;padding:9px 12px;background:rgba(0,232,188,.06);border:1px solid rgba(0,232,188,.2);border-radius:9px;font-size:11px;color:var(--a1);font-weight:700;"></div>
+    </div>
+
+    <!-- 메모 -->
+    <div class="fgroup">
+      <div class="flabel">메모 (선택)</div>
+      <input class="finput" id="doc-memo" placeholder="예: 2026년 갱신본, 유효기간 2027.03.31">
+    </div>
+
+    <div style="padding:9px 12px;background:rgba(244,196,48,.05);border:1px solid rgba(244,196,48,.15);border-radius:9px;margin-bottom:12px;font-size:10px;color:var(--t2);line-height:1.7;">
+      📌 업로드된 서류는 암호화되어 안전하게 보관됩니다<br>
+      📌 수락된 세무/회계 거래처에서만 열람 가능합니다
+    </div>
+
+    <button onclick="window.saveDoc()" class="btn btn-p">📎 서류 등록 완료</button>
+  </div>
+</div>
+
+<!-- ══ 계좌 등록 시트 ══ -->
+<div class="sheet-overlay" id="sh-bank-register">
+  <div class="sheet">
+    <div class="sheet-hd">
+      <div class="sheet-title">🏦 계좌 등록</div>
+      <button onclick="window.closeSheet('sh-bank-register')" style="color:var(--t2);font-size:20px;">✕</button>
+    </div>
+    <div class="sheet-sub">대금 수령용 계좌를 등록하세요</div>
+    <div class="fgroup">
+      <div class="flabel">은행명 *</div>
+      <select class="finput" id="bank-name">
+        <option value="">선택하세요</option>
+        ${['농협','국민','신한','우리','하나','기업','카카오뱅크','토스뱅크','새마을금고','수협','우체국'].map(b=>`<option>${b}</option>`).join('')}
+      </select>
+    </div>
+    <div class="fgroup">
+      <div class="flabel">계좌번호 *</div>
+      <input class="finput" id="bank-account" placeholder="- 없이 입력" type="tel" inputmode="numeric">
+    </div>
+    <div class="fgroup">
+      <div class="flabel">예금주 *</div>
+      <input class="finput" id="bank-holder" placeholder="예금주명" value="${window._profileData?window._profileData.name:curUserName}">
+    </div>
+    <div style="padding:9px 12px;background:rgba(255,69,84,.05);border:1px solid rgba(255,69,84,.15);border-radius:9px;margin-bottom:12px;font-size:10px;color:var(--t2);line-height:1.7;">
+      ⚠️ 계좌 정보는 대금 수령 목적으로만 사용됩니다<br>
+      ⚠️ 사업자 명의 계좌 등록을 권장합니다
+    </div>
+    <button onclick="window.saveBankInfo()" class="btn btn-p">🏦 계좌 등록 완료</button>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <!-- ══ 추가 사용자 등록 시트 ══ -->
@@ -1718,6 +1793,104 @@ window.requestTerminateService = function(id){
 
 // requestTerminate 통합 (구 코드 호환)
 window.requestTerminate = function(id){ window.requestTerminateService(id); };
+
+// ══════════════
+// 프로필 정보 수정 / 서류 / 계좌
+// ══════════════
+window.saveProfileInfo = function(){
+  const name  = document.getElementById('pe-name')?.value.trim();
+  const tel   = document.getElementById('pe-tel')?.value.trim();
+  const email = document.getElementById('pe-email')?.value.trim();
+  const addr  = document.getElementById('pe-addr')?.value.trim();
+  if(!name){ toast('이름을 입력하세요'); return; }
+  window._profileData = { name, tel, email, addr };
+  curUserName = name;
+  try {
+    const saved = JSON.parse(localStorage.getItem('garak_user')||'{}');
+    saved.name = name; saved.tel = tel;
+    localStorage.setItem('garak_user', JSON.stringify(saved));
+  } catch(e){}
+  window._userTel   = tel;
+  window._userEmail = email;
+  window._userAddr  = addr;
+  window._profileEditMode = false;
+  toast('✅ 정보가 저장됐습니다');
+  renderMyPage();
+};
+
+window.changePassword = function(){
+  const oldPw   = document.getElementById('pe-pw-old')?.value;
+  const newPw   = document.getElementById('pe-pw-new')?.value;
+  const confirm = document.getElementById('pe-pw-confirm')?.value;
+  if(!oldPw)                     { toast('현재 비밀번호를 입력하세요'); return; }
+  if(!newPw || newPw.length < 8) { toast('새 비밀번호는 8자 이상이어야 합니다'); return; }
+  if(newPw !== confirm)          { toast('새 비밀번호가 일치하지 않습니다'); return; }
+  toast('✅ 비밀번호 변경 완료 (실제 서비스 연동 시 처리됩니다)');
+  window._profileEditMode = false;
+  renderMyPage();
+};
+
+if(!window._userDocs)    window._userDocs    = [];
+if(!window._bankInfo)    window._bankInfo    = null;
+if(!window._profileData) window._profileData = null;
+
+window.openDocUpload = function(presetName){
+  presetName = presetName||'';
+  const inp=document.getElementById('doc-name-input');
+  const prev=document.getElementById('doc-file-preview');
+  const memo=document.getElementById('doc-memo');
+  const fi=document.getElementById('doc-file-input');
+  if(inp)  inp.value=presetName;
+  if(prev){ prev.style.display='none'; prev.textContent=''; }
+  if(memo) memo.value='';
+  if(fi)   fi.value='';
+  window._docFileName='';
+  window.openSheet('sh-doc-upload');
+};
+
+window.onDocFileSelected = function(input){
+  const file=input.files[0]; if(!file) return;
+  if(file.size>10*1024*1024){ toast('파일 크기는 10MB 이하여야 합니다'); return; }
+  window._docFileName=file.name;
+  const prev=document.getElementById('doc-file-preview');
+  if(prev){ prev.style.display='block'; prev.textContent='📄 '+file.name+' ('+Math.round(file.size/1024)+'KB)'; }
+};
+
+window.saveDoc = function(){
+  const name=document.getElementById('doc-name-input')?.value.trim();
+  const memo=document.getElementById('doc-memo')?.value.trim();
+  if(!name)               { toast('서류 종류를 입력하세요'); return; }
+  if(!window._docFileName){ toast('파일을 첨부하세요'); return; }
+  if(!window._userDocs) window._userDocs=[];
+  window._userDocs=window._userDocs.filter(d=>d.name!==name);
+  window._userDocs.push({ name, file:window._docFileName, memo, date:new Date().toLocaleDateString('ko-KR') });
+  window.closeSheet('sh-doc-upload');
+  toast('✅ '+name+' 등록 완료');
+  renderMyPage();
+};
+
+window.removeDoc = function(name){
+  if(!confirm(name+' 서류를 삭제하시겠습니까?')) return;
+  window._userDocs=(window._userDocs||[]).filter(d=>d.name!==name);
+  toast('삭제됐습니다'); renderMyPage();
+};
+
+window.openBankRegister = function(){
+  window.openSheet('sh-bank-register');
+};
+
+window.saveBankInfo = function(){
+  const bank   =document.getElementById('bank-name')?.value;
+  const account=document.getElementById('bank-account')?.value.trim();
+  const holder =document.getElementById('bank-holder')?.value.trim();
+  if(!bank)   { toast('은행을 선택하세요'); return; }
+  if(!account){ toast('계좌번호를 입력하세요'); return; }
+  if(!holder) { toast('예금주를 입력하세요'); return; }
+  window._bankInfo={ bank, account, holder };
+  window.closeSheet('sh-bank-register');
+  toast('🏦 계좌가 등록됐습니다'); renderMyPage();
+};
+
 if(!window._subUsers) window._subUsers = [];
 if(!window._subNat)   window._subNat   = 'korean';
 if(!window._subPerm)  window._subPerm  = '조회';
@@ -4753,14 +4926,7 @@ function renderMyPageGeneral(r){
         <div style="font-size:9px;font-weight:700;color:${window._myTab===t.id?'var(--a1)':'var(--t3)'};">${t.lb}</div>
       </div>`).join('')}
     </div><div id="my-sub-content">`;
-  if(window._myTab==='profile') html+=`<div class="card"><div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
-      <div style="width:52px;height:52px;border-radius:14px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:26px;">${r.ic}</div>
-      <div><div style="font-size:17px;font-weight:800;">${curUserName||r.n}</div>
-        <div style="font-size:12px;color:var(--t2);">${r.n}</div>
-        <div style="font-family:monospace;color:var(--a1);font-size:11px;margin-top:2px;">${curGkid}</div>
-      </div></div>
-      <button class="btn btn-s" onclick="if(confirm('로그아웃?')){localStorage.removeItem('garak_user');location.reload();}">로그아웃</button>
-    </div>`;
+  if(window._myTab==='profile') html+=renderMyProfile(r, null, 0);
   else if(window._myTab==='payment') html+=renderMyPaymentSection();
   else if(window._myTab==='users')   html+=renderMyUsersSection();
   html+='</div>';
@@ -4789,39 +4955,7 @@ function renderMyPageMerchant(r){
     </div><div id="my-sub-content">`;
 
   if(window._myTab==='profile'){
-    html+=`<div class="card" style="margin-bottom:12px;">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
-        <div style="width:52px;height:52px;border-radius:14px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:26px;">${r.ic}</div>
-        <div><div style="font-size:17px;font-weight:800;">${curUserName||r.n}</div>
-          <div style="font-size:12px;color:var(--t2);">${r.n}</div>
-          <div style="font-family:monospace;color:var(--a1);font-size:11px;margin-top:2px;">${curGkid}</div>
-        </div>
-      </div>
-      <div style="background:var(--s2);border-radius:12px;padding:12px;margin-bottom:12px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-          <div><div style="font-size:11px;color:var(--t2);">GARAK 신뢰등급</div>
-            <div style="font-size:18px;font-weight:800;margin-top:2px;">${gi.label}</div></div>
-          <div style="font-size:26px;font-weight:900;color:var(--a1);">${score}<span style="font-size:13px;">점</span></div>
-        </div>
-        <div style="height:5px;background:var(--s3);border-radius:3px;">
-          <div style="width:${score}%;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--a1),var(--a2));"></div>
-        </div>
-      </div>
-      <div style="background:var(--s2);border-radius:12px;padding:12px;margin-bottom:12px;">
-        <div style="font-size:11px;color:var(--t2);margin-bottom:8px;">💰 미수금 현황</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-          <div style="text-align:center;padding:8px;background:var(--s3);border-radius:8px;">
-            <div style="font-size:10px;color:var(--t2);">미지급</div>
-            <div style="font-size:18px;font-weight:800;color:var(--red);">${INVOICES.filter(i=>['confirmed','reported'].includes(i.status)).length}건</div>
-          </div>
-          <div style="text-align:center;padding:8px;background:var(--s3);border-radius:8px;">
-            <div style="font-size:10px;color:var(--t2);">정산완료</div>
-            <div style="font-size:18px;font-weight:800;color:var(--a1);">${INVOICES.filter(i=>i.status==='eform').length}건</div>
-          </div>
-        </div>
-      </div>
-      <button class="btn btn-s" onclick="if(confirm('로그아웃?\')){localStorage.removeItem('garak_user');location.reload();}">로그아웃</button>
-    </div>`;
+    html+=renderMyProfile(r, gi, score);
   } else if(window._myTab==='partner'){
     html+=renderMyPartnerSection();
   } else if(window._myTab==='trade'){
@@ -5102,151 +5236,190 @@ function renderMyPartnerSection(){
 }
 
 // ── MY > 내정보 ──
-function renderMyProfile(r,gi,score){
-  const biznum = window._userBiznum||'';
+function renderMyProfile(r, gi, score){
+  const biznum       = window._userBiznum||'';
+  const corpnum      = window._userCorpnum||'';
   const isSpecialReq = window._specialReq||false;
-  const needBiznum = curRole !== 'producer_ind';
+  const needBiznum   = curRole !== 'producer_ind';
+  const isCorpRole   = ['producer_corp','wholesale'].includes(curRole);
+  const isForeign    = !!(window._foreignInfo);
+  const editMode     = window._profileEditMode||false;
+  const docs         = window._userDocs||[];
+
+  // 저장된 프로필 데이터
+  const profileData  = window._profileData||{
+    name:    curUserName,
+    tel:     window._userTel||'',
+    email:   window._userEmail||'',
+    addr:    window._userAddr||'',
+  };
 
   return `
-  <div class="card" style="margin-bottom:12px;">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+  <!-- 프로필 헤더 -->
+  <div class="card" style="margin-bottom:10px;">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
       <div style="width:52px;height:52px;border-radius:14px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:26px;">${r.ic}</div>
-      <div>
+      <div style="flex:1;">
         <div style="font-size:17px;font-weight:800;">${curUserName||r.n}</div>
         <div style="font-size:12px;color:var(--t2);">${r.n}</div>
         <div style="font-family:monospace;color:var(--a1);font-size:11px;margin-top:2px;">${curGkid}</div>
       </div>
+      <button onclick="window._profileEditMode=!window._profileEditMode;renderMyPage();"
+        style="padding:6px 12px;border-radius:9px;background:${editMode?'var(--a1)':'var(--s2)'};color:${editMode?'#080d18':'var(--t2)'};border:1px solid var(--b1);font-size:11px;font-weight:700;cursor:pointer;">
+        ${editMode?'✕ 닫기':'✏️ 수정'}
+      </button>
     </div>
 
-    <!-- 가입 정보 요약 -->
-    <div style="background:var(--s2);border-radius:12px;padding:11px 13px;margin-bottom:12px;">
-      <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:8px;">📋 가입 정보</div>
+    ${editMode?`
+    <!-- 수정 모드 -->
+    <div style="border-top:1px solid var(--b1);padding-top:12px;">
+      <div style="font-size:11px;font-weight:700;color:var(--a1);margin-bottom:10px;">✏️ 정보 수정</div>
+      <div class="fgroup" style="margin-bottom:8px;">
+        <div class="flabel">이름 / 상호명</div>
+        <input class="finput" id="pe-name" value="${profileData.name}" placeholder="이름 또는 상호명" style="font-size:13px;">
+      </div>
+      <div class="fgroup" style="margin-bottom:8px;">
+        <div class="flabel">연락처</div>
+        <input class="finput" id="pe-tel" value="${profileData.tel}" type="tel" placeholder="010-0000-0000">
+      </div>
+      <div class="fgroup" style="margin-bottom:8px;">
+        <div class="flabel">이메일</div>
+        <input class="finput" id="pe-email" value="${profileData.email}" type="email" placeholder="example@email.com">
+      </div>
+      <div class="fgroup" style="margin-bottom:10px;">
+        <div class="flabel">주소</div>
+        <input class="finput" id="pe-addr" value="${profileData.addr}" placeholder="주소를 입력하세요">
+      </div>
+      <button onclick="window.saveProfileInfo()" class="btn btn-p" style="padding:10px;margin-bottom:8px;">✅ 정보 저장</button>
+
+      <!-- 비밀번호 변경 -->
+      <div style="border-top:1px solid var(--b1);padding-top:10px;margin-top:4px;">
+        <div style="font-size:11px;font-weight:700;color:var(--a4);margin-bottom:8px;">🔐 비밀번호 변경</div>
+        <div class="fgroup" style="margin-bottom:8px;">
+          <div class="flabel">현재 비밀번호</div>
+          <input class="finput" id="pe-pw-old" type="password" placeholder="현재 비밀번호">
+        </div>
+        <div class="fgroup" style="margin-bottom:8px;">
+          <div class="flabel">새 비밀번호</div>
+          <input class="finput" id="pe-pw-new" type="password" placeholder="8자 이상, 영문+숫자">
+        </div>
+        <div class="fgroup" style="margin-bottom:10px;">
+          <div class="flabel">새 비밀번호 확인</div>
+          <input class="finput" id="pe-pw-confirm" type="password" placeholder="새 비밀번호 재입력">
+        </div>
+        <button onclick="window.changePassword()" style="width:100%;padding:9px;border-radius:10px;background:rgba(244,196,48,.1);border:1.5px solid rgba(244,196,48,.3);color:var(--a4);font-size:12px;font-weight:700;cursor:pointer;">
+          🔐 비밀번호 변경
+        </button>
+      </div>
+    </div>`:`
+    <!-- 열람 모드 -->
+    <div style="background:var(--s2);border-radius:10px;padding:10px 12px;">
+      <div style="font-size:10px;font-weight:700;color:var(--t2);margin-bottom:7px;">📋 등록 정보</div>
       ${[
-        ['연락처', window._userTel||'—'],
-        ...(needBiznum ? [['사업자등록번호', isSpecialReq ? '특승인 요청 중' : (biznum||'—')]] : []),
+        ['연락처',   profileData.tel||'—'],
+        ['이메일',   profileData.email||'—'],
+        ['주소',     profileData.addr||'—'],
+        ...(needBiznum?[['사업자번호', isSpecialReq?'특승인 요청 중':(biznum||'—')]]:[]),
+        ...(isCorpRole&&corpnum?[['법인번호', corpnum]]:[]),
+        ...(isForeign?[['국적','🌏 외국인 ('+window._foreignInfo.visaType+')']]:[['국적','🇰🇷 내국인']]),
       ].map(([lb,val])=>`
       <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--b2);font-size:12px;">
         <span style="color:var(--t2);">${lb}</span>
-        <span style="font-weight:600;color:${val==='특승인 요청 중'?'var(--a4)':val==='—'?'var(--t3)':'var(--t1)'};">${val}</span>
+        <span style="font-weight:600;color:${val==='—'||val==='특승인 요청 중'?'var(--t3)':'var(--t1)'};">${val}</span>
       </div>`).join('')}
-    </div>
+    </div>`}
 
-    <!-- 특승인 요청 상태 배너 -->
-    ${isSpecialReq?`
-    <div style="background:rgba(244,196,48,.07);border:1px solid rgba(244,196,48,.3);border-radius:10px;padding:10px 12px;margin-bottom:12px;">
-      <div style="font-size:12px;font-weight:700;color:var(--a4);margin-bottom:3px;">📋 특승인 요청 접수됨</div>
-      <div style="font-size:11px;color:var(--t2);">관리자 검토 후 24시간 내 연락드립니다. 승인 전까지 일부 기능이 제한됩니다.</div>
-    </div>`:''}
-
-    <!-- 신뢰등급 -->
-    <div style="background:var(--s2);border-radius:12px;padding:12px;margin-bottom:12px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <div>
-          <div style="font-size:11px;color:var(--t2);">GARAK 신뢰등급</div>
-          <div style="font-size:18px;font-weight:800;margin-top:2px;">${gi.label}</div>
-        </div>
-        <div style="text-align:right;">
-          <div style="font-size:28px;font-weight:900;color:var(--a1);">${score}<span style="font-size:14px;">점</span></div>
-          <div style="font-size:10px;color:var(--t2);">/ 100점</div>
-        </div>
-      </div>
-      <div style="height:6px;background:var(--s3);border-radius:3px;margin-bottom:6px;">
-        <div style="width:${score}%;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--a1),var(--a2));"></div>
-      </div>
-      <div style="font-size:10px;color:var(--t2);">${gi.desc}</div>
-    </div>
-
-    <!-- 점수 구성 -->
-    <div style="font-size:12px;font-weight:700;margin-bottom:8px;">점수 구성</div>
-    ${[
-      {lb:'작물 등록',val:CROPS.length*5,max:40,desc:CROPS.length+'종 등록'},
-      {lb:'송장 발행',val:INVOICES.length*3,max:35,desc:INVOICES.length+'건 발행'},
-      {lb:'프로필 완성',val:curUserName&&curUserName.length>1?5:0,max:25,desc:'기본 정보'},
-    ].map(s=>`
-    <div style="margin-bottom:8px;">
-      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;">
-        <span style="color:var(--t2);">${s.lb} <span style="color:var(--t3);">(${s.desc})</span></span>
-        <span style="color:var(--a1);font-weight:700;">${Math.min(s.val,s.max)}점</span>
-      </div>
-      <div style="height:3px;background:var(--s3);border-radius:2px;">
-        <div style="width:${Math.min(100,s.val/s.max*100)}%;height:100%;border-radius:2px;background:var(--a1);"></div>
-      </div>
-    </div>`).join('')}
-
-    <!-- 등급별 혜택 -->
-    <div style="font-size:12px;font-weight:700;margin:12px 0 8px;">등급별 혜택</div>
-    ${Object.entries(GRADE_INFO).map(([key,g])=>{
-      const isActive=key===curGrade;
-      const isPast=Object.keys(GRADE_INFO).indexOf(key)<Object.keys(GRADE_INFO).indexOf(curGrade);
-      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--b2);opacity:${isPast||isActive?1:.4};">
-        <span class="tag ${g.cls}" style="min-width:68px;text-align:center;">${g.label}</span>
-        <span style="font-size:11px;color:${isActive?'var(--t1)':'var(--t2)'};">${g.desc}</span>
-        ${isActive?'<span style="margin-left:auto;font-size:10px;color:var(--a1);font-weight:700;">현재</span>':isPast?'<span style="margin-left:auto;font-size:12px;color:var(--a1);">✓</span>':''}
-      </div>`;
-    }).join('')}
-
-    <button class="btn btn-s" style="margin-top:14px;" onclick="if(confirm('로그아웃 하시겠습니까?')){localStorage.removeItem('garak_user');location.reload();}">로그아웃</button>
+    <button class="btn btn-s" style="margin-top:12px;" onclick="if(confirm('로그아웃 하시겠습니까?')){localStorage.removeItem('garak_user');location.reload();}">로그아웃</button>
   </div>
 
-  <!-- 국적/외국인 정보 -->
-  ${window._foreignInfo ? `
-  <div style="background:rgba(79,156,249,.05);border:1.5px solid rgba(79,156,249,.2);border-radius:14px;padding:13px 14px;margin-bottom:12px;">
-    <div style="font-size:12px;font-weight:700;color:var(--a2);margin-bottom:8px;">🌏 외국인 등록 정보</div>
-    ${[
-      ['국적', window._foreignInfo.country],
-      ['비자 종류', window._foreignInfo.visaType],
-      ['여권번호', window._foreignInfo.passport],
-      ['여권 만료일', window._foreignInfo.passportExpiry],
-      ['외국인 등록번호', window._foreignInfo.alienNum||'—'],
-      ['체류지', window._foreignInfo.stayAddr],
-      ['체류기간', (window._foreignInfo.stayFrom||'')+'~'+(window._foreignInfo.stayTo||'')],
-      ['고용주/소속', window._foreignInfo.employer||'—'],
-    ].map(([lb,val])=>`
-    <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--b2);font-size:11px;">
-      <span style="color:var(--t2);">${lb}</span>
-      <span style="font-weight:600;max-width:55%;text-align:right;">${val}</span>
-    </div>`).join('')}
-    <button onclick="toast('외국인 정보 수정 기능 준비 중')"
-      style="width:100%;margin-top:10px;padding:8px;border-radius:9px;background:rgba(79,156,249,.08);border:1px solid rgba(79,156,249,.2);color:var(--a2);font-size:11px;font-weight:700;cursor:pointer;">
-      ✏️ 정보 수정
-    </button>
+  <!-- 신뢰등급 (gi 있을 때만) -->
+  ${gi?`
+  <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:12px;margin-bottom:10px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <div>
+        <div style="font-size:10px;color:var(--t2);">GARAK 신뢰등급</div>
+        <div style="font-size:17px;font-weight:800;margin-top:2px;">${gi.label}</div>
+      </div>
+      <div style="font-size:26px;font-weight:900;color:var(--a1);">${score}<span style="font-size:13px;">점</span></div>
+    </div>
+    <div style="height:5px;background:var(--s3);border-radius:3px;">
+      <div style="width:${score}%;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--a1),var(--a2));"></div>
+    </div>
   </div>`:''}
 
-  <!-- 추가 사용자 등록 (직원) -->
-  <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:13px 14px;margin-bottom:12px;">
+  <!-- 서류 업로드 (법인 또는 전체) -->
+  <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:12px 14px;margin-bottom:10px;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-      <div style="font-size:12px;font-weight:700;">👥 추가 사용자 등록</div>
-      <button onclick="window.openAddUserSheet()"
-        style="padding:6px 12px;border-radius:8px;background:var(--a1);color:#080d18;font-size:11px;font-weight:700;border:none;cursor:pointer;">
-        + 직원 추가
-      </button>
+      <div style="font-size:12px;font-weight:700;">📎 서류 관리</div>
+      <button onclick="window.openDocUpload()"
+        style="padding:5px 11px;border-radius:8px;background:var(--a1);color:#080d18;font-size:11px;font-weight:700;border:none;cursor:pointer;">+ 업로드</button>
     </div>
-    <div style="font-size:11px;color:var(--t2);margin-bottom:10px;line-height:1.6;">
-      직원·공동대표·가족 등을 추가 사용자로 등록하면<br>
-      동일 계정 내 송장·장부에 접근 권한을 부여할 수 있어요.
+
+    <!-- 필수 서류 목록 (법인) -->
+    ${isCorpRole?`
+    <div style="margin-bottom:8px;">
+      <div style="font-size:10px;color:var(--a2);font-weight:700;margin-bottom:5px;">🏢 법인 필수 서류</div>
+      ${['사업자등록증 사본','법인등기부등본','대표자 신분증 사본'].map(nm=>{
+        const uploaded = docs.find(d=>d.name===nm);
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-radius:8px;background:var(--s2);margin-bottom:4px;">
+          <div style="font-size:11px;font-weight:600;">${nm}</div>
+          ${uploaded
+            ?`<div style="display:flex;gap:5px;align-items:center;">
+                <span class="tag tag-g" style="font-size:9px;">✅ 등록</span>
+                <button onclick="window.removeDoc('${nm}')" style="padding:2px 7px;border-radius:5px;background:rgba(255,69,84,.08);border:1px solid rgba(255,69,84,.2);color:var(--red);font-size:9px;cursor:pointer;">삭제</button>
+              </div>`
+            :`<button onclick="window.openDocUpload('${nm}')" style="padding:4px 9px;border-radius:7px;background:rgba(244,196,48,.1);border:1px solid rgba(244,196,48,.3);color:var(--a4);font-size:10px;font-weight:700;cursor:pointer;">업로드</button>`}
+        </div>`;
+      }).join('')}
+    </div>`:''}
+
+    <!-- 일반 서류 목록 (전체) -->
+    <div>
+      <div style="font-size:10px;color:var(--t2);font-weight:700;margin-bottom:5px;">${isCorpRole?'기타 서류':'등록 서류'}</div>
+      ${['통장 사본','신분증·전자신분증 사본','인허가서 사본'].map(nm=>{
+        const uploaded = docs.find(d=>d.name===nm);
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-radius:8px;background:var(--s2);margin-bottom:4px;">
+          <div style="font-size:11px;font-weight:600;">${nm}</div>
+          ${uploaded
+            ?`<div style="display:flex;gap:5px;align-items:center;">
+                <span class="tag tag-g" style="font-size:9px;">✅ 등록</span>
+                <button onclick="window.removeDoc('${nm}')" style="padding:2px 7px;border-radius:5px;background:rgba(255,69,84,.08);border:1px solid rgba(255,69,84,.2);color:var(--red);font-size:9px;cursor:pointer;">삭제</button>
+              </div>`
+            :`<button onclick="window.openDocUpload('${nm}')" style="padding:4px 9px;border-radius:7px;background:rgba(79,156,249,.08);border:1px solid rgba(79,156,249,.2);color:var(--a2);font-size:10px;font-weight:700;cursor:pointer;">업로드</button>`}
+        </div>`;
+      }).join('')}
     </div>
-    ${(window._subUsers||[]).length===0?`
-    <div style="text-align:center;padding:12px;background:var(--s2);border-radius:10px;font-size:11px;color:var(--t3);">
-      등록된 추가 사용자가 없습니다
-    </div>`:`
-    ${(window._subUsers||[]).map((u,i)=>`
-    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--b2);">
-      <div style="width:32px;height:32px;border-radius:8px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">
-        ${u.nationality==='foreign'?'🌏':'👤'}
+
+    <!-- 직접 입력 서류 (업로드된 기타 서류) -->
+    ${docs.filter(d=>!['사업자등록증 사본','법인등기부등본','대표자 신분증 사본','통장 사본','신분증·전자신분증 사본','인허가서 사본'].includes(d.name)).map(d=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-radius:8px;background:rgba(0,232,188,.05);border:1px solid rgba(0,232,188,.15);margin-bottom:4px;">
+      <div>
+        <div style="font-size:11px;font-weight:600;">${d.name}</div>
+        <div style="font-size:9px;color:var(--t2);">${d.date}</div>
       </div>
-      <div style="flex:1;">
-        <div style="font-size:12px;font-weight:700;">${u.name}</div>
-        <div style="font-size:10px;color:var(--t2);">${u.role} · ${u.nationality==='foreign'?'외국인 ('+u.visaType+')':'내국인'}</div>
+      <div style="display:flex;gap:5px;">
+        <span class="tag tag-g" style="font-size:9px;">✅</span>
+        <button onclick="window.removeDoc('${d.name}')" style="padding:2px 7px;border-radius:5px;background:rgba(255,69,84,.08);border:1px solid rgba(255,69,84,.2);color:var(--red);font-size:9px;cursor:pointer;">삭제</button>
       </div>
-      <div style="display:flex;gap:4px;">
-        <span class="tag tag-g" style="font-size:8px;">${u.permission||'조회'}</span>
-        <button onclick="window.removeSubUser(${i})" style="padding:3px 7px;border-radius:6px;background:rgba(255,69,84,.08);border:1px solid rgba(255,69,84,.2);color:var(--red);font-size:9px;cursor:pointer;">삭제</button>
-      </div>
-    </div>`).join('')}`}
+    </div>`).join('')}
+
+    <!-- 계좌 정보 -->
+    <div style="border-top:1px solid var(--b1);padding-top:8px;margin-top:6px;">
+      <div style="font-size:10px;color:var(--t2);font-weight:700;margin-bottom:6px;">🏦 계좌 정보 (대금수령)</div>
+      ${window._bankInfo?`
+      <div style="background:var(--s2);border-radius:8px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-size:11px;font-weight:600;">${window._bankInfo.bank} ${window._bankInfo.account}</div>
+        <button onclick="window.openBankRegister()" style="padding:4px 9px;border-radius:7px;background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-size:10px;cursor:pointer;">변경</button>
+      </div>`:`
+      <button onclick="window.openBankRegister()"
+        style="width:100%;padding:9px;border-radius:9px;background:var(--s2);border:1.5px dashed var(--b1);color:var(--t2);font-size:11px;font-weight:700;cursor:pointer;">
+        🏦 계좌 등록하기
+      </button>`}
+    </div>
   </div>`;
 }
 
-// ── MY > 작물관리 ──
+
 function renderMyCropSection(){
   let html=`
   <!-- AI 어시스턴트 -->
