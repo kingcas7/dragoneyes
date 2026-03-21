@@ -257,6 +257,73 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
   </div>
 </div>
 
+<!-- ══ 세금 납부 시트 ══ -->
+<div class="sheet-overlay" id="sh-tax-payment">
+  <div class="sheet">
+    <div class="sheet-hd">
+      <div class="sheet-title" id="tp-title">💳 세금 납부</div>
+      <button onclick="window.closeSheet('sh-tax-payment')" style="color:var(--t2);font-size:20px;">✕</button>
+    </div>
+    <div class="sheet-sub" id="tp-sub">GARAK AI 결제 시스템으로 납부합니다</div>
+
+    <!-- 납부 정보 -->
+    <div style="background:var(--s2);border-radius:12px;padding:12px 14px;margin-bottom:12px;" id="tp-info">
+      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--b2);font-size:12px;">
+        <span style="color:var(--t2);">납세자</span>
+        <span id="tp-name" style="font-weight:700;">—</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--b2);font-size:12px;">
+        <span style="color:var(--t2);">세목</span>
+        <span id="tp-type" style="font-weight:700;">—</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--b2);font-size:12px;">
+        <span style="color:var(--t2);">사업자번호</span>
+        <span id="tp-biznum" style="font-weight:700;">—</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0 0;font-size:14px;">
+        <span style="font-weight:700;">납부세액</span>
+        <span id="tp-amount" style="font-size:20px;font-weight:900;color:var(--red);">금액 확인 중</span>
+      </div>
+    </div>
+
+    <!-- 납부 금액 직접 입력 -->
+    <div class="fgroup">
+      <div class="flabel">납부 금액 입력 (원) *</div>
+      <input class="finput" id="tp-amount-input" type="number" inputmode="decimal"
+        placeholder="납부하실 금액을 입력하세요"
+        oninput="document.getElementById('tp-fee').textContent='수수료: ₩'+Math.round((parseInt(this.value||0)*0.008)).toLocaleString()+' (0.8%)'">
+      <div id="tp-fee" style="font-size:10px;color:var(--t2);margin-top:4px;">수수료: ₩0 (0.8%)</div>
+    </div>
+
+    <!-- 등록 카드 또는 신규 -->
+    <div class="fgroup">
+      <div class="flabel">결제 수단</div>
+      <div style="background:var(--s2);border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-size:12px;font-weight:700;">등록 카드 (GARAK AI)</div>
+          <div style="font-size:10px;color:var(--t2);">카드 등록 후 간편납부 가능</div>
+        </div>
+        <span class="tag tag-b" style="font-size:9px;">준비 중</span>
+      </div>
+    </div>
+
+    <!-- 안내 -->
+    <div style="background:rgba(244,196,48,.06);border:1px solid rgba(244,196,48,.2);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:10px;color:var(--t2);line-height:1.7;">
+      💳 카드 수수료 약 0.8% 부과 (카드사 협의에 따라 변동)<br>
+      🏦 계좌이체 시 수수료 없음 (연동 준비 중)<br>
+      📋 납부 완료 시 영수증 자동 발급·저장
+    </div>
+
+    <button onclick="window.submitTaxPayment()"
+      style="width:100%;padding:14px;border-radius:14px;background:linear-gradient(135deg,var(--red),rgba(255,69,84,.8));color:#fff;font-size:14px;font-weight:800;border:none;cursor:pointer;">
+      💳 납부하기
+    </button>
+    <div style="text-align:center;font-size:10px;color:var(--t3);margin-top:8px;">
+      ※ 실제 납부는 카드사·국세청·위택스 협의 완료 후 연동됩니다
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <!-- ══ 추가 사용자 등록 시트 ══ -->
@@ -2504,23 +2571,51 @@ function renderPolicyOrg(id){
     ${id==='nts'?`
     <div style="font-size:13px;font-weight:700;margin-bottom:10px;">🏦 국세청 서비스</div>
 
+    <!-- 국세 바로납부 버튼 (최상단 고정) -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+      <button onclick="window.openTaxPayment('national')"
+        style="padding:13px 8px;border-radius:14px;background:linear-gradient(135deg,rgba(255,69,84,.15),rgba(255,69,84,.08));border:1.5px solid rgba(255,69,84,.4);color:var(--red);font-size:12px;font-weight:800;cursor:pointer;line-height:1.4;">
+        💳 국세 바로납부
+      </button>
+      <a href="https://hometax.go.kr" target="_blank" rel="noopener"
+        style="padding:13px 8px;border-radius:14px;background:rgba(79,156,249,.08);border:1.5px solid rgba(79,156,249,.3);color:var(--a2);font-size:12px;font-weight:800;cursor:pointer;text-decoration:none;text-align:center;line-height:1.4;display:flex;align-items:center;justify-content:center;">
+        🌐 홈택스 바로가기
+      </a>
+    </div>
+
     ${[
+      {
+        id:'vat', ic:'🧾', title:'부가가치세 신고하기',
+        color:'rgba(168,85,247,.06)', border:'rgba(168,85,247,.25)', titleClr:'var(--pur)',
+        desc:'사업자의 부가가치세 신고·납부 (농업인 면세 여부 확인 필수)',
+        deadline:'1기: 7월 25일 / 2기: 다음해 1월 25일 (예정신고: 4월·10월)',
+        steps:['홈택스 → 신고/납부 → 세금신고 → 부가가치세','일반과세자·간이과세자 구분 선택','매출·매입 세금계산서 자동 집계 확인','농업인 면세사업자는 부가세 면제 (과세사업자 전환 시 신고 필수)','전자신고 제출'],
+        links:[
+          {name:'홈택스 부가세 신고', url:'https://hometax.go.kr', badge:'외부링크'},
+          {name:'부가세 신고 매뉴얼', url:'https://nts.go.kr', badge:'PDF'},
+          {name:'농업인 면세 여부 확인', url:'https://nts.go.kr', badge:'안내'},
+        ],
+        notice:'※ 농업인(면세농산물 출하자)은 부가세 면세. 가공식품·스마트팜 등 과세 전환 시 별도 신고 필요.',
+        printable:true, printLabel:'📄 부가세 납부고지서 출력', printNote:'국세청 협의 필요 · 홈택스 연동 준비 중',
+        payable:true
+      },
       {
         id:'corp_tax', ic:'🏢', title:'법인세 신고하기',
         color:'rgba(79,156,249,.08)', border:'rgba(79,156,249,.25)', titleClr:'var(--a2)',
         desc:'법인 사업자의 각 사업연도 소득에 대한 법인세 신고·납부',
         deadline:'매년 3월 31일 (12월 결산법인 기준)',
-        steps:['홈택스 접속 → 신고/납부 → 세금신고 → 법인세','법인세 과세표준 및 세액신고서 작성','재무제표·세무조정계산서 첨부','전자신고 제출 (공인인증서 필요)'],
+        steps:['홈택스 접속 → 신고/납부 → 세금신고 → 법인세','법인세 과세표준 및 세액신고서 작성','재무제표·세무조정계산서 첨부','전자신고 제출 (공동인증서 필요)'],
         links:[
           {name:'홈택스 법인세 신고', url:'https://hometax.go.kr', badge:'외부링크'},
           {name:'법인세 신고서 작성 매뉴얼', url:'https://nts.go.kr', badge:'PDF'},
           {name:'국세청 법인세 안내', url:'https://nts.go.kr', badge:'안내'},
         ],
-        notice:'※ 법인번호·사업자등록번호 필수. 홈택스 공동인증서(구 공인인증서) 또는 간편인증 필요.',
-        printable:true, printLabel:'📄 법인세 납부고지서 출력', printNote:'국세청 협의 필요 · 현재 홈택스 연동 준비 중'
+        notice:'※ 법인번호·사업자등록번호 필수. 홈택스 공동인증서 또는 간편인증 필요.',
+        printable:true, printLabel:'📄 법인세 납부고지서 출력', printNote:'국세청 협의 필요 · 홈택스 연동 준비 중',
+        payable:true
       },
       {
-        id:'income_tax', ic:'🧾', title:'종합소득세 신고하기',
+        id:'income_tax', ic:'🧑‍🌾', title:'종합소득세 신고하기',
         color:'rgba(0,232,188,.06)', border:'rgba(0,232,188,.25)', titleClr:'var(--a1)',
         desc:'개인사업자·농업인의 종합소득세 신고·납부 (매년 5월)',
         deadline:'매년 5월 1일 ~ 5월 31일 (성실신고확인서 제출자: 6월 30일)',
@@ -2531,7 +2626,8 @@ function renderPolicyOrg(id){
           {name:'모바일 손택스 앱', url:'https://nts.go.kr', badge:'앱'},
         ],
         notice:'※ 농업소득은 연 3,000만원 이하 비과세. 농지원부 또는 농업경영체 등록 필요.',
-        printable:true, printLabel:'📄 종합소득세 납부고지서 출력', printNote:'국세청 협의 필요 · 현재 홈택스 연동 준비 중'
+        printable:true, printLabel:'📄 종합소득세 납부고지서 출력', printNote:'국세청 협의 필요 · 홈택스 연동 준비 중',
+        payable:true
       },
       {
         id:'unpaid', ic:'⚠️', title:'미납세금 확인하기',
@@ -2545,7 +2641,7 @@ function renderPolicyOrg(id){
           {name:'위택스 (지방세)', url:'https://wetax.go.kr', badge:'외부링크'},
         ],
         notice:'※ 미납세금 방치 시 가산세 부과. 분할납부·납부유예 신청 가능 (국세청 상담)',
-        printable:false
+        printable:false, payable:true
       },
       {
         id:'refund', ic:'💰', title:'환급 정보 확인',
@@ -2558,11 +2654,11 @@ function renderPolicyOrg(id){
           {name:'미수령 환급금 일괄조회', url:'https://hometax.go.kr', badge:'외부링크'},
         ],
         notice:'※ 부가세 환급은 신고일 기준 30일 내. 농업인 면세 적용 여부 확인 필요.',
-        printable:false
+        printable:false, payable:false
       },
       {
         id:'etc', ic:'📋', title:'기타 국세청 서비스',
-        color:'rgba(168,85,247,.05)', border:'rgba(168,85,247,.2)', titleClr:'var(--pur)',
+        color:'rgba(100,100,100,.05)', border:'rgba(100,100,100,.15)', titleClr:'var(--t1)',
         desc:'세금계산서 조회, 사업자 현황, 소득·세액공제 등',
         deadline:'상시',
         steps:['전자세금계산서 발급·조회','사업자등록 정정·폐업 신고','근로장려금·자녀장려금 신청','현금영수증 발급 및 조회'],
@@ -2572,26 +2668,24 @@ function renderPolicyOrg(id){
           {name:'국세청 유튜브 안내', url:'https://youtube.com', badge:'영상'},
         ],
         notice:'※ 농업인 부가세 면세사업자는 전자세금계산서 의무 발급 대상에서 제외 가능',
-        printable:false
+        printable:false, payable:false
       },
     ].map(item=>`
     <div style="background:${item.color};border:1.5px solid ${item.border};border-radius:14px;margin-bottom:10px;overflow:hidden;">
-      <!-- 헤더 (접기/펼치기) -->
       <div onclick="window.toggleNtsMenu('nts-${item.id}')"
         style="padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;">
-        <div style="font-size:24px;flex-shrink:0;">${item.ic}</div>
+        <div style="font-size:22px;flex-shrink:0;">${item.ic}</div>
         <div style="flex:1;">
-          <div style="font-size:14px;font-weight:800;color:${item.titleClr};">${item.title}</div>
-          <div style="font-size:10px;color:var(--t2);margin-top:2px;">${item.desc}</div>
+          <div style="font-size:13px;font-weight:800;color:${item.titleClr};">${item.title}</div>
+          <div style="font-size:10px;color:var(--t2);margin-top:1px;">${item.desc}</div>
         </div>
-        <span id="nts-arrow-${item.id}" style="font-size:14px;color:var(--t3);transition:transform .2s;">▼</span>
+        <span id="nts-arrow-${item.id}" style="font-size:12px;color:var(--t3);transition:transform .2s;">▼</span>
       </div>
 
-      <!-- 상세 내용 (기본 접힘) -->
       <div id="nts-${item.id}" style="display:none;padding:0 14px 14px;">
         <div style="height:1px;background:${item.border};margin-bottom:10px;"></div>
 
-        <!-- 신고 기한 -->
+        <!-- 기한 -->
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;padding:7px 10px;background:var(--s2);border-radius:8px;">
           <span style="font-size:12px;">📅</span>
           <div>
@@ -2600,7 +2694,7 @@ function renderPolicyOrg(id){
           </div>
         </div>
 
-        <!-- 신고 절차 -->
+        <!-- 절차 -->
         <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px;">📌 신고 절차</div>
         ${item.steps.map((s,i)=>`
         <div style="display:flex;gap:8px;margin-bottom:5px;font-size:11px;">
@@ -2608,27 +2702,149 @@ function renderPolicyOrg(id){
           <div style="color:var(--t1);line-height:1.5;">${s}</div>
         </div>`).join('')}
 
-        <!-- 주요 링크 -->
+        <!-- 링크 -->
         <div style="font-size:11px;font-weight:700;color:var(--t2);margin:10px 0 6px;">🔗 주요 링크</div>
         ${item.links.map(l=>`
         <a href="${l.url}" target="_blank" rel="noopener"
-          style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:9px;margin-bottom:5px;text-decoration:none;cursor:pointer;">
+          style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:9px;margin-bottom:5px;text-decoration:none;">
           <span style="font-size:12px;color:var(--t1);font-weight:600;">${l.name}</span>
           <span class="tag tag-b" style="font-size:9px;">${l.badge}</span>
         </a>`).join('')}
 
-        <!-- 납부고지서 출력 (법인세/종합소득세) -->
-        ${item.printable?`
-        <div style="margin-top:10px;padding:10px 12px;background:rgba(255,165,2,.06);border:1.5px dashed rgba(255,165,2,.3);border-radius:10px;cursor:pointer;"
-          onclick="window.printTaxNotice('${item.id}')">
-          <div style="font-size:12px;font-weight:700;color:var(--a4);">${item.printLabel}</div>
-          <div style="font-size:10px;color:var(--t2);margin-top:3px;">${item.printNote}</div>
-        </div>`:''}
+        <!-- 납부고지서 출력 + 바로납부 버튼 -->
+        <div style="display:flex;gap:6px;margin-top:10px;">
+          ${item.printable?`
+          <button onclick="window.printTaxNotice('${item.id}')"
+            style="flex:1;padding:9px 6px;border-radius:10px;background:rgba(255,165,2,.08);border:1.5px solid rgba(255,165,2,.3);color:var(--a4);font-size:11px;font-weight:700;cursor:pointer;line-height:1.3;">
+            📄 고지서 출력
+          </button>`:''}
+          ${item.payable?`
+          <button onclick="window.openTaxPayment('national','${item.id}')"
+            style="flex:${item.printable?1:2};padding:9px 6px;border-radius:10px;background:linear-gradient(135deg,rgba(255,69,84,.15),rgba(255,69,84,.08));border:1.5px solid rgba(255,69,84,.35);color:var(--red);font-size:11px;font-weight:700;cursor:pointer;line-height:1.3;">
+            💳 바로납부
+          </button>`:''}
+        </div>
 
         <!-- 주의사항 -->
         <div style="margin-top:8px;padding:8px 10px;background:var(--s2);border-radius:8px;font-size:10px;color:var(--t2);line-height:1.7;">
           ${item.notice}
         </div>
+      </div>
+    </div>`).join('')}
+    `:''}
+
+    <!-- ★ 지자체 공통 지방세 섹션 ★ -->
+    ${['광역자치단체','기초자치단체'].includes(org.type)?`
+    <div style="font-size:13px;font-weight:700;margin-bottom:10px;">🏙 지방세 서비스</div>
+
+    <!-- 지방세 바로납부 버튼 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+      <button onclick="window.openTaxPayment('local','${id}')"
+        style="padding:13px 8px;border-radius:14px;background:linear-gradient(135deg,rgba(0,176,80,.15),rgba(0,176,80,.08));border:1.5px solid rgba(0,176,80,.4);color:#00b050;font-size:12px;font-weight:800;cursor:pointer;line-height:1.4;">
+        💳 지방세 바로납부
+      </button>
+      <a href="https://wetax.go.kr" target="_blank" rel="noopener"
+        style="padding:13px 8px;border-radius:14px;background:rgba(79,156,249,.08);border:1.5px solid rgba(79,156,249,.3);color:var(--a2);font-size:12px;font-weight:800;text-decoration:none;text-align:center;display:flex;align-items:center;justify-content:center;line-height:1.4;">
+        🌐 위택스 바로가기
+      </a>
+    </div>
+
+    ${[
+      {
+        id:'prop_tax', ic:'🏡', title:'재산세 안내',
+        color:'rgba(0,176,80,.06)', border:'rgba(0,176,80,.2)', titleClr:'#00b050',
+        desc:'토지·건축물·주택에 부과되는 지방세',
+        deadline:'7월 (건축물·주택 1/2) · 9월 (토지·주택 1/2)',
+        steps:['매년 6월 1일 기준 과세','위택스 또는 지방세 고지서 확인','납부기한 내 납부 (연체 시 가산금 부과)','농지는 과세표준 면적에 따라 감면 가능'],
+        links:[
+          {name:'위택스 재산세 조회', url:'https://wetax.go.kr', badge:'외부링크'},
+          {name:'부동산 공시가격 조회', url:'https://www.realtyprice.kr', badge:'외부링크'},
+        ],
+        notice:'※ 농지·농업용 시설은 재산세 감면 대상. 지자체 세무과에 감면 신청 필요.',
+        printable:true
+      },
+      {
+        id:'local_income', ic:'💼', title:'지방소득세 안내',
+        color:'rgba(79,156,249,.06)', border:'rgba(79,156,249,.2)', titleClr:'var(--a2)',
+        desc:'소득세·법인세의 10%를 별도로 납부하는 지방세',
+        deadline:'종합소득세 신고 시 동시 납부 (5월)',
+        steps:['국세(종합소득세·법인세) 신고와 동시 납부','홈택스에서 국세 신고 시 지방소득세 자동 연동','위택스에서 별도 납부도 가능'],
+        links:[
+          {name:'위택스 지방소득세', url:'https://wetax.go.kr', badge:'외부링크'},
+          {name:'지방소득세 안내', url:'https://wetax.go.kr', badge:'안내'},
+        ],
+        notice:'※ 종합소득세·법인세의 10%가 지방소득세로 별도 부과됩니다.',
+        printable:true
+      },
+      {
+        id:'local_unpaid', ic:'⚠️', title:'지방세 미납 확인',
+        color:'rgba(255,69,84,.05)', border:'rgba(255,69,84,.2)', titleClr:'var(--red)',
+        desc:'체납 지방세 조회 및 납부 안내',
+        deadline:'즉시 확인 가능',
+        steps:['위택스 → 나의 위택스 → 체납세금 조회','지자체 세무과 방문 또는 전화 문의','분납·납부유예 신청 가능 (지자체 협의)'],
+        links:[
+          {name:'위택스 체납조회', url:'https://wetax.go.kr', badge:'외부링크'},
+          {name:`${org.name} 세무과`, url:`tel:${org.tel}`, badge:'☎ 전화'},
+        ],
+        notice:'※ 체납 시 가산금 5% 추가 부과. 1개월 초과 시 중가산금 매월 0.75% 추가.',
+        printable:false
+      },
+      {
+        id:'local_reduce', ic:'💎', title:'지방세 감면 안내',
+        color:'rgba(244,196,48,.05)', border:'rgba(244,196,48,.2)', titleClr:'var(--a4)',
+        desc:'농업인·영농법인 지방세 감면 항목 및 신청 방법',
+        deadline:'과세 전 신청 또는 납부 후 환급 신청',
+        steps:['농지 재산세 50~100% 감면 가능','영농법인 취득세·재산세 감면','지자체 세무과에 감면 신청서 제출','GARAK AI 송장·거래이력이 감면 증빙 자료로 활용 가능'],
+        links:[
+          {name:'위택스 감면신청', url:'https://wetax.go.kr', badge:'외부링크'},
+          {name:`${org.name} 세무과`, url:`tel:${org.tel}`, badge:'☎ 전화'},
+        ],
+        notice:'※ 농업경영체 등록 여부, 실경작 여부에 따라 감면 금액이 달라집니다.',
+        printable:false
+      },
+    ].map(item=>`
+    <div style="background:${item.color};border:1.5px solid ${item.border};border-radius:14px;margin-bottom:8px;overflow:hidden;">
+      <div onclick="window.toggleNtsMenu('ltax-${id}-${item.id}')"
+        style="padding:11px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;">
+        <div style="font-size:20px;flex-shrink:0;">${item.ic}</div>
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:800;color:${item.titleClr};">${item.title}</div>
+          <div style="font-size:10px;color:var(--t2);margin-top:1px;">${item.desc}</div>
+        </div>
+        <span id="nts-arrow-ltax-${id}-${item.id}" style="font-size:12px;color:var(--t3);transition:transform .2s;">▼</span>
+      </div>
+      <div id="ltax-${id}-${item.id}" style="display:none;padding:0 14px 12px;">
+        <div style="height:1px;background:${item.border};margin-bottom:8px;"></div>
+        <div style="padding:6px 10px;background:var(--s2);border-radius:7px;margin-bottom:8px;">
+          <div style="font-size:9px;color:var(--t3);">납부/확인 기한</div>
+          <div style="font-size:11px;font-weight:700;color:${item.titleClr};">${item.deadline}</div>
+        </div>
+        <div style="font-size:10px;font-weight:700;color:var(--t2);margin-bottom:5px;">📌 절차</div>
+        ${item.steps.map((s,i)=>`
+        <div style="display:flex;gap:6px;margin-bottom:4px;font-size:11px;">
+          <div style="width:16px;height:16px;border-radius:50%;background:${item.titleClr}18;color:${item.titleClr};font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${i+1}</div>
+          <div style="color:var(--t1);line-height:1.5;">${s}</div>
+        </div>`).join('')}
+        <div style="font-size:10px;font-weight:700;color:var(--t2);margin:8px 0 5px;">🔗 링크</div>
+        ${item.links.map(l=>`
+        <a href="${l.url}" target="_blank" rel="noopener"
+          style="display:flex;align-items:center;justify-content:space-between;padding:7px 11px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;margin-bottom:4px;text-decoration:none;">
+          <span style="font-size:11px;color:var(--t1);font-weight:600;">${l.name}</span>
+          <span class="tag tag-b" style="font-size:9px;">${l.badge}</span>
+        </a>`).join('')}
+        <!-- 고지서 출력 + 납부 버튼 -->
+        <div style="display:flex;gap:6px;margin-top:8px;">
+          ${item.printable?`
+          <button onclick="window.printLocalTaxNotice('${id}','${item.id}')"
+            style="flex:1;padding:8px 6px;border-radius:9px;background:rgba(255,165,2,.08);border:1.5px solid rgba(255,165,2,.3);color:var(--a4);font-size:11px;font-weight:700;cursor:pointer;">
+            📄 고지서 출력
+          </button>`:''}
+          <button onclick="window.openTaxPayment('local','${id}','${item.id}')"
+            style="flex:${item.printable?1:2};padding:8px 6px;border-radius:9px;background:rgba(0,176,80,.1);border:1.5px solid rgba(0,176,80,.35);color:#00b050;font-size:11px;font-weight:700;cursor:pointer;">
+            💳 바로납부
+          </button>
+        </div>
+        <div style="margin-top:6px;padding:7px 10px;background:var(--s2);border-radius:7px;font-size:10px;color:var(--t2);line-height:1.6;">${item.notice}</div>
       </div>
     </div>`).join('')}
     `:''}
@@ -2693,6 +2909,101 @@ function renderPolicyOrg(id){
       </div>`;
     }).join('')}`:''}`;
 }
+
+// ── 국세/지방세 바로납부 ──
+window.openTaxPayment = function(taxType, orgOrMenu, subMenu){
+  const taxLabels = {
+    vat:'부가가치세', corp_tax:'법인세', income_tax:'종합소득세',
+    unpaid:'미납세금', prop_tax:'재산세', local_income:'지방소득세',
+    local_unpaid:'지방세 미납', national:'국세 통합납부'
+  };
+  const label = taxLabels[subMenu||orgOrMenu] || (taxType==='local'?'지방세':'국세');
+  const isLocal = taxType==='local';
+
+  document.getElementById('tp-title').textContent = (isLocal?'🏙 지방세':'🏦 국세')+' 바로납부';
+  document.getElementById('tp-sub').textContent = label+' 납부 — GARAK AI 결제 시스템';
+  document.getElementById('tp-name').textContent = curUserName||'—';
+  document.getElementById('tp-type').textContent = label;
+  document.getElementById('tp-biznum').textContent = window._userBiznum||'—';
+  document.getElementById('tp-amount').textContent = '직접 입력';
+  document.getElementById('tp-amount-input').value = '';
+  document.getElementById('tp-fee').textContent = '수수료: ₩0 (0.8%)';
+  window._taxPayType = taxType;
+  window._taxPayLabel = label;
+  window.openSheet('sh-tax-payment');
+};
+
+window.submitTaxPayment = function(){
+  const amt = parseInt(document.getElementById('tp-amount-input')?.value||0);
+  if(!amt||amt<100){ toast('납부 금액을 입력하세요 (최소 100원)'); return; }
+  const fee = Math.round(amt*0.008);
+  const label = window._taxPayLabel||'세금';
+
+  // 카드 등록 여부 확인
+  if(!window._savedCard){
+    toast('💳 결제 카드를 먼저 등록하세요 [MY > 결제·토큰]');
+    window.closeSheet('sh-tax-payment');
+    window._myTab='payment'; goTab('mypage');
+    return;
+  }
+  toast('💳 '+label+' ₩'+amt.toLocaleString()+' 납부 요청 중...');
+  setTimeout(()=>{
+    window.closeSheet('sh-tax-payment');
+    toast('✅ '+label+' ₩'+amt.toLocaleString()+' 납부 완료!\n수수료 ₩'+fee.toLocaleString()+' 포함\n(실제 연동 시 처리됩니다)');
+  }, 1800);
+};
+
+// ── 지방세 고지서 출력 ──
+window.printLocalTaxNotice = function(orgId, taxId){
+  const org = POLICY_ORG_DATA[orgId];
+  const taxNames = {prop_tax:'재산세', local_income:'지방소득세', local_unpaid:'지방세 미납', local_reduce:'지방세 감면'};
+  const label = taxNames[taxId]||'지방세';
+  const now = new Date();
+  const yy = now.getFullYear();
+
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>${label} 고지서 (${org?org.name:'지자체'})</title>
+  <style>
+    body{font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;margin:40px;color:#111;font-size:13px;}
+    h1{font-size:20px;margin-bottom:4px;}
+    .badge{display:inline-block;background:#267c26;color:#fff;padding:3px 10px;border-radius:4px;font-size:11px;margin-bottom:16px;}
+    table{width:100%;border-collapse:collapse;margin-bottom:20px;}
+    td{padding:9px 12px;border:1px solid #ddd;}
+    td:first-child{background:#f5f5f5;width:160px;font-weight:600;}
+    .total{background:#f0fff0;font-size:16px;font-weight:800;color:#267c26;}
+    .notice{background:#f9f9f9;border:1px solid #ddd;padding:12px;border-radius:6px;font-size:11px;color:#666;line-height:1.8;}
+    .footer{margin-top:24px;text-align:center;font-size:11px;color:#aaa;border-top:1px solid #eee;padding-top:12px;}
+    .stamp{float:right;font-size:36px;margin-top:-20px;}
+    .watermark{color:#efefef;font-size:44px;font-weight:900;text-align:center;transform:rotate(-30deg);position:fixed;top:38%;left:12%;z-index:-1;}
+  </style></head><body>
+  <div class="watermark">GARAK AI 견본</div>
+  <div class="stamp">🏙</div>
+  <h1>📄 ${label} 고지서 (견본)</h1>
+  <span class="badge">위택스 협의 필요 · 프로토타입</span>
+  <table>
+    <tr><td>납세자명</td><td>${curUserName||'—'}</td></tr>
+    <tr><td>사업자등록번호</td><td>${window._userBiznum||'000-00-00000'}</td></tr>
+    <tr><td>과세 기관</td><td>${org?org.name:'해당 지자체'}</td></tr>
+    <tr><td>세목</td><td>${label}</td></tr>
+    <tr><td>과세연도</td><td>${yy}년도</td></tr>
+    <tr><td>납부기한</td><td>${taxId==='prop_tax'?yy+'.09.30':yy+'.05.31'}</td></tr>
+    <tr><td>납부세액</td><td class="total">₩ — (위택스 연동 후 실 금액 표시)</td></tr>
+    <tr><td>납부방법</td><td>위택스(wetax.go.kr) · 가상계좌 · GARAK AI 납부 (준비 중)</td></tr>
+  </table>
+  <div class="notice">
+    ※ 이 고지서는 GARAK AI 프로토타입에서 생성된 <b>견본</b>입니다.<br>
+    ※ 실제 고지서는 <b>위택스(wetax.go.kr)</b> 또는 ${org?org.name:'해당 지자체'} 세무과에서 확인하세요.<br>
+    ※ GARAK AI에서 위택스 API 연동 협의 완료 후 실제 납부 정보가 표시됩니다.<br>
+    ※ 농업인·영농법인은 감면 신청을 통해 세금을 절감할 수 있습니다.
+  </div>
+  <div class="footer">
+    GARAK AI 4.0 · 발행: ${now.toLocaleString('ko-KR')} · ${window._userBiznum||'사업자번호 미입력'}
+  </div>
+  </body></html>`;
+  const w=window.open('','_blank');
+  if(w){ w.document.write(html); w.document.close(); w.print(); }
+  toast('🖨️ '+label+' 고지서 출력창이 열렸습니다 (견본)');
+};
 
 // ── 국세청 메뉴 접기/펼치기 ──
 window.toggleNtsMenu = function(menuId){
