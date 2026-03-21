@@ -212,6 +212,102 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
 
 <div id="toast"></div>
 
+<!-- ══ 추가 사용자 등록 시트 ══ -->
+<div class="sheet-overlay" id="sh-adduser">
+  <div class="sheet">
+    <div class="sheet-hd">
+      <div class="sheet-title">👥 추가 사용자 등록</div>
+      <button onclick="window.closeSheet('sh-adduser')" style="color:var(--t2);font-size:20px;">✕</button>
+    </div>
+    <div class="sheet-sub">직원·가족·공동대표를 추가하여 접근 권한을 부여하세요</div>
+
+    <!-- 이름 -->
+    <div class="fgroup">
+      <div class="flabel">이름 *</div>
+      <input class="finput" id="su-name" placeholder="홍길동">
+    </div>
+
+    <!-- 역할/직책 -->
+    <div class="fgroup">
+      <div class="flabel">직책 / 역할 *</div>
+      <select class="finput" id="su-role">
+        <option value="">선택하세요</option>
+        <option value="직원">직원</option>
+        <option value="관리자">관리자</option>
+        <option value="가족">가족</option>
+        <option value="공동대표">공동대표</option>
+        <option value="회계담당">회계담당</option>
+        <option value="기타">기타</option>
+      </select>
+    </div>
+
+    <!-- 연락처 -->
+    <div class="fgroup">
+      <div class="flabel">연락처 *</div>
+      <input class="finput" id="su-tel" type="tel" placeholder="010-0000-0000">
+    </div>
+
+    <!-- 접근 권한 -->
+    <div class="fgroup">
+      <div class="flabel">접근 권한</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
+        ${['조회','입력','관리'].map(p=>`
+        <div onclick="window.selectSubPerm('${p}')" id="su-perm-${p}"
+          style="padding:9px 4px;border-radius:10px;text-align:center;cursor:pointer;border:1.5px solid var(--b1);background:var(--s2);font-size:12px;font-weight:700;color:var(--t2);">${p}</div>`).join('')}
+      </div>
+    </div>
+
+    <!-- 국적 -->
+    <div class="fgroup">
+      <div class="flabel">국적</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;">
+        <div id="su-nat-korean" onclick="window.selectSubNat('korean')"
+          style="padding:10px;border-radius:10px;text-align:center;cursor:pointer;border:1.5px solid var(--a1);background:rgba(0,232,188,.08);">
+          <div style="font-size:18px;">🇰🇷</div>
+          <div style="font-size:11px;font-weight:700;color:var(--a1);">내국인</div>
+        </div>
+        <div id="su-nat-foreign" onclick="window.selectSubNat('foreign')"
+          style="padding:10px;border-radius:10px;text-align:center;cursor:pointer;border:1.5px solid var(--b1);background:var(--s2);">
+          <div style="font-size:18px;">🌏</div>
+          <div style="font-size:11px;font-weight:700;color:var(--t2);">외국인</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 외국인 추가 정보 -->
+    <div id="su-foreign-fields" style="display:none;background:rgba(79,156,249,.05);border:1px solid rgba(79,156,249,.2);border-radius:12px;padding:12px;margin-bottom:10px;">
+      <div style="font-size:11px;font-weight:700;color:var(--a2);margin-bottom:8px;">🌏 외국인 추가 정보</div>
+      <div class="fgroup">
+        <div class="flabel">국가명 (영문) *</div>
+        <input class="finput" id="su-country" placeholder="Vietnam / China...">
+      </div>
+      <div class="fgroup">
+        <div class="flabel">비자 종류 *</div>
+        <select class="finput" id="su-visa">
+          <option value="">선택</option>
+          <option value="E9">E-9 (고용허가제)</option>
+          <option value="E6">E-6 (예술흥행)</option>
+          <option value="H2">H-2 (방문취업)</option>
+          <option value="F4">F-4 (재외동포)</option>
+          <option value="F2">F-2 (거주)</option>
+          <option value="F5">F-5 (영주권)</option>
+          <option value="OTHER">기타</option>
+        </select>
+      </div>
+      <div class="fgroup">
+        <div class="flabel">여권번호 *</div>
+        <input class="finput" id="su-passport" placeholder="M12345678" oninput="this.value=this.value.toUpperCase()">
+      </div>
+      <div class="fgroup">
+        <div class="flabel">체류 기간 만료일 *</div>
+        <input class="finput" id="su-stay-to" type="date">
+      </div>
+    </div>
+
+    <button class="btn btn-p" onclick="window.saveSubUser()">✅ 추가 사용자 등록</button>
+  </div>
+</div>
+
 <!-- ══ AI 어시스턴트 시트 ══ -->
 <div class="sheet-overlay" id="sh-ai">
   <div class="sheet">
@@ -812,6 +908,10 @@ let callLoadType='solo';
 function renderRoleCards(containerId, withInput=true){
   const el=document.getElementById(containerId);
   if(!el) return;
+
+  // 사업자등록번호 불필요 역할 = 생산자(개인) 만
+  const NO_BIZNUM_ROLES = ['producer_ind'];
+
   el.innerHTML = ROLE_GROUPS.map(g=>`
     <div class="role-label" style="color:${g.color};">${g.label}</div>
     <div class="role-grid">
@@ -822,31 +922,323 @@ function renderRoleCards(containerId, withInput=true){
       <input type="text" class="finput" id="reg-name" placeholder="홍길동 / 드레곤팜" style="margin-bottom:8px;">
       <div class="flabel">휴대폰 번호 *</div>
       <input type="tel" class="finput" id="reg-tel" placeholder="010-0000-0000" style="margin-bottom:8px;">
-      <!-- 법인 전용 필드 (기본 숨김) -->
-      <div id="reg-corp-fields" style="display:none;">
-        <div style="background:rgba(79,156,249,.05);border:1px solid rgba(79,156,249,.2);border-radius:10px;padding:10px 12px;margin-bottom:8px;">
-          <div style="font-size:11px;color:var(--a2);font-weight:700;margin-bottom:8px;">🏢 법인 필수 정보</div>
-          <div class="flabel">사업자등록번호 * <span style="color:var(--red);font-size:10px;">(법인 가입 필수)</span></div>
-          <input type="text" class="finput" id="reg-biznum" placeholder="000-00-00000" maxlength="12"
-            oninput="this.value=this.value.replace(/[^0-9]/g,'').replace(/^(\d{3})(\d{2})(\d{5})$/,'\$1-\$2-\$3').replace(/^(\d{3})(\d{1,2})$/,'\$1-\$2').replace(/^(\d{3})-(\d{2})(\d{1,5})$/,'\$1-\$2-\$3')"
+
+      <!-- 국적 선택 -->
+      <div class="flabel">국적 *</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">
+        <div id="nat-korean" onclick="window.selectNationality('korean')"
+          style="padding:12px;border-radius:12px;text-align:center;cursor:pointer;border:1.5px solid var(--a1);background:rgba(0,232,188,.08);">
+          <div style="font-size:20px;margin-bottom:4px;">🇰🇷</div>
+          <div style="font-size:12px;font-weight:700;color:var(--a1);">내국인</div>
+        </div>
+        <div id="nat-foreign" onclick="window.selectNationality('foreign')"
+          style="padding:12px;border-radius:12px;text-align:center;cursor:pointer;border:1.5px solid var(--b1);background:var(--s2);">
+          <div style="font-size:20px;margin-bottom:4px;">🌏</div>
+          <div style="font-size:12px;font-weight:700;color:var(--t2);">외국인</div>
+        </div>
+      </div>
+
+      <!-- 외국인 추가 필드 (기본 숨김) -->
+      <div id="reg-foreign-fields" style="display:none;">
+        <div style="background:rgba(79,156,249,.05);border:1.5px solid rgba(79,156,249,.25);border-radius:12px;padding:12px 14px;margin-bottom:10px;">
+          <div style="font-size:12px;font-weight:700;color:var(--a2);margin-bottom:10px;">🌏 외국인 추가 정보 <span style="color:var(--red);font-size:10px;">(필수)</span></div>
+
+          <div class="flabel">국가명 (영문) *</div>
+          <input type="text" class="finput" id="reg-country" placeholder="예: Vietnam / China / Philippines" style="margin-bottom:8px;">
+
+          <div class="flabel">비자 종류 *</div>
+          <select class="finput" id="reg-visa-type" style="margin-bottom:8px;" onchange="window.onVisaTypeChange()">
+            <option value="">선택하세요</option>
+            <option value="E9">E-9 (비전문 취업, 고용허가제)</option>
+            <option value="E6">E-6 (예술흥행)</option>
+            <option value="H2">H-2 (방문취업, 재외동포)</option>
+            <option value="F4">F-4 (재외동포)</option>
+            <option value="F2">F-2 (거주)</option>
+            <option value="F5">F-5 (영주권)</option>
+            <option value="F6">F-6 (결혼이민)</option>
+            <option value="D8">D-8 (기업투자)</option>
+            <option value="OTHER">기타</option>
+          </select>
+
+          <div id="reg-visa-other-wrap" style="display:none;">
+            <div class="flabel">비자 종류 직접 입력</div>
+            <input type="text" class="finput" id="reg-visa-other" placeholder="예: D-10, G-1 등" style="margin-bottom:8px;">
+          </div>
+
+          <div class="flabel">여권번호 *</div>
+          <input type="text" class="finput" id="reg-passport" placeholder="예: M12345678"
+            oninput="this.value=this.value.toUpperCase()"
             style="margin-bottom:8px;">
-          <div style="font-size:10px;color:var(--t2);">※ 사업자등록번호 미입력 시 법인 가입이 불가합니다</div>
+
+          <div class="flabel">여권 만료일 *</div>
+          <input type="date" class="finput" id="reg-passport-exp" style="margin-bottom:8px;">
+
+          <div class="flabel">외국인 등록번호 (있는 경우)</div>
+          <input type="text" class="finput" id="reg-alien-num" placeholder="000000-0000000" maxlength="14"
+            oninput="let v=this.value.replace(/[^0-9]/g,'');if(v.length>6)v=v.slice(0,6)+'-'+v.slice(6,13);this.value=v;"
+            style="margin-bottom:8px;">
+
+          <div class="flabel">국내 체류지 주소 *</div>
+          <input type="text" class="finput" id="reg-stay-addr" placeholder="예: 경기도 안성시 미양면 00길 00" style="margin-bottom:8px;">
+
+          <div class="frow" style="gap:8px;margin-bottom:8px;">
+            <div style="flex:1;">
+              <div class="flabel">체류 기간 시작일 *</div>
+              <input type="date" class="finput" id="reg-stay-from">
+            </div>
+            <div style="flex:1;">
+              <div class="flabel">체류 기간 만료일 *</div>
+              <input type="date" class="finput" id="reg-stay-to">
+            </div>
+          </div>
+
+          <div class="flabel">고용주 / 소속 업체명</div>
+          <input type="text" class="finput" id="reg-employer" placeholder="예: 드레곤팜 / 가락농협" style="margin-bottom:4px;">
+
+          <div style="margin-top:8px;padding:8px 10px;background:rgba(244,196,48,.06);border:1px solid rgba(244,196,48,.2);border-radius:8px;font-size:10px;color:var(--t2);line-height:1.7;">
+            ⚠️ 입력하신 외국인 정보는 관계법령에 따라 안전하게 관리되며,
+            출입국관리법 준수 확인 목적으로만 사용됩니다.
+          </div>
+        </div>
+      </div>
+
+      <!-- 사업자등록번호 (생산자 개인 제외 전체 표시) -->
+      <div id="reg-biznum-section" style="display:none;">
+        <div style="background:rgba(79,156,249,.05);border:1px solid rgba(79,156,249,.2);border-radius:12px;padding:12px 14px;margin-bottom:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <div style="font-size:12px;font-weight:700;color:var(--a2);">🏢 사업자 등록 정보</div>
+            <span id="reg-biznum-badge" class="tag tag-r" style="font-size:9px;">필수</span>
+          </div>
+          <div class="flabel">사업자등록번호 *</div>
+          <input type="text" class="finput" id="reg-biznum"
+            placeholder="000-00-00000" maxlength="12"
+            oninput="
+              let v=this.value.replace(/[^0-9]/g,'');
+              if(v.length>=6) v=v.slice(0,3)+'-'+v.slice(3,5)+'-'+v.slice(5);
+              else if(v.length>=4) v=v.slice(0,3)+'-'+v.slice(3);
+              this.value=v;
+              document.getElementById('reg-biznum-ok').style.display=v.replace(/-/g,'').length===10?'block':'none';
+            "
+            style="margin-bottom:4px;">
+          <div id="reg-biznum-ok" style="display:none;font-size:10px;color:var(--a1);margin-bottom:6px;">✅ 유효한 사업자등록번호</div>
+
+          <!-- 법인번호 (법인 역할만 표시) -->
+          <div id="reg-corpnum-section" style="display:none;">
+            <div class="flabel" style="margin-top:8px;">법인번호 * <span style="color:var(--red);font-size:10px;">(법인 필수)</span></div>
+            <input type="text" class="finput" id="reg-corpnum"
+              placeholder="000000-0000000" maxlength="14"
+              oninput="
+                let v=this.value.replace(/[^0-9]/g,'');
+                if(v.length>6) v=v.slice(0,6)+'-'+v.slice(6,13);
+                this.value=v;
+                document.getElementById('reg-corpnum-ok').style.display=v.replace(/-/g,'').length===13?'block':'none';
+              "
+              style="margin-bottom:4px;">
+            <div id="reg-corpnum-ok" style="display:none;font-size:10px;color:var(--a1);margin-bottom:6px;">✅ 유효한 법인번호</div>
+          </div>
+
+          <div style="font-size:10px;color:var(--t2);line-height:1.7;margin-top:4px;">
+            중도매인, 청과법인, 공공기관, 전문가 등 사업자등록번호가 있는 모든 사업체는 필수 입력입니다.
+          </div>
+
+          <!-- 사업자번호 없는 경우 특승인 요청 -->
+          <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--b1);">
+            <div style="font-size:11px;color:var(--t2);margin-bottom:6px;">사업자등록번호가 없으신가요?</div>
+            <div id="reg-special-section" style="display:none;background:rgba(244,196,48,.05);border:1px solid rgba(244,196,48,.2);border-radius:9px;padding:10px 12px;margin-bottom:6px;">
+              <div style="font-size:11px;font-weight:700;color:var(--a4);margin-bottom:4px;">📋 특승인 요청 사유</div>
+              <textarea class="finput" id="reg-special-reason" rows="2" placeholder="예: 사업자 신청 중 / 개인 활동 / 시범 사용 요청 등..." style="resize:none;font-size:11px;margin-bottom:4px;"></textarea>
+              <div style="font-size:10px;color:var(--t2);">관리자가 확인 후 24시간 내 연락드립니다</div>
+            </div>
+            <button onclick="window.toggleSpecialRequest()"
+              style="width:100%;padding:8px;border-radius:9px;background:rgba(244,196,48,.08);border:1.5px solid rgba(244,196,48,.3);color:var(--a4);font-size:11px;font-weight:700;cursor:pointer;" id="reg-special-btn">
+              📋 특승인 요청하기
+            </button>
+          </div>
         </div>
       </div>
     </div>`:'');
 }
 
-// 역할 카드 클릭 시 법인 필드 토글
+// 국적 선택
+window.selectNationality = function(type){
+  window._nationality = type;
+  const korean = document.getElementById('nat-korean');
+  const foreign = document.getElementById('nat-foreign');
+  const foreignFields = document.getElementById('reg-foreign-fields');
+  if(!korean || !foreign) return;
+  if(type === 'korean'){
+    korean.style.cssText += ';border:1.5px solid var(--a1);background:rgba(0,232,188,.08);';
+    korean.querySelectorAll('div')[1].style.color='var(--a1)';
+    foreign.style.cssText += ';border:1.5px solid var(--b1);background:var(--s2);';
+    foreign.querySelectorAll('div')[1].style.color='var(--t2)';
+    if(foreignFields) foreignFields.style.display='none';
+  } else {
+    foreign.style.cssText += ';border:1.5px solid var(--a2);background:rgba(79,156,249,.1);';
+    foreign.querySelectorAll('div')[1].style.color='var(--a2)';
+    korean.style.cssText += ';border:1.5px solid var(--b1);background:var(--s2);';
+    korean.querySelectorAll('div')[1].style.color='var(--t2)';
+    if(foreignFields) foreignFields.style.display='block';
+  }
+};
+
+// 비자 타입 기타 선택 시 직접 입력 표시
+window.onVisaTypeChange = function(){
+  const sel = document.getElementById('reg-visa-type');
+  const wrap = document.getElementById('reg-visa-other-wrap');
+  if(sel && wrap) wrap.style.display = sel.value === 'OTHER' ? 'block' : 'none';
+};
+
+// ══════════════
+// 추가 사용자 (직원) 등록
+// ══════════════
+if(!window._subUsers) window._subUsers = [];
+if(!window._subNat)   window._subNat   = 'korean';
+if(!window._subPerm)  window._subPerm  = '조회';
+
+window.openAddUserSheet = function(){
+  window._subNat  = 'korean';
+  window._subPerm = '조회';
+  ['su-name','su-tel','su-country','su-passport'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  const roleEl=document.getElementById('su-role'); if(roleEl) roleEl.value='';
+  const visaEl=document.getElementById('su-visa'); if(visaEl) visaEl.value='';
+  const stayEl=document.getElementById('su-stay-to'); if(stayEl) stayEl.value='';
+
+  // 국적 버튼 초기 상태
+  const kBtn=document.getElementById('su-nat-korean');
+  const fBtn=document.getElementById('su-nat-foreign');
+  if(kBtn){ kBtn.style.border='1.5px solid var(--a1)'; kBtn.style.background='rgba(0,232,188,.08)'; }
+  if(fBtn){ fBtn.style.border='1.5px solid var(--b1)'; fBtn.style.background='var(--s2)'; }
+  const ff=document.getElementById('su-foreign-fields');
+  if(ff) ff.style.display='none';
+
+  // 권한 버튼 초기 상태
+  ['조회','입력','관리'].forEach(p=>{
+    const el=document.getElementById('su-perm-'+p); if(!el) return;
+    const active = p==='조회';
+    el.style.border = active?'1.5px solid var(--a1)':'1.5px solid var(--b1)';
+    el.style.background = active?'rgba(0,232,188,.08)':'var(--s2)';
+    el.style.color = active?'var(--a1)':'var(--t2)';
+  });
+
+  window.openSheet('sh-adduser');
+};
+
+window.selectSubNat = function(type){
+  window._subNat = type;
+  const kBtn=document.getElementById('su-nat-korean');
+  const fBtn=document.getElementById('su-nat-foreign');
+  const ff=document.getElementById('su-foreign-fields');
+
+  if(type==='korean'){
+    if(kBtn){ kBtn.style.border='1.5px solid var(--a1)'; kBtn.style.background='rgba(0,232,188,.08)'; }
+    if(fBtn){ fBtn.style.border='1.5px solid var(--b1)'; fBtn.style.background='var(--s2)'; }
+    if(ff)   ff.style.display='none';
+  } else {
+    if(fBtn){ fBtn.style.border='1.5px solid var(--a2)'; fBtn.style.background='rgba(79,156,249,.1)'; }
+    if(kBtn){ kBtn.style.border='1.5px solid var(--b1)'; kBtn.style.background='var(--s2)'; }
+    if(ff)   ff.style.display='block';
+  }
+};
+
+window.selectSubPerm = function(perm){
+  window._subPerm = perm;
+  ['조회','입력','관리'].forEach(p=>{
+    const el=document.getElementById('su-perm-'+p); if(!el) return;
+    const active = p===perm;
+    el.style.border     = active?'1.5px solid var(--a1)':'1.5px solid var(--b1)';
+    el.style.background = active?'rgba(0,232,188,.08)':'var(--s2)';
+    el.style.color      = active?'var(--a1)':'var(--t2)';
+  });
+};
+
+window.saveSubUser = function(){
+  const name    = document.getElementById('su-name')?.value.trim();
+  const role    = document.getElementById('su-role')?.value;
+  const tel     = document.getElementById('su-tel')?.value.trim();
+  if(!name){ toast('이름을 입력하세요'); return; }
+  if(!role){ toast('직책을 선택하세요'); return; }
+  if(!tel){  toast('연락처를 입력하세요'); return; }
+
+  let country='', visaType='', passport='', stayTo='';
+  if(window._subNat==='foreign'){
+    country  = document.getElementById('su-country')?.value.trim();
+    visaType = document.getElementById('su-visa')?.value;
+    passport = document.getElementById('su-passport')?.value.trim();
+    stayTo   = document.getElementById('su-stay-to')?.value;
+    if(!country)  { toast('국가명을 입력하세요'); return; }
+    if(!visaType) { toast('비자 종류를 선택하세요'); return; }
+    if(!passport) { toast('여권번호를 입력하세요'); return; }
+    if(!stayTo)   { toast('체류 만료일을 입력하세요'); return; }
+  }
+
+  if(!window._subUsers) window._subUsers=[];
+  window._subUsers.push({
+    name, role, tel,
+    nationality : window._subNat,
+    permission  : window._subPerm,
+    country, visaType, passport, stayTo,
+    registeredAt: new Date().toISOString(),
+  });
+
+  window.closeSheet('sh-adduser');
+  toast('✅ '+name+'님이 추가 사용자로 등록됐습니다');
+  renderMyPage();
+};
+
+window.removeSubUser = function(idx){
+  if(!confirm('이 사용자를 삭제하시겠습니까?')) return;
+  window._subUsers.splice(idx,1);
+  toast('삭제됐습니다');
+  renderMyPage();
+};
+
+// 역할 카드 클릭 — 사업자번호 표시 여부 분기
 window.onRoleCardClick = function(role, containerId){
   document.querySelectorAll('.role-card').forEach(c=>c.classList.remove('sel'));
   const card = document.querySelector(`.role-card[data-role="${role}"]`);
   if(card) card.classList.add('sel');
   curRole = role;
 
-  // 법인 역할 판단
+  const biznumSection = document.getElementById('reg-biznum-section');
+  if(!biznumSection) return;
+
+  // 생산자(개인)만 사업자번호 숨김, 나머지 전체 표시
+  const needBiznum = role !== 'producer_ind';
+  biznumSection.style.display = needBiznum ? 'block' : 'none';
+
+  // 법인 역할이면 법인번호 섹션 추가 표시
   const isCorpRole = ['producer_corp','wholesale'].includes(role);
-  const corpFields = document.getElementById('reg-corp-fields');
-  if(corpFields) corpFields.style.display = isCorpRole ? 'block' : 'none';
+  const corpnumSection = document.getElementById('reg-corpnum-section');
+  if(corpnumSection) corpnumSection.style.display = isCorpRole ? 'block' : 'none';
+
+  // 배지 텍스트
+  const badge = document.getElementById('reg-biznum-badge');
+  const input = document.getElementById('reg-biznum');
+  const isGov = ['gov_garaksa','gov_seoul','gov_nts','gov_public'].includes(role);
+  if(badge) badge.textContent = isCorpRole ? '사업자·법인번호 필수' : '필수';
+  if(input) input.placeholder = isGov ? '사업자번호 또는 고유번호' : '000-00-00000';
+};
+
+// 특승인 요청 토글
+window.toggleSpecialRequest = function(){
+  const sec = document.getElementById('reg-special-section');
+  const btn = document.getElementById('reg-special-btn');
+  const biznumInput = document.getElementById('reg-biznum');
+  const isOpen = sec.style.display !== 'none';
+  sec.style.display = isOpen ? 'none' : 'block';
+  btn.textContent = isOpen ? '📋 특승인 요청하기' : '✕ 특승인 요청 취소';
+  if(!isOpen && biznumInput){
+    biznumInput.value='';
+    biznumInput.disabled=true;
+    biznumInput.placeholder='특승인 요청으로 대체됩니다';
+    biznumInput.style.opacity='0.4';
+  } else if(biznumInput){
+    biznumInput.disabled=false;
+    biznumInput.placeholder='000-00-00000';
+    biznumInput.style.opacity='1';
+  }
 };
 
 // ══════════════
@@ -874,43 +1266,99 @@ window.doLogin = async function(){
   const r=ROLES[curRole];
   if(!r){ toast('역할 정보를 찾을 수 없습니다'); return; }
 
-  const nameEl = document.getElementById('reg-name');
-  const telEl  = document.getElementById('reg-tel');
-  const biznumEl = document.getElementById('reg-biznum');
+  const nameEl    = document.getElementById('reg-name');
+  const telEl     = document.getElementById('reg-tel');
+  const biznumEl  = document.getElementById('reg-biznum');
+  const specialEl = document.getElementById('reg-special-reason');
+  const isSpecialOpen = document.getElementById('reg-special-section')?.style.display !== 'none';
 
   // 이름 필수
   if(nameEl && !nameEl.value.trim()){ toast('이름 또는 상호명을 입력하세요'); return; }
 
-  // 법인 역할 — 사업자등록번호 필수
+  // 생산자(개인) 제외 — 사업자번호 또는 특승인 요청 필수
+  const needBiznum = curRole !== 'producer_ind';
   const isCorpRole = ['producer_corp','wholesale'].includes(curRole);
-  if(isCorpRole && biznumEl){
+  let regBiznum = '';
+  let regCorpnum = '';
+  let isSpecialReq = false;
+
+  if(needBiznum && biznumEl){
     const biznum = biznumEl.value.replace(/[^0-9]/g,'');
-    if(biznum.length !== 10){
-      toast('⚠️ 사업자등록번호 10자리를 입력하세요 (법인 가입 필수)');
-      biznumEl.focus();
-      return;
+    if(isSpecialOpen){
+      const reason = specialEl?.value.trim()||'';
+      if(!reason){ toast('특승인 요청 사유를 입력하세요'); specialEl?.focus(); return; }
+      isSpecialReq = true;
+      regBiznum = 'SPECIAL_REQ:'+reason;
+      toast('📋 특승인 요청이 접수됐습니다. 관리자가 24시간 내 연락드립니다.');
+    } else if(biznum.length < 10){
+      toast('⚠️ 사업자등록번호 10자리를 입력하세요');
+      biznumEl.focus(); return;
+    } else {
+      regBiznum = biznumEl.value.trim();
     }
+  }
+
+  // 법인 역할 — 법인번호 필수 추가 검사
+  if(isCorpRole && !isSpecialReq){
+    const corpnumEl = document.getElementById('reg-corpnum');
+    if(corpnumEl){
+      const corpnum = corpnumEl.value.replace(/[^0-9]/g,'');
+      if(corpnum.length < 13){
+        toast('⚠️ 법인번호 13자리를 입력하세요 (000000-0000000)');
+        corpnumEl.focus(); return;
+      }
+      regCorpnum = corpnumEl.value.trim();
+    }
+  }
+
+  // 외국인 추가 정보 검사
+  let foreignInfo = null;
+  if(window._nationality === 'foreign'){
+    const country    = document.getElementById('reg-country')?.value.trim();
+    const visaType   = document.getElementById('reg-visa-type')?.value;
+    const visaOther  = document.getElementById('reg-visa-other')?.value.trim();
+    const passport   = document.getElementById('reg-passport')?.value.trim();
+    const passExp    = document.getElementById('reg-passport-exp')?.value;
+    const stayAddr   = document.getElementById('reg-stay-addr')?.value.trim();
+    const stayFrom   = document.getElementById('reg-stay-from')?.value;
+    const stayTo     = document.getElementById('reg-stay-to')?.value;
+    const alienNum   = document.getElementById('reg-alien-num')?.value.trim();
+    const employer   = document.getElementById('reg-employer')?.value.trim();
+
+    if(!country){ toast('국가명을 입력하세요'); return; }
+    if(!visaType){ toast('비자 종류를 선택하세요'); return; }
+    if(visaType==='OTHER' && !visaOther){ toast('비자 종류를 직접 입력하세요'); return; }
+    if(!passport){ toast('여권번호를 입력하세요'); return; }
+    if(!passExp){ toast('여권 만료일을 입력하세요'); return; }
+    if(!stayAddr){ toast('국내 체류지 주소를 입력하세요'); return; }
+    if(!stayFrom || !stayTo){ toast('체류 기간을 입력하세요'); return; }
+
+    foreignInfo = {
+      country, visaType: visaType==='OTHER' ? visaOther : visaType,
+      passport, passportExpiry: passExp,
+      alienNum, stayAddr, stayFrom, stayTo, employer
+    };
   }
 
   curUserName = (nameEl&&nameEl.value.trim()) || r.n+' 사용자';
   const regTel = (telEl&&telEl.value.trim()) || '';
-  const regBiznum = (biznumEl&&biznumEl.value.trim()) || '';
-
-  curGkid = r.gkp+'-'+String(Math.floor(Math.random()*99999)+1).padStart(6,'0');
+  curGkid  = r.gkp+'-'+String(Math.floor(Math.random()*99999)+1).padStart(6,'0');
   curGrade = 'seed';
 
-  // 저장 데이터에 사업자번호 포함
   const userData = {
     role:curRole, gkid:curGkid, name:curUserName, grade:curGrade,
-    tel:regTel, biznum:regBiznum,
+    tel:regTel, biznum:regBiznum, corpnum:regCorpnum, specialReq:isSpecialReq,
+    nationality: window._nationality||'korean',
+    foreignInfo: foreignInfo,
   };
 
   try{ await db.from('users').insert({gkid:curGkid,name:curUserName,role:curRole}); }catch(e){}
   localStorage.setItem('garak_user', JSON.stringify(userData));
-
-  // 전역 변수에도 저장
-  window._userTel = regTel;
-  window._userBiznum = regBiznum;
+  window._userTel      = regTel;
+  window._userBiznum   = regBiznum;
+  window._userCorpnum  = regCorpnum;
+  window._specialReq   = isSpecialReq;
+  window._foreignInfo  = foreignInfo;
 
   startApp(r);
 };
@@ -934,7 +1382,8 @@ function loadSavedLogin(){
   if(saved){
     const u=JSON.parse(saved);
     curRole=u.role; curGkid=u.gkid; curUserName=u.name||''; curGrade=u.grade||'seed';
-    window._userTel=u.tel||''; window._userBiznum=u.biznum||'';
+    window._userTel=u.tel||''; window._userBiznum=u.biznum||''; window._userCorpnum=u.corpnum||'';
+    window._specialReq=u.specialReq||false;
     const r=ROLES[curRole];
     if(r) startApp(r);
   }
@@ -3313,9 +3762,13 @@ function renderMyPartnerSection(){
 
 // ── MY > 내정보 ──
 function renderMyProfile(r,gi,score){
+  const biznum = window._userBiznum||'';
+  const isSpecialReq = window._specialReq||false;
+  const needBiznum = curRole !== 'producer_ind';
+
   return `
   <div class="card" style="margin-bottom:12px;">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
       <div style="width:52px;height:52px;border-radius:14px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:26px;">${r.ic}</div>
       <div>
         <div style="font-size:17px;font-weight:800;">${curUserName||r.n}</div>
@@ -3323,6 +3776,26 @@ function renderMyProfile(r,gi,score){
         <div style="font-family:monospace;color:var(--a1);font-size:11px;margin-top:2px;">${curGkid}</div>
       </div>
     </div>
+
+    <!-- 가입 정보 요약 -->
+    <div style="background:var(--s2);border-radius:12px;padding:11px 13px;margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:8px;">📋 가입 정보</div>
+      ${[
+        ['연락처', window._userTel||'—'],
+        ...(needBiznum ? [['사업자등록번호', isSpecialReq ? '특승인 요청 중' : (biznum||'—')]] : []),
+      ].map(([lb,val])=>`
+      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--b2);font-size:12px;">
+        <span style="color:var(--t2);">${lb}</span>
+        <span style="font-weight:600;color:${val==='특승인 요청 중'?'var(--a4)':val==='—'?'var(--t3)':'var(--t1)'};">${val}</span>
+      </div>`).join('')}
+    </div>
+
+    <!-- 특승인 요청 상태 배너 -->
+    ${isSpecialReq?`
+    <div style="background:rgba(244,196,48,.07);border:1px solid rgba(244,196,48,.3);border-radius:10px;padding:10px 12px;margin-bottom:12px;">
+      <div style="font-size:12px;font-weight:700;color:var(--a4);margin-bottom:3px;">📋 특승인 요청 접수됨</div>
+      <div style="font-size:11px;color:var(--t2);">관리자 검토 후 24시간 내 연락드립니다. 승인 전까지 일부 기능이 제한됩니다.</div>
+    </div>`:''}
 
     <!-- 신뢰등급 -->
     <div style="background:var(--s2);border-radius:12px;padding:12px;margin-bottom:12px;">
@@ -3372,6 +3845,63 @@ function renderMyProfile(r,gi,score){
     }).join('')}
 
     <button class="btn btn-s" style="margin-top:14px;" onclick="if(confirm('로그아웃 하시겠습니까?')){localStorage.removeItem('garak_user');location.reload();}">로그아웃</button>
+  </div>
+
+  <!-- 국적/외국인 정보 -->
+  ${window._foreignInfo ? `
+  <div style="background:rgba(79,156,249,.05);border:1.5px solid rgba(79,156,249,.2);border-radius:14px;padding:13px 14px;margin-bottom:12px;">
+    <div style="font-size:12px;font-weight:700;color:var(--a2);margin-bottom:8px;">🌏 외국인 등록 정보</div>
+    ${[
+      ['국적', window._foreignInfo.country],
+      ['비자 종류', window._foreignInfo.visaType],
+      ['여권번호', window._foreignInfo.passport],
+      ['여권 만료일', window._foreignInfo.passportExpiry],
+      ['외국인 등록번호', window._foreignInfo.alienNum||'—'],
+      ['체류지', window._foreignInfo.stayAddr],
+      ['체류기간', (window._foreignInfo.stayFrom||'')+'~'+(window._foreignInfo.stayTo||'')],
+      ['고용주/소속', window._foreignInfo.employer||'—'],
+    ].map(([lb,val])=>`
+    <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--b2);font-size:11px;">
+      <span style="color:var(--t2);">${lb}</span>
+      <span style="font-weight:600;max-width:55%;text-align:right;">${val}</span>
+    </div>`).join('')}
+    <button onclick="toast('외국인 정보 수정 기능 준비 중')"
+      style="width:100%;margin-top:10px;padding:8px;border-radius:9px;background:rgba(79,156,249,.08);border:1px solid rgba(79,156,249,.2);color:var(--a2);font-size:11px;font-weight:700;cursor:pointer;">
+      ✏️ 정보 수정
+    </button>
+  </div>`:''}
+
+  <!-- 추가 사용자 등록 (직원) -->
+  <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:13px 14px;margin-bottom:12px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div style="font-size:12px;font-weight:700;">👥 추가 사용자 등록</div>
+      <button onclick="window.openAddUserSheet()"
+        style="padding:6px 12px;border-radius:8px;background:var(--a1);color:#080d18;font-size:11px;font-weight:700;border:none;cursor:pointer;">
+        + 직원 추가
+      </button>
+    </div>
+    <div style="font-size:11px;color:var(--t2);margin-bottom:10px;line-height:1.6;">
+      직원·공동대표·가족 등을 추가 사용자로 등록하면<br>
+      동일 계정 내 송장·장부에 접근 권한을 부여할 수 있어요.
+    </div>
+    ${(window._subUsers||[]).length===0?`
+    <div style="text-align:center;padding:12px;background:var(--s2);border-radius:10px;font-size:11px;color:var(--t3);">
+      등록된 추가 사용자가 없습니다
+    </div>`:`
+    ${(window._subUsers||[]).map((u,i)=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--b2);">
+      <div style="width:32px;height:32px;border-radius:8px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">
+        ${u.nationality==='foreign'?'🌏':'👤'}
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:12px;font-weight:700;">${u.name}</div>
+        <div style="font-size:10px;color:var(--t2);">${u.role} · ${u.nationality==='foreign'?'외국인 ('+u.visaType+')':'내국인'}</div>
+      </div>
+      <div style="display:flex;gap:4px;">
+        <span class="tag tag-g" style="font-size:8px;">${u.permission||'조회'}</span>
+        <button onclick="window.removeSubUser(${i})" style="padding:3px 7px;border-radius:6px;background:rgba(255,69,84,.08);border:1px solid rgba(255,69,84,.2);color:var(--red);font-size:9px;cursor:pointer;">삭제</button>
+      </div>
+    </div>`).join('')}`}
   </div>`;
 }
 
