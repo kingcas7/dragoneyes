@@ -257,6 +257,18 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
   </div>
 </div>
 
+<!-- ══ 장부 열람 시트 (세무/회계 거래처용) ══ -->
+<div class="sheet-overlay" id="sh-ledger-access">
+  <div class="sheet">
+    <div class="sheet-hd">
+      <div class="sheet-title">📒 장부 열람</div>
+      <button onclick="window.closeSheet('sh-ledger-access')" style="color:var(--t2);font-size:20px;">✕</button>
+    </div>
+    <div class="sheet-sub" id="la-partner-name">거래처명</div>
+    <div id="la-content"></div>
+  </div>
+</div>
+
 <!-- ══ 세금 납부 시트 ══ -->
 <div class="sheet-overlay" id="sh-tax-payment">
   <div class="sheet">
@@ -321,6 +333,30 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
     <div style="text-align:center;font-size:10px;color:var(--t3);margin-top:8px;">
       ※ 실제 납부는 카드사·국세청·위택스 협의 완료 후 연동됩니다
     </div>
+  </div>
+</div>
+
+<!-- ══ 서비스 거래처 상태 시트 ══ -->
+<div class="sheet-overlay" id="sh-service-status">
+  <div class="sheet">
+    <div class="sheet-hd">
+      <div class="sheet-title" id="ss-title">🤝 거래처 관리</div>
+      <button onclick="window.closeSheet('sh-service-status')" style="color:var(--t2);font-size:20px;">✕</button>
+    </div>
+    <div class="sheet-sub" id="ss-sub">연결된 거래처 현황</div>
+    <div id="ss-body"></div>
+  </div>
+</div>
+
+<!-- ══ 장부 열람 시트 (세무/회계 거래처용) ══ -->
+<div class="sheet-overlay" id="sh-ledger-view">
+  <div class="sheet">
+    <div class="sheet-hd">
+      <div class="sheet-title">📒 장부 열람</div>
+      <button onclick="window.closeSheet('sh-ledger-view')" style="color:var(--t2);font-size:20px;">✕</button>
+    </div>
+    <div class="sheet-sub" id="lv-sub">고객 장부 데이터</div>
+    <div id="lv-body"></div>
   </div>
 </div>
 
@@ -1376,10 +1412,266 @@ window.sendPartnerRequest = function(){
   }, 4000);
 };
 
+// ── 서비스 카드 클릭 핸들러 ──
+// ── 서비스 클릭 핸들러 (인덱스 기반) ──
+window._SERVICES_DEF = [
+  {name:'세무/회계', role:'tax_agent',   canConnect:true},
+  {name:'노무사',    role:'labor_agent', canConnect:true},
+  {name:'변호사',    role:'lawyer',      canConnect:true},
+  {name:'관세사',    role:'customs',     canConnect:true},
+  {name:'행정사',    role:'admin_agent', canConnect:true},
+  {name:'기타 서비스', role:'admin',     canConnect:false},
+];
+
+window.handleServiceClick = function(idx){
+  const s = window._SERVICES_DEF[idx];
+  if(!s) return;
+  if(!s.canConnect){ toast(s.name+' 서비스 준비 중'); return; }
+  // 해당 서비스 연결된 거래처 있으면 상태 시트, 없으면 바로 검색
+  const active = (window._servicePartners||[]).filter(p=>p.serviceType===s.name);
+  if(active.length>0){
+    window.openServiceStatusSheet(s.name);
+  } else {
+    window.openServicePartnerSearch(s.name, s.role);
+  }
+};
+
+// ── 서비스 거래처 상태 시트 ──
+window.openServiceStatusSheet = function(serviceType){
+  const partners = (window._servicePartners||[]).filter(p=>p.serviceType===serviceType);
+  const pending  = partners.filter(p=>p.status==='pending_me');
+  const waiting  = partners.filter(p=>p.status==='pending_them');
+  const active   = partners.filter(p=>p.status==='active');
+  const canViewLedger = serviceType==='세무/회계';
+
+  document.getElementById('ss-title').textContent = serviceType+' 거래처 관리';
+  document.getElementById('ss-sub').textContent   = '연결 현황 · 수락/거절/해지';
+
+  document.getElementById('ss-body').innerHTML=`
+    ${pending.length>0?`
+    <div style="background:rgba(244,196,48,.08);border:1.5px solid rgba(244,196,48,.3);border-radius:12px;padding:10px 13px;margin-bottom:10px;">
+      <div style="font-size:11px;font-weight:700;color:var(--a4);margin-bottom:8px;">📨 등록 요청 수신 ${pending.length}건</div>
+      ${pending.map(p=>`
+      <div style="background:var(--s2);border-radius:10px;padding:9px 11px;margin-bottom:6px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div>
+            <div style="font-size:13px;font-weight:700;">${p.name}</div>
+            <div style="font-size:10px;color:var(--t2);">${p.serviceType} · ${p.biznum}</div>
+          </div>
+          <span class="tag tag-y" style="font-size:9px;">요청 수신</span>
+        </div>
+        <div style="font-size:10px;color:var(--t2);margin-bottom:8px;padding:6px 8px;background:var(--s3);border-radius:7px;">
+          ✅ 수락 시: ${canViewLedger?'장부·거래내역 열람 및 다운로드 권한이 부여됩니다':'업무 대금 결제 및 거래처 연결이 가능합니다'}
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button onclick="window.acceptServicePartner('${p.id}')"
+            style="flex:1;padding:9px;border-radius:10px;background:var(--a1);color:#080d18;font-size:12px;font-weight:700;border:none;cursor:pointer;">✅ 수락</button>
+          <button onclick="window.rejectPartner('${p.id}')"
+            style="flex:1;padding:9px;border-radius:10px;background:rgba(255,69,84,.08);border:1px solid rgba(255,69,84,.2);color:var(--red);font-size:12px;font-weight:700;cursor:pointer;">✕ 거절</button>
+        </div>
+      </div>`).join('')}
+    </div>`:''}
+
+    ${waiting.length>0?`
+    <div style="background:rgba(79,156,249,.06);border:1px solid rgba(79,156,249,.2);border-radius:12px;padding:10px 13px;margin-bottom:10px;">
+      <div style="font-size:11px;font-weight:700;color:var(--a2);margin-bottom:6px;">⏳ 수락 대기 ${waiting.length}건</div>
+      ${waiting.map(p=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--b2);font-size:11px;">
+        <span style="font-weight:600;">${p.name} <span style="color:var(--t2);font-size:10px;">(${p.biznum})</span></span>
+        <button onclick="window.cancelPartnerRequest('${p.id}')"
+          style="padding:3px 9px;border-radius:6px;background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-size:10px;cursor:pointer;">취소</button>
+      </div>`).join('')}
+    </div>`:''}
+
+    ${active.length>0?`
+    <div style="font-size:12px;font-weight:700;margin-bottom:8px;">✅ 연결된 거래처</div>
+    ${active.map(p=>`
+    <div style="background:var(--s1);border:1.5px solid rgba(0,232,188,.2);border-radius:13px;padding:11px 13px;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+        <div>
+          <div style="font-size:13px;font-weight:700;">${p.name}</div>
+          <div style="font-size:10px;color:var(--t2);">${p.biznum}</div>
+          ${p.ledgerAccess?'<div style="font-size:10px;color:var(--a1);margin-top:2px;">📒 장부 열람 권한 있음</div>':''}
+          ${p.unpaidAmt>0?`<div style="font-size:10px;color:var(--red);margin-top:2px;">⚠️ 미정산 ₩${p.unpaidAmt.toLocaleString()}</div>`:''}
+        </div>
+        <span class="tag tag-g" style="font-size:9px;">연결됨</span>
+      </div>
+      <div style="display:flex;gap:5px;">
+        ${canViewLedger?`
+        <button onclick="window.viewClientLedger('${p.id}')"
+          style="flex:2;padding:8px 6px;border-radius:9px;background:rgba(0,232,188,.1);border:1.5px solid rgba(0,232,188,.3);color:var(--a1);font-size:11px;font-weight:700;cursor:pointer;">
+          📒 장부 열람·다운로드
+        </button>`:`
+        <button onclick="toast('업무 결제 기능 준비 중')"
+          style="flex:2;padding:8px 6px;border-radius:9px;background:rgba(79,156,249,.08);border:1px solid rgba(79,156,249,.2);color:var(--a2);font-size:11px;font-weight:700;cursor:pointer;">
+          💳 업무 결제
+        </button>`}
+        <button onclick="window.requestTerminateService('${p.id}')"
+          style="flex:1;padding:8px 6px;border-radius:9px;background:rgba(255,69,84,.06);border:1px solid ${p.unpaidAmt>0?'rgba(255,69,84,.1)':'rgba(255,69,84,.25)'};color:${p.unpaidAmt>0?'var(--t3)':'var(--red)'};font-size:11px;font-weight:700;cursor:pointer;"
+          ${p.unpaidAmt>0?'disabled':''}>해지</button>
+      </div>
+    </div>`).join('')}`:''}
+
+    ${partners.length===0?`
+    <div style="text-align:center;padding:30px 20px;color:var(--t2);">
+      <div style="font-size:36px;margin-bottom:8px;">🤝</div>
+      <div style="font-size:13px;font-weight:700;margin-bottom:6px;">연결된 거래처 없음</div>
+      <div style="font-size:11px;margin-bottom:14px;">거래처를 검색해서 등록 요청을 보내세요</div>
+      <button onclick="window.closeSheet('sh-service-status');window.openServicePartnerSearch('${serviceType}','');"
+        style="padding:11px 20px;border-radius:12px;background:var(--a1);color:#080d18;font-size:13px;font-weight:700;border:none;cursor:pointer;">
+        🔍 거래처 검색하기
+      </button>
+    </div>`:`
+    <div style="margin-top:10px;">
+      <button onclick="window.closeSheet('sh-service-status');window.openServicePartnerSearch('${serviceType}','');"
+        style="width:100%;padding:11px;border-radius:12px;background:rgba(0,232,188,.08);border:1.5px solid rgba(0,232,188,.25);color:var(--a1);font-size:12px;font-weight:700;cursor:pointer;">
+        + 추가 거래처 검색
+      </button>
+    </div>`}
+  `;
+  window.openSheet('sh-service-status');
+};
+
+// 서비스 거래처 수락 (장부 열람 권한 포함)
+window.acceptServicePartner = function(id){
+  const p = (window._servicePartners||[]).find(x=>x.id===id);
+  if(!p) return;
+  p.status = 'active';
+  if(p.serviceType==='세무/회계'){
+    p.ledgerAccess = true;
+    toast('✅ '+p.name+' 수락 완료! 📒 장부 열람 권한이 부여됐습니다');
+  } else {
+    p.ledgerAccess = false;
+    toast('✅ '+p.name+' 거래처 등록 수락 완료');
+  }
+  setTimeout(()=> window.openServiceStatusSheet(p.serviceType), 200);
+};
+
+// 장부 열람 (세무/회계 거래처 전용)
+window.viewClientLedger = function(partnerId){
+  const p = (window._servicePartners||[]).find(x=>x.id===partnerId);
+  if(!p){ toast('거래처 정보를 찾을 수 없습니다'); return; }
+  if(!p.ledgerAccess){ toast('장부 열람 권한이 없습니다'); return; }
+
+  const totalAmt = INVOICES.reduce((s,i)=>s+(i.confirmed_price?(i.qty||0)*i.confirmed_price:(i.qty||0)*(i.price||0)),0);
+  const eformCount = INVOICES.filter(i=>i.status==='eform').length;
+  const expTotal = typeof EXPENSES!=='undefined'?EXPENSES.reduce((s,e)=>s+(e.amount||0),0):0;
+
+  document.getElementById('lv-sub').textContent = p.name+' 고객 장부';
+  document.getElementById('lv-body').innerHTML=`
+    <div style="background:rgba(0,232,188,.05);border:1px solid rgba(0,232,188,.2);border-radius:12px;padding:11px 13px;margin-bottom:12px;">
+      <div style="font-size:11px;color:var(--a1);font-weight:700;margin-bottom:5px;">👤 고객 정보</div>
+      ${[['상호명',curUserName],['사업자번호',window._userBiznum||'—'],['GARAK ID',curGkid],['역할',ROLES[curRole]&&ROLES[curRole].n||'—']].map(([lb,val])=>`
+      <div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid var(--b2);">
+        <span style="color:var(--t2);">${lb}</span><span style="font-weight:600;">${val}</span>
+      </div>`).join('')}
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+      ${[
+        ['총 거래액','₩'+totalAmt.toLocaleString(),'var(--a1)'],
+        ['전표 완료',eformCount+'건','var(--a2)'],
+        ['총 경비','₩'+expTotal.toLocaleString(),'var(--red)'],
+        ['전체 송장',INVOICES.length+'건','var(--a4)'],
+      ].map(([lb,val,clr])=>`
+      <div style="background:var(--s2);border-radius:10px;padding:10px;text-align:center;">
+        <div style="font-size:10px;color:var(--t2);">${lb}</div>
+        <div style="font-size:15px;font-weight:800;color:${clr};margin-top:3px;">${val}</div>
+      </div>`).join('')}
+    </div>
+
+    <div style="font-size:12px;font-weight:700;margin-bottom:8px;">📋 거래 내역 (최근 10건)</div>
+    ${INVOICES.length===0?`<div style="font-size:11px;color:var(--t2);padding:12px;background:var(--s2);border-radius:8px;">거래 내역이 없습니다</div>`:`
+    ${INVOICES.slice(-10).reverse().map(inv=>{
+      const amt=inv.confirmed_price?(inv.qty||0)*inv.confirmed_price:(inv.qty||0)*(inv.price||0);
+      const d=new Date(inv.created_at);
+      const stl={draft:'작성중',sent:'발송',transit:'배송',confirmed:'수령',reported:'신고',eform:'전표완료'};
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--b2);font-size:11px;">
+        <div>
+          <div style="font-weight:700;">${inv.item} ${inv.qty}박스</div>
+          <div style="font-size:10px;color:var(--t2);">${d.getMonth()+1}/${d.getDate()} · ${inv.buyer_name} · ${stl[inv.status]||inv.status}</div>
+        </div>
+        <span style="font-weight:700;color:${inv.status==='eform'?'var(--a1)':'var(--a4)'};">₩${amt.toLocaleString()}</span>
+      </div>`;
+    }).join('')}`}
+
+    <div style="display:flex;gap:8px;margin-top:14px;">
+      <button onclick="window.downloadLedgerCSV('${partnerId}')"
+        style="flex:1;padding:11px;border-radius:12px;background:rgba(0,232,188,.1);border:1.5px solid rgba(0,232,188,.3);color:var(--a1);font-size:12px;font-weight:700;cursor:pointer;">
+        📥 엑셀(CSV)
+      </button>
+      <button onclick="window.downloadLedgerPDF('${partnerId}')"
+        style="flex:1;padding:11px;border-radius:12px;background:rgba(255,69,84,.08);border:1.5px solid rgba(255,69,84,.2);color:var(--red);font-size:12px;font-weight:700;cursor:pointer;">
+        🖨️ PDF 출력
+      </button>
+    </div>
+    <div style="margin-top:8px;font-size:10px;color:var(--t2);text-align:center;">
+      ※ 고객이 언제든지 열람 권한을 해지할 수 있습니다
+    </div>`;
+
+  window.openSheet('sh-ledger-view');
+};
+
+// 장부 CSV 다운로드
+window.downloadLedgerCSV = function(partnerId){
+  const rows=[['송장ID','품목','수량','거래처','출하단가','확정단가','물품대금','상태','날짜']];
+  INVOICES.forEach(inv=>{
+    const amt=inv.confirmed_price?(inv.qty||0)*inv.confirmed_price:(inv.qty||0)*(inv.price||0);
+    rows.push([inv.id,inv.item,inv.qty,inv.buyer_name,inv.price||0,inv.confirmed_price||'',amt,inv.status,inv.created_at?inv.created_at.slice(0,10):'']);
+  });
+  const csv='\uFEFF'+rows.map(r=>r.join(',')).join('\n');
+  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  const a=document.createElement('a'); a.href=url;
+  a.download=curUserName+'_장부_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click(); URL.revokeObjectURL(url);
+  toast('📥 엑셀(CSV) 다운로드 완료');
+};
+
+// 장부 PDF 출력
+window.downloadLedgerPDF = function(partnerId){
+  const p=(window._servicePartners||[]).find(x=>x.id===partnerId);
+  const totalAmt=INVOICES.reduce((s,i)=>s+(i.confirmed_price?(i.qty||0)*i.confirmed_price:(i.qty||0)*(i.price||0)),0);
+  const now=new Date();
+  const rows=INVOICES.map(inv=>{
+    const amt=inv.confirmed_price?(inv.qty||0)*inv.confirmed_price:(inv.qty||0)*(inv.price||0);
+    return `<tr><td>${inv.id}</td><td>${inv.item}</td><td>${inv.qty}박스</td><td>${inv.buyer_name}</td>
+      <td>&#8361;${(inv.confirmed_price||inv.price||0).toLocaleString()}</td>
+      <td>&#8361;${amt.toLocaleString()}</td><td>${inv.status}</td><td>${inv.created_at?inv.created_at.slice(0,10):''}</td></tr>`;
+  }).join('');
+  const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>장부-'+curUserName+'</title>'
+    +'<style>body{font-family:sans-serif;margin:30px;font-size:12px;}h1{font-size:18px;}'
+    +'table{width:100%;border-collapse:collapse;margin-top:10px;}'
+    +'th{background:#f0faf5;padding:7px;border:1px solid #ddd;font-size:11px;}'
+    +'td{padding:7px;border:1px solid #eee;font-size:11px;}'
+    +'.total{font-size:15px;font-weight:800;color:#0a7c45;text-align:right;margin-top:12px;}'
+    +'.footer{margin-top:20px;text-align:center;font-size:10px;color:#aaa;border-top:1px solid #eee;padding-top:10px;}'
+    +'</style></head><body>'
+    +'<h1>&#128218; 장부 열람 리포트</h1>'
+    +'<p>고객: '+curUserName+' ('+curGkid+') | 사업자: '+(window._userBiznum||'&#8212;')+' | 열람: '+(p?p.name:'&#8212;')+' | 발행: '+now.toLocaleString('ko-KR')+'</p>'
+    +'<table><tr><th>송장ID</th><th>품목</th><th>수량</th><th>거래처</th><th>확정단가</th><th>물품대금</th><th>상태</th><th>날짜</th></tr>'
+    +rows+'</table>'
+    +'<div class="total">총 거래액: &#8361;'+totalAmt.toLocaleString()+'</div>'
+    +'<div class="footer">GARAK AI 4.0 · 세무/회계 장부 열람 리포트 · 고객 수락 기반 열람</div>'
+    +'</body></html>';
+  const w=window.open('','_blank');
+  if(w){ w.document.write(html); w.document.close(); w.print(); }
+  toast('&#128247; 장부 PDF 출력창이 열렸습니다');
+};
+
+
 // 수락
 window.acceptPartner = function(id){
-  const p = [...(window._partners||[]),(window._servicePartners||[])].find(x=>x.id===id);
-  if(p){ p.status='active'; toast('✅ 거래처 등록 수락 완료'); renderMyPage(); }
+  let p=(window._partners||[]).find(x=>x.id===id);
+  let isService=false;
+  if(!p){ p=(window._servicePartners||[]).find(x=>x.id===id); isService=true; }
+  if(!p) return;
+  p.status='active'; p.acceptedAt=new Date().toISOString();
+  if(isService){
+    const hasLedger=['세무/회계','노무사'].includes(p.serviceType);
+    p.permissions={ledger:hasLedger,invoice:true,download:hasLedger,tax:p.serviceType==='세무/회계'};
+    toast('✅ '+p.name+' 연결!\n'+(hasLedger?'📒 장부·전표 열람 권한 부여됨':'📋 송장 열람 권한 부여됨'));
+  } else { toast('✅ '+p.name+' 거래처 수락 완료!'); }
+  renderMyPage();
 };
 
 // 거절
@@ -1520,6 +1812,55 @@ window.saveSubUser = function(){
   window.closeSheet('sh-adduser');
   toast('✅ '+name+'님이 추가 사용자로 등록됐습니다');
   renderMyPage();
+};
+
+// ── 세무/회계 장부 열람 시트 열기 ──
+window.openLedgerAccessSheet = function(partnerId){
+  const p=(window._servicePartners||[]).find(x=>x.id===partnerId);
+  if(!p||!p.permissions){toast('권한 정보가 없습니다');return;}
+  const perms=p.permissions;
+  const doneInvoices=INVOICES.filter(i=>i.status==='eform');
+  document.getElementById('la-partner-name').textContent=p.name+' ('+p.serviceType+')';
+  document.getElementById('la-content').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px;">
+      ${[{lb:'송장 열람',ok:perms.invoice,ic:'📋'},{lb:'장부 열람',ok:perms.ledger,ic:'📒'},{lb:'다운로드',ok:perms.download,ic:'📥'},{lb:'세금 문서',ok:perms.tax,ic:'🏦'}].map(x=>`
+      <div style="padding:8px 10px;border-radius:10px;background:${x.ok?'rgba(0,232,188,.08)':'var(--s2)'};border:1px solid ${x.ok?'rgba(0,232,188,.2)':'var(--b1)'};display:flex;align-items:center;gap:7px;">
+        <span style="font-size:16px;">${x.ic}</span>
+        <div><div style="font-size:10px;font-weight:700;color:${x.ok?'var(--a1)':'var(--t3)'};">${x.lb}</div>
+          <div style="font-size:9px;color:${x.ok?'var(--a1)':'var(--t3)'};">${x.ok?'허용':'비허용'}</div>
+        </div>
+      </div>`).join('')}
+    </div>
+    <div style="font-size:12px;font-weight:700;margin-bottom:8px;">📄 전표 목록 (${doneInvoices.length}건)</div>
+    ${doneInvoices.length===0?'<div style="text-align:center;padding:14px;background:var(--s2);border-radius:10px;font-size:11px;color:var(--t2);">완료된 전표가 없습니다</div>':`
+    <div style="max-height:200px;overflow-y:auto;">
+      ${doneInvoices.map(inv=>{const d=new Date(inv.created_at);const total=(inv.qty||0)*(inv.confirmed_price||inv.price||0);return `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--s2);border-radius:9px;margin-bottom:5px;font-size:11px;">
+        <div><div style="font-weight:700;">${inv.item} ${inv.qty}박스 → ${inv.buyer_name}</div>
+          <div style="font-size:10px;color:var(--t2);">${d.getMonth()+1}/${d.getDate()} · ${inv.eform_id||inv.id}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;">
+          <span style="font-weight:700;color:var(--a1);">₩${total.toLocaleString()}</span>
+          ${perms.download?`<button onclick="window.printSinglePDF('${inv.id}')" style="padding:3px 8px;border-radius:6px;background:rgba(255,69,84,.08);border:1px solid rgba(255,69,84,.2);color:var(--red);font-size:9px;cursor:pointer;">📥 PDF</button>`:''}
+        </div>
+      </div>`;}).join('')}
+    </div>`}
+    ${perms.download?`<button onclick="window.downloadLedgerForPartner('${partnerId}')" style="width:100%;margin-top:10px;padding:11px;border-radius:11px;background:rgba(0,176,80,.1);border:1.5px solid rgba(0,176,80,.3);color:#00b050;font-size:12px;font-weight:700;cursor:pointer;">📥 장부 전체 엑셀 다운로드</button>`:''}
+    <div style="margin-top:8px;padding:8px 10px;background:rgba(244,196,48,.06);border:1px solid rgba(244,196,48,.2);border-radius:8px;font-size:10px;color:var(--t2);line-height:1.7;">
+      ⚠️ 열람 권한은 거래처 해지 시 즉시 소멸 · 모든 이력 자동 기록
+    </div>`;
+  window.openSheet('sh-ledger-access');
+};
+
+window.downloadLedgerForPartner = function(pid){
+  const p=(window._servicePartners||[]).find(x=>x.id===pid);
+  const rows=[['전표번호','품목','수량','거래처','확정금액','출하일','상태'],
+    ...INVOICES.filter(i=>i.status==='eform').map(i=>[i.eform_id||i.id,i.item,i.qty,i.buyer_name,(i.qty||0)*(i.confirmed_price||i.price||0),new Date(i.created_at).toLocaleDateString('ko-KR'),'전표완료'])];
+  const csv=rows.map(r=>r.join(',')).join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=(p?p.name:'거래처')+'_장부_'+new Date().toLocaleDateString('ko-KR')+'.csv';a.click();URL.revokeObjectURL(url);
+  toast('📥 장부 엑셀 다운로드 완료');
 };
 
 window.removeSubUser = function(idx){
@@ -2558,9 +2899,14 @@ function renderPolicyHome(){
 
     <!-- 서비스 목록 -->
     <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:8px;">전문가 연결하기</div>
-    ${SERVICES.map(s=>`
+    ${SERVICES.map((s,si)=>`
     <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:12px 14px;margin-bottom:8px;cursor:pointer;"
-      onclick="${s.canConnect?`window.openServicePartnerSearch('${s.name}','${s.role}')`:``}toast('${s.name} 서비스 준비 중')">
+      onclick="window.handleServiceClick(${si})">
+      <!-- 연결된 거래처 수 배지 -->
+      ${(window._servicePartners||[]).filter(p=>p.serviceType===s.name&&p.status==='active').length>0?`
+      <div style="float:right;margin-top:-2px;">
+        <span class="tag tag-g" style="font-size:9px;">✅ ${(window._servicePartners||[]).filter(p=>p.serviceType===s.name&&p.status==='active').length}개 연결됨</span>
+      </div>`:''}
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
         <div style="font-size:24px;width:44px;height:44px;background:var(--s2);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${s.ic}</div>
         <div style="flex:1;">
@@ -2571,7 +2917,7 @@ function renderPolicyHome(){
       </div>
       <div style="display:flex;gap:4px;flex-wrap:wrap;">
         ${s.items.map(i=>`<span class="tag tag-b" style="font-size:9px;">${i}</span>`).join('')}
-        ${s.canConnect?`<span class="tag tag-g" style="font-size:9px;">거래처 연결 가능</span>`:''}
+        ${s.canConnect?`<span class="tag tag-g" style="font-size:9px;">👆 탭하여 거래처 연결</span>`:''}
       </div>
     </div>`).join('')}
     <div style="padding:10px;background:var(--s2);border-radius:10px;font-size:11px;color:var(--t2);text-align:center;">
@@ -4395,12 +4741,16 @@ window.openCardRegister=function(){ toast('💳 카드 등록 기능 준비 중 
 // ── 일반 MY (기타 역할) ──
 function renderMyPageGeneral(r){
   if(!window._myTab) window._myTab='profile';
-  const tabs=[{id:'profile',ic:'👤',lb:'내정보'},{id:'payment',ic:'💳',lb:'결제·토큰'}];
+  const tabs=[
+    {id:'profile', ic:'👤', lb:'내정보'},
+    {id:'payment', ic:'💳', lb:'결제·토큰'},
+    {id:'users',   ic:'👥', lb:'사용자관리'},
+  ];
   let html=`<div class="sec-title" style="margin-bottom:10px;">👤 MY 페이지</div>
-    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:14px;">
-      ${tabs.map(t=>`<div onclick="window.switchMyTab('${t.id}')" style="padding:10px 4px;border-radius:12px;text-align:center;cursor:pointer;background:${window._myTab===t.id?'var(--s3)':' var(--s2)'};border:1.5px solid ${window._myTab===t.id?'var(--a1)':' transparent'};">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px;">
+      ${tabs.map(t=>`<div onclick="window.switchMyTab('${t.id}')" style="padding:10px 4px;border-radius:12px;text-align:center;cursor:pointer;background:${window._myTab===t.id?'var(--s3)':'var(--s2)'};border:1.5px solid ${window._myTab===t.id?'var(--a1)':'transparent'};">
         <div style="font-size:20px;margin-bottom:4px;">${t.ic}</div>
-        <div style="font-size:9px;font-weight:700;color:${window._myTab===t.id?'var(--a1)':' var(--t3)'};">${t.lb}</div>
+        <div style="font-size:9px;font-weight:700;color:${window._myTab===t.id?'var(--a1)':'var(--t3)'};">${t.lb}</div>
       </div>`).join('')}
     </div><div id="my-sub-content">`;
   if(window._myTab==='profile') html+=`<div class="card"><div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
@@ -4409,9 +4759,10 @@ function renderMyPageGeneral(r){
         <div style="font-size:12px;color:var(--t2);">${r.n}</div>
         <div style="font-family:monospace;color:var(--a1);font-size:11px;margin-top:2px;">${curGkid}</div>
       </div></div>
-      <button class="btn btn-s" onclick="if(confirm('로그아웃?\')){localStorage.removeItem('garak_user');location.reload();}">로그아웃</button>
+      <button class="btn btn-s" onclick="if(confirm('로그아웃?')){localStorage.removeItem('garak_user');location.reload();}">로그아웃</button>
     </div>`;
   else if(window._myTab==='payment') html+=renderMyPaymentSection();
+  else if(window._myTab==='users')   html+=renderMyUsersSection();
   html+='</div>';
   document.getElementById('mypage-content').innerHTML=html;
 }
@@ -4423,16 +4774,17 @@ function renderMyPageMerchant(r){
   if(!window._myTab) window._myTab='profile';
   const isMerchant=curRole==='merchant_ind';
   const tabs=[
-    {id:'profile',ic:'👤',lb:'내정보'},
-    {id:'partner',ic:'🤝',lb:'거래처관리'},
-    {id:'trade',  ic:'📊',lb:'거래현황'},
-    {id:'payment',ic:'💳',lb:'결제·토큰'},
+    {id:'profile', ic:'👤', lb:'내정보'},
+    {id:'partner', ic:'🤝', lb:'거래처관리'},
+    {id:'trade',   ic:'📊', lb:'거래현황'},
+    {id:'payment', ic:'💳', lb:'결제·토큰'},
+    {id:'users',   ic:'👥', lb:'사용자관리'},
   ];
   let html=`<div class="sec-title" style="margin-bottom:10px;">👤 MY 페이지</div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px;">
-      ${tabs.map(t=>`<div onclick="window.switchMyTab('${t.id}')" style="padding:10px 4px;border-radius:12px;text-align:center;cursor:pointer;background:${window._myTab===t.id?'var(--s3)':' var(--s2)'};border:1.5px solid ${window._myTab===t.id?'var(--a1)':' transparent'};">
-        <div style="font-size:20px;margin-bottom:4px;">${t.ic}</div>
-        <div style="font-size:9px;font-weight:700;color:${window._myTab===t.id?'var(--a1)':' var(--t3)'};">${t.lb}</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:14px;">
+      ${tabs.map(t=>`<div onclick="window.switchMyTab('${t.id}')" style="padding:9px 3px;border-radius:12px;text-align:center;cursor:pointer;background:${window._myTab===t.id?'var(--s3)':'var(--s2)'};border:1.5px solid ${window._myTab===t.id?'var(--a1)':'transparent'};">
+        <div style="font-size:18px;margin-bottom:3px;">${t.ic}</div>
+        <div style="font-size:8px;font-weight:700;color:${window._myTab===t.id?'var(--a1)':'var(--t3)'};">${t.lb}</div>
       </div>`).join('')}
     </div><div id="my-sub-content">`;
 
@@ -4497,6 +4849,8 @@ function renderMyPageMerchant(r){
     </div>`:''}`;
   } else if(window._myTab==='payment'){
     html+=renderMyPaymentSection();
+  } else if(window._myTab==='users'){
+    html+=renderMyUsersSection();
   }
   html+='</div>';
   document.getElementById('mypage-content').innerHTML=html;
@@ -4726,8 +5080,10 @@ function renderMyPartnerSection(){
       <span class="tag tag-g" style="font-size:9px;">연결됨</span>
     </div>
     <div style="display:flex;gap:5px;">
+      <button onclick="window.openLedgerAccessSheet('${p.id}')"
+        style="flex:2;padding:6px;border-radius:8px;background:rgba(0,232,188,.08);border:1px solid rgba(0,232,188,.2);color:var(--a1);font-size:10px;cursor:pointer;">📒 장부 열람</button>
       <button onclick="toast('업무 결제 기능 준비 중')"
-        style="flex:2;padding:6px;border-radius:8px;background:rgba(0,232,188,.08);border:1px solid rgba(0,232,188,.2);color:var(--a1);font-size:10px;cursor:pointer;">💳 업무 결제</button>
+        style="flex:1;padding:6px;border-radius:8px;background:rgba(79,156,249,.06);border:1px solid rgba(79,156,249,.2);color:var(--a2);font-size:10px;cursor:pointer;">💳 결제</button>
       <button onclick="window.requestTerminateService('${p.id}')"
         style="flex:1;padding:6px;border-radius:8px;background:rgba(255,69,84,.06);border:1px solid ${p.unpaidAmt>0?'rgba(255,69,84,.1)':'rgba(255,69,84,.25)'};color:${p.unpaidAmt>0?'var(--t3)':'var(--red)'};font-size:10px;cursor:pointer;"
         ${p.unpaidAmt>0?'disabled':''}>해지</button>
