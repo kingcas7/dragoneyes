@@ -202,6 +202,7 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
     <div class="page" id="page-policy"><div id="policy-content"></div></div>
     <div class="page" id="page-public"><div id="public-content"></div></div>
     <div class="page" id="page-mypage"><div id="mypage-content"></div></div>
+    <div class="page" id="page-gov"><div id="gov-content"></div></div>
   </div>
   <div class="tabbar" id="tabbar"></div>
 </div>
@@ -759,23 +760,23 @@ const ROLE_INFO = {
 
 // ── 탭 정의 (역할별) ──
 const TABS_BY_ROLE = {
-  producer_ind:   [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'송장',pg:'invoice'},{ic:'🏚',lb:'물류',pg:'vehicle'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
-  producer_corp:  [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'송장',pg:'invoice'},{ic:'🏚',lb:'물류',pg:'vehicle'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
-  merchant_ind:   [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📬',lb:'수신송장',pg:'invoice'},{ic:'🏚',lb:'물류',pg:'vehicle'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
-  wholesale:      [{ic:'🏠',lb:'홈',pg:'home'},{ic:'🔨',lb:'경매',pg:'invoice'},{ic:'🏚',lb:'물류',pg:'vehicle'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
-  transport:      [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📞',lb:'배차콜',pg:'vehicle'},{ic:'📋',lb:'이력',pg:'invoice'},{ic:'👤',lb:'MY',pg:'mypage'}],
-  warehouse_owner:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'🏭',lb:'창고',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
-  gov_garaksa:    [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📊',lb:'현황',pg:'public'},{ic:'⚠️',lb:'규제',pg:'policy'},{ic:'📢',lb:'공지',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
-  gov_seoul:      [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📊',lb:'현황',pg:'public'},{ic:'⚠️',lb:'규제',pg:'policy'},{ic:'💎',lb:'정책자금',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
-  gov_nts:        [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📊',lb:'현황',pg:'public'},{ic:'⚠️',lb:'규제',pg:'policy'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
-  gov_public:     [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📊',lb:'현황',pg:'public'},{ic:'⚠️',lb:'규제',pg:'policy'},{ic:'💎',lb:'정책자금',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
-  tax_agent:      [{ic:'🏠',lb:'홈',pg:'home'},{ic:'👥',lb:'고객',pg:'partner'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
-  accounting:     [{ic:'🏠',lb:'홈',pg:'home'},{ic:'👥',lb:'고객',pg:'partner'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
-  labor_agent:    [{ic:'🏠',lb:'홈',pg:'home'},{ic:'👥',lb:'고객',pg:'partner'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
-  lawyer:         [{ic:'🏠',lb:'홈',pg:'home'},{ic:'👥',lb:'고객',pg:'partner'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
-  customs:        [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'통관',pg:'invoice'},{ic:'👥',lb:'고객',pg:'partner'},{ic:'👤',lb:'MY',pg:'mypage'}],
-  admin_agent:    [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'업무',pg:'invoice'},{ic:'👤',lb:'MY',pg:'mypage'}],
-  admin:          [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📊',lb:'전체현황',pg:'public'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'⚙️',lb:'관리',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  producer_ind:   [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'송장',pg:'invoice'},{ic:'🏚',lb:'물류',pg:'vehicle'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'🏛',lb:'정책',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  producer_corp:  [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'송장',pg:'invoice'},{ic:'🏚',lb:'물류',pg:'vehicle'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'🏛',lb:'정책',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  merchant_ind:   [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📬',lb:'수신송장',pg:'invoice'},{ic:'🏚',lb:'물류',pg:'vehicle'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'🏛',lb:'정책',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  wholesale:      [{ic:'🏠',lb:'홈',pg:'home'},{ic:'🔨',lb:'경매',pg:'invoice'},{ic:'🏚',lb:'물류',pg:'vehicle'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'🏛',lb:'정책',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  transport:      [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📞',lb:'배차콜',pg:'vehicle'},{ic:'📋',lb:'이력',pg:'invoice'},{ic:'🏛',lb:'정책',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  warehouse_owner:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'🏭',lb:'창고',pg:'eform'},{ic:'🏛',lb:'정책',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  gov_garaksa:    [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📊',lb:'현황',pg:'public'},{ic:'🏛',lb:'정책',pg:'policy'},{ic:'📢',lb:'공지',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  gov_seoul:      [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📊',lb:'현황',pg:'public'},{ic:'🏛',lb:'정책',pg:'policy'},{ic:'💎',lb:'정책자금',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  gov_nts:        [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📊',lb:'현황',pg:'public'},{ic:'🏛',lb:'정책',pg:'policy'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  gov_public:     [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📊',lb:'현황',pg:'public'},{ic:'🏛',lb:'정책',pg:'policy'},{ic:'💎',lb:'정책자금',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  tax_agent:      [{ic:'🏠',lb:'홈',pg:'home'},{ic:'👥',lb:'고객',pg:'partner'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'🏛',lb:'정책',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  accounting:     [{ic:'🏠',lb:'홈',pg:'home'},{ic:'👥',lb:'고객',pg:'partner'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'🏛',lb:'정책',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  labor_agent:    [{ic:'🏠',lb:'홈',pg:'home'},{ic:'👥',lb:'고객',pg:'partner'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'🏛',lb:'정책',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  lawyer:         [{ic:'🏠',lb:'홈',pg:'home'},{ic:'👥',lb:'고객',pg:'partner'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'🏛',lb:'정책',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  customs:        [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'통관',pg:'invoice'},{ic:'🏛',lb:'정책',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  admin_agent:    [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'업무',pg:'invoice'},{ic:'🏛',lb:'정책',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  admin:          [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📊',lb:'전체현황',pg:'public'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'🏛',lb:'정책',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
 };
 
 // ── 규제/페널티 데이터 ──
@@ -935,7 +936,7 @@ function goTab(pg){
   if(p) p.classList.add('on');
   document.querySelectorAll(`[data-pg="${pg}"]`).forEach(t=>t.classList.add('on'));
   document.getElementById('scroll').scrollTop=0;
-  const renders={home:renderHome,invoice:renderInvoicePage,partner:renderPartnerPage,vehicle:()=>{if(!['transport'].includes(curRole))window._vehicleTab='main';renderVehiclePage();},eform:()=>{window._ledgerTab='main';renderEformPage();},settle:renderSettlePage,public:renderPublicPage,mypage:renderMyPage};
+  const renders={home:renderHome,invoice:renderInvoicePage,partner:renderPartnerPage,vehicle:()=>{if(!['transport'].includes(curRole))window._vehicleTab='main';renderVehiclePage();},eform:()=>{window._ledgerTab='main';renderEformPage();},settle:renderSettlePage,policy:()=>{window._policyNav=[];renderPolicyPage();},public:renderPublicPage,mypage:renderMyPage,gov:()=>{window._policyNav=[];renderPolicyPage();}};
   if(renders[pg]) renders[pg]();
 }
 
@@ -1194,69 +1195,462 @@ window.saveCrop = function(){
 // ══════════════
 // 정책자금 페이지
 // ══════════════
+// ══════════════
+// 정책 페이지 — 주무기관 트리 탐색
+// ══════════════
+
+// 기관 데이터
+const POLICY_ORG_DATA = {
+  mafra: {
+    id:'mafra', name:'농림축산식품부', ic:'🌾', type:'중앙부처',
+    desc:'농업·농촌·식품·축산 정책 총괄 주무부처',
+    addr:'세종특별자치시 다솜2로 94', tel:'044-201-1114', site:'www.mafra.go.kr',
+    depts:[
+      {name:'유통소비정책관실', role:'농산물 유통·가격 안정 정책', tel:'044-201-2251', items:['농산물','유통','가격안정']},
+      {name:'식품산업정책관실', role:'식품 산업 육성 및 규제', tel:'044-201-2111', items:['식품','가공','수출']},
+      {name:'농업정책국', role:'농가 소득 및 경영 지원', tel:'044-201-1711', items:['소득','경영','직불금']},
+    ],
+    funds:[
+      {name:'농업경영체 육성 자금', amount:'최대 2억원', rate:'1.5%', period:'10년', target:'농업경영체 등록 농가'},
+      {name:'청년농업인 영농정착지원', amount:'최대 3,000만원/년', rate:'무이자', period:'3년', target:'만 18~40세 신규 농업인'},
+      {name:'스마트팜 혁신밸리 조성', amount:'최대 5억원', rate:'1.0%', period:'15년', target:'스마트농업 전환 희망 농가'},
+    ],
+    notices:[
+      {title:'2026년 상반기 농업정책자금 신청 안내', date:'2026-03-15', urgent:true},
+      {title:'농업경영체 등록 간소화 시행', date:'2026-03-01', urgent:false},
+    ],
+    children:[]
+  },
+  nts: {
+    id:'nts', name:'국세청', ic:'🏦', type:'중앙부처',
+    desc:'농업인 세금 신고·납부 지원. 농업소득 비과세 기준 관리',
+    addr:'세종특별자치시 국세청로 8-14', tel:'126', site:'www.nts.go.kr',
+    depts:[
+      {name:'납세자보호담당관', role:'세금 신고 상담·불복 지원', tel:'126', items:['세금','신고','환급']},
+      {name:'부가가치세과', role:'농산물 부가세 면세 관리', tel:'044-204-3211', items:['부가세','면세','전표']},
+    ],
+    funds:[],
+    notices:[
+      {title:'2026년 농업인 종합소득세 신고 안내 (5월)', date:'2026-03-20', urgent:false},
+      {title:'전자세금계산서 의무 발급 대상 확대 안내', date:'2026-03-01', urgent:true},
+    ],
+    children:[]
+  },
+  seoul: {
+    id:'seoul', name:'서울특별시', ic:'🌆', type:'광역자치단체',
+    desc:'서울특별시 농수산물 유통 및 식품 안전 정책 총괄',
+    addr:'서울특별시 중구 세종대로 110', tel:'02-120', site:'www.seoul.go.kr',
+    depts:[
+      {name:'친환경유통과', role:'서울 농산물 유통 정책·가락시장 관리', tel:'02-2133-5380', items:['농산물','유통','가락시장']},
+      {name:'식품정책과', role:'식품 안전·위생 관리', tel:'02-2133-4710', items:['식품','위생','안전']},
+      {name:'도시농업과', role:'도시농업·텃밭 운영 지원', tel:'02-2133-5356', items:['채소','쌈채','텃밭']},
+    ],
+    funds:[
+      {name:'서울 우수 농산물 판로 지원', amount:'최대 500만원', rate:'무이자', period:'1년', target:'가락시장 출하 농가'},
+      {name:'친환경 농산물 유통 지원', amount:'최대 1,000만원', rate:'무이자', period:'2년', target:'친환경 인증 농가'},
+    ],
+    notices:[
+      {title:'가락시장 전자송품장 사용 의무화 확대', date:'2026-03-20', urgent:true},
+      {title:'2026년 서울시 우수농산물 선정 공고', date:'2026-02-28', urgent:false},
+    ],
+    children:['sfsc']
+  },
+  sfsc: {
+    id:'sfsc', name:'서울특별시농수산식품공사', ic:'🏛', type:'공기업',
+    desc:'가락·강서시장 운영 관리 및 유통 효율화 추진',
+    addr:'서울특별시 송파구 양재대로 932', tel:'02-3435-1000', site:'www.garak.co.kr',
+    depts:[
+      {name:'유통지원팀', role:'출하자·중도매인 거래 지원', tel:'02-3435-1052', items:['출하','경매','중도매']},
+      {name:'시장운영팀', role:'시장 시설 관리 및 위생', tel:'02-3435-1031', items:['시설','위생','반입']},
+      {name:'전산정보팀', role:'전자송품장·전산 시스템 운영', tel:'02-3435-1080', items:['전자송품장','전산','시스템']},
+      {name:'경매팀', role:'농산물 경매 운영 및 관리', tel:'02-3435-1041', items:['경매','낙찰','가격']},
+    ],
+    funds:[
+      {name:'가락시장 출하 장려금', amount:'출하액의 0.3% 환급', rate:'—', period:'분기 지급', target:'GARAK AI 등록 농가'},
+      {name:'전자송품장 전환 지원', amount:'시스템 지원', rate:'—', period:'상시', target:'종이전표 사용 출하자'},
+    ],
+    notices:[
+      {title:'전자송품장 시스템 점검 (3.25 02:00~06:00)', date:'2026-03-20', urgent:true},
+      {title:'2026년 3월 가락시장 예약물량 현황', date:'2026-03-21', urgent:false},
+    ],
+    children:['garak_market','gangseo_market']
+  },
+  garak_market: {
+    id:'garak_market', name:'가락시장', ic:'🥬', type:'도매시장',
+    desc:'국내 최대 농수산물 도매시장. 연간 거래규모 약 4조원',
+    addr:'서울특별시 송파구 가락로 320', tel:'02-3435-1000', site:'einvoice.garak.co.kr',
+    depts:[
+      {name:'서울청과(주)', role:'채소·과일 경매 법인', tel:'02-3435-2001', items:['사과','배','감자','배추','양파']},
+      {name:'농협가락(공)', role:'농산물 공판 및 경매', tel:'02-3435-2101', items:['마늘','고추','쌀','잡곡']},
+      {name:'중앙청과', role:'청과물 경매 법인', tel:'02-3435-2201', items:['딸기','토마토','포도','복숭아']},
+      {name:'동화청과', role:'청과물 경매 법인', tel:'02-3435-2301', items:['수박','참외','오이']},
+      {name:'한국청과', role:'청과물 경매 법인', tel:'02-3435-2401', items:['무','당근','시금치','깻잎']},
+      {name:'대아청과', role:'청과물 경매 법인', tel:'02-3435-2501', items:['파','호박','버섯']},
+    ],
+    funds:[],
+    notices:[
+      {title:'오늘 총 반입 예약 물량: 81.28t', date:'2026-03-21', urgent:false},
+      {title:'사과·배 반입 우선순위 변경 안내', date:'2026-03-18', urgent:false},
+    ],
+    children:[]
+  },
+  gangseo_market: {
+    id:'gangseo_market', name:'강서시장', ic:'🥕', type:'도매시장',
+    desc:'서울 강서권 농수산물 도매시장',
+    addr:'서울특별시 강서구 양천로 583', tel:'02-2600-1114', site:'www.garak.co.kr',
+    depts:[
+      {name:'농협강서(공)', role:'농산물 공판', tel:'02-2600-1200', items:['채소','잡곡']},
+      {name:'서부청과', role:'청과물 경매', tel:'02-2600-1300', items:['과일','채소']},
+      {name:'강서청과', role:'청과물 경매', tel:'02-2600-1400', items:['채소','과일']},
+    ],
+    funds:[],
+    notices:[],
+    children:[]
+  },
+  gyeonggi: {
+    id:'gyeonggi', name:'경기도', ic:'🏙', type:'광역자치단체',
+    desc:'경기도 농업기술원·농정국 운영. 전국 최대 농업 생산지',
+    addr:'경기도 수원시 영통구 도청로 30', tel:'031-8008-4114', site:'www.gg.go.kr',
+    depts:[
+      {name:'농정기획과', role:'농업 정책 기획·예산', tel:'031-8008-3471', items:['농업','정책','예산']},
+      {name:'유통소비과', role:'농산물 유통·판로 지원', tel:'031-8008-3491', items:['유통','판로','직거래']},
+    ],
+    funds:[
+      {name:'경기도 청년농업인 지원', amount:'최대 2,000만원', rate:'1.0%', period:'5년', target:'경기도 내 청년 농업인'},
+      {name:'경기 로컬푸드 판로 지원', amount:'최대 500만원', rate:'무이자', period:'1년', target:'경기도 내 소규모 농가'},
+    ],
+    notices:[
+      {title:'2026년 경기도 농업경영체 지원사업 공고', date:'2026-03-10', urgent:false},
+    ],
+    children:['gyeonggi_seongnam','gyeonggi_suwon']
+  },
+  gyeonggi_seongnam: {
+    id:'gyeonggi_seongnam', name:'성남시 (경기)', ic:'🏢', type:'기초자치단체',
+    desc:'경기 성남시 농정 업무 담당',
+    addr:'경기도 성남시 중원구 성남대로 997', tel:'031-729-2114', site:'www.seongnam.go.kr',
+    depts:[{name:'농업진흥과', role:'농업 지원·축산 관리', tel:'031-729-3180', items:['농업','채소','과일']}],
+    funds:[{name:'성남시 소농 직접지불금', amount:'최대 120만원/년', rate:'—', period:'연간', target:'성남시 등록 소농'}],
+    notices:[],
+    children:[]
+  },
+  gyeonggi_suwon: {
+    id:'gyeonggi_suwon', name:'수원시 (경기)', ic:'🏢', type:'기초자치단체',
+    desc:'경기 수원시 농정 업무 담당',
+    addr:'경기도 수원시 팔달구 효원로 241', tel:'031-228-2114', site:'www.suwon.go.kr',
+    depts:[{name:'농업기술과', role:'농업기술 보급·교육', tel:'031-228-3380', items:['농업기술','교육','스마트팜']}],
+    funds:[{name:'수원시 농업인 역량강화', amount:'교육비 지원', rate:'—', period:'상시', target:'수원시 농업인'}],
+    notices:[],
+    children:[]
+  },
+  gyeongbuk: {
+    id:'gyeongbuk', name:'경상북도', ic:'🍎', type:'광역자치단체',
+    desc:'사과·배·마늘 등 주요 농산물 최대 생산지. 농업 특화 광역단체',
+    addr:'경상북도 안동시 풍천면 도청대로 455', tel:'054-880-2114', site:'www.gb.go.kr',
+    depts:[
+      {name:'농축산유통국', role:'농산물 생산·유통 정책', tel:'054-880-3491', items:['사과','배','마늘','고추']},
+      {name:'농업기술원', role:'농업 연구·기술 보급', tel:'054-850-6000', items:['품종','재배기술','병충해']},
+    ],
+    funds:[
+      {name:'경북 농산물 가격 안정 기금', amount:'피해 시 최대 5,000만원', rate:'무이자', period:'3년', target:'경북도 등록 농가'},
+      {name:'경북 사과 브랜드화 지원', amount:'최대 500만원', rate:'무이자', period:'1년', target:'경북 사과 재배 농가'},
+    ],
+    notices:[
+      {title:'2026년 경북 청년농업인 정착지원금 신청 접수', date:'2026-03-12', urgent:true},
+    ],
+    children:['uiseong','andong']
+  },
+  uiseong: {
+    id:'uiseong', name:'의성군 (경북)', ic:'🏘', type:'기초자치단체',
+    desc:'마늘·사과 주산지. 의성마늘 전국 1위 생산 지역',
+    addr:'경상북도 의성군 의성읍 군청길 31', tel:'054-830-6114', site:'www.uiseong.go.kr',
+    depts:[
+      {name:'농업기술센터', role:'마늘·사과 재배 기술 지원', tel:'054-830-6800', items:['마늘','사과','양파']},
+      {name:'농업소득과', role:'농가 소득·판로 지원', tel:'054-830-6480', items:['마늘','판로','유통']},
+    ],
+    funds:[
+      {name:'의성마늘 가공식품 창업 지원', amount:'최대 2,000만원', rate:'1.5%', period:'5년', target:'의성군 마늘 재배 농가'},
+      {name:'의성 청년농업인 영농정착금', amount:'최대 3,000만원', rate:'무이자', period:'3년', target:'만 40세 이하 의성군 농업인'},
+    ],
+    notices:[
+      {title:'2026년 의성군 마늘 파종 지원자재 신청 안내', date:'2026-03-05', urgent:false},
+    ],
+    children:[]
+  },
+  andong: {
+    id:'andong', name:'안동시 (경북)', ic:'🏘', type:'기초자치단체',
+    desc:'고추·사과 주산지. 안동한우·안동소주 특산물',
+    addr:'경상북도 안동시 시청길 1', tel:'054-840-5114', site:'www.andong.go.kr',
+    depts:[{name:'농업기술센터', role:'고추·사과 재배 지원', tel:'054-840-8800', items:['고추','사과','참깨']}],
+    funds:[{name:'안동 고추 작목반 지원', amount:'최대 1,000만원', rate:'1.0%', period:'3년', target:'안동시 고추 작목반 회원'}],
+    notices:[],
+    children:[]
+  },
+  chungnam: {
+    id:'chungnam', name:'충청남도', ic:'🌾', type:'광역자치단체',
+    desc:'양파·마늘·딸기 주산지. 서해안 수산물 주요 산지',
+    addr:'충청남도 홍성군 홍북읍 도청로 600', tel:'041-635-3114', site:'www.chungnam.go.kr',
+    depts:[
+      {name:'농림축산과', role:'농산물 생산·유통 정책', tel:'041-635-4251', items:['양파','마늘','딸기','고추']},
+      {name:'농업기술원', role:'농업 연구·기술 보급', tel:'041-635-6000', items:['품종','재배','병충해']},
+    ],
+    funds:[
+      {name:'충남 농산물 직거래 지원', amount:'최대 500만원', rate:'무이자', period:'1년', target:'충남 농업인'},
+      {name:'충남 청년 귀농 정착금', amount:'최대 2,000만원', rate:'무이자', period:'3년', target:'충남 귀농 청년'},
+    ],
+    notices:[
+      {title:'2026년 충남 농업 정책자금 통합 공고', date:'2026-03-08', urgent:false},
+    ],
+    children:['cheonan']
+  },
+  cheonan: {
+    id:'cheonan', name:'천안시 (충남)', ic:'🏢', type:'기초자치단체',
+    desc:'충남 최대 도시. 호두·포도 특산물',
+    addr:'충청남도 천안시 서북구 시청광장1', tel:'041-521-2114', site:'www.cheonan.go.kr',
+    depts:[{name:'농업기술센터', role:'원예·과수 재배 지원', tel:'041-521-5000', items:['포도','호두','배추']}],
+    funds:[{name:'천안시 농업인 역량강화 교육', amount:'교육비 지원', rate:'—', period:'상시', target:'천안시 농업인'}],
+    notices:[],
+    children:[]
+  },
+  jeonnam: {
+    id:'jeonnam', name:'전라남도', ic:'🍊', type:'광역자치단체',
+    desc:'배추·무·양파·나주배 주산지. 친환경 농산물 1위 생산지',
+    addr:'전라남도 무안군 삼향읍 오룡길 1', tel:'061-286-5114', site:'www.jeonnam.go.kr',
+    depts:[
+      {name:'농업정책과', role:'농산물 생산·유통 정책', tel:'061-286-5271', items:['배추','무','양파','나주배']},
+      {name:'친환경농업과', role:'친환경 인증·지원', tel:'061-286-5281', items:['친환경','유기농','무농약']},
+    ],
+    funds:[
+      {name:'전남 친환경 농업 직불금', amount:'최대 150만원/ha', rate:'무이자', period:'연간', target:'전남 친환경 인증 농가'},
+      {name:'전남 스마트농업 지원', amount:'최대 3,000만원', rate:'1.0%', period:'10년', target:'전남 농업인'},
+    ],
+    notices:[
+      {title:'2026년 전남 농산물 수출 지원사업 공고', date:'2026-03-15', urgent:false},
+    ],
+    children:['naju']
+  },
+  naju: {
+    id:'naju', name:'나주시 (전남)', ic:'🏘', type:'기초자치단체',
+    desc:'나주배 전국 1위 산지. 영산포 재래시장 소재지',
+    addr:'전라남도 나주시 시청길 20', tel:'061-335-2114', site:'www.naju.go.kr',
+    depts:[
+      {name:'농업기술센터', role:'배·고구마 재배 기술 지원', tel:'061-335-5000', items:['나주배','고구마','쌀']},
+      {name:'유통특화과', role:'나주배 브랜드·판로 지원', tel:'061-335-2451', items:['나주배','판로','수출']},
+    ],
+    funds:[
+      {name:'나주배 재배 기반 지원', amount:'최대 2,000만원', rate:'1.5%', period:'7년', target:'나주 배 재배 농가'},
+    ],
+    notices:[],
+    children:[]
+  },
+  jeonbuk: {
+    id:'jeonbuk', name:'전라북도', ic:'🌿', type:'광역자치단체',
+    desc:'쌀·고추·딸기 주산지. 전북특별자치도 출범(2024)',
+    addr:'전북특별자치도 전주시 완산구 효자로 225', tel:'063-280-2114', site:'www.jeonbuk.go.kr',
+    depts:[
+      {name:'농업농촌과', role:'농산물 생산·유통 정책', tel:'063-280-3391', items:['쌀','고추','딸기','수박']},
+    ],
+    funds:[
+      {name:'전북 농업인 소득안정 지원', amount:'최대 300만원/년', rate:'무이자', period:'연간', target:'전북 등록 농업인'},
+    ],
+    notices:[],
+    children:[]
+  },
+  gangwon: {
+    id:'gangwon', name:'강원특별자치도', ic:'🏔', type:'광역자치단체',
+    desc:'감자·옥수수·고랭지채소 주산지. 고랭지 농업 특화',
+    addr:'강원특별자치도 춘천시 중앙로 1', tel:'033-249-2114', site:'www.gangwon.go.kr',
+    depts:[
+      {name:'농업정책과', role:'강원 농산물 정책·지원', tel:'033-249-3371', items:['감자','옥수수','배추','고랭지채소']},
+    ],
+    funds:[
+      {name:'강원 고랭지채소 피해지원', amount:'피해액의 50%', rate:'무이자', period:'3년', target:'강원 고랭지 재배 농가'},
+      {name:'강원 귀농귀촌 정착 지원', amount:'최대 3,000만원', rate:'1.0%', period:'10년', target:'강원 귀농 희망자'},
+    ],
+    notices:[],
+    children:[]
+  },
+};
+
+const POLICY_TOP_GROUPS = [
+  {region:'📋 중앙부처', orgs:['mafra','nts']},
+  {region:'🌆 서울특별시', orgs:['seoul']},
+  {region:'🏙 경기도', orgs:['gyeonggi']},
+  {region:'🍎 경상북도', orgs:['gyeongbuk']},
+  {region:'🌾 충청남도', orgs:['chungnam']},
+  {region:'🍊 전라남도', orgs:['jeonnam']},
+  {region:'🌿 전라북도', orgs:['jeonbuk']},
+  {region:'🏔 강원특별자치도', orgs:['gangwon']},
+];
+
+if(!window._policyNav) window._policyNav=[];
+
 function renderPolicyPage(){
-  const isGov=['gov_garaksa','gov_seoul','gov_nts','gov_public'].includes(curRole);
-  const isProducer=['producer_ind','producer_corp'].includes(curRole);
+  if(!window._policyNav) window._policyNav=[];
+  const el=document.getElementById('policy-content'); if(!el) return;
+  if(window._policyNav.length===0) renderPolicyHome();
+  else renderPolicyOrg(window._policyNav[window._policyNav.length-1]);
+}
 
-  if(isGov){
-    // 공공기관: 규제·페널티 관리 페이지
-    renderPublicPenaltyPage();
-    return;
-  }
+// ── 정책 홈 ──
+function renderPolicyHome(){
+  document.getElementById('policy-content').innerHTML=`
+    <div style="font-size:15px;font-weight:800;margin-bottom:14px;">🏛 정책 · 주무기관</div>
 
-  let html = `<div class="sec-title" style="margin-bottom:16px;">💎 혜택 · 정책자금</div>`;
-
-  // AI 맞춤 추천
-  html += `
-    <div class="card" style="background:rgba(0,232,188,.04);border-color:rgba(0,232,188,.2);margin-bottom:14px;">
-      <div style="font-size:11px;color:var(--a1);font-weight:700;margin-bottom:6px;">🤖 AI 맞춤 추천</div>
-      <div style="font-size:12px;color:var(--t2);line-height:1.7;">
-        ${curGrade==='seed'?'작물을 등록하고 송장을 작성하면 맞춤 정책자금을 안내해드려요. 지금 바로 시작해보세요!':
-          `현재 ${GRADE_INFO[curGrade].label} 등급으로 신청 가능한 정책자금 ${POLICY_FUNDS.filter(p=>Object.keys(GRADE_INFO).indexOf(p.grade)<=Object.keys(GRADE_INFO).indexOf(curGrade)).length}건이 있어요.`}
+    <!-- AI 문의 -->
+    <div style="background:rgba(0,232,188,.06);border:1.5px solid rgba(0,232,188,.25);border-radius:14px;padding:12px 14px;margin-bottom:12px;cursor:pointer;" onclick="window.openAI()">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
+        <span style="font-size:18px;">🤖</span>
+        <span style="font-size:13px;font-weight:800;">AI 기관 안내</span>
       </div>
+      <div style="font-size:11px;color:var(--t2);line-height:1.7;">"사과 출하 관련 어느 부서에 문의해야 하나요?"<br>AI에게 물어보면 담당 기관·부서를 안내해드려요</div>
+      <div style="margin-top:7px;font-size:11px;color:var(--a1);font-weight:700;">🤖 AI에게 기관 안내 받기 →</div>
+    </div>
+
+    <!-- 긴급 공지 -->
+    <div style="background:rgba(255,69,84,.06);border:1px solid rgba(255,69,84,.2);border-radius:12px;padding:11px 13px;margin-bottom:12px;">
+      <div style="font-size:11px;color:var(--red);font-weight:700;margin-bottom:7px;">📢 최신 공지 · 긴급 지침</div>
+      ${[
+        {org:'서울농수산식품공사', title:'전자송품장 시스템 점검 (3.25)', urgent:true},
+        {org:'농림축산식품부', title:'2026 상반기 정책자금 신청 안내', urgent:true},
+        {org:'경북 의성군', title:'마늘 파종 지원자재 신청', urgent:false},
+      ].map(n=>`
+      <div style="display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid var(--b2);font-size:11px;">
+        ${n.urgent?'<span class="tag tag-r" style="font-size:8px;flex-shrink:0;">긴급</span>':'<span class="tag" style="font-size:8px;background:var(--s3);color:var(--t3);flex-shrink:0;">일반</span>'}
+        <div style="flex:1;">
+          <div style="color:var(--t1);">${n.title}</div>
+          <div style="color:var(--t3);font-size:10px;">${n.org}</div>
+        </div>
+      </div>`).join('')}
+    </div>
+
+    <!-- 주무기관 찾기 -->
+    <div style="font-size:13px;font-weight:700;margin-bottom:10px;">🔍 주무기관 찾기</div>
+    ${POLICY_TOP_GROUPS.map(g=>`
+    <div style="margin-bottom:12px;">
+      <div style="font-size:10px;color:var(--t3);font-weight:700;letter-spacing:1px;margin-bottom:6px;">${g.region}</div>
+      ${g.orgs.map(id=>{
+        const org=POLICY_ORG_DATA[id]; if(!org) return '';
+        return `<div onclick="window._policyNav=['${id}'];renderPolicyPage();"
+          style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:11px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+          <div style="font-size:26px;flex-shrink:0;">${org.ic}</div>
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:800;">${org.name}</div>
+            <div style="font-size:10px;color:var(--t2);margin-top:2px;">${org.desc.slice(0,32)}...</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;">
+            <span class="tag tag-b" style="font-size:9px;">${org.type}</span>
+            ${org.children.length>0?`<span style="font-size:10px;color:var(--t3);">▼ ${org.children.length}개</span>`:''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`).join('')}
+    <div style="padding:12px;background:var(--s2);border-radius:12px;font-size:11px;color:var(--t2);text-align:center;">
+      🔜 전국 모든 지자체·공공기관 순차 추가 예정
     </div>`;
+}
 
-  // 규제·준수사항 (생산자용 — 경고 배너)
-  html += `
-    <div class="warning-banner" style="margin-bottom:14px;cursor:pointer;" onclick="window.openPenaltySheet('producer')">
-      <div class="wb-hd">
-        <span style="font-size:14px;">⚠️</span>
-        <span class="wb-title">반드시 지켜야 할 준수사항</span>
-        <span style="margin-left:auto;font-size:10px;color:var(--a4);">전체보기 →</span>
-      </div>
-      <div class="penalty-item"><div class="penalty-dot" style="background:var(--a4);"></div><div style="color:var(--t2);">원산지 정확히 표기 (허위 시 과태료 최대 1,000만원)</div></div>
-      <div class="penalty-item"><div class="penalty-dot" style="background:var(--a4);"></div><div style="color:var(--t2);">전표 발행 의무 (미발행 시 과태료 최대 500만원)</div></div>
-      <div class="penalty-item"><div class="penalty-dot" style="background:var(--a4);"></div><div style="color:var(--t2);">플랫폼 허위 정보 입력 시 계정 정지 및 정책자금 환수</div></div>
-    </div>`;
+// ── 기관 상세 ──
+function renderPolicyOrg(id){
+  const org=POLICY_ORG_DATA[id];
+  if(!org){ renderPolicyHome(); return; }
+  const breadcrumb=window._policyNav.map((nid,i)=>{
+    const o=POLICY_ORG_DATA[nid];
+    return `<span onclick="window._policyNav=window._policyNav.slice(0,${i+1});renderPolicyPage();"
+      style="cursor:pointer;color:${i===window._policyNav.length-1?'var(--a1)':'var(--t3)'};">${o?o.name:nid}</span>`;
+  }).join(' <span style="color:var(--t3);">›</span> ');
 
-  // 정책자금 목록
-  html += `<div style="font-size:13px;font-weight:700;margin-bottom:10px;">📋 신청 가능한 정책자금</div>`;
-  POLICY_FUNDS.forEach(pf=>{
-    const available = Object.keys(GRADE_INFO).indexOf(pf.grade) <= Object.keys(GRADE_INFO).indexOf(curGrade);
-    html += `
-    <div class="policy-card ${available?'':'opacity:.5'}" onclick="window.openPolicyDetail('${pf.id}')">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
-        <div style="font-size:13px;font-weight:700;flex:1;margin-right:8px;">${pf.title}</div>
-        <span class="tag ${available?'tag-g':'tag-r'}">${available?'신청가능':'등급부족'}</span>
-      </div>
-      <div style="font-size:11px;color:var(--t2);margin-bottom:6px;">${pf.org}</div>
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:13px;font-weight:700;color:var(--a4);">${pf.amount}</span>
-        <span style="font-size:10px;color:var(--t2);">마감: ${pf.deadline}</span>
-      </div>
-      <div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">
-        ${pf.tags.map(t=>`<span class="tag tag-b">${t}</span>`).join('')}
-        <span class="tag" style="background:rgba(168,85,247,.1);color:var(--pur);">${GRADE_INFO[pf.grade].label} 이상</span>
-      </div>
-    </div>`;
-  });
+  document.getElementById('policy-content').innerHTML=`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <button onclick="window._policyNav.pop();renderPolicyPage();" style="color:var(--t2);font-size:20px;padding:0 4px;">←</button>
+      <div style="font-size:10px;color:var(--t3);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${breadcrumb}</div>
+    </div>
 
-  document.getElementById('policy-content').innerHTML = html;
+    <!-- 기관 헤더 -->
+    <div style="background:var(--s1);border:1px solid var(--b1);border-radius:16px;padding:14px;margin-bottom:12px;">
+      <div style="display:flex;gap:12px;margin-bottom:10px;">
+        <div style="font-size:34px;flex-shrink:0;">${org.ic}</div>
+        <div style="flex:1;">
+          <div style="font-size:15px;font-weight:800;">${org.name}</div>
+          <span class="tag tag-b" style="font-size:9px;margin-top:3px;display:inline-block;">${org.type}</span>
+          <div style="font-size:11px;color:var(--t2);margin-top:5px;line-height:1.7;">${org.desc}</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--t2);line-height:1.8;">
+        <div>📍 ${org.addr}</div>
+        <div>☎ <a href="tel:${org.tel}" style="color:var(--a2);">${org.tel}</a> &nbsp; 🌐 ${org.site}</div>
+      </div>
+    </div>
+
+    <!-- AI 담당부서 안내 -->
+    <div style="background:rgba(0,232,188,.05);border:1px solid rgba(0,232,188,.2);border-radius:11px;padding:10px 13px;margin-bottom:12px;cursor:pointer;"
+      onclick="window.openAI();setTimeout(()=>window.sendAIMsg('${org.name}에서 내 품목 담당 부서 알려줘'),400);">
+      <div style="font-size:11px;color:var(--a1);font-weight:700;margin-bottom:3px;">🤖 AI 담당부서 안내</div>
+      <div style="font-size:11px;color:var(--t2);">"${org.name}에서 내 품목 담당 부서?" → AI가 바로 안내해드려요</div>
+    </div>
+
+    <!-- 담당부서 -->
+    ${org.depts.length>0?`
+    <div style="font-size:13px;font-weight:700;margin-bottom:8px;">📋 담당부서 · 문의처</div>
+    ${org.depts.map(d=>`
+    <div style="background:var(--s2);border:1px solid var(--b1);border-radius:11px;padding:10px 13px;margin-bottom:7px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+        <div style="font-size:13px;font-weight:700;">${d.name}</div>
+        <a href="tel:${d.tel}" style="font-size:11px;color:var(--a2);font-weight:700;text-decoration:none;">☎ ${d.tel}</a>
+      </div>
+      <div style="font-size:11px;color:var(--t2);margin-bottom:5px;">${d.role}</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;">${d.items.map(item=>`<span class="tag" style="font-size:9px;background:rgba(79,156,249,.1);color:var(--a2);">${item}</span>`).join('')}</div>
+    </div>`).join('')}`:''}
+
+    <!-- 정책자금 -->
+    ${org.funds.length>0?`
+    <div style="font-size:13px;font-weight:700;margin:12px 0 8px;">💰 정책자금 안내</div>
+    ${org.funds.map(f=>`
+    <div class="policy-card" style="margin-bottom:8px;">
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px;">${f.name}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:8px;">
+        ${[['지원금액',f.amount,'var(--a4)'],['금리',f.rate,'var(--a1)'],['기간',f.period,'var(--a2)'],['대상',f.target,'var(--t1)']].map(r=>`
+        <div style="background:var(--s3);border-radius:8px;padding:6px 9px;">
+          <div style="font-size:9px;color:var(--t3);">${r[0]}</div>
+          <div style="font-size:11px;font-weight:700;color:${r[2]};margin-top:2px;">${r[1]}</div>
+        </div>`).join('')}
+      </div>
+      <button onclick="toast('🤖 AI 신청서 자동작성 기능 준비 중입니다')"
+        style="width:100%;padding:8px;border-radius:9px;background:var(--a1);color:#080d18;font-size:12px;font-weight:700;border:none;cursor:pointer;">
+        📝 신청 안내 (AI 자동작성 준비중)
+      </button>
+    </div>`).join('')}`:''}
+
+    <!-- 공지/지침 -->
+    ${org.notices.length>0?`
+    <div style="font-size:13px;font-weight:700;margin:12px 0 8px;">📢 공지 · 지침</div>
+    ${org.notices.map(n=>`
+    <div style="background:var(--s2);border:1px solid ${n.urgent?'rgba(255,69,84,.3)':'var(--b1)'};border-radius:10px;padding:9px 13px;margin-bottom:6px;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+        ${n.urgent?'<span class="tag tag-r" style="font-size:8px;">긴급</span>':''}
+        <div style="font-size:12px;font-weight:700;">${n.title}</div>
+      </div>
+      <div style="font-size:10px;color:var(--t3);">${n.date}</div>
+    </div>`).join('')}`:''}
+
+    <!-- 하위 기관 -->
+    ${org.children.length>0?`
+    <div style="font-size:13px;font-weight:700;margin:12px 0 8px;">🔗 하위 기관</div>
+    ${org.children.map(cid=>{
+      const child=POLICY_ORG_DATA[cid]; if(!child) return '';
+      return `<div onclick="window._policyNav.push('${cid}');renderPolicyPage();"
+        style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:11px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+        <div style="font-size:22px;flex-shrink:0;">${child.ic}</div>
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:800;">${child.name}</div>
+          <div style="font-size:10px;color:var(--t2);margin-top:1px;">${child.desc.slice(0,28)}...</div>
+        </div>
+        <span style="font-size:18px;color:var(--t3);">›</span>
+      </div>`;
+    }).join('')}`:''}`;
 }
 
 window.openPolicyDetail = function(id){
-  const pf=POLICY_FUNDS.find(x=>x.id===id);
-  if(!pf) return;
+  const pf=POLICY_FUNDS.find(x=>x.id===id); if(!pf) return;
   const available=Object.keys(GRADE_INFO).indexOf(pf.grade)<=Object.keys(GRADE_INFO).indexOf(curGrade);
   document.getElementById('policy-detail-title').textContent=pf.title;
   document.getElementById('policy-detail-body').innerHTML=`
@@ -1265,14 +1659,14 @@ window.openPolicyDetail = function(id){
     <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--b2);font-size:13px;">
       <span style="color:var(--t2);">${r[0]}</span><span style="font-weight:700;">${r[1]}</span>
     </div>`).join('')}
-    <div style="margin-top:14px;padding:12px;background:rgba(0,232,188,.06);border:1px solid rgba(0,232,188,.2);border-radius:10px;font-size:12px;color:var(--t2);line-height:1.7;">
-      🤖 AI 신청서 자동완성 기능 준비 중<br>본 서비스가 완성되면 플랫폼 데이터를 기반으로 신청서를 자동으로 작성해드려요.
-    </div>
-    <button class="btn ${available?'btn-p':'btn-s'}" style="margin-top:14px;" onclick="${available?"toast('🤖 AI 신청서 작성 기능 준비 중입니다. 빠른 시일 내 오픈 예정!')":"toast('신뢰등급 '+GRADE_INFO['${pf.grade}'].label+' 이상 필요합니다. 작물·거래 이력을 쌓아보세요!')"}" >
+    <button class="btn ${available?'btn-p':'btn-s'}" style="margin-top:14px;"
+      onclick="toast('${available?'🤖 AI 신청서 작성 기능 준비 중':'등급 부족'}')">
       ${available?'✅ 신청하기 (준비중)':'🔒 등급 달성 후 신청 가능'}
     </button>`;
   window.openSheet('sh-policy');
 };
+
+// ── AI 어시스턴트에 기관 안내 기능 추가 ──
 
 // ══════════════
 // 공공기관 페이지
@@ -3409,14 +3803,14 @@ window.submitCall=function(){
 // AI 어시스턴트
 // ══════════════
 const AI_QUICK = {
-  producer_ind:['오늘 시세 알려줘','내 작물 수확 언제?','정책자금 뭐 있어?','송장 써줘'],
-  producer_corp:['오늘 시세 알려줘','법인 출하 전략','세금 계산해줘','정책자금 뭐 있어?'],
-  merchant_ind:['오늘 입고 현황','마진 계산해줘','정산 현황 알려줘','출하자 연락처'],
-  wholesale:['경매 현황','오늘 반입량','시세 분석해줘','전표 현황'],
+  producer_ind:['오늘 시세 알려줘','내 작물 담당 부서?','정책자금 뭐 있어?','가락시장 문의처'],
+  producer_corp:['오늘 시세 알려줘','법인 출하 담당 부서?','정책자금 뭐 있어?','세금 계산해줘'],
+  merchant_ind:['오늘 입고 현황','마진 계산해줘','가락시장 경매 문의','정산 현황 알려줘'],
+  wholesale:['경매 현황','오늘 반입량','시세 분석해줘','경매팀 연락처'],
   transport:['오늘 콜 있어?','운송비 계산','최적 경로 알려줘','이번달 실적'],
   gov_garaksa:['오늘 시장 현황','규제 위반 현황','정책 발송 대상','반입량 통계'],
   gov_seoul:['가락시장 현황','정책자금 현황','생산자 현황','규제 이슈'],
-  default:['도움말','현황 알려줘','기능 안내','연락처'],
+  default:['도움말','기관 찾기','정책자금 안내','연락처 알려줘'],
 };
 
 window.openAI=function(){
@@ -3439,22 +3833,59 @@ window.sendAI=function(){
 window.sendAIMsg=function(msg){
   const area=document.getElementById('ai-chat-area');
   area.innerHTML+=`<div style="margin:6px 0;"><span style="color:var(--a2);font-size:10px;">나</span><br>${msg}</div>`;
-  // AI 응답 (프로토타입: 규칙 기반)
   let reply='';
+
   if(msg.includes('시세')){
-    reply=`오늘 주요 시세: 사과 ₩${AI_PRICES['사과'].toLocaleString()} · 배추 ₩${AI_PRICES['배추'].toLocaleString()} · 딸기 ₩${AI_PRICES['딸기'].toLocaleString()}`;
-  } else if(msg.includes('정책자금')||msg.includes('혜택')){
-    reply=`현재 ${GRADE_INFO[curGrade].label} 등급으로 신청 가능한 정책자금 ${POLICY_FUNDS.filter(p=>Object.keys(GRADE_INFO).indexOf(p.grade)<=Object.keys(GRADE_INFO).indexOf(curGrade)).length}건이 있어요. [혜택] 탭에서 확인하세요!`;
-  } else if(msg.includes('작물')||msg.includes('수확')){
-    reply=CROPS.length>0?`현재 ${CROPS.length}종 재배 중. 가장 빠른 수확: ${CROPS[0]?.name||'—'}`:'아직 등록된 작물이 없어요. [작물] 탭에서 등록해보세요!';
+    reply=`오늘 주요 시세:<br>🍎 사과 ₩${AI_PRICES['사과'].toLocaleString()} · 🥬 배추 ₩${AI_PRICES['배추'].toLocaleString()} · 🍓 딸기 ₩${AI_PRICES['딸기'].toLocaleString()}<br>🧄 마늘 ₩${AI_PRICES['마늘'].toLocaleString()} · 🧅 양파 ₩${AI_PRICES['양파'].toLocaleString()}`;
+
+  } else if(msg.includes('정책자금')||msg.includes('혜택')||msg.includes('지원금')){
+    const cnt=POLICY_FUNDS.filter(p=>Object.keys(GRADE_INFO).indexOf(p.grade)<=Object.keys(GRADE_INFO).indexOf(curGrade)).length;
+    reply=`현재 ${GRADE_INFO[curGrade].label} 등급으로 신청 가능한 정책자금 ${cnt}건이 있어요.<br>[MY > 혜택] 탭에서 확인하거나 [정책] 탭에서 기관별 자금을 찾아보세요!`;
+
+  } else if(msg.includes('기관')||msg.includes('부서')||msg.includes('문의')||msg.includes('담당')||msg.includes('어디')){
+    const itemMentioned = Object.keys(AI_PRICES).find(item=>msg.includes(item));
+    const cropItem = CROPS.length>0?CROPS[0].name:'';
+    const target = itemMentioned || cropItem;
+    const orgMap = {
+      사과:'경상북도 농축산유통국 (054-880-3491) 또는 가락시장 서울청과 (02-3435-2001)',
+      배:'나주시 유통특화과 (061-335-2451) 또는 중앙청과 (02-3435-2201)',
+      감자:'강원특별자치도 농업정책과 (033-249-3371)',
+      배추:'전라남도 농업정책과 (061-286-5271) 또는 가락시장 한국청과 (02-3435-2401)',
+      마늘:'의성군 농업소득과 (054-830-6480) 또는 농협가락 (02-3435-2101)',
+      양파:'충청남도 농림축산과 (041-635-4251)',
+      딸기:'충청남도 농림축산과 (041-635-4251) 또는 중앙청과 (02-3435-2201)',
+      토마토:'가락시장 중앙청과 (02-3435-2201)',
+      고추:'안동시 농업기술센터 (054-840-8800) 또는 농협가락 (02-3435-2101)',
+    };
+    if(target && orgMap[target]){
+      reply=`${target} 관련 담당 기관:<br>📍 ${orgMap[target]}<br><br>[정책] 탭 → 해당 기관에서 정책자금·공지 상세 확인 가능해요!`;
+    } else {
+      reply=`품목별 담당기관 안내:<br>🌾 농림축산식품부 (044-201-1114)<br>🌆 서울시 친환경유통과 (02-2133-5380)<br>🏛 가락시장 유통지원팀 (02-3435-1052)<br><br>[정책] 탭에서 지역별 기관을 직접 찾아보세요!`;
+    }
+
+  } else if(msg.includes('규제')||msg.includes('처벌')||msg.includes('페널티')||msg.includes('과태료')){
+    reply=`주요 처벌 기준:<br>⚠️ 원산지 허위표시 → 과태료 최대 1,000만원<br>⚠️ 전표 미발행 → 과태료 최대 500만원<br>⚠️ 무신고 거래 → 영업허가 취소<br><br>[정책] 탭 → 규제·준수사항에서 전체 확인하세요.`;
+
+  } else if(msg.includes('작물')||msg.includes('수확')||msg.includes('파종')){
+    reply=CROPS.length>0
+      ? `현재 ${CROPS.length}종 재배 중. 가장 빠른 수확: ${CROPS[0]?.name||'—'}<br>[MY > 작물관리] 탭에서 자세히 확인하세요!`
+      : '아직 등록된 작물이 없어요. [MY > 작물관리] 탭에서 등록해보세요!';
+
   } else if(msg.includes('송장')){
-    reply=`송장 작성은 홈 화면의 [새 송장 만들기] 버튼을 눌러주세요. 수취인 → 상품 → 배송 → 정산 4단계로 작성합니다.`;
-  } else if(msg.includes('규제')||msg.includes('처벌')||msg.includes('페널티')){
-    reply=`원산지 허위표시 시 과태료 최대 1,000만원, 전표 미발행 시 최대 500만원입니다. 자세한 내용은 [혜택] 탭의 준수사항을 확인하세요.`;
+    const pending=INVOICES.filter(i=>['sent','transit','confirmed'].includes(i.status)).length;
+    reply=`송장 현황: 전체 ${INVOICES.length}건 · 처리 대기 ${pending}건<br>[송장] 탭 → [새 송장 만들기]로 작성하세요. 수취인 → 상품 → 배송 → 정산 4단계!`;
+
+  } else if(msg.includes('가락시장')||msg.includes('경매')||msg.includes('낙찰')){
+    reply=`가락시장 문의:<br>🏛 서울특별시농수산식품공사 (02-3435-1000)<br>📋 유통지원팀 (02-3435-1052)<br>🔨 경매팀 (02-3435-1041)<br><br>[정책] 탭 → 서울특별시 → 농수산식품공사 → 가락시장에서 도매법인 정보 확인!`;
+
+  } else if(msg.includes('정책')&&(msg.includes('찾')|| msg.includes('어디'))){
+    reply=`[정책] 탭에서 기관 트리를 탐색하세요!<br>중앙부처(농림부·국세청) → 광역자치단체 → 시·군·구 순으로 찾을 수 있어요. 담당부서·전화번호·정책자금 정보가 모두 있어요.`;
+
   } else {
-    reply=`"${msg}"에 대한 답변을 준비 중이에요. 현재 프로토타입에서는 기본 질문만 지원됩니다. 시세, 정책자금, 작물, 송장에 대해 물어보세요!`;
+    reply=`"${msg}"에 대해 더 구체적으로 물어봐주세요!<br>예: "사과 담당 부서", "마늘 정책자금", "오늘 시세", "가락시장 문의", "출하 규제"`;
   }
-  area.innerHTML+=`<div style="margin:6px 0;padding:8px 10px;background:rgba(0,232,188,.06);border:1px solid rgba(0,232,188,.15);border-radius:8px;"><span style="color:var(--a1);font-size:10px;">🤖 GARAK AI</span><br>${reply}</div>`;
+
+  area.innerHTML+=`<div style="margin:6px 0;padding:8px 10px;background:rgba(0,232,188,.06);border:1px solid rgba(0,232,188,.15);border-radius:8px;"><span style="color:var(--a1);font-size:10px;">🤖 GARAK AI</span><br><span style="font-size:12px;line-height:1.7;">${reply}</span></div>`;
   area.scrollTop=area.scrollHeight;
 };
 
