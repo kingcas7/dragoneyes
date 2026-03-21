@@ -815,15 +815,39 @@ function renderRoleCards(containerId, withInput=true){
   el.innerHTML = ROLE_GROUPS.map(g=>`
     <div class="role-label" style="color:${g.color};">${g.label}</div>
     <div class="role-grid">
-      ${g.roles.map(r=>{const i=ROLE_INFO[r];return `<div class="role-card" data-role="${r}"><span class="role-ic">${i.ic}</span><span class="role-name">${i.name}</span><span class="role-desc">${i.desc}</span></div>`;}).join('')}
+      ${g.roles.map(r=>{const i=ROLE_INFO[r];return `<div class="role-card" data-role="${r}" onclick="window.onRoleCardClick('${r}','${containerId}')"><span class="role-ic">${i.ic}</span><span class="role-name">${i.name}</span><span class="role-desc">${i.desc}</span></div>`;}).join('')}
     </div>`).join('') + (withInput?`
-    <div style="margin-top:12px;">
+    <div style="margin-top:16px;" id="${containerId}-form">
       <div class="flabel">이름 / 상호명 *</div>
       <input type="text" class="finput" id="reg-name" placeholder="홍길동 / 드레곤팜" style="margin-bottom:8px;">
-      <div class="flabel">휴대폰 번호</div>
-      <input type="tel" class="finput" id="reg-tel" placeholder="010-0000-0000">
+      <div class="flabel">휴대폰 번호 *</div>
+      <input type="tel" class="finput" id="reg-tel" placeholder="010-0000-0000" style="margin-bottom:8px;">
+      <!-- 법인 전용 필드 (기본 숨김) -->
+      <div id="reg-corp-fields" style="display:none;">
+        <div style="background:rgba(79,156,249,.05);border:1px solid rgba(79,156,249,.2);border-radius:10px;padding:10px 12px;margin-bottom:8px;">
+          <div style="font-size:11px;color:var(--a2);font-weight:700;margin-bottom:8px;">🏢 법인 필수 정보</div>
+          <div class="flabel">사업자등록번호 * <span style="color:var(--red);font-size:10px;">(법인 가입 필수)</span></div>
+          <input type="text" class="finput" id="reg-biznum" placeholder="000-00-00000" maxlength="12"
+            oninput="this.value=this.value.replace(/[^0-9]/g,'').replace(/^(\d{3})(\d{2})(\d{5})$/,'\$1-\$2-\$3').replace(/^(\d{3})(\d{1,2})$/,'\$1-\$2').replace(/^(\d{3})-(\d{2})(\d{1,5})$/,'\$1-\$2-\$3')"
+            style="margin-bottom:8px;">
+          <div style="font-size:10px;color:var(--t2);">※ 사업자등록번호 미입력 시 법인 가입이 불가합니다</div>
+        </div>
+      </div>
     </div>`:'');
 }
+
+// 역할 카드 클릭 시 법인 필드 토글
+window.onRoleCardClick = function(role, containerId){
+  document.querySelectorAll('.role-card').forEach(c=>c.classList.remove('sel'));
+  const card = document.querySelector(`.role-card[data-role="${role}"]`);
+  if(card) card.classList.add('sel');
+  curRole = role;
+
+  // 법인 역할 판단
+  const isCorpRole = ['producer_corp','wholesale'].includes(role);
+  const corpFields = document.getElementById('reg-corp-fields');
+  if(corpFields) corpFields.style.display = isCorpRole ? 'block' : 'none';
+};
 
 // ══════════════
 // 화면 전환
@@ -839,12 +863,7 @@ window.showScreen = function(screen){
 };
 
 document.addEventListener('click', function(e){
-  const card=e.target.closest('.role-card[data-role]');
-  if(card){
-    document.querySelectorAll('.role-card').forEach(c=>c.classList.remove('sel'));
-    card.classList.add('sel');
-    curRole=card.dataset.role;
-  }
+  // role-card 클릭은 onclick으로 처리됨 (onRoleCardClick)
 });
 
 // ══════════════
@@ -854,12 +873,45 @@ window.doLogin = async function(){
   if(!curRole){ toast('역할을 선택하세요'); return; }
   const r=ROLES[curRole];
   if(!r){ toast('역할 정보를 찾을 수 없습니다'); return; }
-  const nameEl=document.getElementById('reg-name');
-  curUserName=(nameEl&&nameEl.value.trim())||r.n+' 사용자';
-  curGkid=r.gkp+'-'+String(Math.floor(Math.random()*99999)+1).padStart(6,'0');
-  curGrade='seed';
+
+  const nameEl = document.getElementById('reg-name');
+  const telEl  = document.getElementById('reg-tel');
+  const biznumEl = document.getElementById('reg-biznum');
+
+  // 이름 필수
+  if(nameEl && !nameEl.value.trim()){ toast('이름 또는 상호명을 입력하세요'); return; }
+
+  // 법인 역할 — 사업자등록번호 필수
+  const isCorpRole = ['producer_corp','wholesale'].includes(curRole);
+  if(isCorpRole && biznumEl){
+    const biznum = biznumEl.value.replace(/[^0-9]/g,'');
+    if(biznum.length !== 10){
+      toast('⚠️ 사업자등록번호 10자리를 입력하세요 (법인 가입 필수)');
+      biznumEl.focus();
+      return;
+    }
+  }
+
+  curUserName = (nameEl&&nameEl.value.trim()) || r.n+' 사용자';
+  const regTel = (telEl&&telEl.value.trim()) || '';
+  const regBiznum = (biznumEl&&biznumEl.value.trim()) || '';
+
+  curGkid = r.gkp+'-'+String(Math.floor(Math.random()*99999)+1).padStart(6,'0');
+  curGrade = 'seed';
+
+  // 저장 데이터에 사업자번호 포함
+  const userData = {
+    role:curRole, gkid:curGkid, name:curUserName, grade:curGrade,
+    tel:regTel, biznum:regBiznum,
+  };
+
   try{ await db.from('users').insert({gkid:curGkid,name:curUserName,role:curRole}); }catch(e){}
-  localStorage.setItem('garak_user',JSON.stringify({role:curRole,gkid:curGkid,name:curUserName,grade:curGrade}));
+  localStorage.setItem('garak_user', JSON.stringify(userData));
+
+  // 전역 변수에도 저장
+  window._userTel = regTel;
+  window._userBiznum = regBiznum;
+
   startApp(r);
 };
 
@@ -882,6 +934,7 @@ function loadSavedLogin(){
   if(saved){
     const u=JSON.parse(saved);
     curRole=u.role; curGkid=u.gkid; curUserName=u.name||''; curGrade=u.grade||'seed';
+    window._userTel=u.tel||''; window._userBiznum=u.biznum||'';
     const r=ROLES[curRole];
     if(r) startApp(r);
   }
