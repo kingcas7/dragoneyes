@@ -420,7 +420,74 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
   </div>
 </div>
 
-<!-- ══ 화물콜 시트 (개편) ══ -->
+<!-- ══ 경비 입력 시트 ══ -->
+<div class="sheet-overlay" id="sh-expense">
+  <div class="sheet">
+    <div class="sheet-hd">
+      <div class="sheet-title">🧾 경비(매입) 입력</div>
+      <button onclick="window.closeSheet('sh-expense')" style="color:var(--t2);font-size:20px;">✕</button>
+    </div>
+    <div class="sheet-sub">영수증을 첨부하고 경비 내용을 입력하세요</div>
+
+    <!-- 영수증 이미지 첨부 -->
+    <div style="margin-bottom:14px;">
+      <div class="flabel">📷 영수증 이미지 첨부</div>
+      <label style="display:block;border:2px dashed var(--b1);border-radius:14px;padding:16px;text-align:center;cursor:pointer;background:var(--s2);">
+        <input type="file" accept="image/*" capture="environment" onchange="window.handleReceiptImage(this)" style="display:none;">
+        <div style="font-size:32px;margin-bottom:6px;">📷</div>
+        <div style="font-size:12px;color:var(--t2);">탭하여 사진 촬영 또는 갤러리에서 선택</div>
+      </label>
+      <img id="receipt-preview" style="display:none;width:100%;max-height:160px;object-fit:cover;border-radius:10px;margin-top:8px;border:1px solid var(--b1);">
+    </div>
+
+    <div class="fgroup">
+      <div class="flabel">카테고리 *</div>
+      <select class="finput" id="exp-category">
+        <option value="">선택하세요</option>
+        <option>운송비</option><option>농자재 구입</option><option>비료·농약</option>
+        <option>장비·기계</option><option>인건비</option><option>포장재</option>
+        <option>연료비</option><option>통신비</option><option>식비</option>
+        <option>접대비</option><option>수수료</option><option>기타경비</option>
+      </select>
+    </div>
+
+    <div class="fgroup">
+      <div class="flabel">내용 (제목) *</div>
+      <input class="finput" id="exp-title" placeholder="예: 사과박스 구입, 운송비 지급">
+    </div>
+
+    <div class="frow">
+      <div class="fgroup" style="margin:0;">
+        <div class="flabel">날짜 *</div>
+        <input class="finput" id="exp-date" type="date">
+      </div>
+      <div class="fgroup" style="margin:0;">
+        <div class="flabel">거래처</div>
+        <input class="finput" id="exp-vendor" placeholder="상호명">
+      </div>
+    </div>
+
+    <div class="fgroup" style="margin-top:10px;">
+      <div class="flabel">금액 (원) *</div>
+      <input class="finput" id="exp-amount" type="number" placeholder="0" inputmode="decimal" style="font-size:16px;font-weight:700;">
+      <div style="margin-top:6px;display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="exp-vat" style="width:16px;height:16px;cursor:pointer;">
+        <label for="exp-vat" style="font-size:12px;color:var(--t2);cursor:pointer;">VAT(부가세) 포함 금액</label>
+      </div>
+    </div>
+
+    <div class="fgroup">
+      <div class="flabel">메모</div>
+      <textarea class="finput" id="exp-memo" rows="2" placeholder="추가 설명..." style="resize:none;"></textarea>
+    </div>
+
+    <button class="btn btn-p" style="background:linear-gradient(135deg,var(--a4),var(--org));" onclick="window.saveExpense()">
+      🧾 경비 등록하기
+    </button>
+  </div>
+</div>
+
+<!-- ══ 송장 상세 시트 ══ -->
 <div class="sheet-overlay" id="sh-call">
   <div class="sheet">
     <div class="sheet-hd"><div class="sheet-title">🚛 화물차 배차요청</div><button onclick="window.closeSheet('sh-call')" style="color:var(--t2);font-size:20px;">✕</button></div>
@@ -571,23 +638,23 @@ const ROLE_INFO = {
 
 // ── 탭 정의 (역할별) ──
 const TABS_BY_ROLE = {
-  producer_ind:   [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'송장',pg:'invoice'},{ic:'🤝',lb:'거래처',pg:'partner'},{ic:'🚛',lb:'차량',pg:'vehicle'},{ic:'📄',lb:'전표',pg:'eform'},{ic:'💰',lb:'정산',pg:'settle'},{ic:'👤',lb:'MY',pg:'mypage'}],
-  producer_corp:  [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'송장',pg:'invoice'},{ic:'🤝',lb:'거래처',pg:'partner'},{ic:'🚛',lb:'차량',pg:'vehicle'},{ic:'📄',lb:'전표',pg:'eform'},{ic:'💰',lb:'정산',pg:'settle'},{ic:'👤',lb:'MY',pg:'mypage'}],
-  merchant_ind:   [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📬',lb:'수신송장',pg:'invoice'},{ic:'🤝',lb:'거래처',pg:'partner'},{ic:'📄',lb:'전표',pg:'eform'},{ic:'💰',lb:'정산',pg:'settle'},{ic:'👤',lb:'MY',pg:'mypage'}],
-  wholesale:      [{ic:'🏠',lb:'홈',pg:'home'},{ic:'🔨',lb:'경매',pg:'invoice'},{ic:'🤝',lb:'거래처',pg:'partner'},{ic:'📄',lb:'전표',pg:'eform'},{ic:'💰',lb:'정산',pg:'settle'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  producer_ind:   [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'송장',pg:'invoice'},{ic:'🤝',lb:'거래처',pg:'partner'},{ic:'🚛',lb:'차량',pg:'vehicle'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'💰',lb:'정산',pg:'settle'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  producer_corp:  [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'송장',pg:'invoice'},{ic:'🤝',lb:'거래처',pg:'partner'},{ic:'🚛',lb:'차량',pg:'vehicle'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'💰',lb:'정산',pg:'settle'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  merchant_ind:   [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📬',lb:'수신송장',pg:'invoice'},{ic:'🤝',lb:'거래처',pg:'partner'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'💰',lb:'정산',pg:'settle'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  wholesale:      [{ic:'🏠',lb:'홈',pg:'home'},{ic:'🔨',lb:'경매',pg:'invoice'},{ic:'🤝',lb:'거래처',pg:'partner'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'💰',lb:'정산',pg:'settle'},{ic:'👤',lb:'MY',pg:'mypage'}],
   transport:      [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📞',lb:'배차콜',pg:'vehicle'},{ic:'📋',lb:'이력',pg:'invoice'},{ic:'💰',lb:'정산',pg:'settle'},{ic:'👤',lb:'MY',pg:'mypage'}],
   warehouse_owner:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'🏭',lb:'창고',pg:'eform'},{ic:'💰',lb:'정산',pg:'settle'},{ic:'👤',lb:'MY',pg:'mypage'}],
   gov_garaksa:    [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📊',lb:'현황',pg:'public'},{ic:'⚠️',lb:'규제',pg:'policy'},{ic:'📢',lb:'공지',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
   gov_seoul:      [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📊',lb:'현황',pg:'public'},{ic:'⚠️',lb:'규제',pg:'policy'},{ic:'💎',lb:'정책자금',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
-  gov_nts:        [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📊',lb:'현황',pg:'public'},{ic:'⚠️',lb:'규제',pg:'policy'},{ic:'📄',lb:'전표',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  gov_nts:        [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📊',lb:'현황',pg:'public'},{ic:'⚠️',lb:'규제',pg:'policy'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
   gov_public:     [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📊',lb:'현황',pg:'public'},{ic:'⚠️',lb:'규제',pg:'policy'},{ic:'💎',lb:'정책자금',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
-  tax_agent:      [{ic:'🏠',lb:'홈',pg:'home'},{ic:'👥',lb:'고객',pg:'partner'},{ic:'📄',lb:'전표',pg:'eform'},{ic:'📊',lb:'통계',pg:'settle'},{ic:'👤',lb:'MY',pg:'mypage'}],
-  accounting:     [{ic:'🏠',lb:'홈',pg:'home'},{ic:'👥',lb:'고객',pg:'partner'},{ic:'📄',lb:'전표',pg:'eform'},{ic:'📊',lb:'통계',pg:'settle'},{ic:'👤',lb:'MY',pg:'mypage'}],
-  labor_agent:    [{ic:'🏠',lb:'홈',pg:'home'},{ic:'👥',lb:'고객',pg:'partner'},{ic:'📄',lb:'전표',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
-  lawyer:         [{ic:'🏠',lb:'홈',pg:'home'},{ic:'👥',lb:'고객',pg:'partner'},{ic:'📄',lb:'전표',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  tax_agent:      [{ic:'🏠',lb:'홈',pg:'home'},{ic:'👥',lb:'고객',pg:'partner'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'📊',lb:'통계',pg:'settle'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  accounting:     [{ic:'🏠',lb:'홈',pg:'home'},{ic:'👥',lb:'고객',pg:'partner'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'📊',lb:'통계',pg:'settle'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  labor_agent:    [{ic:'🏠',lb:'홈',pg:'home'},{ic:'👥',lb:'고객',pg:'partner'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  lawyer:         [{ic:'🏠',lb:'홈',pg:'home'},{ic:'👥',lb:'고객',pg:'partner'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
   customs:        [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'통관',pg:'invoice'},{ic:'👥',lb:'고객',pg:'partner'},{ic:'👤',lb:'MY',pg:'mypage'}],
   admin_agent:    [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'업무',pg:'invoice'},{ic:'👤',lb:'MY',pg:'mypage'}],
-  admin:          [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📊',lb:'전체현황',pg:'public'},{ic:'📋',lb:'전표',pg:'eform'},{ic:'⚙️',lb:'관리',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  admin:          [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📊',lb:'전체현황',pg:'public'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'⚙️',lb:'관리',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
 };
 
 // ── 규제/페널티 데이터 ──
@@ -747,7 +814,7 @@ function goTab(pg){
   if(p) p.classList.add('on');
   document.querySelectorAll(`[data-pg="${pg}"]`).forEach(t=>t.classList.add('on'));
   document.getElementById('scroll').scrollTop=0;
-  const renders={home:renderHome,invoice:renderInvoicePage,partner:renderPartnerPage,vehicle:renderVehiclePage,eform:renderEformPage,settle:renderSettlePage,public:renderPublicPage,mypage:renderMyPage};
+  const renders={home:renderHome,invoice:renderInvoicePage,partner:renderPartnerPage,vehicle:renderVehiclePage,eform:()=>{window._ledgerTab='main';renderEformPage();},settle:renderSettlePage,public:renderPublicPage,mypage:renderMyPage};
   if(renders[pg]) renders[pg]();
 }
 
@@ -1263,23 +1330,480 @@ function renderCallCard(call, isTransport){
 }
 
 // ══════════════
-// 전표 페이지 (뼈대)
 // ══════════════
+// 장부관리 페이지
+// ══════════════
+
+// 경비 데이터
+let EXPENSES = [];
+let _ledgerTab = 'main'; // 'main' | 'ledger' | 'expense'
+
 function renderEformPage(){
-  const isGov=['gov_garaksa','gov_seoul'].includes(curRole);
-  document.getElementById('eform-content').innerHTML = `
-    <div class="sec-hd"><div class="sec-title">📄 ${isGov?'공지 발송':'전자전표 관리'}</div></div>
-    <div class="card" style="text-align:center;padding:40px 20px;color:var(--t2);">
-      <div style="font-size:40px;margin-bottom:12px;">📄</div>
-      <div style="font-size:14px;font-weight:700;margin-bottom:6px;">${isGov?'공지 발송 시스템 준비 중':'전자전표 시스템 준비 중'}</div>
-      <div style="font-size:12px;">${isGov?'타겟 사용자에게 정책 공지 발송 기능이 곧 오픈됩니다':'종이전표를 완전히 대체하는 전자전표 기능이 곧 오픈됩니다'}</div>
+  if(!window._ledgerTab) window._ledgerTab='main';
+  if(window._ledgerTab==='main')    renderLedgerMain();
+  else if(window._ledgerTab==='ledger')  renderLedgerList();
+  else if(window._ledgerTab==='expense') renderExpenseList();
+}
+
+// ── 장부 메인 (큰 아이콘 2개) ──
+function renderLedgerMain(){
+  document.getElementById('eform-content').innerHTML=`
+    <div class="sec-title" style="margin-bottom:20px;">📒 장부 관리</div>
+
+    <!-- 큰 메뉴 2개 -->
+    <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:24px;">
+
+      <!-- 거래내역 조회 -->
+      <div onclick="window._ledgerTab='ledger';renderEformPage();" style="
+        background:linear-gradient(135deg,rgba(0,232,188,.12),rgba(79,156,249,.08));
+        border:1.5px solid rgba(0,232,188,.3);border-radius:20px;
+        padding:28px 20px;cursor:pointer;display:flex;align-items:center;gap:20px;">
+        <div style="font-size:52px;flex-shrink:0;">📊</div>
+        <div>
+          <div style="font-size:18px;font-weight:800;margin-bottom:4px;">거래내역 조회</div>
+          <div style="font-size:12px;color:var(--t2);line-height:1.6;">주간 · 월간 · 년간 거래 목록<br>엑셀(.xlsx) 다운로드 · 전표 PDF 출력</div>
+          <div style="margin-top:10px;display:flex;gap:6px;">
+            <span class="tag tag-g">엑셀 다운로드</span>
+            <span class="tag tag-b">PDF 출력</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 경비 입력 -->
+      <div onclick="window._ledgerTab='expense';renderEformPage();" style="
+        background:linear-gradient(135deg,rgba(244,196,48,.1),rgba(255,165,2,.06));
+        border:1.5px solid rgba(244,196,48,.3);border-radius:20px;
+        padding:28px 20px;cursor:pointer;display:flex;align-items:center;gap:20px;">
+        <div style="font-size:52px;flex-shrink:0;">🧾</div>
+        <div>
+          <div style="font-size:18px;font-weight:800;margin-bottom:4px;">경비(매입) 입력</div>
+          <div style="font-size:12px;color:var(--t2);line-height:1.6;">영수증 사진 첨부 · 경비 항목 등록<br>매입자료 목록 관리 · PDF 출력</div>
+          <div style="margin-top:10px;display:flex;gap:6px;">
+            <span class="tag tag-y">영수증 첨부</span>
+            <span class="tag tag-o">경비목록 관리</span>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="card" style="background:rgba(79,156,249,.04);border-color:rgba(79,156,249,.2);">
-      <div style="font-size:11px;color:var(--a2);font-weight:700;margin-bottom:8px;">🔜 예정 기능</div>
-      ${(isGov?['지역·작물·등급별 타겟 발송','정책자금 신청 관리','발송 통계 및 열람률 확인','AI 자동 적격자 필터링']:
-        ['송장 → 전자전표 자동 변환','전표 번호 체계 (국세청 연동 준비)','PDF 출력 및 공유','중도매인 마진 자동 계산 기록']).map(f=>`
-      <div style="font-size:12px;color:var(--t2);padding:5px 0;border-bottom:1px solid var(--b2);">· ${f}</div>`).join('')}
+
+    <!-- 이번달 요약 -->
+    <div class="card">
+      <div style="font-size:12px;font-weight:700;color:var(--a1);margin-bottom:10px;">📈 이번달 요약</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        ${[
+          {lb:'총 매출',val:'₩'+INVOICES.reduce((s,i)=>s+(i.total_amt||0),0).toLocaleString(),clr:'var(--a1)'},
+          {lb:'총 경비',val:'₩'+EXPENSES.reduce((s,e)=>s+(e.amount||0),0).toLocaleString(),clr:'var(--red)'},
+          {lb:'거래 건수',val:INVOICES.length+'건',clr:'var(--a2)'},
+          {lb:'경비 건수',val:EXPENSES.length+'건',clr:'var(--org)'},
+        ].map(d=>`
+        <div style="background:var(--s2);border-radius:10px;padding:10px;text-align:center;">
+          <div style="font-size:10px;color:var(--t2);">${d.lb}</div>
+          <div style="font-size:15px;font-weight:800;color:${d.clr};margin-top:3px;">${d.val}</div>
+        </div>`).join('')}
+      </div>
     </div>`;
+}
+
+// ── 거래내역 조회 ──
+function renderLedgerList(){
+  if(!window._ledgerPeriod) window._ledgerPeriod='monthly';
+  const now=new Date();
+
+  // 기간 필터링
+  const filtered=INVOICES.filter(inv=>{
+    const d=new Date(inv.created_at);
+    if(window._ledgerPeriod==='weekly'){
+      const diff=(now-d)/(1000*60*60*24);
+      return diff<=7;
+    } else if(window._ledgerPeriod==='monthly'){
+      return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
+    } else {
+      return d.getFullYear()===now.getFullYear();
+    }
+  });
+
+  const totalAmt=filtered.reduce((s,i)=>s+(i.total_amt||0),0);
+  const statusText={draft:'작성중',sent:'발송됨',transit:'배송중',confirmed:'수령확인',reported:'출하신고',eform:'전표완료'};
+
+  document.getElementById('eform-content').innerHTML=`
+    <!-- 헤더 -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+      <button onclick="window._ledgerTab='main';renderEformPage();" style="color:var(--t2);font-size:20px;padding:4px;">←</button>
+      <div style="font-size:17px;font-weight:800;">📊 거래내역 조회</div>
+    </div>
+
+    <!-- 기간 선택 -->
+    <div style="display:flex;gap:6px;margin-bottom:14px;background:var(--s2);border-radius:12px;padding:4px;">
+      ${['weekly','monthly','yearly'].map((p,i)=>{
+        const lb=['주간','월간','년간'][i];
+        const sel=window._ledgerPeriod===p;
+        return `<div onclick="window._ledgerPeriod='${p}';renderLedgerList();"
+          style="flex:1;padding:8px;border-radius:9px;text-align:center;cursor:pointer;font-size:12px;font-weight:700;
+            background:${sel?'var(--s3)':'transparent'};color:${sel?'var(--a1)':'var(--t3)'};">${lb}</div>`;
+      }).join('')}
+    </div>
+
+    <!-- 합계 -->
+    <div style="background:rgba(0,232,188,.06);border:1.5px solid rgba(0,232,188,.25);border-radius:14px;padding:12px 14px;margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-size:11px;color:var(--t2);">${['주간','월간','년간'][['weekly','monthly','yearly'].indexOf(window._ledgerPeriod)]} 총 매출</div>
+          <div style="font-size:22px;font-weight:900;color:var(--a1);">₩${totalAmt.toLocaleString()}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:11px;color:var(--t2);">거래 ${filtered.length}건</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 다운로드 버튼 -->
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <button onclick="window.downloadExcel()" style="flex:1;padding:11px;border-radius:12px;background:rgba(0,176,80,.12);border:1.5px solid rgba(0,176,80,.3);color:#00b050;font-size:13px;font-weight:700;cursor:pointer;">
+        📥 엑셀 다운로드
+      </button>
+      <button onclick="window.printPDF()" style="flex:1;padding:11px;border-radius:12px;background:rgba(255,69,84,.08);border:1.5px solid rgba(255,69,84,.25);color:var(--red);font-size:13px;font-weight:700;cursor:pointer;">
+        🖨️ PDF 출력
+      </button>
+    </div>
+
+    <!-- 거래 목록 -->
+    <div id="ledger-list">
+    ${filtered.length===0?`
+      <div style="text-align:center;padding:40px 20px;color:var(--t2);">
+        <div style="font-size:36px;margin-bottom:10px;">📭</div>
+        <div>해당 기간 거래 내역이 없습니다</div>
+      </div>`:
+      filtered.map((inv,idx)=>{
+        const total=inv.total_amt||(inv.qty||0)*(inv.price||0);
+        const d=new Date(inv.created_at);
+        const dateStr=`${d.getMonth()+1}/${d.getDate()}`;
+        return `
+        <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:12px 14px;margin-bottom:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:11px;color:var(--t3);">${dateStr}</span>
+              <span style="font-size:13px;font-weight:700;">${inv.item} ${inv.qty}박스</span>
+            </div>
+            <span style="font-size:14px;font-weight:800;color:var(--a1);">₩${total.toLocaleString()}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--t2);">
+            <span>→ ${inv.buyer_name}</span>
+            <span class="tag" style="font-size:9px;background:rgba(79,156,249,.1);color:var(--a2);">${statusText[inv.status]||inv.status}</span>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:8px;">
+            <button onclick="window.printSinglePDF('${inv.id}')" style="flex:1;padding:7px;border-radius:8px;background:rgba(255,69,84,.08);border:1px solid rgba(255,69,84,.2);color:var(--red);font-size:11px;font-weight:700;cursor:pointer;">🖨️ 전표 PDF</button>
+            <button onclick="window.downloadSingleExcel('${inv.id}')" style="flex:1;padding:7px;border-radius:8px;background:rgba(0,176,80,.08);border:1px solid rgba(0,176,80,.2);color:#00b050;font-size:11px;font-weight:700;cursor:pointer;">📥 엑셀</button>
+          </div>
+        </div>`}).join('')}
+    </div>`;
+}
+
+// ── 경비 목록 ──
+function renderExpenseList(){
+  const totalExp=EXPENSES.reduce((s,e)=>s+(e.amount||0),0);
+  document.getElementById('eform-content').innerHTML=`
+    <!-- 헤더 -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+      <button onclick="window._ledgerTab='main';renderEformPage();" style="color:var(--t2);font-size:20px;padding:4px;">←</button>
+      <div style="font-size:17px;font-weight:800;">🧾 경비(매입) 입력</div>
+      <button onclick="window.openExpenseSheet()" style="margin-left:auto;padding:8px 14px;border-radius:10px;background:var(--a4);color:#080d18;font-size:12px;font-weight:700;border:none;cursor:pointer;">+ 경비 입력</button>
+    </div>
+
+    <!-- 합계 -->
+    <div style="background:rgba(255,69,84,.06);border:1.5px solid rgba(255,69,84,.2);border-radius:14px;padding:12px 14px;margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-size:11px;color:var(--t2);">총 경비</div>
+          <div style="font-size:22px;font-weight:900;color:var(--red);">₩${totalExp.toLocaleString()}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:11px;color:var(--t2);">${EXPENSES.length}건</div>
+          <button onclick="window.downloadExpenseExcel()" style="margin-top:4px;padding:6px 10px;border-radius:8px;background:rgba(0,176,80,.12);border:1px solid rgba(0,176,80,.3);color:#00b050;font-size:11px;font-weight:700;cursor:pointer;">📥 엑셀</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 카테고리 요약 -->
+    ${EXPENSES.length>0?`
+    <div class="card" style="margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:8px;">카테고리별 합계</div>
+      ${Object.entries(EXPENSES.reduce((acc,e)=>{acc[e.category]=(acc[e.category]||0)+e.amount;return acc;},{})).map(([k,v])=>`
+      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--b2);font-size:12px;">
+        <span style="color:var(--t2);">${k}</span>
+        <span style="font-weight:700;color:var(--a4);">₩${v.toLocaleString()}</span>
+      </div>`).join('')}
+    </div>`:''}
+
+    <!-- 경비 목록 -->
+    ${EXPENSES.length===0?`
+      <div style="text-align:center;padding:40px 20px;color:var(--t2);">
+        <div style="font-size:44px;margin-bottom:12px;">🧾</div>
+        <div style="font-size:14px;font-weight:700;margin-bottom:6px;">등록된 경비가 없습니다</div>
+        <div style="font-size:12px;margin-bottom:20px;">영수증을 첨부해서 경비를 등록해보세요</div>
+        <button onclick="window.openExpenseSheet()" class="btn btn-p" style="max-width:200px;margin:0 auto;">🧾 첫 경비 입력하기</button>
+      </div>`:
+      EXPENSES.map(e=>`
+      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:12px 14px;margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+          <div style="flex:1;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+              <span class="tag tag-y" style="font-size:9px;">${e.category}</span>
+              <span style="font-size:13px;font-weight:700;">${e.title}</span>
+            </div>
+            <div style="font-size:11px;color:var(--t2);">${e.date} · ${e.vendor||'—'}</div>
+            ${e.memo?`<div style="font-size:11px;color:var(--t3);margin-top:2px;">📝 ${e.memo}</div>`:''}
+          </div>
+          <div style="text-align:right;flex-shrink:0;margin-left:10px;">
+            <div style="font-size:15px;font-weight:800;color:var(--red);">₩${(e.amount||0).toLocaleString()}</div>
+            ${e.vatIncluded?`<div style="font-size:10px;color:var(--t3);">VAT포함</div>`:''}
+          </div>
+        </div>
+        <!-- 영수증 이미지 썸네일 -->
+        ${e.imageData?`
+        <div style="margin-bottom:8px;">
+          <img src="${e.imageData}" style="width:100%;max-height:140px;object-fit:cover;border-radius:8px;border:1px solid var(--b1);">
+        </div>`:''}
+        <div style="display:flex;gap:6px;">
+          <button onclick="window.printExpensePDF('${e.id}')" style="flex:1;padding:7px;border-radius:8px;background:rgba(255,69,84,.08);border:1px solid rgba(255,69,84,.2);color:var(--red);font-size:11px;font-weight:700;cursor:pointer;">🖨️ PDF 출력</button>
+          <button onclick="window.deleteExpense('${e.id}')" style="padding:7px 10px;border-radius:8px;background:var(--s2);border:1px solid var(--b1);color:var(--t3);font-size:11px;cursor:pointer;">🗑</button>
+        </div>
+      </div>`).join('')}`;
+}
+
+// ── 경비 입력 시트 오픈 ──
+window.openExpenseSheet=function(){
+  window.openSheet('sh-expense');
+};
+
+// ── 경비 저장 ──
+window.saveExpense=function(){
+  const title=document.getElementById('exp-title').value.trim();
+  const amount=parseInt(document.getElementById('exp-amount').value)||0;
+  const category=document.getElementById('exp-category').value;
+  const date=document.getElementById('exp-date').value;
+  const vendor=document.getElementById('exp-vendor').value.trim();
+  const memo=document.getElementById('exp-memo').value.trim();
+  const vatIncluded=document.getElementById('exp-vat').checked;
+  if(!title||!amount||!category||!date){toast('필수 항목을 입력하세요');return;}
+  const imageData=window._expImageData||null;
+  EXPENSES.unshift({
+    id:'EXP-'+Date.now(),title,amount,category,date,vendor,memo,vatIncluded,imageData,
+    createdAt:new Date().toISOString()
+  });
+  window._expImageData=null;
+  window.closeSheet('sh-expense');
+  toast('🧾 경비가 등록되었습니다');
+  renderExpenseList();
+};
+
+window.deleteExpense=function(id){
+  if(!confirm('이 경비를 삭제하시겠습니까?'))return;
+  EXPENSES=EXPENSES.filter(e=>e.id!==id);
+  toast('삭제되었습니다');
+  renderExpenseList();
+};
+
+// ── 영수증 이미지 처리 ──
+window.handleReceiptImage=function(input){
+  const file=input.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    window._expImageData=e.target.result;
+    const prev=document.getElementById('receipt-preview');
+    if(prev){prev.src=e.target.result;prev.style.display='block';}
+    toast('📷 영수증 이미지 첨부됨');
+  };
+  reader.readAsDataURL(file);
+};
+
+// ── 엑셀 다운로드 ──
+window.downloadExcel=function(){
+  const period=['weekly','monthly','yearly'].indexOf(window._ledgerPeriod||'monthly');
+  const periodLabel=['주간','월간','년간'][period];
+  const now=new Date();
+  const filtered=INVOICES.filter(inv=>{
+    const d=new Date(inv.created_at);
+    if(window._ledgerPeriod==='weekly') return (now-d)/(1000*60*60*24)<=7;
+    if(window._ledgerPeriod==='monthly') return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
+    return d.getFullYear()===now.getFullYear();
+  });
+  const header=['번호','날짜','송장ID','품목','수량(박스)','단가(원)','총액(원)','수취인','배송방식','상태'];
+  const rows=filtered.map((inv,i)=>{
+    const d=new Date(inv.created_at);
+    return [i+1,`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`,
+      inv.id,inv.item,inv.qty||0,inv.price||0,inv.total_amt||0,
+      inv.buyer_name,inv.delivery_type==='call'?'배차요청':'자차배송',
+      {draft:'작성중',sent:'발송됨',transit:'배송중',confirmed:'수령확인',reported:'출하신고',eform:'전표완료'}[inv.status]||inv.status];
+  });
+  const totalRow=['','','','합계','','',filtered.reduce((s,i)=>s+(i.total_amt||0),0),'','',''];
+  const csvRows=[header,...rows,totalRow].map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');
+  const BOM='\uFEFF';
+  const blob=new Blob([BOM+csvRows],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=`GARAK_거래내역_${periodLabel}_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+  toast('📥 엑셀 파일 다운로드됨');
+};
+
+window.downloadSingleExcel=function(id){
+  const inv=INVOICES.find(x=>x.id===id); if(!inv) return;
+  const d=new Date(inv.created_at);
+  const total=inv.total_amt||(inv.qty||0)*(inv.price||0);
+  const unload=(inv.qty||0)*350, comm=Math.round(total*.04), plat=Math.round(total*.005);
+  const rows=[
+    ['항목','내용'],['송장번호',inv.id],
+    ['날짜',`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`],
+    ['품목',inv.item],['수량',inv.qty+'박스'],['단가','₩'+(inv.price||0).toLocaleString()],
+    ['총 물품대금','₩'+total.toLocaleString()],
+    ['수취인',inv.buyer_name],['배송방식',inv.delivery_type==='call'?'배차요청':'자차배송'],
+    ['하역비','₩'+unload.toLocaleString()],['수수료(4%)','₩'+comm.toLocaleString()],
+    ['플랫폼(0.5%)','₩'+plat.toLocaleString()],['예상수령액','₩'+(total-unload-comm-plat).toLocaleString()],
+  ];
+  const csv=rows.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=`전표_${inv.id}.csv`; a.click(); URL.revokeObjectURL(url);
+  toast('📥 '+inv.id+' 엑셀 다운로드됨');
+};
+
+window.downloadExpenseExcel=function(){
+  const now=new Date();
+  const header=['번호','날짜','제목','카테고리','금액(원)','거래처','VAT포함','메모'];
+  const rows=EXPENSES.map((e,i)=>[i+1,e.date,e.title,e.category,e.amount,e.vendor||'',e.vatIncluded?'Y':'N',e.memo||'']);
+  const totalRow=['','','합계','','₩'+EXPENSES.reduce((s,e)=>s+(e.amount||0),0).toLocaleString(),'','',''];
+  const csv=[header,...rows,totalRow].map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=`GARAK_경비내역_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}.csv`; a.click(); URL.revokeObjectURL(url);
+  toast('📥 경비 엑셀 다운로드됨');
+};
+
+// ── PDF 출력 ──
+window.printPDF=function(){
+  const period=window._ledgerPeriod||'monthly';
+  const now=new Date();
+  const filtered=INVOICES.filter(inv=>{
+    const d=new Date(inv.created_at);
+    if(period==='weekly') return (now-d)/(1000*60*60*24)<=7;
+    if(period==='monthly') return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
+    return d.getFullYear()===now.getFullYear();
+  });
+  const periodLabel=['주간','월간','년간'][['weekly','monthly','yearly'].indexOf(period)];
+  const totalAmt=filtered.reduce((s,i)=>s+(i.total_amt||0),0);
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>GARAK AI - ${periodLabel} 거래내역</title>
+  <style>
+    body{font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;margin:30px;color:#111;font-size:13px;}
+    h1{font-size:20px;margin-bottom:4px;}
+    .sub{color:#666;font-size:12px;margin-bottom:20px;}
+    table{width:100%;border-collapse:collapse;margin-top:14px;}
+    th{background:#1c2d45;color:#fff;padding:8px 10px;text-align:left;font-size:12px;}
+    td{padding:7px 10px;border-bottom:1px solid #e0e0e0;font-size:12px;}
+    tr:nth-child(even){background:#f8f8f8;}
+    .total{font-weight:800;color:#00b050;}
+    .footer{margin-top:20px;font-size:11px;color:#999;text-align:center;}
+  </style></head><body>
+  <h1>📊 GARAK AI 거래내역 — ${periodLabel}</h1>
+  <div class="sub">출력일: ${now.toLocaleDateString('ko-KR')} · 총 ${filtered.length}건 · 합계 ₩${totalAmt.toLocaleString()}</div>
+  <table><tr><th>#</th><th>날짜</th><th>송장번호</th><th>품목</th><th>수량</th><th>금액</th><th>수취인</th><th>상태</th></tr>
+  ${filtered.map((inv,i)=>{
+    const d=new Date(inv.created_at);
+    const total=inv.total_amt||(inv.qty||0)*(inv.price||0);
+    const statusText={draft:'작성중',sent:'발송됨',transit:'배송중',confirmed:'수령확인',reported:'출하신고',eform:'전표완료'};
+    return `<tr><td>${i+1}</td><td>${d.getMonth()+1}/${d.getDate()}</td><td style="font-size:10px;">${inv.id}</td><td>${inv.item}</td><td>${inv.qty}박스</td><td class="total">₩${total.toLocaleString()}</td><td>${inv.buyer_name}</td><td>${statusText[inv.status]||inv.status}</td></tr>`;
+  }).join('')}
+  <tr><td colspan="5" style="font-weight:800;">합계</td><td class="total" style="font-size:15px;">₩${totalAmt.toLocaleString()}</td><td colspan="2"></td></tr>
+  </table>
+  <div class="footer">GARAK AI 4.0 · ${curGkid} · ${curUserName}</div>
+  </body></html>`;
+  const w=window.open('','_blank');
+  w.document.write(html); w.document.close(); w.print();
+  toast('🖨️ PDF 출력 창이 열렸습니다');
+};
+
+window.printSinglePDF=function(id){
+  const inv=INVOICES.find(x=>x.id===id); if(!inv) return;
+  const d=new Date(inv.created_at);
+  const total=inv.total_amt||(inv.qty||0)*(inv.price||0);
+  const unload=(inv.qty||0)*350, comm=Math.round(total*.04), plat=Math.round(total*.005), net=total-unload-comm-plat;
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>전표 - ${inv.id}</title>
+  <style>
+    body{font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;margin:40px;color:#111;font-size:13px;}
+    h1{font-size:22px;margin-bottom:2px;}
+    .badge{display:inline-block;background:#1c2d45;color:#fff;padding:3px 10px;border-radius:6px;font-size:11px;margin-bottom:20px;}
+    table{width:100%;border-collapse:collapse;}
+    tr{border-bottom:1px solid #e0e0e0;}
+    td{padding:9px 12px;}
+    td:first-child{color:#666;width:140px;}
+    td:last-child{font-weight:600;}
+    .total-row td{background:#f0faf5;font-size:16px;font-weight:800;color:#00b050;}
+    .footer{margin-top:30px;text-align:center;font-size:11px;color:#aaa;border-top:1px solid #eee;padding-top:14px;}
+    .seal{float:right;font-size:40px;margin-top:-20px;}
+  </style></head><body>
+  <div class="seal">🌾</div>
+  <h1>📄 전자전표</h1>
+  <span class="badge">GARAK AI 4.0</span>
+  <table>
+    <tr><td>전표번호</td><td>${inv.id}</td></tr>
+    <tr><td>발행일</td><td>${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}</td></tr>
+    <tr><td>출하자</td><td>${curUserName} (${curGkid})</td></tr>
+    <tr><td>수취인</td><td>${inv.buyer_name}</td></tr>
+    <tr><td>품목</td><td>${inv.item}</td></tr>
+    <tr><td>수량</td><td>${inv.qty}박스</td></tr>
+    <tr><td>단가</td><td>₩${(inv.price||0).toLocaleString()}</td></tr>
+    <tr><td>총 물품대금</td><td>₩${total.toLocaleString()}</td></tr>
+    <tr><td>하역비</td><td>- ₩${unload.toLocaleString()}</td></tr>
+    <tr><td>청과법인 수수료(4%)</td><td>- ₩${comm.toLocaleString()}</td></tr>
+    <tr><td>플랫폼 수수료(0.5%)</td><td>- ₩${plat.toLocaleString()}</td></tr>
+    <tr class="total-row"><td>예상 수령액</td><td>₩${net.toLocaleString()}</td></tr>
+    <tr><td>배송방식</td><td>${inv.delivery_type==='call'?'배차요청':'자차배송'}</td></tr>
+    <tr><td>원산지</td><td>${inv.origin_type==='import'?'수입산':'국내산'}${inv.origin_detail?' ('+inv.origin_detail+')':''}</td></tr>
+    ${inv.memo?`<tr><td>메모</td><td>${inv.memo}</td></tr>`:''}
+  </table>
+  <div class="footer">본 전표는 GARAK AI 플랫폼에서 자동 발행된 전자전표입니다 · ${new Date().toLocaleString('ko-KR')}</div>
+  </body></html>`;
+  const w=window.open('','_blank');
+  w.document.write(html); w.document.close(); w.print();
+  toast('🖨️ 전표 PDF 출력 창이 열렸습니다');
+};
+
+window.printExpensePDF=function(id){
+  const e=EXPENSES.find(x=>x.id===id); if(!e) return;
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>경비전표 - ${e.id}</title>
+  <style>
+    body{font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;margin:40px;color:#111;font-size:13px;}
+    h1{font-size:20px;margin-bottom:2px;}
+    .badge{display:inline-block;background:#333;color:#fff;padding:3px 10px;border-radius:6px;font-size:11px;margin-bottom:20px;}
+    table{width:100%;border-collapse:collapse;}
+    tr{border-bottom:1px solid #e0e0e0;}
+    td{padding:9px 12px;}
+    td:first-child{color:#666;width:140px;}
+    td:last-child{font-weight:600;}
+    .amount{font-size:18px;font-weight:800;color:#e03040;}
+    .img{width:100%;max-height:200px;object-fit:contain;margin:14px 0;border:1px solid #ddd;border-radius:8px;}
+    .footer{margin-top:30px;text-align:center;font-size:11px;color:#aaa;border-top:1px solid #eee;padding-top:14px;}
+  </style></head><body>
+  <h1>🧾 경비 전표</h1>
+  <span class="badge">GARAK AI 4.0</span>
+  ${e.imageData?`<br><img class="img" src="${e.imageData}">`:''}
+  <table>
+    <tr><td>전표번호</td><td>${e.id}</td></tr>
+    <tr><td>날짜</td><td>${e.date}</td></tr>
+    <tr><td>제목</td><td>${e.title}</td></tr>
+    <tr><td>카테고리</td><td>${e.category}</td></tr>
+    <tr><td>거래처</td><td>${e.vendor||'—'}</td></tr>
+    <tr><td>금액</td><td class="amount">₩${(e.amount||0).toLocaleString()}${e.vatIncluded?' (VAT포함)':''}</td></tr>
+    ${e.memo?`<tr><td>메모</td><td>${e.memo}</td></tr>`:''}
+  </table>
+  <div class="footer">GARAK AI · ${curGkid} · ${curUserName} · ${new Date().toLocaleString('ko-KR')}</div>
+  </body></html>`;
+  const w=window.open('','_blank');
+  w.document.write(html); w.document.close(); w.print();
+  toast('🖨️ 경비 PDF 출력 창이 열렸습니다');
+};
 }
 
 // ══════════════
