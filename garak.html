@@ -210,6 +210,53 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
 <!-- AI 플로팅 버튼 -->
 <button id="ai-float" onclick="window.openAI()" style="display:none;">🤖</button>
 
+<!-- ══ 거래처 검색/등록요청 시트 ══ -->
+<div class="sheet-overlay" id="sh-partner-search">
+  <div class="sheet">
+    <div class="sheet-hd">
+      <div class="sheet-title" id="ps-title">🔍 거래처 찾기</div>
+      <button onclick="window.closeSheet('sh-partner-search')" style="color:var(--t2);font-size:20px;">✕</button>
+    </div>
+    <div class="sheet-sub" id="ps-sub">상호명 또는 사업자등록번호로 검색하세요</div>
+
+    <!-- 검색 방식 -->
+    <div style="display:flex;gap:5px;margin-bottom:10px;background:var(--s2);border-radius:10px;padding:3px;">
+      <div id="ps-tab-name" onclick="window.psTab='name';window.updatePsTab();"
+        style="flex:1;padding:7px;border-radius:8px;text-align:center;cursor:pointer;font-size:11px;font-weight:700;background:var(--s3);color:var(--a1);">상호명 검색</div>
+      <div id="ps-tab-biz" onclick="window.psTab='biz';window.updatePsTab();"
+        style="flex:1;padding:7px;border-radius:8px;text-align:center;cursor:pointer;font-size:11px;font-weight:700;background:transparent;color:var(--t3);">사업자번호</div>
+    </div>
+
+    <div style="position:relative;margin-bottom:10px;">
+      <input class="finput" id="ps-input" placeholder="검색어를 입력하세요..."
+        oninput="window.runPartnerSearch()" style="padding-right:44px;">
+      <button onclick="window.runPartnerSearch()"
+        style="position:absolute;right:6px;top:50%;transform:translateY(-50%);padding:6px 10px;border-radius:8px;background:var(--a1);color:#080d18;font-size:12px;font-weight:700;border:none;cursor:pointer;">🔍</button>
+    </div>
+
+    <!-- 검색 결과 -->
+    <div id="ps-results" style="min-height:80px;"></div>
+
+    <!-- 선택된 거래처 -->
+    <div id="ps-selected" style="display:none;margin-top:10px;">
+      <div style="background:rgba(0,232,188,.06);border:1.5px solid rgba(0,232,188,.25);border-radius:12px;padding:12px 14px;margin-bottom:10px;">
+        <div style="font-size:11px;color:var(--a1);font-weight:700;margin-bottom:6px;">✅ 선택된 거래처</div>
+        <div style="font-size:13px;font-weight:800;" id="ps-sel-name">—</div>
+        <div style="font-size:10px;color:var(--t2);margin-top:2px;" id="ps-sel-info">—</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="window.sendPartnerRequest()"
+          style="flex:1;padding:12px;border-radius:12px;background:linear-gradient(135deg,var(--a1),var(--a2));color:#080d18;font-size:13px;font-weight:800;border:none;cursor:pointer;">
+          🤝 거래처 등록 요청하기
+        </button>
+      </div>
+      <div style="margin-top:8px;font-size:10px;color:var(--t2);text-align:center;">
+        상대방이 수락하면 거래처로 등록됩니다
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <!-- ══ 추가 사용자 등록 시트 ══ -->
@@ -1089,8 +1136,192 @@ window.onVisaTypeChange = function(){
 };
 
 // ══════════════
-// 추가 사용자 (직원) 등록
+// 거래처 관리 — 검색/등록요청/수락/거절/해지
 // ══════════════
+if(!window._partners)        window._partners=[];
+if(!window._servicePartners) window._servicePartners=[];
+if(!window._psTab)           window._psTab='name';
+if(!window._psSelected)      window._psSelected=null;
+if(!window._psServiceType)   window._psServiceType='';
+
+// 더미 검색 데이터베이스
+const DUMMY_PARTNER_DB = [
+  {id:'DB001', name:'한국청과(주)',     biznum:'101-81-12345', type:'청과법인', region:'서울 송파구'},
+  {id:'DB002', name:'서울청과',        biznum:'101-81-22222', type:'청과법인', region:'서울 송파구'},
+  {id:'DB003', name:'중앙청과',        biznum:'101-81-33333', type:'청과법인', region:'서울 송파구'},
+  {id:'DB004', name:'동화청과',        biznum:'101-81-44444', type:'청과법인', region:'서울 송파구'},
+  {id:'DB005', name:'대아청과',        biznum:'101-81-55555', type:'청과법인', region:'서울 송파구'},
+  {id:'DB006', name:'농협가락',        biznum:'101-81-66666', type:'공판장',   region:'서울 송파구'},
+  {id:'DB007', name:'드레곤팜 세무회계', biznum:'123-45-67890', type:'세무/회계', region:'서울 강남구'},
+  {id:'DB008', name:'가락세무법인',    biznum:'214-81-12345', type:'세무/회계', region:'서울 송파구'},
+  {id:'DB009', name:'그린노무법인',    biznum:'214-81-99999', type:'노무사',   region:'서울 마포구'},
+  {id:'DB010', name:'정의법률사무소',  biznum:'214-81-88888', type:'변호사',   region:'서울 서초구'},
+  {id:'DB011', name:'무역관세법인',    biznum:'214-81-77777', type:'관세사',   region:'인천 중구'},
+];
+
+window.openPartnerSearch = function(preQuery='', serviceType=''){
+  window._psTab='name'; window._psSelected=null; window._psServiceType=serviceType;
+  const titleEl=document.getElementById('ps-title');
+  const subEl=document.getElementById('ps-sub');
+  if(titleEl) titleEl.textContent = serviceType ? '🔍 '+serviceType+' 거래처 찾기' : '🔍 거래처 찾기';
+  if(subEl)   subEl.textContent   = serviceType ? serviceType+' 전문가를 상호명 또는 사업자번호로 검색하세요' : '상호명 또는 사업자등록번호로 검색하세요';
+  const inp=document.getElementById('ps-input'); if(inp) inp.value=preQuery;
+  const sel=document.getElementById('ps-selected'); if(sel) sel.style.display='none';
+  const res=document.getElementById('ps-results'); if(res) res.innerHTML='';
+  window.updatePsTab();
+  if(preQuery) window.runPartnerSearch();
+  window.openSheet('sh-partner-search');
+};
+
+window.openServicePartnerSearch = function(serviceType, role){
+  window.openPartnerSearch('', serviceType);
+};
+
+window.updatePsTab = function(){
+  const nameTab=document.getElementById('ps-tab-name');
+  const bizTab=document.getElementById('ps-tab-biz');
+  const inp=document.getElementById('ps-input');
+  if(nameTab){ nameTab.style.background=window._psTab==='name'?'var(--s3)':'transparent'; nameTab.style.color=window._psTab==='name'?'var(--a1)':'var(--t3)'; }
+  if(bizTab) { bizTab.style.background=window._psTab==='biz'?'var(--s3)':'transparent'; bizTab.style.color=window._psTab==='biz'?'var(--a1)':'var(--t3)'; }
+  if(inp) inp.placeholder = window._psTab==='name'?'상호명 입력 (예: 한국청과)':'사업자등록번호 입력 (000-00-00000)';
+};
+
+window.runPartnerSearch = function(){
+  const q = (document.getElementById('ps-input')?.value||'').trim().toLowerCase();
+  const resEl = document.getElementById('ps-results');
+  if(!resEl) return;
+  if(!q){ resEl.innerHTML=`<div style="font-size:11px;color:var(--t2);padding:16px;text-align:center;">검색어를 입력하세요</div>`; return; }
+
+  const results = DUMMY_PARTNER_DB.filter(p=>{
+    if(window._psServiceType) return p.type===window._psServiceType && (p.name.toLowerCase().includes(q) || p.biznum.replace(/-/g,'').includes(q.replace(/-/g,'')));
+    if(window._psTab==='name') return p.name.toLowerCase().includes(q);
+    return p.biznum.replace(/-/g,'').includes(q.replace(/-/g,''));
+  });
+
+  if(!results.length){
+    resEl.innerHTML=`<div style="text-align:center;padding:20px;color:var(--t2);font-size:11px;">검색 결과가 없습니다<br><span style="font-size:10px;color:var(--t3);">사업자등록번호로 다시 시도해 보세요</span></div>`;
+    return;
+  }
+
+  resEl.innerHTML=results.map(p=>`
+  <div onclick="window.selectPartner('${p.id}')"
+    style="background:var(--s2);border:1.5px solid var(--b1);border-radius:11px;padding:10px 13px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:10px;" id="ps-row-${p.id}">
+    <div style="flex:1;">
+      <div style="font-size:13px;font-weight:700;">${p.name}</div>
+      <div style="font-size:10px;color:var(--t2);">${p.type} · ${p.region} · ${p.biznum}</div>
+    </div>
+    <span style="font-size:14px;color:var(--t3);">›</span>
+  </div>`).join('');
+};
+
+window.selectPartner = function(id){
+  const p = DUMMY_PARTNER_DB.find(x=>x.id===id); if(!p) return;
+  window._psSelected = p;
+  // 행 하이라이트
+  document.querySelectorAll('[id^="ps-row-"]').forEach(el=>{
+    el.style.border='1.5px solid var(--b1)'; el.style.background='var(--s2)';
+  });
+  const row=document.getElementById('ps-row-'+id);
+  if(row){ row.style.border='1.5px solid var(--a1)'; row.style.background='rgba(0,232,188,.06)'; }
+  // 선택 박스 표시
+  const sel=document.getElementById('ps-selected'); if(sel) sel.style.display='block';
+  const nm=document.getElementById('ps-sel-name'); if(nm) nm.textContent=p.name;
+  const info=document.getElementById('ps-sel-info'); if(info) info.textContent=p.type+' · '+p.region+' · '+p.biznum;
+};
+
+window.sendPartnerRequest = function(){
+  const p = window._psSelected; if(!p){ toast('거래처를 선택하세요'); return; }
+
+  // 이미 연결됐는지 체크
+  const existing = [...(window._partners||[]),(window._servicePartners||[])].find(x=>x.biznum===p.biznum);
+  if(existing){ toast('이미 등록된 거래처입니다'); return; }
+
+  const isService = ['세무/회계','노무사','변호사','관세사','행정사'].includes(p.type) || !!window._psServiceType;
+
+  if(isService){
+    if(!window._servicePartners) window._servicePartners=[];
+    window._servicePartners.push({
+      id:p.id, name:p.name, biznum:p.biznum,
+      serviceType:window._psServiceType||p.type,
+      status:'pending_them', unpaidAmt:0,
+      requestedAt:new Date().toISOString(),
+    });
+  } else {
+    if(!window._partners) window._partners=[];
+    window._partners.push({
+      id:p.id, name:p.name, biznum:p.biznum,
+      type:p.type, region:p.region,
+      status:'pending_them', unpaidAmt:0,
+      requestedAt:new Date().toISOString(),
+    });
+  }
+
+  window.closeSheet('sh-partner-search');
+  toast('📨 '+p.name+'에 거래처 등록 요청을 보냈습니다. 상대방 수락 후 등록됩니다.');
+  window._myTab='partner'; renderMyPage();
+
+  // AI 알림 시뮬레이션: 3초 후 수락 처리
+  setTimeout(()=>{
+    const arr = isService ? window._servicePartners : window._partners;
+    const target = arr.find(x=>x.id===p.id && x.status==='pending_them');
+    if(target){
+      target.status='active';
+      toast('✅ '+p.name+'이 거래처 등록 요청을 수락했습니다!');
+      renderMyPage();
+    }
+  }, 4000);
+};
+
+// 수락
+window.acceptPartner = function(id){
+  const p = [...(window._partners||[]),(window._servicePartners||[])].find(x=>x.id===id);
+  if(p){ p.status='active'; toast('✅ 거래처 등록 수락 완료'); renderMyPage(); }
+};
+
+// 거절
+window.rejectPartner = function(id){
+  if(!confirm('거래처 등록 요청을 거절하시겠습니까?')) return;
+  window._partners=(window._partners||[]).filter(x=>x.id!==id);
+  window._servicePartners=(window._servicePartners||[]).filter(x=>x.id!==id);
+  toast('거절했습니다'); renderMyPage();
+};
+
+// 요청 취소
+window.cancelPartnerRequest = function(id){
+  window._partners=(window._partners||[]).filter(x=>x.id!==id);
+  window._servicePartners=(window._servicePartners||[]).filter(x=>x.id!==id);
+  toast('요청을 취소했습니다'); renderMyPage();
+};
+
+// 일반 거래처 해지
+window.requestTerminateTrade = function(id){
+  const p=(window._partners||[]).find(x=>x.id===id); if(!p) return;
+  if(p.unpaidAmt>0){
+    // 미정산 시 강제 해지 차단
+    toast('⚠️ 미정산 금액 ₩'+p.unpaidAmt.toLocaleString()+'이 있어 해지할 수 없습니다.');
+    setTimeout(()=>{ toast('🤖 AI: 미정산 금액을 먼저 정산하거나 독촉을 보내세요. [장부 > 정산현황]에서 처리 가능합니다.'); }, 2500);
+    return;
+  }
+  if(!confirm(p.name+' 거래처를 해지하시겠습니까?')) return;
+  window._partners=(window._partners||[]).filter(x=>x.id!==id);
+  toast('거래처 해지가 완료됐습니다'); renderMyPage();
+};
+
+// 서비스 거래처 해지
+window.requestTerminateService = function(id){
+  const p=(window._servicePartners||[]).find(x=>x.id===id); if(!p) return;
+  if(p.unpaidAmt>0){
+    toast('⚠️ 미정산 업무 대금 ₩'+p.unpaidAmt.toLocaleString()+'이 있어 해지할 수 없습니다.');
+    setTimeout(()=>{ toast('🤖 AI: GARAK AI 내 업무 결제를 먼저 완료해야 해지할 수 있습니다. [결제·토큰] 탭에서 처리하세요.'); }, 2500);
+    return;
+  }
+  if(!confirm(p.name+' 서비스 거래처를 해지하시겠습니까?')) return;
+  window._servicePartners=(window._servicePartners||[]).filter(x=>x.id!==id);
+  toast('서비스 거래처 해지가 완료됐습니다'); renderMyPage();
+};
+
+// requestTerminate 통합 (구 코드 호환)
+window.requestTerminate = function(id){ window.requestTerminateService(id); };
 if(!window._subUsers) window._subUsers = [];
 if(!window._subNat)   window._subNat   = 'korean';
 if(!window._subPerm)  window._subPerm  = '조회';
@@ -2161,38 +2392,68 @@ function renderPolicyHome(){
     </div>`).join('')}`;
 
   } else if(window._policySection==='service'){
-    // ④ 서비스 (전문가)
     const SERVICES = [
-      {ic:'🧾', name:'세무사', desc:'세금 신고·절세·기장 대리', items:['종합소득세','부가세','농업인 세금'], role:'tax_agent'},
-      {ic:'📊', name:'회계사', desc:'재무 회계·감사·경영 자문', items:['재무제표','감사','경영분석'], role:'accounting'},
-      {ic:'👷', name:'노무사', desc:'노무·인사·4대 보험 관리', items:['급여','고용보험','산재'], role:'labor_agent'},
-      {ic:'⚖️', name:'변호사', desc:'법률 자문·계약·분쟁 해결', items:['계약서','분쟁','대금청구'], role:'lawyer'},
-      {ic:'✈️', name:'관세사', desc:'수입 통관·원산지 증명', items:['통관','원산지','수입농산물'], role:'customs'},
-      {ic:'📜', name:'행정사', desc:'행정 대리·인허가·서류 작성', items:['인허가','신청서','행정불복'], role:'admin_agent'},
-      {ic:'➕', name:'기타 서비스', desc:'컨설팅·마케팅·IT 서비스', items:['컨설팅','마케팅','기술지원'], role:'admin'},
+      {ic:'🧾📊', name:'세무/회계', desc:'세금 신고·절세·기장·재무회계·감사·경영 자문', items:['종합소득세','부가세','재무제표','기장대리'], role:'tax_agent', canConnect:true},
+      {ic:'👷',   name:'노무사',    desc:'노무·인사·4대 보험 관리', items:['급여','고용보험','산재'], role:'labor_agent', canConnect:true},
+      {ic:'⚖️',  name:'변호사',    desc:'법률 자문·계약·분쟁 해결·대금청구', items:['계약서','분쟁','대금청구'], role:'lawyer', canConnect:true},
+      {ic:'✈️',  name:'관세사',    desc:'수입 통관·원산지 증명·수입농산물', items:['통관','원산지','수입농산물'], role:'customs', canConnect:true},
+      {ic:'📜',  name:'행정사',    desc:'행정 대리·인허가·서류 작성', items:['인허가','신청서','행정불복'], role:'admin_agent', canConnect:true},
+      {ic:'➕',  name:'기타 서비스', desc:'컨설팅·마케팅·IT 서비스', items:['컨설팅','마케팅','기술지원'], role:'admin', canConnect:false},
     ];
+
+    // 내 서비스 거래처 (수락된 것만)
+    const myServicePartners = (window._servicePartners||[]);
+    const pendingReceived = myServicePartners.filter(p=>p.status==='pending_me');
+
     html+=`
-    <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:10px;">🧾 전문가 서비스</div>
-    <div style="background:rgba(79,156,249,.05);border:1px solid rgba(79,156,249,.15);border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:11px;color:var(--t2);line-height:1.7;">
-      🤝 GARAK AI에 등록된 전문가와 연결됩니다<br>거래처 추가 수락 시 전표·회계 정보 열람 권한 부여 가능
-    </div>
+    <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:6px;">🧾 전문가 서비스</div>
+
+    <!-- 수락 대기 알림 -->
+    ${pendingReceived.length>0?`
+    <div style="background:rgba(244,196,48,.08);border:1.5px solid rgba(244,196,48,.3);border-radius:12px;padding:10px 13px;margin-bottom:10px;cursor:pointer;" onclick="window._serviceView='requests';renderPolicyHome();">
+      <div style="font-size:12px;font-weight:700;color:var(--a4);margin-bottom:4px;">📨 거래처 등록 요청 ${pendingReceived.length}건</div>
+      <div style="font-size:10px;color:var(--t2);">수락 또는 거절을 선택하세요 →</div>
+    </div>`:''}
+
+    <!-- 연결된 서비스 거래처 -->
+    ${myServicePartners.filter(p=>p.status==='active').length>0?`
+    <div style="margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px;">✅ 연결된 서비스 거래처</div>
+      ${myServicePartners.filter(p=>p.status==='active').map(p=>`
+      <div style="background:var(--s1);border:1px solid rgba(0,232,188,.2);border-radius:12px;padding:10px 13px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-size:13px;font-weight:700;">${p.name}</div>
+          <div style="font-size:10px;color:var(--t2);">${p.serviceType} · ${p.biznum}</div>
+          ${p.unpaidAmt>0?`<div style="font-size:10px;color:var(--red);margin-top:2px;">⚠️ 미정산 ₩${p.unpaidAmt.toLocaleString()}</div>`:''}
+        </div>
+        <div style="display:flex;gap:5px;align-items:center;">
+          <span class="tag tag-g" style="font-size:9px;">연결됨</span>
+          <button onclick="window.requestTerminate('${p.id}')"
+            style="padding:4px 8px;border-radius:7px;background:rgba(255,69,84,.08);border:1px solid rgba(255,69,84,.2);color:var(--red);font-size:10px;cursor:pointer;">해지</button>
+        </div>
+      </div>`).join('')}
+    </div>`:''}
+
+    <!-- 서비스 목록 -->
+    <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:8px;">전문가 연결하기</div>
     ${SERVICES.map(s=>`
     <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:12px 14px;margin-bottom:8px;cursor:pointer;"
-      onclick="toast('${s.name} 서비스 연결 기능 준비 중 · 빠른 시일 내 오픈 예정!')">
+      onclick="${s.canConnect?`window.openServicePartnerSearch('${s.name}','${s.role}')`:``}toast('${s.name} 서비스 준비 중')">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
-        <div style="font-size:28px;width:44px;height:44px;background:var(--s2);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${s.ic}</div>
+        <div style="font-size:24px;width:44px;height:44px;background:var(--s2);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${s.ic}</div>
         <div style="flex:1;">
           <div style="font-size:14px;font-weight:800;">${s.name}</div>
-          <div style="font-size:11px;color:var(--t2);margin-top:2px;">${s.desc}</div>
+          <div style="font-size:11px;color:var(--t2);margin-top:1px;">${s.desc}</div>
         </div>
-        <span style="font-size:18px;color:var(--t3);">›</span>
+        ${s.canConnect?`<span style="font-size:18px;color:var(--t3);">›</span>`:''}
       </div>
       <div style="display:flex;gap:4px;flex-wrap:wrap;">
         ${s.items.map(i=>`<span class="tag tag-b" style="font-size:9px;">${i}</span>`).join('')}
+        ${s.canConnect?`<span class="tag tag-g" style="font-size:9px;">거래처 연결 가능</span>`:''}
       </div>
     </div>`).join('')}
-    <div style="margin-top:8px;padding:10px;background:var(--s2);border-radius:10px;font-size:11px;color:var(--t2);text-align:center;">
-      🔜 전문가 등록 및 매칭 서비스 오픈 예정
+    <div style="padding:10px;background:var(--s2);border-radius:10px;font-size:11px;color:var(--t2);text-align:center;">
+      🔜 전문가 등록 및 매칭 서비스 오픈 예정 · GARAK AI 내 업무 결제 지원
     </div>`;
   }
 
@@ -3715,48 +3976,121 @@ window.switchMyTab=function(tab){
 
 // ── MY > 거래처관리 ──
 function renderMyPartnerSection(){
-  // 물류창고에서 추가된 거래처 포함
-  const partners = [
-    ...AI_BUYERS.slice(0,3).map((name,i)=>({id:'P'+i,name,type:'청과',region:'서울',status:'거래중'})),
-  ];
+  if(!window._partners) window._partners=[];
+  if(!window._servicePartners) window._servicePartners=[];
+
+  // 더미 거래처 (AI_BUYERS 기반)
+  const tradingPartners = window._partners.length > 0 ? window._partners :
+    AI_BUYERS.slice(0,2).map((name,i)=>({
+      id:'TP'+i, name, type:'청과', region:'서울',
+      status:'active', biznum:'123-45-6789'+i,
+      unpaidAmt: i===0?150000:0,
+      addedAt:'2026-03-01'
+    }));
+
+  // 서비스 거래처 (세무/회계 등)
+  const servicePartners = window._servicePartners||[];
+  const pendingReceived = servicePartners.filter(p=>p.status==='pending_me');
+  const pendingSent     = servicePartners.filter(p=>p.status==='pending_them');
+  const activeService   = servicePartners.filter(p=>p.status==='active');
+
   return `
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
     <div style="font-size:13px;font-weight:700;">🤝 거래처 관리</div>
-    <button onclick="toast('거래처 추가 기능 오픈 예정!')" style="padding:6px 12px;border-radius:8px;background:var(--a1);color:#080d18;font-size:11px;font-weight:700;border:none;cursor:pointer;">+ 거래처 추가</button>
+    <button onclick="window.openPartnerSearch()"
+      style="padding:6px 12px;border-radius:8px;background:var(--a1);color:#080d18;font-size:11px;font-weight:700;border:none;cursor:pointer;">+ 거래처 찾기</button>
   </div>
 
-  <!-- AI 추천 거래처 -->
-  <div class="card" style="background:rgba(0,232,188,.04);border-color:rgba(0,232,188,.2);margin-bottom:12px;">
-    <div style="font-size:11px;color:var(--a1);font-weight:700;margin-bottom:8px;">🤖 AI 추천 거래처</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;">
-      ${AI_BUYERS.map(b=>`
-      <div onclick="toast('${b} 거래처 추가 요청 발송!')"
-        style="padding:5px 10px;border-radius:20px;background:var(--s2);border:1px solid var(--b1);font-size:11px;cursor:pointer;color:var(--t1);">${b}</div>`).join('')}
-    </div>
-  </div>
+  <!-- 수락 대기 (내가 받은 요청) -->
+  ${pendingReceived.length>0?`
+  <div style="background:rgba(244,196,48,.08);border:1.5px solid rgba(244,196,48,.3);border-radius:12px;padding:10px 13px;margin-bottom:10px;">
+    <div style="font-size:11px;font-weight:700;color:var(--a4);margin-bottom:8px;">📨 거래처 등록 요청 ${pendingReceived.length}건</div>
+    ${pendingReceived.map(p=>`
+    <div style="background:var(--s2);border-radius:10px;padding:9px 11px;margin-bottom:6px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <div>
+          <div style="font-size:12px;font-weight:700;">${p.name}</div>
+          <div style="font-size:10px;color:var(--t2);">${p.serviceType||p.type||'거래처'} · ${p.biznum||'—'}</div>
+        </div>
+        <span class="tag tag-y" style="font-size:9px;">요청 수신</span>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button onclick="window.acceptPartner('${p.id}')"
+          style="flex:1;padding:8px;border-radius:9px;background:var(--a1);color:#080d18;font-size:11px;font-weight:700;border:none;cursor:pointer;">✅ 수락</button>
+        <button onclick="window.rejectPartner('${p.id}')"
+          style="flex:1;padding:8px;border-radius:9px;background:rgba(255,69,84,.08);border:1px solid rgba(255,69,84,.2);color:var(--red);font-size:11px;font-weight:700;cursor:pointer;">✕ 거절</button>
+      </div>
+    </div>`).join('')}
+  </div>`:''}
 
-  <!-- 거래처 목록 -->
-  ${partners.length===0?`
-  <div style="text-align:center;padding:30px;color:var(--t2);">
-    <div style="font-size:36px;margin-bottom:8px;">🤝</div>
-    <div>등록된 거래처가 없습니다</div>
+  <!-- 내가 보낸 요청 대기 -->
+  ${pendingSent.length>0?`
+  <div style="background:rgba(79,156,249,.06);border:1px solid rgba(79,156,249,.2);border-radius:12px;padding:10px 13px;margin-bottom:10px;">
+    <div style="font-size:11px;font-weight:700;color:var(--a2);margin-bottom:6px;">⏳ 수락 대기 중 ${pendingSent.length}건</div>
+    ${pendingSent.map(p=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--b2);font-size:11px;">
+      <span>${p.name} <span style="color:var(--t2);font-size:10px;">(${p.serviceType||p.type})</span></span>
+      <button onclick="window.cancelPartnerRequest('${p.id}')"
+        style="padding:3px 8px;border-radius:6px;background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-size:10px;cursor:pointer;">요청 취소</button>
+    </div>`).join('')}
+  </div>`:''}
+
+  <!-- 일반 거래처 목록 -->
+  <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px;">📦 거래처</div>
+  ${tradingPartners.length===0?`
+  <div style="text-align:center;padding:20px;background:var(--s2);border-radius:10px;margin-bottom:10px;color:var(--t2);">
+    <div style="font-size:28px;margin-bottom:6px;">🤝</div>
+    <div style="font-size:12px;">등록된 거래처가 없습니다</div>
   </div>`:`
-  ${partners.map(p=>`
-  <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:11px 13px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center;">
-    <div>
-      <div style="font-size:13px;font-weight:700;">${p.name}</div>
-      <div style="font-size:11px;color:var(--t2);">${p.type} · ${p.region}</div>
+  ${tradingPartners.map(p=>`
+  <div style="background:var(--s1);border:1.5px solid ${p.unpaidAmt>0?'rgba(255,69,84,.3)':'var(--b1)'};border-radius:12px;padding:10px 13px;margin-bottom:7px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+      <div>
+        <div style="font-size:13px;font-weight:700;">${p.name}</div>
+        <div style="font-size:10px;color:var(--t2);">${p.type} · ${p.region} · ${p.biznum}</div>
+        ${p.unpaidAmt>0?`<div style="font-size:10px;color:var(--red);margin-top:2px;">⚠️ 미정산 ₩${p.unpaidAmt.toLocaleString()} — 해지 불가</div>`:''}
+      </div>
+      <span class="tag tag-g" style="font-size:9px;">${p.status==='active'?'거래중':'대기'}</span>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;">
-      <span class="tag tag-g" style="font-size:9px;">${p.status}</span>
-      <button onclick="toast('${p.name} 거래처 상세 준비 중')" style="padding:5px 9px;border-radius:7px;background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-size:10px;cursor:pointer;">상세</button>
+    <div style="display:flex;gap:5px;">
+      <button onclick="toast('${p.name} 거래 이력 준비 중')"
+        style="flex:1;padding:6px;border-radius:8px;background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-size:10px;cursor:pointer;">이력 보기</button>
+      <button onclick="window.requestTerminateTrade('${p.id}')"
+        style="flex:1;padding:6px;border-radius:8px;background:rgba(255,69,84,.06);border:1px solid ${p.unpaidAmt>0?'rgba(255,69,84,.1)':'rgba(255,69,84,.25)'};color:${p.unpaidAmt>0?'var(--t3)':'var(--red)'};font-size:10px;cursor:pointer;"
+        ${p.unpaidAmt>0?'disabled':''}>해지</button>
     </div>
   </div>`).join('')}`}
 
-  <div class="card" style="background:rgba(79,156,249,.04);border-color:rgba(79,156,249,.2);margin-top:10px;">
-    <div style="font-size:11px;color:var(--a2);font-weight:700;margin-bottom:6px;">🔜 예정 기능</div>
-    ${['거래처 추가 및 양방향 수락','거래처별 거래 이력 조회','세무사·회계사 전표 열람 권한 부여','물류창고 즐겨찾기 연동'].map(f=>`
-    <div style="font-size:11px;color:var(--t2);padding:4px 0;border-bottom:1px solid var(--b2);">· ${f}</div>`).join('')}
+  <!-- 서비스 거래처 (세무/회계 등) -->
+  ${activeService.length>0?`
+  <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px;margin-top:4px;">🧾 서비스 거래처 (세무/법무 등)</div>
+  ${activeService.map(p=>`
+  <div style="background:var(--s1);border:1px solid rgba(0,232,188,.2);border-radius:12px;padding:10px 13px;margin-bottom:7px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+      <div>
+        <div style="font-size:13px;font-weight:700;">${p.name}</div>
+        <div style="font-size:10px;color:var(--t2);">${p.serviceType} · ${p.biznum}</div>
+        ${p.unpaidAmt>0?`<div style="font-size:10px;color:var(--red);margin-top:2px;">⚠️ 미정산 ₩${p.unpaidAmt.toLocaleString()} — 해지 불가</div>`:''}
+      </div>
+      <span class="tag tag-g" style="font-size:9px;">연결됨</span>
+    </div>
+    <div style="display:flex;gap:5px;">
+      <button onclick="toast('업무 결제 기능 준비 중')"
+        style="flex:2;padding:6px;border-radius:8px;background:rgba(0,232,188,.08);border:1px solid rgba(0,232,188,.2);color:var(--a1);font-size:10px;cursor:pointer;">💳 업무 결제</button>
+      <button onclick="window.requestTerminateService('${p.id}')"
+        style="flex:1;padding:6px;border-radius:8px;background:rgba(255,69,84,.06);border:1px solid ${p.unpaidAmt>0?'rgba(255,69,84,.1)':'rgba(255,69,84,.25)'};color:${p.unpaidAmt>0?'var(--t3)':'var(--red)'};font-size:10px;cursor:pointer;"
+        ${p.unpaidAmt>0?'disabled':''}>해지</button>
+    </div>
+  </div>`).join('')}`:''}
+
+  <!-- AI 추천 -->
+  <div class="card" style="background:rgba(0,232,188,.04);border-color:rgba(0,232,188,.2);margin-top:8px;">
+    <div style="font-size:11px;color:var(--a1);font-weight:700;margin-bottom:6px;">🤖 AI 추천 거래처</div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap;">
+      ${AI_BUYERS.map(b=>`
+      <div onclick="window.openPartnerSearch('${b}')"
+        style="padding:4px 9px;border-radius:16px;background:var(--s2);border:1px solid var(--b1);font-size:11px;cursor:pointer;">${b}</div>`).join('')}
+    </div>
   </div>`;
 }
 
