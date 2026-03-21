@@ -2734,38 +2734,145 @@ function renderMyBenefitSection(){
 // ══════════════
 function renderInvoicePage(){
   const isProducer=['producer_ind','producer_corp'].includes(curRole);
+  if(!window._invFilter) window._invFilter='all';
+
+  // 현황 집계
+  const total       = INVOICES.length;
+  const inTransit   = INVOICES.filter(i=>i.status==='transit').length;
+  const notReported = INVOICES.filter(i=>['sent','transit','confirmed'].includes(i.status)).length;
+  const done        = INVOICES.filter(i=>i.status==='eform').length;
+
+  // 필터 적용
+  const filtered = window._invFilter==='all' ? INVOICES
+    : window._invFilter==='transit'   ? INVOICES.filter(i=>i.status==='transit')
+    : window._invFilter==='pending'   ? INVOICES.filter(i=>['sent','transit','confirmed'].includes(i.status))
+    : window._invFilter==='reported'  ? INVOICES.filter(i=>i.status==='reported')
+    : window._invFilter==='done'      ? INVOICES.filter(i=>i.status==='eform')
+    : INVOICES;
+
   document.getElementById('invoice-content').innerHTML = `
-    <div class="sec-hd">
-      <div class="sec-title">📋 ${isProducer?'내 송장':'수신 송장'}</div>
-      ${isProducer?`<button class="btn btn-p" style="width:auto;padding:8px 14px;font-size:12px;" onclick="window.openInvoiceSheet()">+ 새 송장</button>`:''}
+
+    <!-- 송장 만들기 큰 버튼 -->
+    ${isProducer?`
+    <button onclick="window.openInvoiceSheet()"
+      style="width:100%;padding:16px;border-radius:16px;background:linear-gradient(135deg,var(--a1),var(--a2));color:#080d18;font-size:15px;font-weight:800;border:none;cursor:pointer;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px;">
+      <span style="font-size:20px;">📋</span> 새 송장 만들기
+    </button>`:''}
+
+    <!-- 발송 현황 요약 -->
+    <div style="background:var(--s1);border:1px solid var(--b1);border-radius:16px;padding:14px;margin-bottom:12px;">
+      <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:10px;">📊 송장 발송 현황</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-bottom:10px;">
+        <div onclick="window._invFilter='all';renderInvoicePage();"
+          style="text-align:center;padding:8px 4px;border-radius:10px;cursor:pointer;
+            background:${window._invFilter==='all'?'rgba(79,156,249,.12)':'var(--s2)'};
+            border:1px solid ${window._invFilter==='all'?'var(--a2)':'transparent'};">
+          <div style="font-size:18px;font-weight:800;color:var(--a2);">${total}</div>
+          <div style="font-size:9px;color:var(--t2);">전체</div>
+        </div>
+        <div onclick="window._invFilter='transit';renderInvoicePage();"
+          style="text-align:center;padding:8px 4px;border-radius:10px;cursor:pointer;
+            background:${window._invFilter==='transit'?'rgba(255,165,2,.1)':'var(--s2)'};
+            border:1px solid ${window._invFilter==='transit'?'var(--org)':'transparent'};">
+          <div style="font-size:18px;font-weight:800;color:var(--org);">${inTransit}</div>
+          <div style="font-size:9px;color:var(--t2);">배송중</div>
+        </div>
+        <div onclick="window._invFilter='pending';renderInvoicePage();"
+          style="text-align:center;padding:8px 4px;border-radius:10px;cursor:pointer;
+            background:${window._invFilter==='pending'?'rgba(255,69,84,.1)':'var(--s2)'};
+            border:1px solid ${window._invFilter==='pending'?'var(--red)':'transparent'};">
+          <div style="font-size:18px;font-weight:800;color:var(--red);">${notReported}</div>
+          <div style="font-size:9px;color:var(--t2);">신고미완료</div>
+        </div>
+        <div onclick="window._invFilter='done';renderInvoicePage();"
+          style="text-align:center;padding:8px 4px;border-radius:10px;cursor:pointer;
+            background:${window._invFilter==='done'?'rgba(0,232,188,.1)':'var(--s2)'};
+            border:1px solid ${window._invFilter==='done'?'var(--a1)':'transparent'};">
+          <div style="font-size:18px;font-weight:800;color:var(--a1);">${done}</div>
+          <div style="font-size:9px;color:var(--t2);">전표완료</div>
+        </div>
+      </div>
+
+      <!-- 미완료 경고 배너 -->
+      ${notReported>0?`
+      <div onclick="window._invFilter='pending';renderInvoicePage();"
+        style="padding:9px 12px;background:rgba(255,69,84,.08);border:1.5px solid rgba(255,69,84,.3);border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:16px;">⚠️</span>
+        <div style="flex:1;">
+          <div style="font-size:12px;font-weight:700;color:var(--red);">출하자신고 미완료 ${notReported}건</div>
+          <div style="font-size:10px;color:var(--t2);">수령확인 또는 출하신고가 필요한 송장입니다</div>
+        </div>
+        <span style="font-size:11px;color:var(--red);">확인 →</span>
+      </div>`:`
+      <div style="padding:9px 12px;background:rgba(0,232,188,.06);border:1px solid rgba(0,232,188,.2);border-radius:10px;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:16px;">✅</span>
+        <div style="font-size:12px;color:var(--a1);font-weight:700;">모든 송장 처리 완료!</div>
+      </div>`}
     </div>
-    ${INVOICES.length?INVOICES.map(inv=>renderInvoiceCard(inv)).join(''):`
+
+    <!-- 필터 탭 -->
+    <div style="display:flex;gap:5px;overflow-x:auto;margin-bottom:10px;padding-bottom:2px;scrollbar-width:none;">
+      ${[
+        ['all','전체',total,'var(--t2)'],
+        ['transit','배송중',inTransit,'var(--org)'],
+        ['pending','신고미완료',notReported,'var(--red)'],
+        ['reported','출하신고완료',INVOICES.filter(i=>i.status==='reported').length,'var(--a4)'],
+        ['done','전표완료',done,'var(--a1)'],
+      ].map(([f,lb,cnt,clr])=>`
+      <div onclick="window._invFilter='${f}';renderInvoicePage();"
+        style="flex-shrink:0;padding:5px 10px;border-radius:20px;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap;
+          border:1px solid ${window._invFilter===f?clr:'var(--b1)'};
+          background:${window._invFilter===f?clr+'18':'var(--s2)'};
+          color:${window._invFilter===f?clr:'var(--t3)'};">
+        ${lb} ${cnt>0?`<span style="font-size:10px;">(${cnt})</span>`:''}
+      </div>`).join('')}
+    </div>
+
+    <!-- 송장 목록 -->
+    ${filtered.length?filtered.map(inv=>renderInvoiceCard(inv)).join(''):`
     <div style="text-align:center;padding:40px 20px;color:var(--t2);">
       <div style="font-size:40px;margin-bottom:10px;">📭</div>
-      <div>송장이 없습니다</div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:6px;">해당 송장이 없습니다</div>
+      ${isProducer&&window._invFilter==='all'?`<button class="btn btn-p" style="max-width:200px;margin:0 auto;" onclick="window.openInvoiceSheet()">📋 첫 송장 만들기</button>`:''}
     </div>`}`;
 }
 
 function renderInvoiceCard(inv){
-  const statusColor={draft:'var(--t2)',sent:'var(--a2)',transit:'var(--org)',confirmed:'var(--a1)',reported:'var(--a4)',eform:'var(--pur)'}[inv.status]||'var(--t2)';
-  const statusText={draft:'작성중',sent:'발송됨',transit:'배송중',confirmed:'수령확인',reported:'출하신고',eform:'전표완료'}[inv.status]||inv.status;
-  const total=(inv.qty||0)*(inv.price||0);
-  return `<div class="card" style="cursor:pointer;margin-bottom:8px;" onclick="window.openInvoiceDetail('${inv.id}')">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+  const statusColor={
+    draft:'var(--t2)',sent:'var(--a2)',transit:'var(--org)',
+    confirmed:'var(--a1)',reported:'var(--a4)',eform:'var(--pur)'
+  }[inv.status]||'var(--t2)';
+  const statusText={
+    draft:'작성중',sent:'발송됨',transit:'배송중',
+    confirmed:'수령확인',reported:'출하신고완료',eform:'전표완료'
+  }[inv.status]||inv.status;
+  const total = inv.confirmed_price
+    ? (inv.qty||0)*inv.confirmed_price
+    : (inv.qty||0)*(inv.price||0);
+  const isPending = ['sent','transit','confirmed'].includes(inv.status);
+  const d = new Date(inv.created_at);
+  const dateStr = `${d.getMonth()+1}/${d.getDate()}`;
+
+  return `<div class="card" style="cursor:pointer;margin-bottom:8px;border-color:${isPending?'rgba(255,69,84,.25)':'var(--b1)'};"
+    onclick="window.openInvoiceDetail('${inv.id}')">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:7px;">
       <div>
         <div style="font-size:14px;font-weight:800;">${inv.item} ${inv.qty}박스</div>
-        <div style="font-size:10px;font-family:monospace;color:var(--t2);margin-top:2px;">${inv.id}</div>
+        <div style="font-size:10px;color:var(--t3);margin-top:2px;">${inv.id} · ${dateStr}</div>
       </div>
-      <span class="tag" style="background:${statusColor}18;color:${statusColor};">${statusText}</span>
+      <span class="tag" style="background:${statusColor}18;color:${statusColor};font-size:10px;">${statusText}</span>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;">
-      <div style="font-size:11px;color:var(--t2);">→ ${inv.buyer_name}</div>
-      <div style="display:flex;align-items:center;gap:6px;">
-        <span style="font-size:12px;font-weight:700;color:var(--a4);">₩${total.toLocaleString()}</span>
-        <span style="font-size:10px;color:var(--t3);">상세·수정 →</span>
+      <span style="font-size:11px;color:var(--t2);">→ ${inv.buyer_name}</span>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:12px;font-weight:700;color:${inv.confirmed_price?'var(--a1)':'var(--a4)'};">
+          ${inv.confirmed_price?'✅ ':''}₩${total.toLocaleString()}
+        </span>
+        <span style="font-size:10px;color:var(--t3);">→</span>
       </div>
     </div>
-    ${inv.memo?`<div style="margin-top:6px;font-size:10px;color:var(--t3);">📝 ${inv.memo}</div>`:''}
+    ${isPending?`<div style="margin-top:6px;padding:5px 8px;background:rgba(255,69,84,.06);border-radius:6px;font-size:10px;color:var(--red);">⚠️ 출하자신고 미완료 · 탭하여 처리</div>`:''}
+    ${inv.eform_id?`<div style="margin-top:4px;font-size:10px;color:var(--pur);font-family:monospace;">📄 ${inv.eform_id}</div>`:''}
   </div>`;
 }
 
