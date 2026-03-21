@@ -218,56 +218,12 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
         <div id="pw-error" style="display:none;font-size:11px;color:var(--red);margin-top:6px;">❌ 비밀번호가 올바르지 않습니다</div>
       </div>
 
-      <!-- 테스트 계정 목록 -->
-      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:14px;margin-bottom:16px;">
+      <!-- 테스트 계정 목록 (JS로 렌더링) -->
+      <div id="test-account-list" style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:14px;margin-bottom:16px;">
         <div style="font-size:12px;font-weight:700;margin-bottom:10px;">📋 테스트 계정 목록</div>
-
-        ${[
-          {group:'🌾 생산자', color:'var(--a1)', accounts:[
-            {id:'PROD-001', name:'드레곤팜', role:'생산자(개인)', region:'경북 의성'},
-            {id:'PROD-002', name:'나주배농원', role:'생산자(개인)', region:'전남 나주'},
-            {id:'PROD-003', name:'논산딸기농협', role:'생산자(법인)', region:'충남 논산'},
-            {id:'PROD-004', name:'의성마늘영농', role:'생산자(법인)', region:'경북 의성'},
-            {id:'PROD-005', name:'강원감자농장', role:'생산자(개인)', region:'강원 평창'},
-          ]},
-          {group:'🛒 중도매인', color:'var(--a2)', accounts:[
-            {id:'MERCH-001', name:'서울청과상회', role:'중도매인', region:'서울 송파'},
-            {id:'MERCH-002', name:'강남청과', role:'중도매인', region:'서울 송파'},
-          ]},
-          {group:'🏛 청과법인', color:'#c084fc', accounts:[
-            {id:'CORP-001', name:'한국청과(주)', role:'청과법인', region:'가락시장'},
-            {id:'CORP-002', name:'중앙청과', role:'청과법인', region:'가락시장'},
-          ]},
-          {group:'🏛 관리공단', color:'var(--a4)', accounts:[
-            {id:'GOV-001', name:'가락시장관리공단', role:'가락시장관리공단', region:'서울 송파'},
-          ]},
-          {group:'🚛 운송업체', color:'var(--org)', accounts:[
-            {id:'TRANS-001', name:'빠른배송', role:'운송업체', region:'경기 성남'},
-            {id:'TRANS-002', name:'전국콜배송', role:'운송업체', region:'서울'},
-            {id:'TRANS-003', name:'냉장특송', role:'운송업체', region:'인천'},
-            {id:'TRANS-004', name:'가락운송', role:'운송업체', region:'서울 송파'},
-            {id:'TRANS-005', name:'농산물전문운송', role:'운송업체', region:'경기 광주'},
-          ]},
-          {group:'🧾 세무/회계', color:'var(--red)', accounts:[
-            {id:'TAX-001', name:'가락세무회계', role:'세무사', region:'서울 송파'},
-          ]},
-        ].map(g=>`
-        <div style="margin-bottom:10px;">
-          <div style="font-size:10px;font-weight:700;color:${g.color};margin-bottom:5px;letter-spacing:1px;">${g.group}</div>
-          ${g.accounts.map(a=>`
-          <div onclick="window.fillTestAccount('${a.id}')"
-            style="display:flex;justify-content:space-between;align-items:center;padding:6px 9px;border-radius:8px;background:var(--s2);margin-bottom:3px;cursor:pointer;border:1px solid transparent;transition:border .15s;"
-            onmouseover="this.style.border='1px solid ${g.color}33'" onmouseout="this.style.border='1px solid transparent'">
-            <div>
-              <span style="font-size:11px;font-weight:700;color:${g.color};font-family:monospace;">${a.id}</span>
-              <span style="font-size:11px;color:var(--t1);margin-left:6px;">${a.name}</span>
-            </div>
-            <span style="font-size:10px;color:var(--t3);">${a.region}</span>
-          </div>`).join('')}
-        </div>`).join('')}
-
+        <div id="test-accounts-body"></div>
         <div style="margin-top:8px;padding:8px 10px;background:var(--s2);border-radius:8px;font-size:10px;color:var(--t2);line-height:1.7;">
-          💡 계정 ID를 탭하면 자동으로 채워집니다<br>
+          💡 계정을 탭하면 선택 → 비밀번호 입력 후 입장<br>
           🔑 비밀번호는 별도 공유된 값을 입력하세요
         </div>
       </div>
@@ -528,7 +484,9 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
       <div class="flabel">은행명 *</div>
       <select class="finput" id="bank-name">
         <option value="">선택하세요</option>
-        ${['농협','국민','신한','우리','하나','기업','카카오뱅크','토스뱅크','새마을금고','수협','우체국'].map(b=>`<option>${b}</option>`).join('')}
+        <option>농협</option><option>국민</option><option>신한</option><option>우리</option>
+      <option>하나</option><option>기업</option><option>카카오뱅크</option>
+      <option>토스뱅크</option><option>새마을금고</option><option>수협</option><option>우체국</option>
       </select>
     </div>
     <div class="fgroup">
@@ -537,7 +495,7 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
     </div>
     <div class="fgroup">
       <div class="flabel">예금주 *</div>
-      <input class="finput" id="bank-holder" placeholder="예금주명" value="${window._profileData?window._profileData.name:curUserName}">
+      <input class="finput" id="bank-holder" placeholder="예금주명" id="bank-holder-input" value="">
     </div>
     <div style="padding:9px 12px;background:rgba(255,69,84,.05);border:1px solid rgba(255,69,84,.15);border-radius:9px;margin-bottom:12px;font-size:10px;color:var(--t2);line-height:1.7;">
       ⚠️ 계좌 정보는 대금 수령 목적으로만 사용됩니다<br>
@@ -759,9 +717,12 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
     <div class="fgroup">
       <div class="flabel">접근 권한</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
-        ${['조회','입력','관리'].map(p=>`
-        <div onclick="window.selectSubPerm('${p}')" id="su-perm-${p}"
-          style="padding:9px 4px;border-radius:10px;text-align:center;cursor:pointer;border:1.5px solid var(--b1);background:var(--s2);font-size:12px;font-weight:700;color:var(--t2);">${p}</div>`).join('')}
+        <div onclick="window.selectSubPerm('조회')" id="su-perm-조회"
+          style="padding:9px 4px;border-radius:10px;text-align:center;cursor:pointer;border:1.5px solid var(--a1);background:rgba(0,232,188,.08);font-size:12px;font-weight:700;color:var(--a1);">조회</div>
+        <div onclick="window.selectSubPerm('입력')" id="su-perm-입력"
+          style="padding:9px 4px;border-radius:10px;text-align:center;cursor:pointer;border:1.5px solid var(--b1);background:var(--s2);font-size:12px;font-weight:700;color:var(--t2);">입력</div>
+        <div onclick="window.selectSubPerm('관리')" id="su-perm-관리"
+          style="padding:9px 4px;border-radius:10px;text-align:center;cursor:pointer;border:1.5px solid var(--b1);background:var(--s2);font-size:12px;font-weight:700;color:var(--t2);">관리</div>
       </div>
     </div>
 
@@ -2504,15 +2465,58 @@ const TEST_ACCOUNTS = {
   'TAX-001':  {name:'가락세무회계',       role:'tax_agent',     region:'서울 송파'},
 };
 
-// 계정 ID 탭하면 자동 입력
-window.fillTestAccount = function(id){
-  const pwEl = document.getElementById('test-password');
-  if(pwEl) pwEl.focus();
-  window._selectedTestId = id;
-  const acc = TEST_ACCOUNTS[id];
-  // 선택 표시
-  toast('✅ '+id+' ('+acc.name+') 선택됨\n비밀번호를 입력하세요');
-};
+// 테스트 계정 목록 렌더링
+const TEST_GROUPS = [
+  {group:'🌾 생산자', color:'#00e8bc', accounts:[
+    {id:'PROD-001', name:'드레곤팜',      region:'경북 의성'},
+    {id:'PROD-002', name:'나주배농원',    region:'전남 나주'},
+    {id:'PROD-003', name:'논산딸기농협',  region:'충남 논산'},
+    {id:'PROD-004', name:'의성마늘영농',  region:'경북 의성'},
+    {id:'PROD-005', name:'강원감자농장',  region:'강원 평창'},
+  ]},
+  {group:'🛒 중도매인', color:'#4f9cf9', accounts:[
+    {id:'MERCH-001', name:'서울청과상회', region:'서울 송파'},
+    {id:'MERCH-002', name:'강남청과',     region:'서울 송파'},
+  ]},
+  {group:'🏛 청과법인', color:'#c084fc', accounts:[
+    {id:'CORP-001', name:'한국청과(주)',  region:'가락시장'},
+    {id:'CORP-002', name:'중앙청과',      region:'가락시장'},
+  ]},
+  {group:'🏛 관리공단', color:'#f4c430', accounts:[
+    {id:'GOV-001', name:'가락시장관리공단', region:'서울 송파'},
+  ]},
+  {group:'🚛 운송업체', color:'#ffa502', accounts:[
+    {id:'TRANS-001', name:'빠른배송',         region:'경기 성남'},
+    {id:'TRANS-002', name:'전국콜배송',       region:'서울'},
+    {id:'TRANS-003', name:'냉장특송',         region:'인천'},
+    {id:'TRANS-004', name:'가락운송',         region:'서울 송파'},
+    {id:'TRANS-005', name:'농산물전문운송',   region:'경기 광주'},
+  ]},
+  {group:'🧾 세무/회계', color:'#ff4554', accounts:[
+    {id:'TAX-001', name:'가락세무회계', region:'서울 송파'},
+  ]},
+];
+
+function renderTestAccountList(){
+  const body = document.getElementById('test-accounts-body');
+  if(!body) return;
+  body.innerHTML = TEST_GROUPS.map(g=>`
+    <div style="margin-bottom:10px;">
+      <div style="font-size:10px;font-weight:700;color:${g.color};margin-bottom:5px;letter-spacing:1px;">${g.group}</div>
+      ${g.accounts.map(a=>`
+      <div id="ta-${a.id}" onclick="window.fillTestAccount('${a.id}')"
+        style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-radius:9px;background:var(--s2);margin-bottom:3px;cursor:pointer;border:1.5px solid transparent;transition:all .15s;">
+        <div>
+          <span style="font-size:11px;font-weight:700;color:${g.color};font-family:monospace;">${a.id}</span>
+          <span style="font-size:11px;color:var(--t1);margin-left:6px;">${a.name}</span>
+        </div>
+        <span style="font-size:10px;color:var(--t3);">${a.region}</span>
+      </div>`).join('')}
+    </div>`).join('');
+}
+
+// 페이지 로드 시 렌더
+document.addEventListener('DOMContentLoaded', renderTestAccountList);
 
 // 비밀번호 확인 후 입장
 window.checkTestPassword = function(){
@@ -2551,6 +2555,26 @@ window.checkTestPassword = function(){
 
   // 계정 선택 없으면 가입/로그인 화면으로
   window.showScreen('register');
+};
+
+// 계정 선택 시 하이라이트
+window.fillTestAccount = function(id){
+  window._selectedTestId = id;
+  // 모든 행 초기화
+  document.querySelectorAll('[id^="ta-"]').forEach(el=>{
+    el.style.border='1.5px solid transparent';
+    el.style.background='var(--s2)';
+  });
+  // 선택 강조
+  const sel = document.getElementById('ta-'+id);
+  if(sel){
+    sel.style.border='1.5px solid #00e8bc';
+    sel.style.background='rgba(0,232,188,.08)';
+    sel.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
+  // 비밀번호 입력창 포커스
+  const pwEl = document.getElementById('test-password');
+  if(pwEl){ pwEl.focus(); pwEl.placeholder=id+' 선택 — 비밀번호 입력'; }
 };
 
 
@@ -2668,6 +2692,8 @@ function startApp(r){
   // 테스트 계정 배지 표시
   const testBadge = document.getElementById('tb-test-badge');
   if(testBadge) testBadge.style.display = window._testAccountId ? 'inline' : 'none';
+  // 자동 테스트 데이터 초기화
+  initAutoTrade();
   updateGradeBadge();
   buildTabbar();
   startClock();
@@ -2969,6 +2995,59 @@ function renderHome(){
     <div class="warning-banner" style="cursor:pointer;" onclick="window.openPenaltySheet('producer')">
       <div class="wb-hd"><span style="font-size:14px;">⚠️</span><span class="wb-title">준수사항 안내</span></div>
       <div style="font-size:11px;color:var(--t2);line-height:1.7;">원산지 정확히 표기 · 전표 발행 필수 · 허위 정보 입력 시 계정 정지</div>
+    </div>`;
+  }
+
+  // ── 세무/회계: 모든 거래처 장부 열람 ──
+  if(curRole==='tax_agent' && window._testAccountId){
+    const db = getTestDB();
+    const allInvs = db.invoices||[];
+    const total = allInvs.reduce((s,i)=>s+(i.total_amt||0),0);
+    homeHTML+=`
+    <div style="background:rgba(168,85,247,.06);border:1.5px solid rgba(168,85,247,.2);border-radius:14px;padding:12px 14px;margin-bottom:12px;">
+      <div style="font-size:12px;font-weight:700;color:#a855f7;margin-bottom:8px;">🧾 연결된 거래처 장부 (자동 공유)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;">
+        <div style="background:var(--s2);border-radius:8px;padding:8px;text-align:center;">
+          <div style="font-size:10px;color:var(--t2);">총 거래액</div>
+          <div style="font-size:14px;font-weight:800;color:#a855f7;">₩${(total/10000).toFixed(0)}만</div>
+        </div>
+        <div style="background:var(--s2);border-radius:8px;padding:8px;text-align:center;">
+          <div style="font-size:10px;color:var(--t2);">전표 건수</div>
+          <div style="font-size:14px;font-weight:800;color:var(--a1);">${allInvs.length}건</div>
+        </div>
+      </div>
+      ${['PROD-001','PROD-002','PROD-003','PROD-004','PROD-005','MERCH-001','MERCH-002','CORP-001','CORP-002'].map(id=>{
+        const cnt = allInvs.filter(i=>i.producer_name===TEST_TRADE_NAMES[id]||i.buyer_name===TEST_TRADE_NAMES[id]).length;
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--b2);font-size:11px;">
+          <span style="color:var(--t1);">${TEST_TRADE_NAMES[id]}</span>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <span style="color:var(--t2);">${cnt}건</span>
+            <button onclick="window.openTaxClientLedger('${id}')"
+              style="padding:3px 8px;border-radius:6px;background:rgba(168,85,247,.1);border:1px solid rgba(168,85,247,.2);color:#a855f7;font-size:10px;cursor:pointer;">열람</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+  if(window._testAccountId){
+    const db = getTestDB();
+    const stats = db.todayStats;
+    const myInvCount = (db.invoices||[]).filter(i=>
+      i.producer_name===TEST_TRADE_NAMES[window._testAccountId] ||
+      i.buyer_name===TEST_TRADE_NAMES[window._testAccountId]
+    ).length;
+    homeHTML+=`
+    <div onclick="window.viewAutoTradeStats()"
+      style="background:rgba(0,232,188,.05);border:1.5px solid rgba(0,232,188,.2);border-radius:12px;padding:10px 13px;margin-bottom:12px;cursor:pointer;display:flex;align-items:center;gap:10px;">
+      <span style="font-size:20px;">🤖</span>
+      <div style="flex:1;">
+        <div style="font-size:11px;font-weight:700;color:var(--a1);">오늘 자동 테스트 거래 생성됨</div>
+        <div style="font-size:10px;color:var(--t2);">
+          ${stats?`사과 ₩${stats.applePrice.toLocaleString()} · 배 ₩${stats.pearPrice.toLocaleString()} · 운임 ₩${stats.truckFare.toLocaleString()}`:'생성 중...'}
+          ${myInvCount>0?` · 내 거래 ${myInvCount}건`:''}
+        </div>
+      </div>
+      <span style="font-size:12px;color:var(--t3);">›</span>
     </div>`;
   }
 
@@ -7477,6 +7556,388 @@ function toast(msg){
   if(_tt) clearTimeout(_tt);
   _tt=setTimeout(()=>el.classList.remove('on'),3500);
 }
+
+// ══════════════════════════════════════════
+// 🤖 자동 테스트 데이터 생성기
+// 매일 1회 자동으로 실제 거래 흐름을 시뮬레이션
+// ══════════════════════════════════════════
+
+// 테스트 거래 참여자 매핑
+const TEST_TRADE_MAP = {
+  producers: ['PROD-001','PROD-002','PROD-003','PROD-004','PROD-005'],
+  merchants: ['MERCH-001','MERCH-002'],
+  corps:     ['CORP-001','CORP-002'],
+  transport: ['TRANS-001','TRANS-002','TRANS-003','TRANS-004','TRANS-005'],
+  tax:       ['TAX-001'],
+  gov:       ['GOV-001'],
+};
+
+const TEST_TRADE_NAMES = {
+  'PROD-001':'드레곤팜','PROD-002':'나주배농원','PROD-003':'논산딸기농협',
+  'PROD-004':'의성마늘영농','PROD-005':'강원감자농장',
+  'MERCH-001':'서울청과상회','MERCH-002':'강남청과',
+  'CORP-001':'한국청과(주)','CORP-002':'중앙청과',
+  'TRANS-001':'빠른배송','TRANS-002':'전국콜배송','TRANS-003':'냉장특송',
+  'TRANS-004':'가락운송','TRANS-005':'농산물전문운송',
+  'TAX-001':'가락세무회계','GOV-001':'가락시장관리공단',
+};
+
+// 테스트 공유 데이터 저장소 (localStorage)
+function getTestDB(){ try{ return JSON.parse(localStorage.getItem('garak_test_db')||'{}'); }catch(e){ return {}; } }
+function saveTestDB(db){ try{ localStorage.setItem('garak_test_db', JSON.stringify(db)); }catch(e){} }
+
+// 오늘 날짜 키
+function todayKey(){ return new Date().toISOString().slice(0,10); }
+
+// ── 하루 자동 거래 생성 ──
+window.runDailyAutoTrade = function(silent){
+  const db = getTestDB();
+  const today = todayKey();
+
+  // 이미 오늘 실행됐으면 스킵
+  if(db['ran_'+today] && !silent){
+    toast('오늘 자동 거래가 이미 생성됐습니다 ('+today+')');
+    return db;
+  }
+
+  const now = new Date();
+  const invoices = db.invoices || [];
+  const eforms   = db.eforms || [];
+  const calls    = db.calls || [];
+  const payments = db.payments || [];
+  const auctions = db.auctions || [];
+
+  // 가격 (약간의 변동)
+  const applePrice = 31000 + Math.floor(Math.random()*3000 - 1000);
+  const pearPrice  = 27000 + Math.floor(Math.random()*2000 - 500);
+  const truckFare  = 220000 + Math.floor(Math.random()*10000);
+
+  let newItems = [];
+
+  // ── 생산자별 송장 생성 ──
+  TEST_TRADE_MAP.producers.forEach((prodId, pi) => {
+    const prodName = TEST_TRADE_NAMES[prodId];
+    const isLegal  = prodId.includes('003') || prodId.includes('004'); // 법인
+
+    // 청과법인 2곳에 경매 송장 (사과 200박스)
+    TEST_TRADE_MAP.corps.forEach((corpId, ci) => {
+      const corpName = TEST_TRADE_NAMES[corpId];
+      const invId = `AUTO-${today.replace(/-/g,'')}-${prodId}-CORP${ci+1}-APPLE`;
+      const soldPrice = Math.round(applePrice * (1 + (Math.random()*0.08-0.02)));
+
+      const inv = {
+        id: invId,
+        producer_gkid: prodId+'GK',
+        producer_name: prodName,
+        buyer_name: corpName,
+        buyer_type: 'corp',
+        buyer_id: corpId,
+        item: '사과', grade: '특', origin: '전남 나주',
+        qty: 200, price: applePrice,
+        sale_type: 'auction',
+        min_price: applePrice,
+        confirmed_price: soldPrice,
+        truck_type: '5톤', fare: truckFare,
+        transport_id: TEST_TRADE_MAP.transport[pi % 5],
+        transport_name: TEST_TRADE_NAMES[TEST_TRADE_MAP.transport[pi % 5]],
+        status: 'eform',
+        created_at: today+'T05:30:00',
+        confirmed_at: today+'T07:00:00',
+        paid_at: today+'T17:00:00',   // 청과법인: 당일 지급
+        payment_status: 'paid',
+        total_amt: soldPrice * 200,
+        eform_id: `GARAK-${today.replace(/-/g,'')}-${String(invoices.length+newItems.length+1).padStart(6,'0')}`,
+        auto: true, date: today,
+      };
+      newItems.push(inv);
+
+      // 경매 낙찰 기록
+      const bidder = TEST_TRADE_NAMES[TEST_TRADE_MAP.merchants[ci % 2]];
+      auctions.push({
+        id: invId+'-AUC', auction_date: today,
+        corp: corpName, producer: prodName,
+        item: '사과', qty: 200, min_price: applePrice,
+        sold_price: soldPrice, buyer: bidder,
+        date: today,
+      });
+    });
+
+    // 중도매인 2곳에 위탁판매 송장 (배 200박스)
+    TEST_TRADE_MAP.merchants.forEach((mercId, mi) => {
+      const mercName = TEST_TRADE_NAMES[mercId];
+      const invId = `AUTO-${today.replace(/-/g,'')}-${prodId}-MERC${mi+1}-PEAR`;
+      const soldPrice = Math.round(pearPrice * (1 + (Math.random()*0.06-0.01)));
+      const transId = TEST_TRADE_MAP.transport[(pi+mi+2) % 5];
+
+      const inv = {
+        id: invId,
+        producer_gkid: prodId+'GK',
+        producer_name: prodName,
+        buyer_name: mercName,
+        buyer_type: 'merchant',
+        buyer_id: mercId,
+        item: '배', grade: '특', origin: '전남 나주',
+        qty: 200, price: pearPrice,
+        sale_type: 'consign',
+        consign_rate: 8,
+        confirmed_price: soldPrice,
+        truck_type: '5톤', fare: truckFare,
+        transport_id: transId,
+        transport_name: TEST_TRADE_NAMES[transId],
+        status: 'eform',
+        created_at: today+'T06:00:00',
+        confirmed_at: today+'T08:00:00',
+        paid_at: new Date(now.getTime()+86400000).toISOString().slice(0,10)+'T10:00:00', // 익일 지급
+        payment_status: 'paid',
+        total_amt: Math.round(soldPrice * 200 * 0.92), // 수수료 8% 제외
+        eform_id: `GARAK-${today.replace(/-/g,'')}-${String(invoices.length+newItems.length+1).padStart(6,'0')}`,
+        auto: true, date: today,
+      };
+      newItems.push(inv);
+    });
+  });
+
+  // ── 배차 기록 ──
+  TEST_TRADE_MAP.transport.forEach((transId, ti) => {
+    calls.push({
+      id: `CALL-${today.replace(/-/g,'')}-${transId}`,
+      transport_id: transId,
+      transport_name: TEST_TRADE_NAMES[transId],
+      item: ti < 3 ? '사과' : '배',
+      origin: '전남 나주',
+      dest: '서울 송파구 가락로 320 (가락시장)',
+      truck_type: '5톤',
+      fare: truckFare,
+      status: 'delivered',
+      depart_at: today+'T05:00:00',
+      arrive_at: today+'T12:00:00',
+      date: today, auto: true,
+    });
+  });
+
+  // ── 세무/회계 거래처 연결 권한 ──
+  const taxAccess = db.taxAccess || {};
+  ['PROD-001','PROD-002','PROD-003','PROD-004','PROD-005',
+   'MERCH-001','MERCH-002','CORP-001','CORP-002'].forEach(id => {
+    taxAccess[id] = { grantedAt: today, ledgerAccess: true, by: 'TAX-001' };
+  });
+
+  // 저장
+  db.invoices  = [...invoices, ...newItems];
+  db.eforms    = [...eforms, ...newItems.filter(i=>i.eform_id).map(i=>({
+    eform_id: i.eform_id, inv_id: i.id, producer: i.producer_name,
+    buyer: i.buyer_name, item: i.item, qty: i.qty,
+    price: i.confirmed_price, total: i.total_amt,
+    sale_type: i.sale_type, date: today,
+  }))];
+  db.calls     = [...calls];
+  db.payments  = [...payments, ...newItems.map(i=>({
+    inv_id: i.id, payer: i.buyer_name, payee: i.producer_name,
+    amount: i.total_amt, paid_at: i.paid_at,
+    payment_type: i.buyer_type==='corp'?'당일결제':'익일결제',
+    date: today,
+  }))];
+  db.auctions  = [...auctions];
+  db.taxAccess = taxAccess;
+  db['ran_'+today] = true;
+  db.lastRun = now.toISOString();
+  db.todayStats = {
+    date: today,
+    totalInvoices: newItems.length,
+    totalAmount: newItems.reduce((s,i)=>s+i.total_amt, 0),
+    applePrice, pearPrice, truckFare,
+  };
+
+  saveTestDB(db);
+
+  if(!silent){
+    const total = newItems.reduce((s,i)=>s+i.total_amt,0);
+    toast(`🤖 오늘 자동 거래 생성 완료!\n송장 ${newItems.length}건 · 총 ₩${(total/10000).toFixed(0)}만원`);
+  }
+
+  // 현재 로그인된 계정이면 INVOICES·CALLS 업데이트
+  window.syncTestDataToCurrentUser();
+  return db;
+};
+
+// 현재 로그인 계정에 자동 데이터 주입
+window.syncTestDataToCurrentUser = function(){
+  if(!curRole || !curGkid) return;
+  const db = getTestDB();
+  if(!db.invoices) return;
+
+  const testId = window._testAccountId;
+  if(!testId) return;
+
+  // 생산자: 내 송장 주입
+  if(['producer_ind','producer_corp'].includes(curRole)){
+    const myInvs = db.invoices.filter(i => i.producer_id === testId || i.producer_name === TEST_TRADE_NAMES[testId]);
+    myInvs.forEach(inv => {
+      if(!INVOICES.find(i=>i.id===inv.id)) INVOICES.unshift(inv);
+    });
+  }
+  // 중도매인: 수신 송장
+  if(curRole==='merchant_ind'){
+    const myInvs = db.invoices.filter(i => i.buyer_id === testId);
+    myInvs.forEach(inv => {
+      if(!INVOICES.find(i=>i.id===inv.id)) INVOICES.unshift(inv);
+    });
+  }
+  // 청과법인: 낙찰 내역
+  if(curRole==='wholesale'){
+    const myInvs = db.invoices.filter(i => i.buyer_id === testId);
+    myInvs.forEach(inv => {
+      if(!INVOICES.find(i=>i.id===inv.id)) INVOICES.unshift(inv);
+    });
+    // 경매 낙찰 주입
+    if(!window._wholesaleMembers){
+      window._wholesaleMembers = TEST_TRADE_MAP.merchants.map(id=>({
+        id, name:TEST_TRADE_NAMES[id], gkid:id+'-GK',
+        status:'active', bids:15, totalAmt:12000000, lastBid:todayKey(),
+      }));
+    }
+  }
+  // 운송업체: 배차 이력
+  if(curRole==='transport'){
+    const myCalls = (db.calls||[]).filter(c => c.transport_id === testId);
+    myCalls.forEach(call => {
+      if(!CALLS.find(c=>c.id===call.id)) CALLS.unshift(call);
+    });
+  }
+  // 세무/회계: 모든 거래 열람 권한
+  if(curRole==='tax_agent'){
+    const allInvs = db.invoices || [];
+    if(!window._servicePartners) window._servicePartners = [];
+    // 모든 생산자·중도매인·청과법인을 서비스 거래처로 자동 연결
+    ['PROD-001','PROD-002','PROD-003','PROD-004','PROD-005',
+     'MERCH-001','MERCH-002','CORP-001','CORP-002'].forEach(id => {
+      if(!window._servicePartners.find(p=>p.id===id)){
+        window._servicePartners.push({
+          id, name:TEST_TRADE_NAMES[id], biznum:'000-00-'+id,
+          serviceType:'세무/회계', status:'active',
+          ledgerAccess:true, unpaidAmt:0,
+          autoConnected:true,
+        });
+      }
+    });
+    // 전체 송장 주입
+    allInvs.forEach(inv => {
+      if(!INVOICES.find(i=>i.id===inv.id)) INVOICES.push(inv);
+    });
+  }
+  saveAppData();
+};
+
+// 앱 시작 시 자동 거래 실행 + 데이터 주입
+function initAutoTrade(){
+  // 오늘 거래 자동 생성 (조용히)
+  const db = getTestDB();
+  const today = todayKey();
+  if(!db['ran_'+today]){
+    setTimeout(()=>{ window.runDailyAutoTrade(true); }, 1500);
+  }
+  // 로그인 된 경우 데이터 동기화
+  if(curGkid && window._testAccountId){
+    setTimeout(()=>{ window.syncTestDataToCurrentUser(); }, 2000);
+  }
+}
+
+// 관리자용: 수동 트리거 (MY페이지에서 확인 가능)
+window.viewAutoTradeStats = function(){
+  const db = getTestDB();
+  const stats = db.todayStats;
+  if(!stats){ toast('자동 거래 데이터 없음. 잠시 후 다시 확인하세요'); return; }
+  const total = (db.invoices||[]).length;
+  const paid = (db.payments||[]).length;
+  alert(`🤖 자동 테스트 거래 현황\n\n` +
+    `📅 오늘(${stats.date})\n` +
+    `  사과 낙찰가: ₩${stats.applePrice.toLocaleString()}/박스\n` +
+    `  배 위탁가: ₩${stats.pearPrice.toLocaleString()}/박스\n` +
+    `  운임: ₩${stats.truckFare.toLocaleString()}\n\n` +
+    `📋 누적 송장: ${total}건\n` +
+    `💳 결제 완료: ${paid}건\n` +
+    `🧾 세무/회계 공유: ${Object.keys(db.taxAccess||{}).length}개 거래처`
+  );
+};
+
+// ── 세무/회계: 거래처별 장부 열람 ──
+window.openTaxClientLedger = function(clientId){
+  const db = getTestDB();
+  const name = TEST_TRADE_NAMES[clientId];
+  const invs = (db.invoices||[]).filter(i=>i.producer_name===name||i.buyer_name===name);
+  const total = invs.reduce((s,i)=>s+(i.total_amt||0),0);
+  const now = new Date();
+  document.getElementById('lv-sub').textContent = name+' 거래 장부';
+  document.getElementById('lv-body').innerHTML=`
+    <div style="background:rgba(168,85,247,.06);border:1px solid rgba(168,85,247,.2);border-radius:12px;padding:11px 13px;margin-bottom:12px;">
+      <div style="font-size:11px;color:#a855f7;font-weight:700;margin-bottom:5px;">🧾 ${name}</div>
+      ${[['총 거래액','₩'+total.toLocaleString()],['거래 건수',invs.length+'건'],['열람 일시',now.toLocaleString('ko-KR')]].map(([lb,val])=>`
+      <div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid var(--b2);">
+        <span style="color:var(--t2);">${lb}</span><span style="font-weight:600;">${val}</span>
+      </div>`).join('')}
+    </div>
+    <div style="font-size:12px;font-weight:700;margin-bottom:8px;">📋 거래 내역</div>
+    ${invs.length===0?'<div style="text-align:center;padding:20px;color:var(--t2);">거래 내역 없음</div>':
+    invs.map(inv=>`
+    <div style="padding:8px 0;border-bottom:1px solid var(--b2);font-size:11px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+        <div style="font-weight:700;">${inv.item} ${inv.qty}박스
+          <span class="tag ${inv.sale_type==='auction'?'tag-b':'tag-g'}" style="font-size:9px;">${inv.sale_type==='auction'?'경매':'위탁'}</span>
+        </div>
+        <span style="font-weight:700;color:var(--a4);">₩${(inv.total_amt||0).toLocaleString()}</span>
+      </div>
+      <div style="color:var(--t2);">${inv.producer_name} → ${inv.buyer_name} · ${inv.date}</div>
+      <div style="color:var(--a1);font-size:10px;">${inv.eform_id||''} · ${inv.payment_status==='paid'?'✅ 결제완료':'⏳ 결제대기'}</div>
+    </div>`).join('')}
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <button onclick="window.downloadTestLedgerCSV('${clientId}')"
+        style="flex:1;padding:10px;border-radius:10px;background:rgba(0,232,188,.1);border:1.5px solid rgba(0,232,188,.3);color:var(--a1);font-size:11px;font-weight:700;cursor:pointer;">📥 CSV</button>
+      <button onclick="window.downloadTestLedgerPDF('${clientId}')"
+        style="flex:1;padding:10px;border-radius:10px;background:rgba(168,85,247,.1);border:1.5px solid rgba(168,85,247,.25);color:#a855f7;font-size:11px;font-weight:700;cursor:pointer;">🖨️ PDF</button>
+    </div>`;
+  window.openSheet('sh-ledger-view');
+};
+
+window.downloadTestLedgerCSV = function(clientId){
+  const db = getTestDB();
+  const name = TEST_TRADE_NAMES[clientId];
+  const invs = (db.invoices||[]).filter(i=>i.producer_name===name||i.buyer_name===name);
+  const rows=[['전표번호','품목','수량','출하자','수취인','거래유형','확정단가','물품대금','결제상태','날짜']];
+  invs.forEach(i=>rows.push([i.eform_id||i.id,i.item,i.qty,i.producer_name,i.buyer_name,
+    i.sale_type==='auction'?'경매':'위탁',i.confirmed_price||i.price,i.total_amt,
+    i.payment_status==='paid'?'결제완료':'대기',i.date]));
+  const csv='\uFEFF'+rows.map(r=>r.join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download=name+'_장부_'+todayKey()+'.csv';
+  a.click();
+  toast('📥 '+name+' CSV 다운로드 완료');
+};
+
+window.downloadTestLedgerPDF = function(clientId){
+  const db = getTestDB();
+  const name = TEST_TRADE_NAMES[clientId];
+  const invs = (db.invoices||[]).filter(i=>i.producer_name===name||i.buyer_name===name);
+  const total = invs.reduce((s,i)=>s+(i.total_amt||0),0);
+  const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>장부-'+name+'</title>'
+    +'<style>body{font-family:sans-serif;margin:30px;font-size:12px;}h1{font-size:18px;}'
+    +'table{width:100%;border-collapse:collapse;margin-top:10px;}'
+    +'th{background:#f5f0ff;padding:7px;border:1px solid #ddd;}td{padding:7px;border:1px solid #eee;}'
+    +'.total{font-weight:800;color:#7c3aed;text-align:right;margin-top:10px;font-size:14px;}'
+    +'</style></head><body><h1>🧾 장부 — '+name+'</h1>'
+    +'<p>열람: 가락세무회계 | '+new Date().toLocaleString('ko-KR')+'</p>'
+    +'<table><tr><th>전표번호</th><th>품목</th><th>수량</th><th>출하자</th><th>수취인</th><th>유형</th><th>금액</th><th>결제</th><th>날짜</th></tr>'
+    +invs.map(i=>`<tr><td>${i.eform_id||i.id}</td><td>${i.item}</td><td>${i.qty}박스</td>`
+      +`<td>${i.producer_name}</td><td>${i.buyer_name}</td>`
+      +`<td>${i.sale_type==='auction'?'경매':'위탁'}</td>`
+      +`<td>&#8361;${(i.total_amt||0).toLocaleString()}</td>`
+      +`<td>${i.payment_status==='paid'?'완료':'대기'}</td><td>${i.date}</td></tr>`).join('')
+    +'</table><div class="total">총: &#8361;'+total.toLocaleString()+'</div></body></html>';
+  const w=window.open('','_blank');
+  if(w){w.document.write(html);w.document.close();w.print();}
+  toast('🖨️ '+name+' PDF 출력');
+};
+
 </script>
 <script>
 // PWA Service Worker 등록
