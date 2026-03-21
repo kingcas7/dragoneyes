@@ -195,6 +195,7 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
   <div class="scroll" id="scroll">
     <div class="page on" id="page-home"><div id="home-content"></div></div>
     <div class="page" id="page-invoice"><div id="invoice-content"></div></div>
+    <div class="page" id="page-auction"><div id="auction-content"></div></div>
     <div class="page" id="page-partner"><div id="partner-content"></div></div>
     <div class="page" id="page-vehicle"><div id="vehicle-content"></div></div>
     <div class="page" id="page-eform"><div id="eform-content"></div></div>
@@ -433,6 +434,177 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
       ⚠️ 사업자 명의 계좌 등록을 권장합니다
     </div>
     <button onclick="window.saveBankInfo()" class="btn btn-p">🏦 계좌 등록 완료</button>
+  </div>
+</div>
+
+<!-- ══ 입찰 시트 ══ -->
+<div class="sheet-overlay" id="sh-bid">
+  <div class="sheet">
+    <div class="sheet-hd">
+      <div class="sheet-title">🙋 입찰하기</div>
+      <button onclick="window.closeSheet('sh-bid')" style="color:var(--t2);font-size:20px;">✕</button>
+    </div>
+    <div class="sheet-sub" id="bid-current">현재 최고가</div>
+
+    <div style="background:rgba(255,69,84,.06);border:1px solid rgba(255,69,84,.2);border-radius:12px;padding:10px 13px;margin-bottom:12px;text-align:center;">
+      <div style="font-size:11px;color:var(--t2);">출품 상품</div>
+      <div style="font-size:18px;font-weight:800;" id="bid-item-name">—</div>
+    </div>
+
+    <div class="fgroup">
+      <div class="flabel">입찰가 (원/박스) *</div>
+      <input class="finput" id="bid-price-input" type="number" inputmode="decimal"
+        oninput="const t=parseInt(this.value||0);const q=parseInt(document.getElementById('bid-qty-input')?.value||0);document.getElementById('bid-total').textContent='합계 ₩'+(t*q).toLocaleString();">
+      <div style="font-size:10px;color:var(--a2);margin-top:3px;">※ 현재가 +₩1,000 이상 입찰 가능</div>
+    </div>
+    <div class="fgroup">
+      <div class="flabel">수량 (박스) *</div>
+      <input class="finput" id="bid-qty-input" type="number" inputmode="decimal"
+        oninput="const p=parseInt(document.getElementById('bid-price-input')?.value||0);document.getElementById('bid-total').textContent='합계 ₩'+(p*parseInt(this.value||0)).toLocaleString();">
+    </div>
+    <div style="text-align:center;font-size:16px;font-weight:800;color:var(--a4);margin-bottom:14px;" id="bid-total">합계 ₩0</div>
+
+    <div style="background:rgba(244,196,48,.05);border:1px solid rgba(244,196,48,.15);border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:10px;color:var(--t2);line-height:1.7;">
+      ⚠️ 낙찰 시 입찰가 × 수량 금액이 자동 청구됩니다<br>
+      ⚠️ 낙찰 후 미결제 시 경매 참여 자격이 정지될 수 있습니다
+    </div>
+
+    <button onclick="window.submitBid()" class="btn btn-p" style="background:linear-gradient(135deg,var(--red),rgba(255,69,84,.7));">
+      🙋 입찰 확정
+    </button>
+  </div>
+</div>
+
+<!-- ══ 출품 등록 시트 ══ -->
+<div class="sheet-overlay" id="sh-listing">
+  <div class="sheet">
+    <div class="sheet-hd">
+      <div class="sheet-title">📦 출품 등록</div>
+      <button onclick="window.closeSheet('sh-listing')" style="color:var(--t2);font-size:20px;">✕</button>
+    </div>
+    <div class="sheet-sub">경매에 출품할 상품 정보를 입력하세요</div>
+
+    <div class="fgroup">
+      <div class="flabel">상품명 *</div>
+      <input class="finput" id="ls-item" placeholder="예: 사과, 배추, 딸기">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div class="fgroup">
+        <div class="flabel">원산지 *</div>
+        <input class="finput" id="ls-origin" placeholder="예: 경북 의성">
+      </div>
+      <div class="fgroup">
+        <div class="flabel">등급</div>
+        <select class="finput" id="ls-grade">
+          <option value="특">특</option>
+          <option value="상">상</option>
+          <option value="보통">보통</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div class="fgroup">
+        <div class="flabel">단위</div>
+        <input class="finput" id="ls-unit" placeholder="예: 10kg, 5kg, 1박스">
+      </div>
+      <div class="fgroup">
+        <div class="flabel">수량 (박스) *</div>
+        <input class="finput" id="ls-qty" type="number" inputmode="decimal" placeholder="100">
+      </div>
+    </div>
+    <div class="fgroup">
+      <div class="flabel">최소 입찰가 (원/박스) *</div>
+      <input class="finput" id="ls-minprice" type="number" inputmode="decimal" placeholder="예: 28000">
+      <div style="font-size:10px;color:var(--t2);margin-top:3px;">이 금액 미만의 입찰은 무효 처리됩니다</div>
+    </div>
+    <div class="fgroup">
+      <div class="flabel">메모 / 특이사항</div>
+      <textarea class="finput" id="ls-memo" rows="2" placeholder="예: 냉장 보관 필수, 당일 수령 가능" style="resize:none;"></textarea>
+    </div>
+
+    <div style="background:rgba(0,232,188,.05);border:1px solid rgba(0,232,188,.15);border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:10px;color:var(--t2);line-height:1.7;">
+      📌 출품 등록 후 청과법인 승인 시 경매에 등재됩니다<br>
+      📌 GARAK AI 거래 이력과 신뢰등급이 경매 우선순위에 반영됩니다
+    </div>
+
+    <button onclick="window.submitListing()" class="btn btn-p">📦 출품 등록 완료</button>
+  </div>
+</div>
+
+<!-- ══ 낙찰 대금 결제 시트 ══ -->
+<div class="sheet-overlay" id="sh-auction-payment">
+  <div class="sheet">
+    <div class="sheet-hd">
+      <div class="sheet-title">💳 낙찰 대금 결제</div>
+      <button onclick="window.closeSheet('sh-auction-payment')" style="color:var(--t2);font-size:20px;">✕</button>
+    </div>
+    <div class="sheet-sub">낙찰 대금을 GARAK AI로 결제하세요</div>
+
+    <div style="background:var(--s2);border-radius:12px;padding:12px 14px;margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--b2);font-size:12px;">
+        <span style="color:var(--t2);">상품</span>
+        <span id="ap-item" style="font-weight:700;">—</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--b2);font-size:12px;">
+        <span style="color:var(--t2);">주관 법인</span>
+        <span id="ap-corp" style="font-weight:700;">—</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;">
+        <span style="font-weight:700;">결제 금액</span>
+        <span id="ap-amount" style="font-size:20px;font-weight:900;color:var(--red);">—</span>
+      </div>
+    </div>
+
+    <div style="background:rgba(244,196,48,.05);border:1px solid rgba(244,196,48,.15);border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:10px;color:var(--t2);line-height:1.7;">
+      💳 카드 수수료 약 0.8% 부과 (카드사 협의 후 확정)<br>
+      ✅ 결제 완료 시 낙찰 전표 자동 발행<br>
+      📦 입고 확인 후 결제 진행 권장
+    </div>
+
+    <button onclick="window.submitAuctionPayment()" style="width:100%;padding:14px;border-radius:14px;background:linear-gradient(135deg,var(--a1),var(--a2));color:#080d18;font-size:14px;font-weight:800;border:none;cursor:pointer;">
+      💳 낙찰 대금 결제하기
+    </button>
+    <div style="text-align:center;font-size:10px;color:var(--t3);margin-top:8px;">
+      ※ 실제 결제는 PG사 연동 후 처리됩니다
+    </div>
+  </div>
+</div>
+
+<!-- ══ 새 경매 등록 시트 (청과법인) ══ -->
+<div class="sheet-overlay" id="sh-new-auction">
+  <div class="sheet">
+    <div class="sheet-hd">
+      <div class="sheet-title">🏛 새 경매 등록</div>
+      <button onclick="window.closeSheet('sh-new-auction')" style="color:var(--t2);font-size:20px;">✕</button>
+    </div>
+    <div class="sheet-sub">경매 일정과 출품 물량을 등록하세요</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div class="fgroup">
+        <div class="flabel">경매 날짜 *</div>
+        <input class="finput" id="na-date" type="date">
+      </div>
+      <div class="fgroup">
+        <div class="flabel">시작 시간 *</div>
+        <input class="finput" id="na-time" type="time" value="05:00">
+      </div>
+    </div>
+    <div class="fgroup">
+      <div class="flabel">경매 장소</div>
+      <input class="finput" id="na-place" value="가락시장 경매장 A동" placeholder="경매 장소">
+    </div>
+    <div class="fgroup">
+      <div class="flabel">경매 유형</div>
+      <select class="finput" id="na-type">
+        <option value="open">공개 경매 (소속 중도매인 전체)</option>
+        <option value="invite">지정 경매 (초대 중도매인만)</option>
+      </select>
+    </div>
+    <div style="background:rgba(79,156,249,.05);border:1px solid rgba(79,156,249,.15);border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:10px;color:var(--t2);line-height:1.7;">
+      📋 등록 후 소속 중도매인에게 자동 알림이 발송됩니다<br>
+      📋 출품 물량은 생산자 출품 신청 후 확정됩니다
+    </div>
+    <button onclick="window.submitNewAuction()" class="btn btn-p">🏛 경매 등록 완료</button>
   </div>
 </div>
 
@@ -1082,10 +1254,10 @@ const ROLE_INFO = {
 
 // ── 탭 정의 (역할별) ──
 const TABS_BY_ROLE = {
-  producer_ind:   [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'송장',pg:'invoice'},{ic:'🏚',lb:'물류',pg:'vehicle'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'🏛',lb:'정책/서비스',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
-  producer_corp:  [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'송장',pg:'invoice'},{ic:'🏚',lb:'물류',pg:'vehicle'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'🏛',lb:'정책/서비스',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
-  merchant_ind:   [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📬',lb:'수신송장',pg:'invoice'},{ic:'🏚',lb:'물류',pg:'vehicle'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'🏛',lb:'정책/서비스',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
-  wholesale:      [{ic:'🏠',lb:'홈',pg:'home'},{ic:'🔨',lb:'경매',pg:'invoice'},{ic:'🏚',lb:'물류',pg:'vehicle'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'🏛',lb:'정책/서비스',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  producer_ind:   [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'송장',pg:'invoice'},{ic:'🔨',lb:'경매',pg:'auction'},{ic:'🏚',lb:'물류',pg:'vehicle'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'🏛',lb:'정책/서비스',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  producer_corp:  [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'송장',pg:'invoice'},{ic:'🔨',lb:'경매',pg:'auction'},{ic:'🏚',lb:'물류',pg:'vehicle'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'🏛',lb:'정책/서비스',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  merchant_ind:   [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📬',lb:'수신송장',pg:'invoice'},{ic:'🔨',lb:'경매참여',pg:'auction'},{ic:'🏚',lb:'물류',pg:'vehicle'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'🏛',lb:'정책/서비스',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  wholesale:      [{ic:'🏠',lb:'홈',pg:'home'},{ic:'🔨',lb:'경매관리',pg:'auction'},{ic:'📬',lb:'수신송장',pg:'invoice'},{ic:'🏚',lb:'물류',pg:'vehicle'},{ic:'📒',lb:'장부',pg:'eform'},{ic:'🏛',lb:'정책/서비스',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
   transport:      [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📞',lb:'배차콜',pg:'vehicle'},{ic:'📋',lb:'이력',pg:'invoice'},{ic:'🏛',lb:'정책/서비스',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
   warehouse_owner:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'🏭',lb:'창고',pg:'eform'},{ic:'🏛',lb:'정책/서비스',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
   gov_garaksa:    [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📊',lb:'현황',pg:'public'},{ic:'🏛',lb:'정책/서비스',pg:'policy'},{ic:'📢',lb:'공지',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
@@ -2359,7 +2531,7 @@ function goTab(pg){
   if(p) p.classList.add('on');
   document.querySelectorAll(`[data-pg="${pg}"]`).forEach(t=>t.classList.add('on'));
   document.getElementById('scroll').scrollTop=0;
-  const renders={home:renderHome,invoice:renderInvoicePage,partner:renderPartnerPage,vehicle:()=>{if(!['transport'].includes(curRole))window._vehicleTab='main';renderVehiclePage();},eform:()=>{window._ledgerTab='main';renderEformPage();},settle:renderSettlePage,policy:()=>{window._policyNav=[];window._policySection='home';renderPolicyPage();},public:renderPublicPage,mypage:renderMyPage,gov:()=>{window._policyNav=[];renderPolicyPage();}};
+  const renders={home:renderHome,invoice:renderInvoicePage,auction:renderAuctionPage,partner:renderPartnerPage,vehicle:()=>{if(!['transport'].includes(curRole))window._vehicleTab='main';renderVehiclePage();},eform:()=>{window._ledgerTab='main';renderEformPage();},settle:renderSettlePage,policy:()=>{window._policyNav=[];window._policySection='home';renderPolicyPage();},public:renderPublicPage,mypage:renderMyPage,gov:()=>{window._policyNav=[];renderPolicyPage();}};
   if(renders[pg]) renders[pg]();
 }
 
@@ -5636,6 +5808,582 @@ function renderMyBenefitSection(){
 // ══════════════
 // 송장 페이지
 // ══════════════
+// ══════════════════════════════════════════
+// 경매 시스템 데이터 & 렌더링
+// ══════════════════════════════════════════
+
+// 경매 더미 데이터
+if(!window.AUCTIONS) window.AUCTIONS = [
+  {
+    id:'AUC-2026-001', corpName:'한국청과(주)', corpId:'wholesale',
+    date:'2026-03-21', time:'05:30', status:'ongoing',
+    items:[
+      {id:'AI001', item:'사과', origin:'경북 의성', grade:'특', unit:'10kg', qty:200, minPrice:28000, currentBid:31000, topBidder:'드레곤팜(주)', bids:5},
+      {id:'AI002', item:'배추', origin:'전남 나주', grade:'상', unit:'10kg', qty:500, minPrice:7500, currentBid:8200, topBidder:'서울청과상회', bids:3},
+      {id:'AI003', item:'딸기', origin:'충남 논산', grade:'특', unit:'2kg', qty:100, minPrice:48000, currentBid:52000, topBidder:'강남청과상회', bids:7},
+    ]
+  },
+  {
+    id:'AUC-2026-002', corpName:'중앙청과', corpId:'wholesale',
+    date:'2026-03-22', time:'05:00', status:'scheduled',
+    items:[
+      {id:'AI004', item:'마늘', origin:'의성', grade:'상', unit:'1kg', qty:300, minPrice:25000, currentBid:null, topBidder:null, bids:0},
+      {id:'AI005', item:'토마토', origin:'경기 화성', grade:'특', unit:'5kg', qty:150, minPrice:18000, currentBid:null, topBidder:null, bids:0},
+    ]
+  },
+];
+
+// 내 낙찰 내역
+if(!window.MY_BIDS) window.MY_BIDS = [];
+// 내 출품 내역
+if(!window.MY_LISTINGS) window.MY_LISTINGS = [];
+
+// ──────────────────────────
+// 경매 메인 렌더
+// ──────────────────────────
+function renderAuctionPage(){
+  const isProducer = ['producer_ind','producer_corp'].includes(curRole);
+  const isMerchant = curRole === 'merchant_ind';
+  const isWholesale = curRole === 'wholesale';
+
+  let tab = window._auctionTab || (isWholesale ? 'manage' : 'live');
+
+  // 탭 목록 역할별
+  const tabs = isWholesale
+    ? [{id:'manage',ic:'🏛',lb:'경매 관리'},{id:'members',ic:'👥',lb:'중도매인 관리'},{id:'result',ic:'📊',lb:'낙찰 현황'}]
+    : isProducer
+      ? [{id:'live',ic:'🔨',lb:'진행 경매'},{id:'listing',ic:'📦',lb:'내 출품'},{id:'result',ic:'📊',lb:'낙찰/대금'}]
+      : [{id:'live',ic:'🔨',lb:'진행 경매'},{id:'bid',ic:'🙋',lb:'입찰 참여'},{id:'result',ic:'📊',lb:'낙찰/입고'},{id:'payment',ic:'💳',lb:'대금결제'}];
+
+  let html = `
+  <div style="margin-bottom:10px;">
+    <div style="font-size:18px;font-weight:800;margin-bottom:2px;">🔨 경매 ${isWholesale?'관리':isProducer?'정보':'참여'}</div>
+    <div style="font-size:11px;color:var(--t2);">${isWholesale?'주관 경매 운영 · 중도매인 관리':isProducer?'내 출품 현황 · 낙찰 확인':'경매 입찰 · 낙찰 · 대금 결제'}</div>
+  </div>
+
+  <!-- 탭 -->
+  <div style="display:grid;grid-template-columns:repeat(${tabs.length},1fr);gap:5px;margin-bottom:12px;background:var(--s2);border-radius:12px;padding:4px;">
+    ${tabs.map(t=>`
+    <div onclick="window._auctionTab='${t.id}';renderAuctionPage();"
+      style="padding:8px 3px;border-radius:9px;text-align:center;cursor:pointer;
+        background:${tab===t.id?'var(--s3)':'transparent'};
+        border:1.5px solid ${tab===t.id?'var(--a1)':'transparent'};">
+      <div style="font-size:16px;">${t.ic}</div>
+      <div style="font-size:9px;font-weight:700;color:${tab===t.id?'var(--a1)':'var(--t3)'};">${t.lb}</div>
+    </div>`).join('')}
+  </div>`;
+
+  if(tab==='live')     html += renderAuctionLive();
+  if(tab==='listing')  html += renderAuctionListing();
+  if(tab==='bid')      html += renderAuctionBid();
+  if(tab==='result')   html += renderAuctionResult();
+  if(tab==='payment')  html += renderAuctionPayment();
+  if(tab==='manage')   html += renderAuctionManage();
+  if(tab==='members')  html += renderAuctionMembers();
+
+  document.getElementById('auction-content').innerHTML = html;
+}
+
+// ── 진행 경매 (생산자·중도매인 공통) ──
+function renderAuctionLive(){
+  const ongoing = AUCTIONS.filter(a=>a.status==='ongoing');
+  const scheduled = AUCTIONS.filter(a=>a.status==='scheduled');
+  const isMerchant = curRole==='merchant_ind';
+
+  let html = `
+  <!-- 긴급 알림 -->
+  ${ongoing.length>0?`
+  <div style="background:rgba(255,69,84,.08);border:1.5px solid rgba(255,69,84,.35);border-radius:12px;padding:10px 13px;margin-bottom:10px;display:flex;align-items:center;gap:8px;">
+    <span style="font-size:18px;animation:pulse 1s infinite;">🔴</span>
+    <div>
+      <div style="font-size:12px;font-weight:800;color:var(--red);">경매 진행 중 ${ongoing.length}건</div>
+      <div style="font-size:10px;color:var(--t2);">지금 입찰에 참여하세요!</div>
+    </div>
+  </div>`:''}
+
+  <!-- 진행 중 경매 -->
+  ${ongoing.map(a=>`
+  <div style="background:var(--s1);border:1.5px solid rgba(255,69,84,.25);border-radius:14px;margin-bottom:10px;overflow:hidden;">
+    <div style="padding:10px 13px;background:rgba(255,69,84,.06);border-bottom:1px solid rgba(255,69,84,.15);display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <span class="tag tag-r" style="font-size:9px;margin-right:6px;">LIVE</span>
+        <span style="font-size:13px;font-weight:800;">${a.corpName}</span>
+      </div>
+      <div style="font-size:11px;color:var(--t2);">⏰ ${a.time} 개시</div>
+    </div>
+    ${a.items.map(it=>`
+    <div style="padding:10px 13px;border-bottom:1px solid var(--b2);">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+        <div>
+          <span style="font-size:14px;font-weight:800;">${it.item}</span>
+          <span class="tag tag-b" style="font-size:9px;margin-left:4px;">${it.grade}급</span>
+          <div style="font-size:10px;color:var(--t2);margin-top:2px;">${it.origin} · ${it.unit} · ${it.qty}박스</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:10px;color:var(--t2);">현재 최고가</div>
+          <div style="font-size:16px;font-weight:800;color:var(--a4);">₩${(it.currentBid||0).toLocaleString()}</div>
+          <div style="font-size:9px;color:var(--t2);">입찰 ${it.bids}회</div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <div style="font-size:10px;color:var(--t2);">최고가: <span style="color:var(--a1);font-weight:600;">${it.topBidder||'—'}</span></div>
+        <div style="font-size:10px;color:var(--t2);">최저입찰가 ₩${(it.minPrice||0).toLocaleString()}</div>
+      </div>
+      ${isMerchant?`
+      <button onclick="window.openBidSheet('${it.id}','${it.item}',${it.currentBid||it.minPrice})"
+        style="width:100%;padding:9px;border-radius:10px;background:linear-gradient(135deg,var(--red),rgba(255,69,84,.7));color:#fff;font-size:12px;font-weight:800;border:none;cursor:pointer;">
+        🙋 입찰하기
+      </button>`:`
+      <div style="padding:7px 10px;background:rgba(0,232,188,.06);border-radius:8px;font-size:10px;color:var(--a1);">
+        ✅ 출하 접수됨 · 낙찰 결과는 경매 종료 후 확인
+      </div>`}
+    </div>`).join('')}
+  </div>`).join('')}
+
+  <!-- 예정 경매 -->
+  <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:6px;">📅 예정 경매</div>
+  ${scheduled.map(a=>`
+  <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:10px 13px;margin-bottom:8px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <div style="font-size:13px;font-weight:700;">${a.corpName}</div>
+      <div style="font-size:11px;color:var(--a2);">📅 ${a.date} ${a.time}</div>
+    </div>
+    <div style="display:flex;gap:4px;flex-wrap:wrap;">
+      ${a.items.map(it=>`<span class="tag tag-b" style="font-size:9px;">${it.item} (최저 ₩${(it.minPrice).toLocaleString()})</span>`).join('')}
+    </div>
+    ${isMerchant?`<button onclick="window.openBidReserve('${a.id}')" style="width:100%;margin-top:8px;padding:8px;border-radius:9px;background:rgba(79,156,249,.1);border:1px solid rgba(79,156,249,.2);color:var(--a2);font-size:11px;font-weight:700;cursor:pointer;">📋 사전 입찰 등록</button>`:''}
+  </div>`).join('')}`;
+
+  return html;
+}
+
+// ── 내 출품 (생산자) ──
+function renderAuctionListing(){
+  const listings = window.MY_LISTINGS||[];
+  return `
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+    <div style="font-size:13px;font-weight:700;">📦 내 출품 현황</div>
+    <button onclick="window.openListingSheet()"
+      style="padding:6px 12px;border-radius:8px;background:var(--a1);color:#080d18;font-size:11px;font-weight:700;border:none;cursor:pointer;">+ 출품 등록</button>
+  </div>
+  ${listings.length===0?`
+  <div style="text-align:center;padding:30px;background:var(--s2);border-radius:12px;margin-bottom:10px;">
+    <div style="font-size:36px;margin-bottom:8px;">📦</div>
+    <div style="font-size:13px;font-weight:700;margin-bottom:4px;">출품 내역이 없습니다</div>
+    <div style="font-size:11px;color:var(--t2);margin-bottom:14px;">경매에 출품하면 최고 낙찰가를 받을 수 있어요</div>
+    <button onclick="window.openListingSheet()" class="btn btn-p" style="max-width:180px;margin:0 auto;">📦 출품 등록하기</button>
+  </div>`:`
+  ${listings.map((l,i)=>`
+  <div style="background:var(--s1);border:1.5px solid ${l.status==='sold'?'rgba(0,232,188,.3)':l.status==='bidding'?'rgba(255,165,2,.3)':'var(--b1)'};border-radius:12px;padding:11px 13px;margin-bottom:8px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+      <div>
+        <div style="font-size:14px;font-weight:800;">${l.item} <span class="tag tag-b" style="font-size:9px;">${l.grade}급</span></div>
+        <div style="font-size:10px;color:var(--t2);">${l.origin} · ${l.unit} · ${l.qty}박스 · 최저 ₩${l.minPrice.toLocaleString()}</div>
+      </div>
+      <span class="tag ${l.status==='sold'?'tag-g':l.status==='bidding'?'tag-y':'tag-b'}" style="font-size:9px;">
+        ${l.status==='sold'?'✅ 낙찰':l.status==='bidding'?'🔴 입찰중':'📋 대기'}
+      </span>
+    </div>
+    ${l.soldPrice?`
+    <div style="background:rgba(0,232,188,.06);border-radius:8px;padding:7px 10px;font-size:11px;">
+      <span style="color:var(--t2);">낙찰가</span>
+      <span style="font-weight:800;color:var(--a1);margin-left:8px;">₩${l.soldPrice.toLocaleString()}</span>
+      <span style="color:var(--t2);margin-left:8px;">낙찰자: ${l.buyer}</span>
+    </div>`:''}
+  </div>`).join('')}`}`;
+}
+
+// ── 입찰 참여 (중도매인) ──
+function renderAuctionBid(){
+  const myBids = window.MY_BIDS||[];
+  return `
+  <div style="font-size:13px;font-weight:700;margin-bottom:10px;">🙋 내 입찰 현황</div>
+  ${myBids.length===0?`
+  <div style="text-align:center;padding:30px;background:var(--s2);border-radius:12px;margin-bottom:10px;">
+    <div style="font-size:36px;margin-bottom:8px;">🙋</div>
+    <div style="font-size:13px;font-weight:700;margin-bottom:4px;">입찰 내역이 없습니다</div>
+    <div style="font-size:11px;color:var(--t2);margin-bottom:14px;">[진행 경매] 탭에서 경매에 참여하세요</div>
+    <button onclick="window._auctionTab='live';renderAuctionPage();" class="btn btn-p" style="max-width:180px;margin:0 auto;">🔨 진행 경매 보기</button>
+  </div>`:`
+  ${myBids.map(b=>`
+  <div style="background:var(--s1);border:1.5px solid ${b.won?'rgba(0,232,188,.3)':'var(--b1)'};border-radius:12px;padding:11px 13px;margin-bottom:8px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+      <div>
+        <div style="font-size:14px;font-weight:800;">${b.item} <span class="tag tag-b" style="font-size:9px;">${b.grade}급</span></div>
+        <div style="font-size:10px;color:var(--t2);">${b.corp} · ${b.qty}박스</div>
+        <div style="font-size:10px;color:var(--t2);">입찰가 ₩${b.bidPrice.toLocaleString()} · ${b.time}</div>
+      </div>
+      <span class="tag ${b.won?'tag-g':'tag-b'}" style="font-size:9px;">${b.won?'✅ 낙찰':'⏳ 입찰중'}</span>
+    </div>
+    ${b.won?`
+    <div style="display:flex;gap:6px;margin-top:6px;">
+      <button onclick="window.openBidDetail('${b.id}')" style="flex:1;padding:7px;border-radius:9px;background:rgba(0,232,188,.08);border:1px solid rgba(0,232,188,.2);color:var(--a1);font-size:11px;font-weight:700;cursor:pointer;">📄 전표 확인</button>
+      <button onclick="window.confirmReceipt('${b.id}')" style="flex:1;padding:7px;border-radius:9px;background:rgba(79,156,249,.08);border:1px solid rgba(79,156,249,.2);color:var(--a2);font-size:11px;font-weight:700;cursor:pointer;">📦 입고 확인</button>
+      <button onclick="window.openAuctionPayment('${b.id}')" style="flex:1;padding:7px;border-radius:9px;background:linear-gradient(135deg,rgba(0,232,188,.15),rgba(79,156,249,.1));border:1px solid rgba(0,232,188,.25);color:var(--a1);font-size:11px;font-weight:700;cursor:pointer;">💳 대금결제</button>
+    </div>`:''}
+  </div>`).join('')}`}`;
+}
+
+// ── 낙찰/대금 현황 (생산자·중도매인 공통) ──
+function renderAuctionResult(){
+  const isProducer = ['producer_ind','producer_corp'].includes(curRole);
+  const myBids = window.MY_BIDS||[];
+  const wonBids = myBids.filter(b=>b.won);
+  const listings = window.MY_LISTINGS||[];
+  const soldListings = listings.filter(l=>l.status==='sold');
+
+  return `
+  <div style="font-size:13px;font-weight:700;margin-bottom:10px;">
+    ${isProducer?'📊 낙찰 현황 및 대금결제':'📊 낙찰 결과 및 입고'}
+  </div>
+
+  <!-- 요약 카드 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+    ${isProducer?`
+    <div style="background:var(--s2);border-radius:10px;padding:10px;text-align:center;">
+      <div style="font-size:10px;color:var(--t2);">출품 총액</div>
+      <div style="font-size:16px;font-weight:800;color:var(--a1);">₩${soldListings.reduce((s,l)=>s+(l.soldPrice*l.qty),0).toLocaleString()}</div>
+    </div>
+    <div style="background:var(--s2);border-radius:10px;padding:10px;text-align:center;">
+      <div style="font-size:10px;color:var(--t2);">낙찰 건수</div>
+      <div style="font-size:16px;font-weight:800;color:var(--a4);">${soldListings.length}건</div>
+    </div>`:`
+    <div style="background:var(--s2);border-radius:10px;padding:10px;text-align:center;">
+      <div style="font-size:10px;color:var(--t2);">낙찰 총액</div>
+      <div style="font-size:16px;font-weight:800;color:var(--a1);">₩${wonBids.reduce((s,b)=>s+(b.bidPrice*b.qty),0).toLocaleString()}</div>
+    </div>
+    <div style="background:var(--s2);border-radius:10px;padding:10px;text-align:center;">
+      <div style="font-size:10px;color:var(--t2);">낙찰 건수</div>
+      <div style="font-size:16px;font-weight:800;color:var(--a4);">${wonBids.length}건</div>
+    </div>`}
+  </div>
+
+  <!-- 낙찰 내역 -->
+  ${isProducer?
+    (soldListings.length===0?'<div style="text-align:center;padding:24px;color:var(--t2);font-size:12px;">낙찰 내역이 없습니다</div>':
+    soldListings.map(l=>`
+    <div style="background:var(--s1);border:1.5px solid rgba(0,232,188,.2);border-radius:12px;padding:11px 13px;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+        <div style="font-size:13px;font-weight:800;">${l.item}</div>
+        <span class="tag tag-g" style="font-size:9px;">낙찰완료</span>
+      </div>
+      <div style="font-size:10px;color:var(--t2);">${l.qty}박스 · 낙찰가 ₩${l.soldPrice.toLocaleString()}/박스</div>
+      <div style="font-size:12px;font-weight:700;color:var(--a1);margin-top:4px;">총 수령 예정 ₩${(l.soldPrice*l.qty).toLocaleString()}</div>
+      <div style="font-size:10px;color:var(--t2);">낙찰자: ${l.buyer}</div>
+    </div>`).join(''))
+    :
+    (wonBids.length===0?'<div style="text-align:center;padding:24px;color:var(--t2);font-size:12px;">낙찰 내역이 없습니다</div>':
+    wonBids.map(b=>`
+    <div style="background:var(--s1);border:1.5px solid rgba(0,232,188,.2);border-radius:12px;padding:11px 13px;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+        <div style="font-size:13px;font-weight:800;">${b.item}</div>
+        <span class="tag ${b.received?'tag-g':'tag-y'}" style="font-size:9px;">${b.received?'입고완료':'입고대기'}</span>
+      </div>
+      <div style="font-size:10px;color:var(--t2);">${b.corp} · ${b.qty}박스 · 낙찰가 ₩${b.bidPrice.toLocaleString()}</div>
+      <div style="font-size:12px;font-weight:700;color:var(--a4);margin-top:4px;">총 결제 예정 ₩${(b.bidPrice*b.qty).toLocaleString()}</div>
+      ${b.paid?'<div style="font-size:10px;color:var(--a1);">✅ 대금 결제 완료</div>':''}
+      ${!b.paid?`
+      <button onclick="window.openAuctionPayment('${b.id}')" style="width:100%;margin-top:6px;padding:8px;border-radius:9px;background:linear-gradient(135deg,rgba(0,232,188,.15),rgba(79,156,249,.1));border:1.5px solid rgba(0,232,188,.25);color:var(--a1);font-size:11px;font-weight:700;cursor:pointer;">
+        💳 대금 결제하기 ₩${(b.bidPrice*b.qty).toLocaleString()}
+      </button>`:''}
+    </div>`).join(''))}`;
+}
+
+// ── 대금 결제 탭 (중도매인) ──
+function renderAuctionPayment(){
+  const myBids = (window.MY_BIDS||[]).filter(b=>b.won&&!b.paid);
+  const paid   = (window.MY_BIDS||[]).filter(b=>b.won&&b.paid);
+  return `
+  <div style="font-size:13px;font-weight:700;margin-bottom:10px;">💳 대금 결제</div>
+  ${myBids.length>0?`
+  <div style="background:rgba(255,165,2,.06);border:1.5px solid rgba(255,165,2,.3);border-radius:12px;padding:10px 13px;margin-bottom:10px;">
+    <div style="font-size:11px;font-weight:700;color:var(--a4);margin-bottom:6px;">⏰ 미결제 ${myBids.length}건</div>
+    ${myBids.map(b=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--b2);font-size:11px;">
+      <div>
+        <div style="font-weight:700;">${b.item} ${b.qty}박스</div>
+        <div style="font-size:10px;color:var(--t2);">${b.corp} · ₩${b.bidPrice.toLocaleString()}/박스</div>
+      </div>
+      <button onclick="window.openAuctionPayment('${b.id}')"
+        style="padding:6px 12px;border-radius:8px;background:var(--a1);color:#080d18;font-size:10px;font-weight:700;border:none;cursor:pointer;">
+        결제 ₩${(b.bidPrice*b.qty).toLocaleString()}
+      </button>
+    </div>`).join('')}
+  </div>`:'<div style="text-align:center;padding:20px;background:rgba(0,232,188,.04);border-radius:12px;margin-bottom:10px;font-size:12px;color:var(--a1);">✅ 미결제 낙찰대금이 없습니다</div>'}
+  ${paid.length>0?`
+  <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px;">✅ 결제 완료 내역</div>
+  ${paid.map(b=>`
+  <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--b2);font-size:11px;">
+    <div><div style="font-weight:700;">${b.item} ${b.qty}박스</div><div style="font-size:10px;color:var(--t2);">${b.corp}</div></div>
+    <span style="font-weight:700;color:var(--a1);">₩${(b.bidPrice*b.qty).toLocaleString()} ✅</span>
+  </div>`).join('')}`:''}`;
+}
+
+// ── 경매 관리 (청과법인) ──
+function renderAuctionManage(){
+  return `
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+    <div style="font-size:13px;font-weight:700;">🏛 경매 주관 현황</div>
+    <button onclick="window.openNewAuctionSheet()"
+      style="padding:6px 12px;border-radius:8px;background:var(--a1);color:#080d18;font-size:11px;font-weight:700;border:none;cursor:pointer;">+ 새 경매 등록</button>
+  </div>
+
+  ${AUCTIONS.map(a=>`
+  <div style="background:var(--s1);border:1.5px solid ${a.status==='ongoing'?'rgba(255,69,84,.3)':a.status==='closed'?'rgba(0,232,188,.2)':'var(--b1)'};border-radius:14px;margin-bottom:10px;overflow:hidden;">
+    <div style="padding:10px 13px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--b2);">
+      <div>
+        <span class="tag ${a.status==='ongoing'?'tag-r':a.status==='closed'?'tag-g':'tag-b'}" style="font-size:9px;margin-right:6px;">
+          ${a.status==='ongoing'?'🔴 진행중':a.status==='closed'?'✅ 완료':'📅 예정'}
+        </span>
+        <span style="font-size:13px;font-weight:800;">${a.id}</span>
+      </div>
+      <div style="font-size:11px;color:var(--t2);">${a.date} ${a.time}</div>
+    </div>
+    <div style="padding:10px 13px;">
+      ${a.items.map(it=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--b2);font-size:11px;">
+        <div>
+          <span style="font-weight:700;">${it.item}</span>
+          <span style="color:var(--t2);margin-left:6px;">${it.qty}박스 · ${it.grade}급</span>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-weight:700;color:var(--a4);">${it.currentBid?'₩'+it.currentBid.toLocaleString():'대기중'}</div>
+          <div style="font-size:9px;color:var(--t2);">입찰 ${it.bids}회</div>
+        </div>
+      </div>`).join('')}
+      <div style="display:flex;gap:6px;margin-top:8px;">
+        <button onclick="window.openAuctionDetail('${a.id}')"
+          style="flex:1;padding:7px;border-radius:9px;background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-size:10px;cursor:pointer;">📊 상세 보기</button>
+        ${a.status==='ongoing'?`
+        <button onclick="window.closeAuction('${a.id}')"
+          style="flex:1;padding:7px;border-radius:9px;background:rgba(255,69,84,.08);border:1px solid rgba(255,69,84,.2);color:var(--red);font-size:10px;cursor:pointer;">🔚 경매 마감</button>`:''}
+      </div>
+    </div>
+  </div>`).join('')}`;
+}
+
+// ── 중도매인 관리 (청과법인) ──
+function renderAuctionMembers(){
+  // 등록된 서비스 거래처 중 중도매인 역할
+  const members = window._wholesaleMembers || [
+    {id:'M001', name:'드레곤상회', gkid:'GK-M-001', status:'active', bids:12, totalAmt:8500000, lastBid:'2026-03-20'},
+    {id:'M002', name:'서울청과상회', gkid:'GK-M-002', status:'active', bids:8, totalAmt:5200000, lastBid:'2026-03-19'},
+    {id:'M003', name:'강남청과', gkid:'GK-M-003', status:'pending', bids:0, totalAmt:0, lastBid:'—'},
+  ];
+
+  return `
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+    <div style="font-size:13px;font-weight:700;">👥 소속 중도매인 관리</div>
+    <button onclick="window.openMemberSearch()"
+      style="padding:6px 12px;border-radius:8px;background:var(--a1);color:#080d18;font-size:11px;font-weight:700;border:none;cursor:pointer;">+ 추가</button>
+  </div>
+
+  <!-- 요약 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:12px;">
+    ${[
+      ['전체',members.length+'명','var(--t1)'],
+      ['활성',members.filter(m=>m.status==='active').length+'명','var(--a1)'],
+      ['승인대기',members.filter(m=>m.status==='pending').length+'명','var(--a4)'],
+    ].map(([lb,val,clr])=>`
+    <div style="background:var(--s2);border-radius:10px;padding:8px;text-align:center;">
+      <div style="font-size:10px;color:var(--t2);">${lb}</div>
+      <div style="font-size:15px;font-weight:800;color:${clr};">${val}</div>
+    </div>`).join('')}
+  </div>
+
+  <!-- 중도매인 목록 -->
+  ${members.map(m=>`
+  <div style="background:var(--s1);border:1.5px solid ${m.status==='pending'?'rgba(244,196,48,.3)':m.status==='suspended'?'rgba(255,69,84,.2)':'rgba(0,232,188,.15)'};border-radius:12px;padding:10px 13px;margin-bottom:8px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+      <div>
+        <div style="font-size:13px;font-weight:800;">${m.name}</div>
+        <div style="font-size:10px;color:var(--t2);font-family:monospace;">${m.gkid}</div>
+      </div>
+      <span class="tag ${m.status==='active'?'tag-g':m.status==='pending'?'tag-y':'tag-r'}" style="font-size:9px;">
+        ${m.status==='active'?'✅ 활성':m.status==='pending'?'⏳ 승인대기':'🚫 정지'}
+      </span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:8px;">
+      ${[
+        ['총 입찰',m.bids+'회'],
+        ['거래금액','₩'+(m.totalAmt/10000).toFixed(0)+'만'],
+        ['최근 입찰',m.lastBid],
+      ].map(([lb,val])=>`
+      <div style="background:var(--s2);border-radius:7px;padding:5px;text-align:center;">
+        <div style="font-size:9px;color:var(--t3);">${lb}</div>
+        <div style="font-size:10px;font-weight:700;">${val}</div>
+      </div>`).join('')}
+    </div>
+    <div style="display:flex;gap:5px;">
+      ${m.status==='pending'?`
+      <button onclick="window.approveMember('${m.id}')" style="flex:1;padding:7px;border-radius:8px;background:var(--a1);color:#080d18;font-size:11px;font-weight:700;border:none;cursor:pointer;">✅ 경매 자격 승인</button>
+      <button onclick="window.rejectMember('${m.id}')" style="flex:1;padding:7px;border-radius:8px;background:rgba(255,69,84,.08);border:1px solid rgba(255,69,84,.2);color:var(--red);font-size:11px;cursor:pointer;">✕ 거절</button>`:`
+      <button onclick="toast('${m.name} 상세 정보')" style="flex:2;padding:7px;border-radius:8px;background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-size:10px;cursor:pointer;">거래 이력 보기</button>
+      ${m.status==='active'?`<button onclick="window.suspendMember('${m.id}')" style="flex:1;padding:7px;border-radius:8px;background:rgba(255,69,84,.06);border:1px solid rgba(255,69,84,.2);color:var(--red);font-size:10px;cursor:pointer;">정지</button>`:''}`}
+    </div>
+  </div>`).join('')}`;
+}
+
+// ── 경매 관련 시트 함수들 ──
+window.openBidSheet = function(itemId, itemName, currentBid){
+  const minBid = currentBid + 1000;
+  document.getElementById('bid-item-name').textContent = itemName;
+  document.getElementById('bid-current').textContent = '현재가 ₩'+currentBid.toLocaleString();
+  document.getElementById('bid-price-input').value = minBid;
+  document.getElementById('bid-price-input').min = minBid;
+  window._bidItemId = itemId;
+  window._bidItemName = itemName;
+  window.openSheet('sh-bid');
+};
+
+window.submitBid = function(){
+  const price = parseInt(document.getElementById('bid-price-input')?.value||0);
+  const qty   = parseInt(document.getElementById('bid-qty-input')?.value||0);
+  if(!price||price<1000){ toast('입찰가를 입력하세요'); return; }
+  if(!qty||qty<1){ toast('수량을 입력하세요'); return; }
+
+  if(!window.MY_BIDS) window.MY_BIDS=[];
+  window.MY_BIDS.push({
+    id:'BID-'+Date.now(), item:window._bidItemName, corp:'한국청과(주)',
+    qty, bidPrice:price, time:new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}),
+    won:false, paid:false, received:false,
+  });
+
+  window.closeSheet('sh-bid');
+  toast('🙋 입찰 완료! ₩'+price.toLocaleString()+' × '+qty+'박스\n낙찰 결과는 경매 종료 후 알림으로 안내됩니다');
+  // 데모: 5초 후 낙찰 처리
+  setTimeout(()=>{
+    const bid = window.MY_BIDS[window.MY_BIDS.length-1];
+    if(bid){ bid.won=true; toast('🎉 축하합니다! '+bid.item+' 낙찰! ₩'+bid.bidPrice.toLocaleString()); saveAppData(); renderAuctionPage(); }
+  }, 5000);
+  saveAppData();
+  renderAuctionPage();
+};
+
+window.openListingSheet = function(){
+  ['ls-item','ls-origin','ls-grade','ls-unit','ls-qty','ls-minprice','ls-memo'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  window.openSheet('sh-listing');
+};
+
+window.submitListing = function(){
+  const item     = document.getElementById('ls-item')?.value.trim();
+  const origin   = document.getElementById('ls-origin')?.value.trim();
+  const grade    = document.getElementById('ls-grade')?.value;
+  const unit     = document.getElementById('ls-unit')?.value.trim();
+  const qty      = parseInt(document.getElementById('ls-qty')?.value||0);
+  const minPrice = parseInt(document.getElementById('ls-minprice')?.value||0);
+  if(!item)     { toast('상품명을 입력하세요'); return; }
+  if(!qty)      { toast('수량을 입력하세요'); return; }
+  if(!minPrice) { toast('최소 입찰가를 입력하세요'); return; }
+
+  if(!window.MY_LISTINGS) window.MY_LISTINGS=[];
+  window.MY_LISTINGS.push({
+    id:'LS-'+Date.now(), item, origin, grade:grade||'상', unit:unit||'10kg',
+    qty, minPrice, status:'pending',
+    registeredAt: new Date().toISOString(),
+  });
+
+  window.closeSheet('sh-listing');
+  toast('📦 출품 등록 완료!\n경매 당일 참가 확정 후 진행됩니다');
+  saveAppData();
+  renderAuctionPage();
+};
+
+window.openAuctionPayment = function(bidId){
+  const b = (window.MY_BIDS||[]).find(x=>x.id===bidId);
+  if(!b){ toast('입찰 정보를 찾을 수 없습니다'); return; }
+  document.getElementById('ap-item').textContent   = b.item+' '+b.qty+'박스';
+  document.getElementById('ap-amount').textContent = '₩'+(b.bidPrice*b.qty).toLocaleString();
+  document.getElementById('ap-corp').textContent   = b.corp;
+  window._payBidId = bidId;
+  window.openSheet('sh-auction-payment');
+};
+
+window.submitAuctionPayment = function(){
+  const b = (window.MY_BIDS||[]).find(x=>x.id===window._payBidId);
+  if(!b){ toast('입찰 정보를 찾을 수 없습니다'); return; }
+  if(!window._savedCard){ toast('💳 결제 카드를 먼저 등록하세요 [MY > 결제·토큰]'); window.closeSheet('sh-auction-payment'); return; }
+  b.paid = true;
+  window.closeSheet('sh-auction-payment');
+  toast('✅ 낙찰대금 ₩'+(b.bidPrice*b.qty).toLocaleString()+' 결제 완료!\n(실제 연동 시 처리됩니다)');
+  saveAppData();
+  renderAuctionPage();
+};
+
+window.confirmReceipt = function(bidId){
+  const b = (window.MY_BIDS||[]).find(x=>x.id===bidId);
+  if(!b) return;
+  b.received = true;
+  toast('📦 입고 확인 완료');
+  saveAppData(); renderAuctionPage();
+};
+
+window.openBidDetail = function(bidId){
+  const b = (window.MY_BIDS||[]).find(x=>x.id===bidId);
+  if(!b) return;
+  toast('📄 전표 확인: '+b.item+' '+b.qty+'박스 · ₩'+b.bidPrice.toLocaleString()+'/박스\n낙찰 전표 PDF 기능 준비 중');
+};
+
+window.openNewAuctionSheet = function(){
+  window.openSheet('sh-new-auction');
+};
+
+window.closeAuction = function(auctionId){
+  if(!confirm('경매를 마감하시겠습니까? 낙찰가가 확정됩니다.')) return;
+  const a = AUCTIONS.find(x=>x.id===auctionId);
+  if(a){ a.status='closed'; toast('✅ 경매 마감 완료. 낙찰 결과가 확정됐습니다.'); renderAuctionPage(); }
+};
+
+window.openAuctionDetail = function(id){
+  toast('경매 상세 정보 ('+id+') 준비 중');
+};
+
+window.openMemberSearch = function(){
+  window.openPartnerSearch('', 'merchant_ind');
+};
+
+window.approveMember = function(memberId){
+  if(!window._wholesaleMembers) return;
+  const m = window._wholesaleMembers.find(x=>x.id===memberId);
+  if(m){ m.status='active'; toast('✅ '+m.name+' 경매 참여 자격 승인 완료'); renderAuctionPage(); }
+};
+
+window.rejectMember = function(memberId){
+  if(!window._wholesaleMembers) return;
+  if(!confirm('거절하시겠습니까?')) return;
+  window._wholesaleMembers = window._wholesaleMembers.filter(x=>x.id!==memberId);
+  toast('거절됐습니다'); renderAuctionPage();
+};
+
+window.suspendMember = function(memberId){
+  if(!window._wholesaleMembers) return;
+  if(!confirm('해당 중도매인의 경매 참여를 정지하시겠습니까?')) return;
+  const m = window._wholesaleMembers.find(x=>x.id===memberId);
+  if(m){ m.status='suspended'; toast('🚫 '+m.name+' 경매 참여 정지됐습니다'); renderAuctionPage(); }
+};
+
+window.openBidReserve = function(auctionId){
+  toast('사전 입찰 등록 ('+auctionId+') — 경매 당일 우선 참여 가능 · 준비 중');
+};
+
+window.submitNewAuction = function(){
+  const date  = document.getElementById('na-date')?.value;
+  const time  = document.getElementById('na-time')?.value;
+  const place = document.getElementById('na-place')?.value;
+  if(!date||!time){ toast('날짜와 시간을 입력하세요'); return; }
+  const newId = 'AUC-2026-'+String(AUCTIONS.length+1).padStart(3,'0');
+  AUCTIONS.push({
+    id:newId, corpName:'내 청과법인', corpId:'wholesale',
+    date, time, status:'scheduled', place, items:[]
+  });
+  window.closeSheet('sh-new-auction');
+  toast('🏛 경매가 등록됐습니다!\n소속 중도매인에게 알림이 발송됩니다');
+  renderAuctionPage();
+};
+
+
 function renderInvoicePage(){
   const isProducer=['producer_ind','producer_corp'].includes(curRole);
   if(!window._invFilter) window._invFilter='all';
@@ -5657,11 +6405,22 @@ function renderInvoicePage(){
   document.getElementById('invoice-content').innerHTML = `
 
     <!-- 송장 만들기 큰 버튼 -->
-    ${isProducer?`
+    ${(isProducer||['merchant_ind','wholesale'].includes(curRole))?`
     <button onclick="window.openInvoiceSheet()"
       style="width:100%;padding:16px;border-radius:16px;background:linear-gradient(135deg,var(--a1),var(--a2));color:#080d18;font-size:15px;font-weight:800;border:none;cursor:pointer;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px;">
-      <span style="font-size:20px;">📋</span> 새 송장 만들기
+      <span style="font-size:20px;">📋</span> ${isProducer?'새 송장 만들기':'송장 만들기'}
     </button>`:''}
+
+    <!-- 경매 바로가기 (중도매인·청과법인) -->
+    ${['merchant_ind','wholesale'].includes(curRole)?`
+    <div onclick="goTab('auction')" style="background:rgba(255,69,84,.06);border:1.5px solid rgba(255,69,84,.2);border-radius:12px;padding:10px 13px;margin-bottom:12px;cursor:pointer;display:flex;align-items:center;gap:10px;">
+      <span style="font-size:20px;">🔨</span>
+      <div style="flex:1;">
+        <div style="font-size:12px;font-weight:700;color:var(--red);">${curRole==='wholesale'?'경매 관리':'경매 참여'}</div>
+        <div style="font-size:10px;color:var(--t2);">${AUCTIONS.filter(a=>a.status==='ongoing').length>0?'🔴 지금 경매 진행 중':'예정 경매 '+AUCTIONS.filter(a=>a.status==='scheduled').length+'건'}</div>
+      </div>
+      <span style="color:var(--t3);">›</span>
+    </div>`:''}
 
     <!-- 발송 현황 요약 -->
     <div style="background:var(--s1);border:1px solid var(--b1);border-radius:16px;padding:14px;margin-bottom:12px;">
