@@ -2990,64 +2990,218 @@ function renderSettlePageOld(){}
 function renderMyPage(){
   const r=ROLES[curRole];
   const isProducer=['producer_ind','producer_corp'].includes(curRole);
-  if(isProducer) renderMyPageProducer(r);
-  else renderMyPageGeneral(r);
+  const isMerchant=['merchant_ind','wholesale'].includes(curRole);
+  if(isProducer)      renderMyPageProducer(r);
+  else if(isMerchant) renderMyPageMerchant(r);
+  else                renderMyPageGeneral(r);
 }
 
+// ── 공통 카드결제 섹션 ──
+function renderMyPaymentSection(){
+  const hasCard=window._savedCard||false;
+  const tokenBalance=window._tokenBalance||0;
+  const isProducer=['producer_ind','producer_corp'].includes(curRole);
+  return `
+  <div>
+    <div style="font-size:13px;font-weight:700;margin-bottom:10px;">💳 결제 · 토큰 관리</div>
+    <div style="background:linear-gradient(135deg,rgba(0,232,188,.1),rgba(79,156,249,.08));border:1.5px solid rgba(0,232,188,.25);border-radius:14px;padding:14px;margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div>
+          <div style="font-size:11px;color:var(--t2);">GARAK AI 토큰 잔액</div>
+          <div style="font-size:24px;font-weight:900;color:var(--a1);">${tokenBalance.toLocaleString()} <span style="font-size:13px;">T</span></div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:10px;color:var(--t2);">1T = 약 ₩10</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:2px;">잔여 약 ₩${(tokenBalance*10).toLocaleString()}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button onclick="window.openTokenCharge()" style="flex:1;padding:9px;border-radius:10px;background:var(--a1);color:#080d18;font-size:12px;font-weight:700;border:none;cursor:pointer;">💳 토큰 충전</button>
+        <button onclick="toast('토큰 사용 내역 준비 중')" style="flex:1;padding:9px;border-radius:10px;background:var(--s2);border:1px solid var(--b1);color:var(--t1);font-size:12px;font-weight:700;cursor:pointer;">📋 사용 내역</button>
+      </div>
+    </div>
+    ${isProducer&&tokenBalance===0?`
+    <div style="background:rgba(244,196,48,.06);border:1.5px solid rgba(244,196,48,.3);border-radius:14px;padding:12px 14px;margin-bottom:10px;cursor:pointer;" onclick="window.toggleAutoDeduct()">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+        <span style="font-size:20px;">🌾</span>
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:800;color:var(--a4);">물품대금 자동 차감</div>
+          <div style="font-size:10px;color:var(--t2);">토큰 없을 시 정산 대금에서 자동 차감</div>
+        </div>
+        <div style="width:36px;height:20px;border-radius:10px;background:${window._autoDeduct?'var(--a1)':' var(--s3)'};position:relative;transition:background .2s;flex-shrink:0;">
+          <div style="position:absolute;top:2px;${window._autoDeduct?'right:2px':'left:2px'};width:16px;height:16px;border-radius:50%;background:#fff;transition:all .2s;"></div>
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--t2);line-height:1.6;">
+        ${window._autoDeduct?'✅ 활성화 · 정산 대금 수령 시 AI 이용료 자동 차감':'토큰 충전 없이 서비스 이용 · 정산 완료 시 자동 차감'}
+      </div>
+    </div>`:''}
+    <div style="font-size:12px;font-weight:700;margin-bottom:8px;">💳 결제 카드 관리</div>
+    ${hasCard?`
+    <div style="background:linear-gradient(135deg,var(--s2),var(--s3));border:1px solid var(--b1);border-radius:14px;padding:14px;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <div style="font-size:13px;font-weight:800;">•••• •••• •••• 1234</div>
+        <span class="tag tag-g" style="font-size:9px;">기본카드</span>
+      </div>
+      <div style="font-size:11px;color:var(--t2);margin-bottom:10px;">신한카드 · 유효기간 12/28</div>
+      <div style="display:flex;gap:6px;">
+        <button onclick="toast('카드 변경 기능 준비 중')" style="flex:1;padding:7px;border-radius:8px;background:var(--s2);border:1px solid var(--b1);color:var(--t1);font-size:11px;cursor:pointer;">카드 변경</button>
+        <button onclick="toast('카드 삭제 기능 준비 중')" style="flex:1;padding:7px;border-radius:8px;background:rgba(255,69,84,.08);border:1px solid rgba(255,69,84,.2);color:var(--red);font-size:11px;cursor:pointer;">삭제</button>
+      </div>
+    </div>`:`
+    <div style="background:var(--s2);border:1.5px dashed var(--b1);border-radius:14px;padding:16px;text-align:center;margin-bottom:8px;cursor:pointer;" onclick="window.openCardRegister()">
+      <div style="font-size:28px;margin-bottom:6px;">💳</div>
+      <div style="font-size:13px;font-weight:700;margin-bottom:4px;">결제 카드 등록</div>
+      <div style="font-size:11px;color:var(--t2);">카드 등록 시 토큰 간편 충전 가능</div>
+    </div>`}
+    <button onclick="window.openCardRegister()" style="width:100%;padding:10px;border-radius:10px;background:rgba(79,156,249,.08);border:1.5px solid rgba(79,156,249,.2);color:var(--a2);font-size:12px;font-weight:700;cursor:pointer;">
+      + ${hasCard?'카드 추가 등록':'카드 등록하기'}
+    </button>
+  </div>`;
+}
+
+window.toggleAutoDeduct=function(){
+  window._autoDeduct=!window._autoDeduct;
+  toast(window._autoDeduct?'✅ 물품대금 자동 차감 활성화됨':'물품대금 자동 차감 비활성화됨');
+  renderMyPage();
+};
+window.openTokenCharge=function(){ toast('💳 토큰 충전 기능 준비 중 · 카드 등록 후 충전 가능'); };
+window.openCardRegister=function(){ toast('💳 카드 등록 기능 준비 중 · 안전한 결제 모듈로 제공됩니다'); };
+
+// ── 일반 MY (기타 역할) ──
 function renderMyPageGeneral(r){
+  if(!window._myTab) window._myTab='profile';
+  const tabs=[{id:'profile',ic:'👤',lb:'내정보'},{id:'payment',ic:'💳',lb:'결제·토큰'}];
+  let html=`<div class="sec-title" style="margin-bottom:10px;">👤 MY 페이지</div>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:14px;">
+      ${tabs.map(t=>`<div onclick="window.switchMyTab('${t.id}')" style="padding:10px 4px;border-radius:12px;text-align:center;cursor:pointer;background:${window._myTab===t.id?'var(--s3)':' var(--s2)'};border:1.5px solid ${window._myTab===t.id?'var(--a1)':' transparent'};">
+        <div style="font-size:20px;margin-bottom:4px;">${t.ic}</div>
+        <div style="font-size:9px;font-weight:700;color:${window._myTab===t.id?'var(--a1)':' var(--t3)'};">${t.lb}</div>
+      </div>`).join('')}
+    </div><div id="my-sub-content">`;
+  if(window._myTab==='profile') html+=`<div class="card"><div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+      <div style="width:52px;height:52px;border-radius:14px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:26px;">${r.ic}</div>
+      <div><div style="font-size:17px;font-weight:800;">${curUserName||r.n}</div>
+        <div style="font-size:12px;color:var(--t2);">${r.n}</div>
+        <div style="font-family:monospace;color:var(--a1);font-size:11px;margin-top:2px;">${curGkid}</div>
+      </div></div>
+      <button class="btn btn-s" onclick="if(confirm('로그아웃?\')){localStorage.removeItem('garak_user');location.reload();}">로그아웃</button>
+    </div>`;
+  else if(window._myTab==='payment') html+=renderMyPaymentSection();
+  html+='</div>';
+  document.getElementById('mypage-content').innerHTML=html;
+}
+
+// ── 중도매인·청과법인 MY ──
+function renderMyPageMerchant(r){
   const gi=GRADE_INFO[curGrade]||GRADE_INFO.seed;
   const score=calcGradeScore();
-  document.getElementById('mypage-content').innerHTML=`
-    <div class="sec-title" style="margin-bottom:16px;">👤 MY 페이지</div>
-    <div class="card">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+  if(!window._myTab) window._myTab='profile';
+  const isMerchant=curRole==='merchant_ind';
+  const tabs=[
+    {id:'profile',ic:'👤',lb:'내정보'},
+    {id:'partner',ic:'🤝',lb:'거래처관리'},
+    {id:'trade',  ic:'📊',lb:'거래현황'},
+    {id:'payment',ic:'💳',lb:'결제·토큰'},
+  ];
+  let html=`<div class="sec-title" style="margin-bottom:10px;">👤 MY 페이지</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px;">
+      ${tabs.map(t=>`<div onclick="window.switchMyTab('${t.id}')" style="padding:10px 4px;border-radius:12px;text-align:center;cursor:pointer;background:${window._myTab===t.id?'var(--s3)':' var(--s2)'};border:1.5px solid ${window._myTab===t.id?'var(--a1)':' transparent'};">
+        <div style="font-size:20px;margin-bottom:4px;">${t.ic}</div>
+        <div style="font-size:9px;font-weight:700;color:${window._myTab===t.id?'var(--a1)':' var(--t3)'};">${t.lb}</div>
+      </div>`).join('')}
+    </div><div id="my-sub-content">`;
+
+  if(window._myTab==='profile'){
+    html+=`<div class="card" style="margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
         <div style="width:52px;height:52px;border-radius:14px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:26px;">${r.ic}</div>
-        <div>
-          <div style="font-size:17px;font-weight:800;">${curUserName||r.n}</div>
+        <div><div style="font-size:17px;font-weight:800;">${curUserName||r.n}</div>
           <div style="font-size:12px;color:var(--t2);">${r.n}</div>
           <div style="font-family:monospace;color:var(--a1);font-size:11px;margin-top:2px;">${curGkid}</div>
         </div>
       </div>
-      <button class="btn btn-s" onclick="if(confirm('로그아웃 하시겠습니까?')){localStorage.removeItem('garak_user');location.reload();}">로그아웃</button>
+      <div style="background:var(--s2);border-radius:12px;padding:12px;margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div><div style="font-size:11px;color:var(--t2);">GARAK 신뢰등급</div>
+            <div style="font-size:18px;font-weight:800;margin-top:2px;">${gi.label}</div></div>
+          <div style="font-size:26px;font-weight:900;color:var(--a1);">${score}<span style="font-size:13px;">점</span></div>
+        </div>
+        <div style="height:5px;background:var(--s3);border-radius:3px;">
+          <div style="width:${score}%;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--a1),var(--a2));"></div>
+        </div>
+      </div>
+      <div style="background:var(--s2);border-radius:12px;padding:12px;margin-bottom:12px;">
+        <div style="font-size:11px;color:var(--t2);margin-bottom:8px;">💰 미수금 현황</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div style="text-align:center;padding:8px;background:var(--s3);border-radius:8px;">
+            <div style="font-size:10px;color:var(--t2);">미지급</div>
+            <div style="font-size:18px;font-weight:800;color:var(--red);">${INVOICES.filter(i=>['confirmed','reported'].includes(i.status)).length}건</div>
+          </div>
+          <div style="text-align:center;padding:8px;background:var(--s3);border-radius:8px;">
+            <div style="font-size:10px;color:var(--t2);">정산완료</div>
+            <div style="font-size:18px;font-weight:800;color:var(--a1);">${INVOICES.filter(i=>i.status==='eform').length}건</div>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-s" onclick="if(confirm('로그아웃?\')){localStorage.removeItem('garak_user');location.reload();}">로그아웃</button>
     </div>`;
+  } else if(window._myTab==='partner'){
+    html+=renderMyPartnerSection();
+  } else if(window._myTab==='trade'){
+    const myInvoices=INVOICES;
+    const totalAmt=myInvoices.reduce((s,i)=>s+(i.total_amt||0),0);
+    html+=`<div style="font-size:13px;font-weight:700;margin-bottom:10px;">📊 거래 현황</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+      ${[{lb:'총 거래',val:myInvoices.length+'건',clr:'var(--a2)'},{lb:'총 거래액',val:'₩'+totalAmt.toLocaleString(),clr:'var(--a4)'},{lb:'처리대기',val:INVOICES.filter(i=>['sent','transit','confirmed'].includes(i.status)).length+'건',clr:'var(--org)'},{lb:'전표완료',val:INVOICES.filter(i=>i.status==='eform').length+'건',clr:'var(--a1)'}].map(d=>`
+      <div style="background:var(--s2);border-radius:10px;padding:10px;text-align:center;">
+        <div style="font-size:10px;color:var(--t2);">${d.lb}</div>
+        <div style="font-size:16px;font-weight:800;color:${d.clr};margin-top:3px;">${d.val}</div>
+      </div>`).join('')}
+    </div>
+    <div class="card">
+      <div style="font-size:12px;font-weight:700;margin-bottom:8px;">📦 취급 품목</div>
+      ${myInvoices.length===0?'<div style="font-size:11px;color:var(--t2);">거래 이력이 없습니다</div>':
+        Object.entries(myInvoices.reduce((acc,i)=>{acc[i.item]=(acc[i.item]||0)+1;return acc;},{})).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([item,cnt])=>`
+        <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--b2);font-size:12px;">
+          <span>${item}</span><span style="color:var(--a2);font-weight:700;">${cnt}건</span>
+        </div>`).join('')}
+    </div>
+    ${isMerchant?`<div class="warning-banner" style="margin-top:10px;cursor:pointer;" onclick="window.openPenaltySheet('all')">
+      <div class="wb-hd"><span style="font-size:14px;">⚠️</span><span class="wb-title">중도매인 준수사항</span></div>
+      <div style="font-size:11px;color:var(--t2);">대금 지급 지연·전표 미발행 시 거래 정지</div>
+    </div>`:''}`;
+  } else if(window._myTab==='payment'){
+    html+=renderMyPaymentSection();
+  }
+  html+='</div>';
+  document.getElementById('mypage-content').innerHTML=html;
 }
 
 function renderMyPageProducer(r){
   const gi=GRADE_INFO[curGrade]||GRADE_INFO.seed;
   const score=calcGradeScore();
-
   if(!window._myTab) window._myTab='profile';
-
   const tabs=[
-    {id:'profile',  ic:'👤', lb:'내정보'},
-    {id:'partner',  ic:'🤝', lb:'거래처관리'},
-    {id:'crop',     ic:'🌱', lb:'작물관리'},
-    {id:'benefit',  ic:'💎', lb:'혜택·정책자금'},
+    {id:'profile', ic:'👤', lb:'내정보'},
+    {id:'partner', ic:'🤝', lb:'거래처관리'},
+    {id:'crop',    ic:'🌱', lb:'작물관리'},
+    {id:'benefit', ic:'💎', lb:'혜택·정책자금'},
+    {id:'payment', ic:'💳', lb:'결제·토큰'},
   ];
-
-  let html=`
-    <div class="sec-title" style="margin-bottom:10px;">👤 MY 페이지</div>
-
-    <!-- 서브탭 — 아이콘 상단 배치 -->
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px;">
-      ${tabs.map(t=>`
-      <div onclick="window.switchMyTab('${t.id}')"
-        style="padding:10px 4px;border-radius:12px;text-align:center;cursor:pointer;
-          background:${window._myTab===t.id?'var(--s3)':'var(--s2)'};
-          border:1.5px solid ${window._myTab===t.id?'var(--a1)':'transparent'};">
-        <div style="font-size:20px;margin-bottom:4px;">${t.ic}</div>
-        <div style="font-size:9px;font-weight:700;color:${window._myTab===t.id?'var(--a1)':'var(--t3)'};">${t.lb}</div>
+  let html=`<div class="sec-title" style="margin-bottom:10px;">👤 MY 페이지</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:14px;">
+      ${tabs.map(t=>`<div onclick="window.switchMyTab('${t.id}')" style="padding:9px 3px;border-radius:12px;text-align:center;cursor:pointer;background:${window._myTab===t.id?'var(--s3)':' var(--s2)'};border:1.5px solid ${window._myTab===t.id?'var(--a1)':' transparent'};">
+        <div style="font-size:18px;margin-bottom:3px;">${t.ic}</div>
+        <div style="font-size:8px;font-weight:700;color:${window._myTab===t.id?'var(--a1)':' var(--t3)'};">${t.lb}</div>
       </div>`).join('')}
-    </div>
-
-    <div id="my-sub-content">`;
-
-  if(window._myTab==='profile')  html+=renderMyProfile(r,gi,score);
+    </div><div id="my-sub-content">`;
+  if(window._myTab==='profile')      html+=renderMyProfile(r,gi,score);
   else if(window._myTab==='partner') html+=renderMyPartnerSection();
   else if(window._myTab==='crop')    html+=renderMyCropSection();
   else if(window._myTab==='benefit') html+=renderMyBenefitSection();
-
-  html+=`</div>`;
+  else if(window._myTab==='payment') html+=renderMyPaymentSection();
+  html+='</div>';
   document.getElementById('mypage-content').innerHTML=html;
 }
 
