@@ -1183,9 +1183,50 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
 // ══════════════════════════════════════════
 
 const SUPABASE_URL = 'https://stqmgwwpuphqflwtekuy.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_E5FHlxYRRSgXWF_CYyBYTA_wTUZQtQ2';
+const SUPABASE_KEY = 'YOUR_PUBLISHABLE_KEY_HERE'; // ← 여기에 Publishable Key 붙여넣기
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Supabase 연결 여부 확인
+const SUPABASE_READY = SUPABASE_KEY !== 'YOUR_PUBLISHABLE_KEY_HERE';
+
+// ── Supabase DB 동기화 함수 ──
+async function syncToSupabase(){
+  if(!SUPABASE_READY || !curGkid) return;
+  try {
+    // 사용자 정보 upsert
+    await db.from('users').upsert({
+      gkid: curGkid, role: curRole,
+      name: curUserName, grade: curGrade,
+      tel: window._userTel||'', biznum: window._userBiznum||'',
+      corpnum: window._userCorpnum||'',
+      nationality: window._foreignInfo?'foreign':'korean',
+      updated_at: new Date().toISOString(),
+    }, {onConflict:'gkid'});
+    // 송장 upsert
+    for(const inv of INVOICES){
+      await db.from('invoices').upsert({...inv, producer_gkid: curGkid}, {onConflict:'id'});
+    }
+    // 작물 upsert
+    for(const crop of CROPS){
+      await db.from('crops').upsert({...crop, producer_gkid: curGkid}, {onConflict:'id'});
+    }
+    console.log('✅ Supabase 동기화 완료');
+  } catch(e){ console.warn('Supabase 동기화 실패:', e.message); }
+}
+
+async function loadFromSupabase(){
+  if(!SUPABASE_READY || !curGkid) return;
+  try {
+    // 송장 로드
+    const {data: invData} = await db.from('invoices').select('*').eq('producer_gkid', curGkid).order('created_at', {ascending:false});
+    if(invData?.length) INVOICES = invData;
+    // 작물 로드
+    const {data: cropData} = await db.from('crops').select('*').eq('producer_gkid', curGkid);
+    if(cropData?.length) CROPS = cropData;
+    console.log('✅ Supabase 데이터 로드 완료');
+  } catch(e){ console.warn('Supabase 로드 실패:', e.message); }
+}
 
 // ── AI 데이터 ──
 const AI_PRICES = {사과:32000,배:28000,감자:11000,배추:8500,마늘:28000,양파:12000,딸기:55000,토마토:22000,고추:45000,포도:38000,복숭아:35000,수박:25000,참외:22000,무:5500,당근:15000,오이:18000};
@@ -2423,7 +2464,7 @@ function startApp(r){
   document.getElementById('ai-float').style.display=isGovOnly?'none':'block';
 }
 
-// 앱 데이터 저장
+// 앱 데이터 저장 (localStorage + Supabase)
 function saveAppData(){
   try {
     localStorage.setItem('garak_data_'+curGkid, JSON.stringify({
@@ -2439,35 +2480,43 @@ function saveAppData(){
       _servicePartners: window._servicePartners,
       _tokenBalance:window._tokenBalance,
       _autoDeduct:  window._autoDeduct,
+      MY_BIDS:      window.MY_BIDS,
+      MY_LISTINGS:  window.MY_LISTINGS,
       curGrade,
     }));
   } catch(e){ console.warn('저장 실패:', e); }
+  // Supabase 동기화 (비동기, 실패해도 무시)
+  if(SUPABASE_READY) syncToSupabase().catch(()=>{});
 }
 
-// 앱 데이터 복원
+// 앱 데이터 복원 (localStorage → Supabase 순서)
 function loadAppData(){
   try {
     const raw = localStorage.getItem('garak_data_'+curGkid);
-    if(!raw) return;
-    const d = JSON.parse(raw);
-    if(d.INVOICES)         INVOICES = d.INVOICES;
-    if(d.CALLS)            CALLS    = d.CALLS;
-    if(d.CROPS)            CROPS    = d.CROPS;
-    if(d.EXPENSES)         EXPENSES = d.EXPENSES;
-    if(d._profileData)     window._profileData     = d._profileData;
-    if(d._userDocs)        window._userDocs        = d._userDocs;
-    if(d._bankInfo)        window._bankInfo        = d._bankInfo;
-    if(d._userEmail)       window._userEmail       = d._userEmail;
-    if(d._userAddr)        window._userAddr        = d._userAddr;
-    if(d._subUsers)        window._subUsers        = d._subUsers;
-    if(d._partners)        window._partners        = d._partners;
-    if(d._servicePartners) window._servicePartners = d._servicePartners;
-    if(d._tokenBalance)    window._tokenBalance    = d._tokenBalance;
-    if(d._autoDeduct!=null)window._autoDeduct      = d._autoDeduct;
-    if(d.curGrade)         curGrade                = d.curGrade;
-    // 프로필 데이터 복원 시 이름 동기화
-    if(d._profileData?.name) curUserName = d._profileData.name;
+    if(raw){
+      const d = JSON.parse(raw);
+      if(d.INVOICES)         INVOICES = d.INVOICES;
+      if(d.CALLS)            CALLS    = d.CALLS;
+      if(d.CROPS)            CROPS    = d.CROPS;
+      if(d.EXPENSES)         EXPENSES = d.EXPENSES;
+      if(d._profileData)     window._profileData     = d._profileData;
+      if(d._userDocs)        window._userDocs        = d._userDocs;
+      if(d._bankInfo)        window._bankInfo        = d._bankInfo;
+      if(d._userEmail)       window._userEmail       = d._userEmail;
+      if(d._userAddr)        window._userAddr        = d._userAddr;
+      if(d._subUsers)        window._subUsers        = d._subUsers;
+      if(d._partners)        window._partners        = d._partners;
+      if(d._servicePartners) window._servicePartners = d._servicePartners;
+      if(d._tokenBalance)    window._tokenBalance    = d._tokenBalance;
+      if(d._autoDeduct!=null)window._autoDeduct      = d._autoDeduct;
+      if(d.MY_BIDS)          window.MY_BIDS          = d.MY_BIDS;
+      if(d.MY_LISTINGS)      window.MY_LISTINGS      = d.MY_LISTINGS;
+      if(d.curGrade)         curGrade                = d.curGrade;
+      if(d._profileData?.name) curUserName = d._profileData.name;
+    }
   } catch(e){ console.warn('복원 실패:', e); }
+  // Supabase에서 최신 데이터 가져오기 (있으면 덮어씀)
+  if(SUPABASE_READY) loadFromSupabase().then(()=>{ renderHome(); updateGradeBadge(); }).catch(()=>{});
 }
 
 function loadSavedLogin(){
