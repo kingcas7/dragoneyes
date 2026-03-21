@@ -1460,7 +1460,7 @@ function renderEformPage(){
   else if(window._ledgerTab==='settle')  renderSettlePage();
 }
 
-// ── 장부 메인 (정산현황 상단 + 큰 메뉴 2개) ──
+// ── 장부 메인 (정산현황 상단 + 큰 메뉴 2개 — 한 화면에 맞게 컴팩트) ──
 function renderLedgerMain(){
   const totalAmt = INVOICES.reduce((s,i)=>s+(i.total_amt||0),0);
   const completedAmt = INVOICES.filter(i=>i.status==='eform').reduce((s,i)=>s+(i.total_amt||0),0);
@@ -1468,73 +1468,69 @@ function renderLedgerMain(){
   const unpaidAmt = unpaidList.reduce((s,i)=>s+(i.total_amt||0),0);
 
   document.getElementById('eform-content').innerHTML=`
-    <div class="sec-title" style="margin-bottom:16px;">📒 장부 관리</div>
+    <div style="font-size:15px;font-weight:800;margin-bottom:10px;">📒 장부 관리</div>
 
-    <!-- ① 정산현황 (제일 상단) -->
-    <div style="background:linear-gradient(135deg,rgba(0,232,188,.08),rgba(79,156,249,.05));border:1.5px solid rgba(0,232,188,.25);border-radius:20px;padding:18px;margin-bottom:14px;cursor:pointer;" onclick="window._ledgerTab='settle';renderEformPage();">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-        <span style="font-size:22px;">💰</span>
-        <span style="font-size:16px;font-weight:800;">정산 현황</span>
-        <span style="margin-left:auto;font-size:11px;color:var(--a1);">상세보기 →</span>
+    <!-- ① 정산현황 -->
+    <div style="background:linear-gradient(135deg,rgba(0,232,188,.08),rgba(79,156,249,.05));border:1.5px solid rgba(0,232,188,.25);border-radius:16px;padding:12px 14px;margin-bottom:10px;cursor:pointer;" onclick="window._ledgerTab='settle';renderEformPage();">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <span style="font-size:16px;">💰</span>
+        <span style="font-size:14px;font-weight:800;">정산 현황</span>
+        <span style="margin-left:auto;font-size:10px;color:var(--a1);">상세보기 →</span>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <div style="background:rgba(0,232,188,.08);border:1px solid rgba(0,232,188,.2);border-radius:12px;padding:12px;text-align:center;">
-          <div style="font-size:10px;color:var(--t2);margin-bottom:4px;">✅ 정산 완료</div>
-          <div style="font-size:18px;font-weight:900;color:var(--a1);">₩${completedAmt.toLocaleString()}</div>
-          <div style="font-size:10px;color:var(--t3);margin-top:2px;">${INVOICES.filter(i=>i.status==='eform').length}건</div>
-        </div>
-        <div style="background:rgba(255,69,84,.07);border:1px solid rgba(255,69,84,.2);border-radius:12px;padding:12px;text-align:center;">
-          <div style="font-size:10px;color:var(--t2);margin-bottom:4px;">⏳ 미수 현황</div>
-          <div style="font-size:18px;font-weight:900;color:var(--red);">₩${unpaidAmt.toLocaleString()}</div>
-          <div style="font-size:10px;color:var(--t3);margin-top:2px;">${unpaidList.length}건</div>
-        </div>
-      </div>
-      ${unpaidList.length>0?`<div style="margin-top:10px;padding:8px 10px;background:rgba(255,69,84,.06);border-radius:8px;font-size:11px;color:var(--red);">⚠️ 미수금 ${unpaidList.length}건 · 독촉 또는 신고가 필요합니다</div>`:''}
-    </div>
-
-    <!-- ② 큰 메뉴 2개 -->
-    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px;">
-      <div onclick="window._ledgerTab='ledger';renderEformPage();" style="
-        background:rgba(0,232,188,.06);border:1.5px solid rgba(0,232,188,.2);border-radius:18px;
-        padding:22px 18px;cursor:pointer;display:flex;align-items:center;gap:18px;">
-        <div style="font-size:46px;flex-shrink:0;">📊</div>
-        <div>
-          <div style="font-size:17px;font-weight:800;margin-bottom:4px;">거래내역 조회</div>
-          <div style="font-size:12px;color:var(--t2);line-height:1.6;">주간 · 월간 · 년간 거래 목록<br>엑셀 다운로드 · 전표 PDF 출력</div>
-          <div style="margin-top:8px;display:flex;gap:6px;">
-            <span class="tag tag-g">엑셀 다운로드</span>
-            <span class="tag tag-b">PDF 출력</span>
-          </div>
-        </div>
-      </div>
-      <div onclick="window._ledgerTab='expense';renderEformPage();" style="
-        background:rgba(244,196,48,.06);border:1.5px solid rgba(244,196,48,.2);border-radius:18px;
-        padding:22px 18px;cursor:pointer;display:flex;align-items:center;gap:18px;">
-        <div style="font-size:46px;flex-shrink:0;">🧾</div>
-        <div>
-          <div style="font-size:17px;font-weight:800;margin-bottom:4px;">경비(매입) 입력</div>
-          <div style="font-size:12px;color:var(--t2);line-height:1.6;">영수증 사진 첨부 · 경비 항목 등록<br>매입자료 목록 관리 · PDF 출력</div>
-          <div style="margin-top:8px;display:flex;gap:6px;">
-            <span class="tag tag-y">영수증 첨부</span>
-            <span class="tag tag-o">경비목록 관리</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ③ 이번달 요약 -->
-    <div class="card">
-      <div style="font-size:12px;font-weight:700;color:var(--a1);margin-bottom:10px;">📈 이번달 요약</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div style="background:rgba(0,232,188,.08);border:1px solid rgba(0,232,188,.2);border-radius:10px;padding:9px;text-align:center;">
+          <div style="font-size:9px;color:var(--t2);margin-bottom:3px;">✅ 정산 완료</div>
+          <div style="font-size:15px;font-weight:900;color:var(--a1);">₩${completedAmt.toLocaleString()}</div>
+          <div style="font-size:9px;color:var(--t3);margin-top:1px;">${INVOICES.filter(i=>i.status==='eform').length}건</div>
+        </div>
+        <div style="background:rgba(255,69,84,.07);border:1px solid rgba(255,69,84,.2);border-radius:10px;padding:9px;text-align:center;">
+          <div style="font-size:9px;color:var(--t2);margin-bottom:3px;">⏳ 미수 현황</div>
+          <div style="font-size:15px;font-weight:900;color:var(--red);">₩${unpaidAmt.toLocaleString()}</div>
+          <div style="font-size:9px;color:var(--t3);margin-top:1px;">${unpaidList.length}건</div>
+        </div>
+      </div>
+      ${unpaidList.length>0?`<div style="margin-top:8px;padding:5px 9px;background:rgba(255,69,84,.06);border-radius:7px;font-size:10px;color:var(--red);">⚠️ 미수금 ${unpaidList.length}건 · 독촉 또는 신고 필요</div>`:''}
+    </div>
+
+    <!-- ② 메뉴 2개 -->
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;">
+      <div onclick="window._ledgerTab='ledger';renderEformPage();" style="background:rgba(0,232,188,.06);border:1.5px solid rgba(0,232,188,.2);border-radius:14px;padding:14px 16px;cursor:pointer;display:flex;align-items:center;gap:14px;">
+        <div style="font-size:36px;flex-shrink:0;">📊</div>
+        <div>
+          <div style="font-size:14px;font-weight:800;margin-bottom:2px;">거래내역 조회</div>
+          <div style="font-size:11px;color:var(--t2);">주간·월간·년간 · 거래처별 조회</div>
+          <div style="margin-top:5px;display:flex;gap:5px;">
+            <span class="tag tag-g" style="font-size:9px;">엑셀</span>
+            <span class="tag tag-b" style="font-size:9px;">PDF</span>
+          </div>
+        </div>
+      </div>
+      <div onclick="window._ledgerTab='expense';renderEformPage();" style="background:rgba(244,196,48,.06);border:1.5px solid rgba(244,196,48,.2);border-radius:14px;padding:14px 16px;cursor:pointer;display:flex;align-items:center;gap:14px;">
+        <div style="font-size:36px;flex-shrink:0;">🧾</div>
+        <div>
+          <div style="font-size:14px;font-weight:800;margin-bottom:2px;">경비(매입) 입력</div>
+          <div style="font-size:11px;color:var(--t2);">영수증 첨부 · 경비목록 · PDF 출력</div>
+          <div style="margin-top:5px;display:flex;gap:5px;">
+            <span class="tag tag-y" style="font-size:9px;">영수증</span>
+            <span class="tag tag-o" style="font-size:9px;">경비목록</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ③ 이번달 요약 (컴팩트) -->
+    <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:10px 12px;">
+      <div style="font-size:10px;font-weight:700;color:var(--a1);margin-bottom:8px;">📈 이번달 요약</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;">
         ${[
-          {lb:'총 매출',val:'₩'+totalAmt.toLocaleString(),clr:'var(--a1)'},
-          {lb:'총 경비',val:'₩'+EXPENSES.reduce((s,e)=>s+(e.amount||0),0).toLocaleString(),clr:'var(--red)'},
-          {lb:'거래 건수',val:INVOICES.length+'건',clr:'var(--a2)'},
-          {lb:'경비 건수',val:EXPENSES.length+'건',clr:'var(--org)'},
+          {lb:'총매출',val:'₩'+totalAmt.toLocaleString(),clr:'var(--a1)'},
+          {lb:'총경비',val:'₩'+EXPENSES.reduce((s,e)=>s+(e.amount||0),0).toLocaleString(),clr:'var(--red)'},
+          {lb:'거래',val:INVOICES.length+'건',clr:'var(--a2)'},
+          {lb:'경비',val:EXPENSES.length+'건',clr:'var(--org)'},
         ].map(d=>`
-        <div style="background:var(--s2);border-radius:10px;padding:10px;text-align:center;">
-          <div style="font-size:10px;color:var(--t2);">${d.lb}</div>
-          <div style="font-size:15px;font-weight:800;color:${d.clr};margin-top:3px;">${d.val}</div>
+        <div style="background:var(--s2);border-radius:8px;padding:7px 4px;text-align:center;">
+          <div style="font-size:9px;color:var(--t2);">${d.lb}</div>
+          <div style="font-size:12px;font-weight:800;color:${d.clr};margin-top:2px;">${d.val}</div>
         </div>`).join('')}
       </div>
     </div>`;
@@ -1942,132 +1938,185 @@ window.printExpensePDF=function(id){
 };
 
 // ══════════════
-// 정산현황 페이지 (장부 내 서브탭)
+// 정산현황 페이지 — 일별목록 + 거래처별(일별·월별·년간)
 // ══════════════
 function renderSettlePage(){
-  // 정산완료 목록
+  const now = new Date();
   const completedList = INVOICES.filter(i=>i.status==='eform');
-  const completedAmt = completedList.reduce((s,i)=>s+(i.total_amt||0),0);
-  // 미수 목록 (수령확인~출하신고 완료됐지만 전표미전환)
-  const unpaidList = INVOICES.filter(i=>['confirmed','reported'].includes(i.status));
-  const unpaidAmt = unpaidList.reduce((s,i)=>s+(i.total_amt||0),0);
+  const unpaidList    = INVOICES.filter(i=>['confirmed','reported'].includes(i.status));
+  const completedAmt  = completedList.reduce((s,i)=>s+(i.total_amt||0),0);
+  const unpaidAmt     = unpaidList.reduce((s,i)=>s+(i.total_amt||0),0);
 
-  if(!window._settleTab) window._settleTab='unpaid';
+  if(!window._settleTab)    window._settleTab='daily';
+  if(!window._settleScope)  window._settleScope='all';   // 'all' | 'completed' | 'unpaid'
+  if(!window._settlePeriod) window._settlePeriod='monthly'; // 'daily'|'monthly'|'yearly'
+
+  // 전체 대상 (완료+미수)
+  const allList = [...completedList, ...unpaidList].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
 
   document.getElementById('eform-content').innerHTML=`
     <!-- 헤더 -->
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
-      <button onclick="window._ledgerTab='main';window._settleTab='unpaid';renderEformPage();" style="color:var(--t2);font-size:20px;padding:4px;">←</button>
-      <div style="font-size:17px;font-weight:800;">💰 정산 현황</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <button onclick="window._ledgerTab='main';renderEformPage();" style="color:var(--t2);font-size:20px;padding:0 4px;">←</button>
+      <div style="font-size:16px;font-weight:800;">💰 정산 현황</div>
     </div>
 
-    <!-- 요약 카드 -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
-      <div onclick="window._settleTab='completed';renderSettlePage();" style="background:rgba(0,232,188,.07);border:1.5px solid ${window._settleTab==='completed'?'var(--a1)':'rgba(0,232,188,.2)'};border-radius:14px;padding:14px;text-align:center;cursor:pointer;">
-        <div style="font-size:10px;color:var(--t2);">✅ 정산 완료</div>
-        <div style="font-size:20px;font-weight:900;color:var(--a1);margin:4px 0;">₩${completedAmt.toLocaleString()}</div>
-        <div style="font-size:10px;color:var(--t3);">${completedList.length}건</div>
+    <!-- 요약 카드 (탭 겸용) -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px;">
+      <div onclick="window._settleScope='all';renderSettlePage();" style="background:rgba(79,156,249,.07);border:1.5px solid ${window._settleScope==='all'?'var(--a2)':'rgba(79,156,249,.2)'};border-radius:12px;padding:9px;text-align:center;cursor:pointer;">
+        <div style="font-size:9px;color:var(--t2);">📋 전체</div>
+        <div style="font-size:14px;font-weight:900;color:var(--a2);margin:2px 0;">₩${(completedAmt+unpaidAmt).toLocaleString()}</div>
+        <div style="font-size:9px;color:var(--t3);">${allList.length}건</div>
       </div>
-      <div onclick="window._settleTab='unpaid';renderSettlePage();" style="background:rgba(255,69,84,.06);border:1.5px solid ${window._settleTab==='unpaid'?'var(--red)':'rgba(255,69,84,.2)'};border-radius:14px;padding:14px;text-align:center;cursor:pointer;">
-        <div style="font-size:10px;color:var(--t2);">⏳ 미수 현황</div>
-        <div style="font-size:20px;font-weight:900;color:var(--red);margin:4px 0;">₩${unpaidAmt.toLocaleString()}</div>
-        <div style="font-size:10px;color:var(--t3);">${unpaidList.length}건</div>
+      <div onclick="window._settleScope='completed';renderSettlePage();" style="background:rgba(0,232,188,.07);border:1.5px solid ${window._settleScope==='completed'?'var(--a1)':'rgba(0,232,188,.2)'};border-radius:12px;padding:9px;text-align:center;cursor:pointer;">
+        <div style="font-size:9px;color:var(--t2);">✅ 정산완료</div>
+        <div style="font-size:14px;font-weight:900;color:var(--a1);margin:2px 0;">₩${completedAmt.toLocaleString()}</div>
+        <div style="font-size:9px;color:var(--t3);">${completedList.length}건</div>
+      </div>
+      <div onclick="window._settleScope='unpaid';renderSettlePage();" style="background:rgba(255,69,84,.06);border:1.5px solid ${window._settleScope==='unpaid'?'var(--red)':'rgba(255,69,84,.2)'};border-radius:12px;padding:9px;text-align:center;cursor:pointer;">
+        <div style="font-size:9px;color:var(--t2);">⏳ 미수</div>
+        <div style="font-size:14px;font-weight:900;color:var(--red);margin:2px 0;">₩${unpaidAmt.toLocaleString()}</div>
+        <div style="font-size:9px;color:var(--t3);">${unpaidList.length}건</div>
       </div>
     </div>
 
-    <!-- 서브탭 컨텐츠 -->
-    <div id="settle-sub">
-      ${window._settleTab==='completed' ? renderSettleCompleted(completedList) : renderSettleUnpaid(unpaidList)}
+    <!-- 조회 방식 선택 -->
+    <div style="display:flex;gap:6px;margin-bottom:10px;background:var(--s2);border-radius:10px;padding:3px;">
+      ${[['daily','일별 목록'],['partner','거래처별']].map(([id,lb])=>`
+      <div onclick="window._settleTab='${id}';renderSettlePage();"
+        style="flex:1;padding:7px;border-radius:8px;text-align:center;cursor:pointer;font-size:11px;font-weight:700;
+          background:${window._settleTab===id?'var(--s3)':'transparent'};
+          color:${window._settleTab===id?'var(--a1)':'var(--t3)'};">${lb}</div>`).join('')}
+    </div>
+
+    <!-- 거래처별일 때 기간 선택 -->
+    ${window._settleTab==='partner'?`
+    <div style="display:flex;gap:5px;margin-bottom:10px;">
+      ${[['monthly','월별'],['daily','일별'],['yearly','년간']].map(([p,lb])=>`
+      <div onclick="window._settlePeriod='${p}';renderSettlePage();"
+        style="flex:1;padding:6px;border-radius:8px;text-align:center;cursor:pointer;font-size:11px;font-weight:700;border:1px solid ${window._settlePeriod===p?'var(--a1)':'var(--b1)'};background:${window._settlePeriod===p?'rgba(0,232,188,.08)':'var(--s2)'};color:${window._settlePeriod===p?'var(--a1)':'var(--t3)'};">${lb}</div>`).join('')}
+    </div>`:''}
+
+    <!-- 목록 영역 -->
+    <div id="settle-list">
+      ${window._settleTab==='daily' ? renderSettleDaily() : renderSettleByPartner()}
     </div>`;
 }
 
-function renderSettleCompleted(list){
-  if(!list.length) return `
-    <div style="text-align:center;padding:40px 20px;color:var(--t2);">
-      <div style="font-size:40px;margin-bottom:10px;">✅</div>
-      <div>정산 완료된 거래가 없습니다</div>
-    </div>`;
-  return list.map(inv=>{
-    const total=inv.total_amt||0;
+// ── 일별 목록 뷰 ──
+function renderSettleDaily(){
+  const scope = window._settleScope||'all';
+  const completedList = INVOICES.filter(i=>i.status==='eform');
+  const unpaidList    = INVOICES.filter(i=>['confirmed','reported'].includes(i.status));
+  let list = scope==='all' ? [...completedList,...unpaidList]
+           : scope==='completed' ? completedList : unpaidList;
+  list = list.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+
+  if(!list.length) return `<div style="text-align:center;padding:30px;color:var(--t2);">해당 거래가 없습니다</div>`;
+
+  // 날짜별 그룹핑
+  const groups = {};
+  list.forEach(inv=>{
     const d=new Date(inv.created_at);
+    const key=`${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+    if(!groups[key]) groups[key]=[];
+    groups[key].push(inv);
+  });
+
+  return Object.entries(groups).map(([date,invs])=>{
+    const dayTotal = invs.reduce((s,i)=>s+(i.total_amt||0),0);
     return `
-    <div style="background:var(--s1);border:1px solid rgba(0,232,188,.2);border-radius:14px;padding:12px 14px;margin-bottom:8px;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
-        <div>
-          <div style="font-size:13px;font-weight:700;">${inv.item} ${inv.qty}박스</div>
-          <div style="font-size:11px;color:var(--t2);margin-top:2px;">→ ${inv.buyer_name} · ${d.getMonth()+1}/${d.getDate()}</div>
-        </div>
-        <div style="text-align:right;">
-          <span class="tag tag-g" style="font-size:9px;">정산완료</span>
-          <div style="font-size:15px;font-weight:800;color:var(--a1);margin-top:4px;">₩${total.toLocaleString()}</div>
-        </div>
+    <div style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 2px;margin-bottom:5px;border-bottom:1px solid var(--b1);">
+        <span style="font-size:11px;font-weight:700;color:var(--t2);">📅 ${date}</span>
+        <span style="font-size:11px;font-weight:700;color:var(--a4);">₩${dayTotal.toLocaleString()}</span>
       </div>
-      <button onclick="window.printSinglePDF('${inv.id}')" style="width:100%;padding:7px;border-radius:8px;background:rgba(255,69,84,.08);border:1px solid rgba(255,69,84,.2);color:var(--red);font-size:11px;font-weight:700;cursor:pointer;margin-top:4px;">🖨️ 전표 PDF 출력</button>
+      ${invs.map(inv=>renderSettleRow(inv)).join('')}
     </div>`;
   }).join('');
 }
 
-function renderSettleUnpaid(list){
-  if(!list.length) return `
-    <div style="text-align:center;padding:40px 20px;color:var(--t2);">
-      <div style="font-size:40px;margin-bottom:10px;">🎉</div>
-      <div style="font-weight:700;margin-bottom:4px;">미수금이 없습니다!</div>
-      <div style="font-size:12px;">모든 거래 대금이 정상 처리됐어요</div>
-    </div>`;
+// ── 거래처별 뷰 ──
+function renderSettleByPartner(){
+  const scope = window._settleScope||'all';
+  const period = window._settlePeriod||'monthly';
+  const now = new Date();
+  const completedList = INVOICES.filter(i=>i.status==='eform');
+  const unpaidList    = INVOICES.filter(i=>['confirmed','reported'].includes(i.status));
+  let list = scope==='all' ? [...completedList,...unpaidList]
+           : scope==='completed' ? completedList : unpaidList;
 
+  // 기간 필터
+  list = list.filter(inv=>{
+    const d=new Date(inv.created_at);
+    if(period==='daily')   return d.toDateString()===now.toDateString();
+    if(period==='monthly') return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
+    return d.getFullYear()===now.getFullYear();
+  });
+
+  if(!list.length) return `<div style="text-align:center;padding:30px;color:var(--t2);">해당 기간 거래가 없습니다</div>`;
+
+  // 거래처별 그룹핑
+  const groups = {};
+  list.forEach(inv=>{
+    const key = inv.buyer_name||'미정';
+    if(!groups[key]) groups[key]={invs:[],total:0,unpaid:0};
+    groups[key].invs.push(inv);
+    groups[key].total += inv.total_amt||0;
+    if(['confirmed','reported'].includes(inv.status)) groups[key].unpaid += inv.total_amt||0;
+  });
+
+  // 금액 내림차순 정렬
+  const sorted = Object.entries(groups).sort((a,b)=>b[1].total-a[1].total);
+  const periodLabel = {daily:'오늘',monthly:'이번달',yearly:'올해'}[period];
+
+  return sorted.map(([buyer,data])=>`
+    <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;margin-bottom:8px;overflow:hidden;">
+      <!-- 거래처 헤더 -->
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--s2);cursor:pointer;"
+        onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+        <div>
+          <div style="font-size:13px;font-weight:800;">${buyer}</div>
+          <div style="font-size:10px;color:var(--t2);">${periodLabel} ${data.invs.length}건</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:15px;font-weight:900;color:var(--a1);">₩${data.total.toLocaleString()}</div>
+          ${data.unpaid>0?`<div style="font-size:10px;color:var(--red);font-weight:700;">미수 ₩${data.unpaid.toLocaleString()}</div>`:'<div style="font-size:10px;color:var(--a1);">✅ 완료</div>'}
+        </div>
+      </div>
+      <!-- 펼치기: 개별 송장 목록 -->
+      <div style="display:none;padding:8px 10px;">
+        ${data.invs.map(inv=>renderSettleRow(inv)).join('')}
+      </div>
+    </div>`).join('');
+}
+
+// ── 정산 행 (공통) ──
+function renderSettleRow(inv){
+  const total=inv.total_amt||(inv.qty||0)*(inv.price||0);
+  const d=new Date(inv.created_at);
+  const isCompleted=inv.status==='eform';
+  const isUrgent=!isCompleted&&Math.floor((new Date()-d)/(1000*60*60*24))>=7;
+  const statusColors={eform:'var(--a1)',reported:'var(--a4)',confirmed:'var(--org)'};
+  const statusLabels={eform:'정산완료',reported:'출하신고',confirmed:'수령확인'};
   return `
-    <!-- 관리공단 신고 배너 -->
-    <div class="penalty-banner" style="margin-bottom:12px;cursor:pointer;" onclick="window.reportToGaraksa()">
-      <div class="pb-hd">
-        <span class="pb-ic">🏛</span>
-        <span class="pb-title">가락시장관리공단 신고</span>
+  <div style="padding:8px;border-radius:9px;margin-bottom:4px;background:${isCompleted?'rgba(0,232,188,.04)':isUrgent?'rgba(255,69,84,.05)':'rgba(255,165,2,.04)'};border:1px solid ${isCompleted?'rgba(0,232,188,.15)':isUrgent?'rgba(255,69,84,.2)':'rgba(255,165,2,.15)'};">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+      <div style="display:flex;align-items:center;gap:5px;">
+        <span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;background:${statusColors[inv.status]||'var(--t3)'}18;color:${statusColors[inv.status]||'var(--t3)'};">${statusLabels[inv.status]||inv.status}</span>
+        <span style="font-size:12px;font-weight:700;">${inv.item} ${inv.qty}박스</span>
       </div>
-      <div style="font-size:11px;color:var(--t2);line-height:1.6;">대금 지급을 지연하는 거래처를 관리공단에 공식 신고할 수 있습니다.<br>신고 후 관리공단이 중재 절차를 진행합니다.</div>
-      <div style="margin-top:8px;padding:8px 12px;background:rgba(255,69,84,.08);border-radius:8px;display:flex;align-items:center;gap:8px;">
-        <span style="font-size:16px;">📋</span>
-        <span style="font-size:12px;font-weight:700;color:var(--red);">대금지급 지체 신고하기 →</span>
-      </div>
+      <span style="font-size:13px;font-weight:800;color:${isCompleted?'var(--a1)':'var(--red)'};">₩${total.toLocaleString()}</span>
     </div>
-
-    ${list.map(inv=>{
-      const total=inv.total_amt||0;
-      const d=new Date(inv.created_at);
-      const daysPassed=Math.floor((new Date()-d)/(1000*60*60*24));
-      const isUrgent=daysPassed>=7;
-      const dueDateReply=inv.dueDateReply||null;
-      return `
-      <div style="background:var(--s1);border:1.5px solid ${isUrgent?'rgba(255,69,84,.4)':'rgba(255,165,2,.2)'};border-radius:14px;padding:12px 14px;margin-bottom:10px;">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
-          <div style="flex:1;">
-            <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
-              ${isUrgent?'<span class="tag tag-r" style="font-size:9px;">⚠️ 지연 '+daysPassed+'일</span>':'<span class="tag tag-o" style="font-size:9px;">미수 '+daysPassed+'일</span>'}
-              <span style="font-size:13px;font-weight:700;">${inv.item} ${inv.qty}박스</span>
-            </div>
-            <div style="font-size:11px;color:var(--t2);">→ ${inv.buyer_name} · ${d.getMonth()+1}/${d.getDate()} 출하</div>
-          </div>
-          <div style="font-size:16px;font-weight:900;color:var(--red);flex-shrink:0;margin-left:8px;">₩${total.toLocaleString()}</div>
-        </div>
-
-        <!-- 지급예정일 답장 표시 -->
-        ${dueDateReply?`
-        <div style="background:rgba(0,232,188,.06);border:1px solid rgba(0,232,188,.2);border-radius:8px;padding:8px 10px;margin-bottom:8px;">
-          <div style="font-size:10px;color:var(--a1);font-weight:700;margin-bottom:3px;">💬 ${inv.buyer_name} 답장</div>
-          <div style="font-size:12px;color:var(--t1);">"${dueDateReply}"</div>
-        </div>`:''}
-
-        <!-- 액션 버튼들 -->
-        <div style="display:flex;gap:6px;">
-          <button onclick="window.sendDunning('${inv.id}')"
-            style="flex:1;padding:9px 6px;border-radius:10px;background:linear-gradient(135deg,rgba(255,165,2,.15),rgba(255,69,84,.1));border:1.5px solid rgba(255,165,2,.4);color:var(--org);font-size:12px;font-weight:700;cursor:pointer;line-height:1.3;">
-            📣 독촉하기
-          </button>
-          <button onclick="window.reportUnpaid('${inv.id}')"
-            style="flex:1;padding:9px 6px;border-radius:10px;background:rgba(255,69,84,.08);border:1.5px solid rgba(255,69,84,.3);color:var(--red);font-size:12px;font-weight:700;cursor:pointer;line-height:1.3;">
-            🏛 관리공단<br>신고
-          </button>
-        </div>
-      </div>`;
-    }).join('')}`;
+    <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--t2);">
+      <span>→ ${inv.buyer_name} · ${d.getMonth()+1}/${d.getDate()}</span>
+      ${!isCompleted?`<div style="display:flex;gap:4px;">
+        <button onclick="window.sendDunning('${inv.id}')" style="padding:3px 7px;border-radius:6px;background:rgba(255,165,2,.12);border:1px solid rgba(255,165,2,.3);color:var(--org);font-size:9px;font-weight:700;cursor:pointer;">📣독촉</button>
+        <button onclick="window.reportUnpaid('${inv.id}')" style="padding:3px 7px;border-radius:6px;background:rgba(255,69,84,.08);border:1px solid rgba(255,69,84,.25);color:var(--red);font-size:9px;font-weight:700;cursor:pointer;">🏛신고</button>
+      </div>`:'<button onclick="window.printSinglePDF(\''+inv.id+'\')" style="padding:3px 7px;border-radius:6px;background:rgba(255,69,84,.08);border:1px solid rgba(255,69,84,.2);color:var(--red);font-size:9px;cursor:pointer;">🖨️PDF</button>'}
+    </div>
+    ${inv.dueDateReply?`<div style="margin-top:4px;padding:4px 7px;background:rgba(0,232,188,.06);border-radius:6px;font-size:10px;color:var(--a1);">💬 "${inv.dueDateReply}"</div>`:''}
+  </div>`;
 }
 
 // ── 독촉 발송 ──
