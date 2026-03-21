@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>GARAK 4.0</title>
+<title>GARAK AI</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
@@ -18,26 +18,37 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:'Apple SD
 button{font-family:inherit;border:none;cursor:pointer;background:none;color:inherit;touch-action:manipulation;}
 input,select,textarea{font-family:inherit;touch-action:manipulation;}
 
+/* ── 로그인 ── */
 #login{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:var(--bg);z-index:100;overflow:hidden;}
 #login-landing{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;}
 #login-register,#login-login{position:absolute;inset:0;display:none;overflow-y:auto;}
+
+/* ── 앱 ── */
 #app{display:none;position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;flex-direction:column;z-index:1;}
 #app.on{display:flex;}
 
-.topbar{height:52px;padding:0 16px;display:flex;align-items:center;gap:10px;background:rgba(8,13,24,.95);border-bottom:1px solid var(--b2);flex-shrink:0;}
+/* ── 탑바 ── */
+.topbar{height:52px;padding:0 12px;display:flex;align-items:center;gap:8px;background:rgba(8,13,24,.95);border-bottom:1px solid var(--b2);flex-shrink:0;}
 .tb-name{font-size:13px;font-weight:700;flex:1;}
 .tb-gkid{font-size:10px;font-family:monospace;color:var(--a1);background:rgba(0,232,188,.08);padding:2px 7px;border-radius:6px;}
+.tb-grade{font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;cursor:pointer;}
+
+/* ── 스크롤/페이지 ── */
 .scroll{flex:1;overflow-y:auto;background:var(--bg);}
 .page{display:none;padding:16px;}
 .page.on{display:block;}
-.tabbar{height:58px;background:rgba(14,22,38,.97);border-top:1px solid var(--b2);display:flex;align-items:center;padding:0 4px;flex-shrink:0;}
-.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;cursor:pointer;touch-action:manipulation;}
-.tab.on{color:var(--a1);}
-.tab-ic{font-size:20px;opacity:.45;}
+
+/* ── 하단 탭바 (스크롤 가능) ── */
+.tabbar{height:62px;background:rgba(14,22,38,.97);border-top:1px solid var(--b2);display:flex;align-items:stretch;overflow-x:auto;overflow-y:hidden;flex-shrink:0;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.tabbar::-webkit-scrollbar{display:none;}
+.tab{min-width:58px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px 4px;cursor:pointer;touch-action:manipulation;border-bottom:2px solid transparent;}
+.tab.on{border-bottom-color:var(--a1);}
+.tab-ic{font-size:18px;opacity:.45;}
 .tab.on .tab-ic{opacity:1;}
-.tab-lb{font-size:9px;color:var(--t3);}
+.tab-lb{font-size:9px;color:var(--t3);white-space:nowrap;}
 .tab.on .tab-lb{color:var(--a1);font-weight:700;}
 
+/* ── 공통 컴포넌트 ── */
 .card{background:var(--s1);border:1px solid var(--b1);border-radius:16px;padding:14px;margin-bottom:12px;}
 .btn{padding:12px 16px;border-radius:12px;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;width:100%;border:none;cursor:pointer;touch-action:manipulation;}
 .btn-p{background:var(--a1);color:#080d18;}
@@ -57,6 +68,53 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
 .tag-o{background:rgba(255,165,2,.12);color:var(--org);}
 .tag-p{background:rgba(168,85,247,.12);color:var(--pur);}
 
+/* ── 섹션 헤더 ── */
+.sec-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+.sec-title{font-size:16px;font-weight:800;}
+.sec-more{font-size:11px;color:var(--a2);cursor:pointer;}
+
+/* ── 규제/페널티 배너 ── */
+.penalty-banner{background:rgba(255,69,84,.08);border:1.5px solid rgba(255,69,84,.4);border-radius:14px;padding:12px 14px;margin-bottom:10px;}
+.penalty-banner .pb-hd{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.penalty-banner .pb-ic{font-size:18px;}
+.penalty-banner .pb-title{font-size:13px;font-weight:800;color:var(--red);}
+.penalty-banner .pb-badge{font-size:9px;font-weight:700;padding:2px 6px;border-radius:5px;background:var(--red);color:#fff;margin-left:auto;}
+.penalty-item{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,69,84,.15);font-size:11px;}
+.penalty-item:last-child{border-bottom:none;}
+.penalty-dot{width:6px;height:6px;border-radius:50%;background:var(--red);flex-shrink:0;margin-top:3px;}
+
+.warning-banner{background:rgba(244,196,48,.06);border:1.5px solid rgba(244,196,48,.3);border-radius:14px;padding:12px 14px;margin-bottom:10px;}
+.warning-banner .wb-hd{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.warning-banner .wb-title{font-size:13px;font-weight:800;color:var(--a4);}
+
+/* ── 신뢰등급 ── */
+.grade-seed{background:rgba(74,106,138,.2);color:var(--t2);}
+.grade-sprout{background:rgba(0,232,188,.12);color:var(--a1);}
+.grade-grow{background:rgba(79,156,249,.12);color:var(--a2);}
+.grade-best{background:rgba(244,196,48,.12);color:var(--a4);}
+.grade-master{background:rgba(168,85,247,.15);color:var(--pur);}
+
+/* ── 작물 카드 ── */
+.crop-card{background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:12px 14px;margin-bottom:10px;}
+.crop-progress{height:5px;background:var(--s3);border-radius:3px;margin:8px 0;}
+.crop-progress-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--a1),var(--a2));}
+
+/* ── 정책자금 카드 ── */
+.policy-card{background:var(--s2);border:1px solid rgba(0,232,188,.2);border-radius:12px;padding:12px;margin-bottom:8px;cursor:pointer;}
+.policy-card:active{opacity:.85;}
+
+/* ── AI 플로팅 버튼 ── */
+#ai-float{position:fixed;bottom:80px;right:calc(50% - 215px + 12px);width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,var(--a1),var(--a2));display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 4px 16px rgba(0,232,188,.3);cursor:pointer;z-index:50;border:none;touch-action:manipulation;}
+
+/* ── 시트 ── */
+.sheet-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:none;align-items:flex-end;justify-content:center;}
+.sheet-overlay.on{display:flex;}
+.sheet{background:var(--s1);border-radius:24px 24px 0 0;width:100%;max-width:430px;max-height:92vh;overflow-y:auto;padding:20px 16px 40px;}
+.sheet-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+.sheet-title{font-size:16px;font-weight:800;}
+.sheet-sub{font-size:11px;color:var(--t2);margin-bottom:16px;}
+
+/* ── 역할 카드 ── */
 .role-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px;margin-bottom:4px;}
 .role-card{padding:6px 3px;border-radius:8px;border:1.5px solid var(--b1);background:var(--s1);cursor:pointer;text-align:center;transition:all .15s;touch-action:manipulation;}
 .role-card.sel{border-color:var(--a1);background:rgba(0,232,188,.05);}
@@ -65,6 +123,7 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
 .role-desc{font-size:7px;color:var(--t3);display:block;}
 .role-label{font-size:9px;font-weight:700;margin:5px 0 2px;padding-left:1px;}
 
+/* ── 스텝 ── */
 .step-bar{display:flex;align-items:center;margin-bottom:20px;}
 .step-dot{width:26px;height:26px;border-radius:50%;border:2px solid var(--b1);background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--t3);flex-shrink:0;}
 .step-dot.done{background:var(--a1);border-color:var(--a1);color:#080d18;}
@@ -72,50 +131,31 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
 .step-line{flex:1;height:2px;background:var(--b1);margin:0 3px;}
 .step-line.done{background:var(--a1);}
 
+/* ── 기타 ── */
 .origin-btn{flex:1;padding:10px;border-radius:10px;text-align:center;cursor:pointer;font-size:12px;font-weight:700;border:1.5px solid var(--b1);background:var(--s2);color:var(--t2);transition:all .15s;touch-action:manipulation;}
 .origin-btn.sel{border-color:var(--a1);background:rgba(0,232,188,.08);color:var(--a1);}
-.req-btn{flex:1;padding:10px 6px;border-radius:10px;text-align:center;cursor:pointer;font-size:11px;font-weight:700;border:1.5px solid var(--b1);background:var(--s2);color:var(--t2);transition:all .15s;touch-action:manipulation;}
-.req-btn.sel{border-color:var(--a4);background:rgba(244,196,48,.08);color:var(--a4);}
-
-/* 배송방식 버튼 */
 .delivery-btn{flex:1;padding:14px 8px;border-radius:14px;text-align:center;cursor:pointer;border:1.5px solid var(--b1);background:var(--s2);transition:all .15s;touch-action:manipulation;}
 .delivery-btn.sel{border-color:var(--a1);background:rgba(0,232,188,.06);}
 .delivery-btn .d-ic{font-size:28px;display:block;margin-bottom:6px;}
 .delivery-btn .d-name{font-size:12px;font-weight:700;}
 .delivery-btn .d-desc{font-size:10px;color:var(--t2);margin-top:2px;}
-
-.settle-row{display:flex;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--b2);font-size:12px;}
-.settle-total{display:flex;justify-content:space-between;padding:12px 14px;background:rgba(0,232,188,.06);border:1.5px solid rgba(0,232,188,.3);border-radius:12px;margin-top:8px;}
-
-/* 상태 타임라인 */
-.timeline{padding:12px 0;}
-.tl-item{display:flex;gap:12px;margin-bottom:12px;}
-.tl-dot{width:12px;height:12px;border-radius:50%;background:var(--b1);flex-shrink:0;margin-top:3px;}
-.tl-dot.done{background:var(--a1);}
-.tl-dot.cur{background:var(--a4);}
-.tl-line{width:2px;background:var(--b1);margin-left:5px;margin-top:-6px;margin-bottom:-6px;}
-.tl-line.done{background:var(--a1);}
+.req-btn{flex:1;padding:10px 6px;border-radius:10px;text-align:center;cursor:pointer;font-size:11px;font-weight:700;border:1.5px solid var(--b1);background:var(--s2);color:var(--t2);transition:all .15s;touch-action:manipulation;}
+.req-btn.sel{border-color:var(--a4);background:rgba(244,196,48,.08);color:var(--a4);}
 
 #toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(14,22,38,.96);border:1px solid var(--b1);color:var(--t1);padding:10px 18px;border-radius:24px;font-size:13px;font-weight:600;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;max-width:90vw;}
 #toast.on{opacity:1;}
-
-.sheet-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:none;align-items:flex-end;justify-content:center;}
-.sheet-overlay.on{display:flex;}
-.sheet{background:var(--s1);border-radius:24px 24px 0 0;width:100%;max-width:430px;max-height:92vh;overflow-y:auto;padding:20px 16px 40px;}
-.sheet-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
-.sheet-title{font-size:16px;font-weight:800;}
-.sheet-sub{font-size:11px;color:var(--t2);margin-bottom:16px;}
 </style>
 </head>
 <body>
 
-<!-- 로그인 -->
+<!-- ══ 로그인 ══ -->
 <div id="login">
   <div id="login-landing">
     <div style="width:100%;max-width:340px;text-align:center;">
       <div style="margin-bottom:44px;">
-        <p style="font-size:9px;letter-spacing:5px;color:var(--a1);font-weight:700;margin:0 0 14px;">AI SMART DISTRIBUTION</p>
-        <h1 style="font-size:46px;font-weight:900;letter-spacing:-2px;line-height:1;margin:0 0 10px;">GARAK 4.0</h1>
+        <p style="font-size:9px;letter-spacing:5px;color:var(--a1);font-weight:700;margin:0 0 8px;">AI SMART DISTRIBUTION</p>
+        <h1 style="font-size:46px;font-weight:900;letter-spacing:-2px;line-height:1;margin:0 0 4px;">GARAK AI</h1>
+        <p style="font-size:11px;color:var(--a1);font-family:monospace;margin:0 0 8px;letter-spacing:1px;">4.0 PROTOTYPE</p>
         <p style="font-size:13px;color:var(--t2);margin:0;">가락시장 스마트 유통 플랫폼</p>
       </div>
       <div style="display:flex;flex-direction:column;gap:11px;">
@@ -142,36 +182,148 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
   </div>
 </div>
 
-<!-- 앱 -->
+<!-- ══ 앱 ══ -->
 <div id="app">
   <div class="topbar">
     <span id="tb-ic" style="font-size:18px;">🌾</span>
     <span class="tb-name" id="tb-name">생산자</span>
     <span class="tb-gkid" id="tb-gkid">GK-P-000001</span>
-    <span style="font-size:12px;color:var(--t2);" id="clock">00:00</span>
+    <span class="tb-grade tag" id="tb-grade" onclick="goTab('mypage')">🌱 씨앗</span>
+    <span style="font-size:11px;color:var(--t2);" id="clock">00:00</span>
   </div>
   <div class="scroll" id="scroll">
     <div class="page on" id="page-home"><div id="home-content"></div></div>
     <div class="page" id="page-invoice"><div id="invoice-content"></div></div>
-    <div class="page" id="page-call"><div id="call-content"></div></div>
-    <div class="page" id="page-stats">
-      <div style="font-size:18px;font-weight:800;margin-bottom:16px;">📊 통계</div>
-      <div class="card"><div style="font-size:13px;color:var(--t2);">준비 중...</div></div>
-    </div>
-    <div class="page" id="page-profile"><div id="profile-content"></div></div>
+    <div class="page" id="page-partner"><div id="partner-content"></div></div>
+    <div class="page" id="page-vehicle"><div id="vehicle-content"></div></div>
+    <div class="page" id="page-eform"><div id="eform-content"></div></div>
+    <div class="page" id="page-settle"><div id="settle-content"></div></div>
+    <div class="page" id="page-crop"><div id="crop-content"></div></div>
+    <div class="page" id="page-policy"><div id="policy-content"></div></div>
+    <div class="page" id="page-public"><div id="public-content"></div></div>
+    <div class="page" id="page-mypage"><div id="mypage-content"></div></div>
   </div>
   <div class="tabbar" id="tabbar"></div>
 </div>
 
+<!-- AI 플로팅 버튼 -->
+<button id="ai-float" onclick="window.openAI()" style="display:none;">🤖</button>
+
 <div id="toast"></div>
 
-<!-- ══ 송장 작성 시트 ══ -->
-<div class="sheet-overlay" id="sh-invoice">
+<!-- ══ AI 어시스턴트 시트 ══ -->
+<div class="sheet-overlay" id="sh-ai">
   <div class="sheet">
     <div class="sheet-hd">
-      <div class="sheet-title">📋 송장 만들기</div>
-      <button onclick="window.closeSheet('sh-invoice')" style="color:var(--t2);font-size:20px;">✕</button>
+      <div class="sheet-title">🤖 GARAK AI 어시스턴트</div>
+      <button onclick="window.closeSheet('sh-ai')" style="color:var(--t2);font-size:20px;">✕</button>
     </div>
+    <div class="sheet-sub" id="ai-sheet-sub">역할에 맞는 AI 도움을 드려요</div>
+    <div id="ai-quick-btns" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;"></div>
+    <div id="ai-chat-area" style="background:var(--s2);border-radius:12px;padding:12px;min-height:120px;margin-bottom:12px;font-size:12px;color:var(--t1);line-height:1.7;"></div>
+    <div style="display:flex;gap:8px;">
+      <input class="finput" id="ai-input" placeholder="무엇이든 물어보세요..." style="flex:1;">
+      <button onclick="window.sendAI()" style="padding:11px 16px;border-radius:10px;background:var(--a1);color:#080d18;font-weight:700;font-size:13px;border:none;">전송</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 작물 등록 시트 ══ -->
+<div class="sheet-overlay" id="sh-crop">
+  <div class="sheet">
+    <div class="sheet-hd">
+      <div class="sheet-title">🌱 작물 등록</div>
+      <button onclick="window.closeSheet('sh-crop')" style="color:var(--t2);font-size:20px;">✕</button>
+    </div>
+    <div class="sheet-sub">재배 정보를 입력하면 AI가 소출량과 출하 시기를 예측해드려요</div>
+    <div class="fgroup">
+      <div class="flabel">작물명 *</div>
+      <select class="finput" id="crop-name">
+        <option value="">선택하세요</option>
+        <option>사과</option><option>배</option><option>감자</option><option>배추</option>
+        <option>마늘</option><option>양파</option><option>딸기</option><option>토마토</option>
+        <option>고추</option><option>포도</option><option>복숭아</option><option>수박</option>
+        <option>참외</option><option>무</option><option>당근</option><option>오이</option>
+        <option>파</option><option>호박</option><option>버섯</option><option>기타</option>
+      </select>
+    </div>
+    <div class="fgroup">
+      <div class="flabel">재배지 위치 *</div>
+      <div class="frow">
+        <input class="finput" id="crop-region1" placeholder="경북 의성군">
+        <input class="finput" id="crop-region2" placeholder="단촌면 (읍·면·동)">
+      </div>
+    </div>
+    <div class="fgroup">
+      <div class="flabel">재배 면적 *</div>
+      <div class="frow">
+        <input class="finput" id="crop-area" type="number" placeholder="1000" inputmode="decimal">
+        <select class="finput" id="crop-unit">
+          <option value="평">평</option>
+          <option value="마지기">마지기</option>
+          <option value="㎡">㎡</option>
+          <option value="ha">ha</option>
+          <option value="단보">단보</option>
+        </select>
+      </div>
+    </div>
+    <div class="frow">
+      <div class="fgroup" style="margin:0;">
+        <div class="flabel">파종일 *</div>
+        <input class="finput" id="crop-plant-date" type="date">
+      </div>
+      <div class="fgroup" style="margin:0;">
+        <div class="flabel">예상 수확일</div>
+        <input class="finput" id="crop-harvest-date" type="date">
+      </div>
+    </div>
+    <div id="crop-ai-suggest" style="display:none;background:rgba(0,232,188,.06);border:1px solid rgba(0,232,188,.2);border-radius:10px;padding:10px 12px;margin:10px 0;">
+      <div style="font-size:10px;color:var(--a1);font-weight:700;margin-bottom:6px;">🤖 AI 예측</div>
+      <div id="crop-ai-text" style="font-size:11px;color:var(--t1);line-height:1.8;"></div>
+    </div>
+    <div class="fgroup">
+      <div class="flabel">예상 소출량</div>
+      <div class="frow">
+        <input class="finput" id="crop-est-yield" type="number" placeholder="AI 자동계산" inputmode="decimal">
+        <select class="finput" id="crop-yield-unit">
+          <option>박스</option><option>kg</option><option>망</option><option>포대</option>
+        </select>
+      </div>
+    </div>
+    <div class="fgroup">
+      <div class="flabel">메모</div>
+      <textarea class="finput" id="crop-memo" rows="2" placeholder="품종, 재배방식 등..." style="resize:none;"></textarea>
+    </div>
+    <button class="btn btn-p" onclick="window.saveCrop()">🌱 작물 등록하기</button>
+  </div>
+</div>
+
+<!-- ══ 정책자금 상세 시트 ══ -->
+<div class="sheet-overlay" id="sh-policy">
+  <div class="sheet">
+    <div class="sheet-hd">
+      <div class="sheet-title" id="policy-detail-title">정책자금 상세</div>
+      <button onclick="window.closeSheet('sh-policy')" style="color:var(--t2);font-size:20px;">✕</button>
+    </div>
+    <div id="policy-detail-body"></div>
+  </div>
+</div>
+
+<!-- ══ 규제/페널티 상세 시트 ══ -->
+<div class="sheet-overlay" id="sh-penalty">
+  <div class="sheet">
+    <div class="sheet-hd">
+      <div class="sheet-title" style="color:var(--red);">⚠️ 규제 · 페널티 안내</div>
+      <button onclick="window.closeSheet('sh-penalty')" style="color:var(--t2);font-size:20px;">✕</button>
+    </div>
+    <div id="penalty-detail-body"></div>
+  </div>
+</div>
+
+<!-- ══ 기존 시트들 (송장/콜/메모) ══ -->
+<div class="sheet-overlay" id="sh-invoice">
+  <div class="sheet">
+    <div class="sheet-hd"><div class="sheet-title">📋 송장 만들기</div><button onclick="window.closeSheet('sh-invoice')" style="color:var(--t2);font-size:20px;">✕</button></div>
     <div class="sheet-sub">모든 항목 입력 시 송장이 완성됩니다</div>
     <div class="step-bar">
       <div class="step-dot cur" id="sd1">1</div><div class="step-line" id="sl1"></div>
@@ -179,13 +331,9 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
       <div class="step-dot" id="sd3">3</div><div class="step-line" id="sl3"></div>
       <div class="step-dot" id="sd4">4</div>
     </div>
-
-    <!-- Step1: 수취인 -->
     <div id="inv-step1">
       <div style="font-size:13px;font-weight:700;color:var(--a1);margin-bottom:12px;">📬 Step 1 · 수취인 정보</div>
-      <div class="fgroup">
-        <div class="flabel">거래처명 *</div>
-        <input class="finput" id="inv-buyer-name" placeholder="한국청과 / 서울중도매" oninput="window.onBuyerInput()">
+      <div class="fgroup"><div class="flabel">거래처명 *</div><input class="finput" id="inv-buyer-name" placeholder="한국청과 / 서울중도매" oninput="window.onBuyerInput()">
         <div id="ai-buyer-suggest" style="display:none;margin-top:6px;background:rgba(79,156,249,.06);border:1px solid rgba(79,156,249,.2);border-radius:10px;padding:8px 10px;">
           <div style="font-size:10px;color:var(--a2);font-weight:700;margin-bottom:5px;">🤖 AI 추천 거래처</div>
           <div id="ai-buyer-list"></div>
@@ -198,357 +346,148 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
       <div class="fgroup" style="margin-top:10px;"><div class="flabel">배송 주소</div><input class="finput" id="inv-buyer-addr" placeholder="서울 송파구 가락로 320"></div>
       <button class="btn btn-p" style="margin-top:4px;" onclick="window.invNextStep(2)">다음 → 상품 정보</button>
     </div>
-
-    <!-- Step2: 상품 -->
     <div id="inv-step2" style="display:none;">
       <div style="font-size:13px;font-weight:700;color:var(--a1);margin-bottom:12px;">📦 Step 2 · 상품 정보</div>
-
-      <!-- 상품 목록 -->
       <div id="product-list"></div>
-
-      <!-- 상품 추가 버튼 -->
       <div style="display:flex;gap:8px;margin-bottom:12px;">
-        <button onclick="window.addProduct()" style="flex:1;padding:10px;border-radius:10px;border:1.5px dashed var(--a1);background:rgba(0,232,188,.04);color:var(--a1);font-size:13px;font-weight:700;cursor:pointer;">
-          + 상품 추가
-        </button>
-        <button onclick="window.openExtraInvoice()" style="padding:10px 12px;border-radius:10px;border:1.5px dashed var(--org);background:rgba(255,165,2,.04);color:var(--org);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">
-          📋 경유지<br>추가 송장
-        </button>
+        <button onclick="window.addProduct()" style="flex:1;padding:10px;border-radius:10px;border:1.5px dashed var(--a1);background:rgba(0,232,188,.04);color:var(--a1);font-size:13px;font-weight:700;cursor:pointer;">+ 상품 추가</button>
       </div>
-
-      <!-- 총 물품대금 -->
-      <div id="inv-total-box" style="padding:12px 14px;background:rgba(0,232,188,.06);border:1.5px solid rgba(0,232,188,.3);border-radius:12px;margin-bottom:12px;display:block;">
+      <div id="inv-total-box" style="padding:12px 14px;background:rgba(0,232,188,.06);border:1.5px solid rgba(0,232,188,.3);border-radius:12px;margin-bottom:12px;">
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <span style="font-size:12px;color:var(--t2);">총 물품대금</span>
           <span id="inv-total-amt" style="font-size:22px;font-weight:900;color:var(--a1);">₩0</span>
         </div>
         <div id="inv-total-detail" style="font-size:10px;color:var(--t2);margin-top:4px;line-height:1.7;"></div>
       </div>
-
-      <!-- 출하 요청사항 -->
       <div class="fgroup">
-        <div class="flabel">출하 요청사항 (복수 선택 가능)</div>
+        <div class="flabel">출하 요청사항</div>
         <div style="display:flex;gap:8px;">
           <div class="req-btn" id="req-auction" onclick="window.toggleReq('auction')">🔨 경매 희망</div>
           <div class="req-btn" id="req-consign" onclick="window.toggleReq('consign')">🤝 위탁판매</div>
         </div>
-        <div id="req-auction-detail" style="display:none;margin-top:8px;">
-          <input class="finput" id="inv-min-price" type="number" placeholder="경매 희망 최저가 (원/박스)" inputmode="decimal">
-          <div id="ai-min-price-suggest" style="font-size:10px;color:var(--a2);margin-top:4px;"></div>
-        </div>
-        <div id="req-consign-detail" style="display:none;margin-top:8px;">
-          <input class="finput" id="inv-consign-rate" type="number" placeholder="위탁 수수료율 (%)">
-        </div>
+        <div id="req-auction-detail" style="display:none;margin-top:8px;"><input class="finput" id="inv-min-price" type="number" placeholder="경매 희망 최저가 (원/박스)" inputmode="decimal"><div id="ai-min-price-suggest" style="font-size:10px;color:var(--a2);margin-top:4px;"></div></div>
+        <div id="req-consign-detail" style="display:none;margin-top:8px;"><input class="finput" id="inv-consign-rate" type="number" placeholder="위탁 수수료율 (%)"></div>
       </div>
       <div style="display:flex;gap:8px;">
         <button class="btn btn-s" style="flex:.4;" onclick="window.invNextStep(1)">← 뒤로</button>
         <button class="btn btn-p" style="flex:.6;" onclick="window.invNextStep(3)">다음 → 배송 방식</button>
       </div>
     </div>
-
-    <!-- Step3: 배송 방식 -->
     <div id="inv-step3" style="display:none;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-        <div style="font-size:13px;font-weight:700;color:var(--a1);">🚛 Step 3 · 배송방식 · 주소 · 차량</div>
-        <button onclick="window.openMemo()" style="padding:6px 10px;border-radius:8px;background:var(--s2);border:1px solid var(--b1);font-size:11px;color:var(--t2);">📝 기재사항</button>
-      </div>
-
-      <!-- 배송방식 선택 -->
+      <div style="font-size:13px;font-weight:700;color:var(--a1);margin-bottom:12px;">🚛 Step 3 · 배송방식</div>
       <div class="fgroup">
         <div class="flabel">배송 방식 *</div>
         <div style="display:flex;gap:10px;margin-bottom:4px;">
-          <div class="delivery-btn" id="dmode-call" onclick="window.selDelivery('call')">
-            <span class="d-ic">🚛</span>
-            <span class="d-name">차량배차요청</span>
-            <span class="d-desc">화물콜 발송</span>
-          </div>
-          <div class="delivery-btn" id="dmode-self" onclick="window.selDelivery('self')">
-            <span class="d-ic">🚗</span>
-            <span class="d-name">자차배송</span>
-            <span class="d-desc">직접/섭외 차량</span>
-          </div>
+          <div class="delivery-btn" id="dmode-call" onclick="window.selDelivery('call')"><span class="d-ic">🚛</span><span class="d-name">차량배차요청</span><span class="d-desc">화물콜 발송</span></div>
+          <div class="delivery-btn" id="dmode-self" onclick="window.selDelivery('self')"><span class="d-ic">🚗</span><span class="d-name">자차배송</span><span class="d-desc">직접/섭외 차량</span></div>
         </div>
-        <div id="delivery-select-hint" style="text-align:center;padding:8px;color:var(--t2);font-size:11px;">배송 방식을 선택해주세요</div>
       </div>
-
-      <!-- 공통: 상차/하차 주소 -->
       <div id="delivery-address-form" style="display:none;">
-        <div class="fgroup">
-          <div class="flabel">📍 상차 주소 (출발지) *</div>
-          <input class="finput" id="inv-origin-addr" placeholder="예: 경북 의성군 단촌면 000번지" oninput="window.onInvRouteChange()">
-        </div>
-        <div class="fgroup">
-          <div class="flabel">📍 하차 주소 (도착지) *</div>
-          <input class="finput" id="inv-dest-addr" placeholder="서울 송파구 가락로 320 (가락시장)" oninput="window.onInvRouteChange()">
-          <div style="font-size:10px;color:var(--t2);margin-top:3px;">거래처 주소 입력 시 자동연동</div>
-        </div>
-
-        <!-- 경유지 (복수 추가 가능) -->
-        <div class="fgroup">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-            <div class="flabel" style="margin:0;">경유지 <span style="font-size:10px;color:var(--t2);">(여러 곳 추가 가능)</span></div>
-            <div onclick="window.addWaypoint()" style="padding:4px 10px;border-radius:7px;background:rgba(0,232,188,.08);border:1px solid rgba(0,232,188,.3);font-size:11px;cursor:pointer;color:var(--a1);font-weight:700;">+ 경유지 추가</div>
-          </div>
-          <div id="inv-waypoints-list"></div>
-        </div>
-
-        <!-- AI 거리/운송비 표시 -->
-        <div id="inv-route-ai" style="display:none;background:rgba(0,232,188,.06);border:1px solid rgba(0,232,188,.2);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:11px;">
-          <div style="color:var(--a1);font-weight:700;margin-bottom:4px;">🤖 AI 경로 분석</div>
-          <div id="inv-route-ai-text" style="color:var(--t1);line-height:1.7;"></div>
-        </div>
+        <div class="fgroup"><div class="flabel">📍 상차 주소 *</div><input class="finput" id="inv-origin-addr" placeholder="경북 의성군 단촌면 000번지"></div>
+        <div class="fgroup"><div class="flabel">📍 하차 주소 *</div><input class="finput" id="inv-dest-addr" placeholder="서울 송파구 가락로 320"></div>
       </div>
-
-      <!-- 자차배송: 차량 정보 -->
       <div id="self-delivery-form" style="display:none;">
-        <div style="background:rgba(0,232,188,.04);border:1px solid rgba(0,232,188,.15);border-radius:12px;padding:12px;margin-bottom:10px;">
-          <div style="font-size:11px;color:var(--a1);font-weight:700;margin-bottom:10px;">🚗 차량 정보</div>
-          <div class="fgroup" style="margin-bottom:8px;">
-            <div class="flabel">차량 종류 *</div>
-            <select class="finput" id="self-truck-type" onchange="window.onSelfTruckChange()">
-              <option value="">선택하세요</option>
-              <option>용달(0.5톤)</option><option>1톤 트럭</option><option>1톤 냉장</option>
-              <option>2.5톤 트럭</option><option>2.5톤 냉장</option>
-              <option>5톤 트럭</option><option>5톤 냉장</option><option>5톤 냉동</option><option>11톤 트럭</option>
-            </select>
-          </div>
-          <div class="frow" style="margin-bottom:8px;">
-            <div><div class="flabel">차량번호 *</div><input class="finput" id="self-truck-num" placeholder="12가 3456"></div>
-            <div><div class="flabel">기사 이름 *</div><input class="finput" id="self-driver-name" placeholder="홍길동"></div>
-          </div>
-          <div><div class="flabel">기사 연락처 *</div><input class="finput" id="self-driver-tel" placeholder="010-0000-0000" type="tel"></div>
-          <div style="margin-top:8px;">
-            <div class="flabel">운송비 (선택입력)</div>
-            <input class="finput" id="self-transport-fee" type="number" placeholder="예: 150000 (없으면 비워두세요)" inputmode="decimal">
-            <div style="font-size:10px;color:var(--t2);margin-top:3px;">정산 시 차감항목에 반영됩니다</div>
-          </div>
+        <div class="frow">
+          <div><div class="flabel">차량번호 *</div><input class="finput" id="self-truck-num" placeholder="12가 3456"></div>
+          <div><div class="flabel">기사 이름 *</div><input class="finput" id="self-driver-name" placeholder="홍길동"></div>
         </div>
+        <div style="margin-top:8px;"><div class="flabel">기사 연락처 *</div><input class="finput" id="self-driver-tel" placeholder="010-0000-0000" type="tel"></div>
       </div>
-
-      <!-- 배차요청: 차량 종류 선택 -->
-      <div id="call-delivery-info" style="display:none;">
-        <div style="background:rgba(244,196,48,.04);border:1px solid rgba(244,196,48,.2);border-radius:12px;padding:12px;margin-bottom:10px;">
-          <div style="font-size:11px;color:var(--a4);font-weight:700;margin-bottom:8px;">🚛 필요 차량 선택</div>
-          <div class="fgroup" style="margin:0;">
-            <div class="flabel">차량 종류 *</div>
-            <select class="finput" id="call-truck-type-inv" onchange="window.onInvRouteChange()">
-              <option value="">AI 자동추천 또는 직접 선택</option>
-              <option value="용달">용달 (0.5톤)</option>
-              <option value="1톤">1톤 트럭</option>
-              <option value="1톤냉장">1톤 냉장</option>
-              <option value="2.5톤">2.5톤 트럭</option>
-              <option value="2.5톤냉장">2.5톤 냉장</option>
-              <option value="5톤">5톤 트럭</option>
-              <option value="5톤냉장">5톤 냉장</option>
-              <option value="5톤냉동">5톤 냉동</option>
-              <option value="11톤">11톤 트럭</option>
-            </select>
-            <div id="inv-ai-truck" style="display:none;margin-top:5px;font-size:11px;padding:5px 9px;background:rgba(244,196,48,.06);border:1px solid rgba(244,196,48,.2);border-radius:7px;"></div>
-          </div>
-        </div>
-      </div>
-
       <div style="display:flex;gap:8px;margin-top:8px;">
         <button class="btn btn-s" style="flex:.4;" onclick="window.invNextStep(2)">← 뒤로</button>
         <button class="btn btn-p" style="flex:.6;" onclick="window.invNextStep(4)">다음 → 정산 확인</button>
       </div>
     </div>
-
-    <!-- Step4: 정산 미리보기 -->
     <div id="inv-step4" style="display:none;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-        <div style="font-size:13px;font-weight:700;color:var(--a1);">💰 Step 4 · 정산 미리보기</div>
-        <button onclick="window.openMemo()" style="padding:6px 10px;border-radius:8px;background:var(--s2);border:1px solid var(--b1);font-size:11px;color:var(--t2);">📝 기재사항</button>
-      </div>
+      <div style="font-size:13px;font-weight:700;color:var(--a1);margin-bottom:12px;">💰 Step 4 · 정산 미리보기</div>
       <div id="inv-settle-preview" class="card" style="margin-bottom:12px;"></div>
-      <div id="inv-memo-preview" style="display:none;margin-bottom:10px;padding:10px 12px;background:rgba(79,156,249,.06);border:1px solid rgba(79,156,249,.2);border-radius:10px;">
-        <div style="font-size:10px;color:var(--a2);font-weight:700;margin-bottom:4px;">📝 기재사항</div>
-        <div id="inv-memo-preview-text" style="font-size:12px;color:var(--t1);white-space:pre-line;"></div>
-      </div>
-      <div style="padding:10px 12px;background:rgba(255,165,2,.06);border:1px solid rgba(255,165,2,.2);border-radius:10px;margin-bottom:12px;font-size:11px;color:var(--t2);line-height:1.7;">
-        📌 실제 정산금액은 경매/위탁 완료 후 확정됩니다<br>
-        📌 차감항목은 거래처 계약 조건에 따라 변동될 수 있습니다
-      </div>
       <div style="display:flex;gap:8px;">
         <button class="btn btn-s" style="flex:.4;" onclick="window.invNextStep(3)">← 뒤로</button>
-        <button class="btn btn-p" id="btn-submit-inv" style="flex:.6;background:linear-gradient(135deg,var(--a1),var(--a2));" onclick="window.submitInvoice()">✅ 송장 준비 완료</button>
+        <button class="btn btn-p" id="btn-submit-inv" style="flex:.6;" onclick="window.submitInvoice()">✅ 송장 완료</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ══ 기재사항 시트 ══ -->
-<div class="sheet-overlay" id="sh-memo">
-  <div class="sheet">
-    <div class="sheet-hd">
-      <div class="sheet-title">📝 기재사항 추가</div>
-      <button onclick="window.closeSheet('sh-memo')" style="color:var(--t2);font-size:20px;">✕</button>
-    </div>
-    <div class="sheet-sub">송장에 추가 정보를 기재하세요</div>
-    <div class="fgroup">
-      <div class="flabel">임시 운전자 정보 (본인 외 다른 기사인 경우)</div>
-      <div class="frow" style="margin-bottom:8px;">
-        <div><div class="flabel">성명</div><input class="finput" id="memo-driver-name" placeholder="홍길동"></div>
-        <div><div class="flabel">연락처</div><input class="finput" id="memo-driver-tel" placeholder="010-0000-0000" type="tel"></div>
-      </div>
-    </div>
-    <div class="fgroup">
-      <div class="flabel">화물 취급 주의사항</div>
-      <select class="finput" id="memo-caution" style="margin-bottom:6px;">
-        <option value="">선택하세요</option>
-        <option>❄️ 냉장 유지 필수 (2~8℃)</option>
-        <option>🧊 냉동 유지 필수 (-18℃ 이하)</option>
-        <option>⚠️ 충격 주의 - 파손 위험</option>
-        <option>💧 습기 주의</option>
-        <option>☀️ 직사광선 차단</option>
-        <option>📦 적재 방향 주의 (이 면 위로)</option>
-      </select>
-    </div>
-    <div class="fgroup">
-      <div class="flabel">수취인에게 전달 메시지</div>
-      <textarea class="finput" id="memo-message" rows="3" placeholder="예: A등급 위주 선별했습니다. 신선도 유지를 위해 빠른 처리 부탁드립니다." style="resize:none;"></textarea>
-    </div>
-    <div class="fgroup">
-      <div class="flabel">기타 특이사항</div>
-      <textarea class="finput" id="memo-extra" rows="2" placeholder="기타 메모..." style="resize:none;"></textarea>
-    </div>
-    <button class="btn btn-p" onclick="window.saveMemo()">📝 기재사항 저장</button>
-  </div>
-</div>
-
-<!-- ══ 화물콜 시트 ══ -->
 <div class="sheet-overlay" id="sh-call">
   <div class="sheet">
-    <div class="sheet-hd">
-      <div class="sheet-title">🚛 화물차 배차요청</div>
-      <button onclick="window.closeSheet('sh-call')" style="color:var(--t2);font-size:20px;">✕</button>
-    </div>
+    <div class="sheet-hd"><div class="sheet-title">🚛 화물차 배차요청</div><button onclick="window.closeSheet('sh-call')" style="color:var(--t2);font-size:20px;">✕</button></div>
     <div class="sheet-sub">AI가 거리·중량 분석 후 운송비를 추천해드려요</div>
-
-    <div class="fgroup">
-      <div class="flabel">화물 종류 *</div>
-      <select class="finput" id="call-item" onchange="window.onCallItemChange()">
-        <option value="">선택하세요</option>
-        <option>사과</option><option>배</option><option>감자</option><option>배추</option>
-        <option>마늘</option><option>양파</option><option>딸기</option><option>토마토</option>
-        <option>고추</option><option>기타농산물</option>
-      </select>
+    <div class="fgroup"><div class="flabel">화물 종류 *</div>
+      <select class="finput" id="call-item"><option value="">선택하세요</option><option>사과</option><option>배</option><option>감자</option><option>배추</option><option>마늘</option><option>양파</option><option>딸기</option><option>토마토</option><option>고추</option><option>기타농산물</option></select>
     </div>
     <div class="frow">
-      <div class="fgroup" style="margin:0;"><div class="flabel">수량 (박스)</div><input class="finput" id="call-qty" type="number" placeholder="100" inputmode="decimal" oninput="window.onCallQtyChange()"></div>
-      <div class="fgroup" style="margin:0;"><div class="flabel">적재중량 (kg)</div><input class="finput" id="call-weight" type="number" placeholder="자동계산" inputmode="decimal"></div>
-    </div>
-    <div class="fgroup">
-      <div class="flabel">필요 차량 종류 *</div>
-      <select class="finput" id="call-truck-type" onchange="window.onCallTruckChange()">
-        <option value="">AI 추천 또는 직접 선택</option>
-        <option value="용달">용달 (0.5톤)</option>
-        <option value="1톤">1톤 트럭</option>
-        <option value="1톤냉장">1톤 냉장</option>
-        <option value="2.5톤">2.5톤 트럭</option>
-        <option value="2.5톤냉장">2.5톤 냉장</option>
-        <option value="5톤">5톤 트럭</option>
-        <option value="5톤냉장">5톤 냉장</option>
-        <option value="5톤냉동">5톤 냉동</option>
-        <option value="11톤">11톤 트럭</option>
-      </select>
-      <div id="ai-call-truck" style="display:none;margin-top:6px;font-size:11px;padding:6px 10px;background:rgba(244,196,48,.06);border:1px solid rgba(244,196,48,.2);border-radius:8px;"></div>
-    </div>
-
-    <!-- 단독/혼적 -->
-    <div class="fgroup">
-      <div class="flabel">적재 방식</div>
-      <div style="display:flex;gap:8px;">
-        <div id="load-solo" onclick="window.selLoad('solo')" style="flex:1;padding:10px;border-radius:10px;text-align:center;cursor:pointer;border:1.5px solid var(--a1);background:rgba(0,232,188,.06);font-size:12px;font-weight:700;color:var(--a1);">단독 화물</div>
-        <div id="load-mixed" onclick="window.selLoad('mixed')" style="flex:1;padding:10px;border-radius:10px;text-align:center;cursor:pointer;border:1.5px solid var(--b1);background:var(--s2);font-size:12px;font-weight:700;color:var(--t2);">혼적 (합짐)</div>
+      <div class="fgroup" style="margin:0;"><div class="flabel">수량 (박스)</div><input class="finput" id="call-qty" type="number" placeholder="100" inputmode="decimal"></div>
+      <div class="fgroup" style="margin:0;"><div class="flabel">차량 종류</div>
+        <select class="finput" id="call-truck-type">
+          <option value="">AI 추천</option><option value="용달">용달 (0.5톤)</option><option value="1톤">1톤 트럭</option><option value="2.5톤">2.5톤 트럭</option><option value="5톤">5톤 트럭</option><option value="5톤냉장">5톤 냉장</option><option value="11톤">11톤 트럭</option>
+        </select>
       </div>
     </div>
-
-    <div class="fgroup">
-      <div class="flabel">출발지 *</div>
-      <input class="finput" id="call-origin" placeholder="예: 경북 의성군 단촌면" oninput="window.onCallRouteChange()">
-    </div>
-    <div class="fgroup">
-      <div class="flabel">도착지 * <span style="font-size:10px;color:var(--t2);">(거래처 자동연동)</span></div>
-      <input class="finput" id="call-dest" placeholder="서울 송파구 가락로 320 (가락시장)" oninput="window.onCallRouteChange()">
-    </div>
-
-    <!-- 경유지 -->
-    <div class="fgroup">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-        <div class="flabel" style="margin:0;">경유지</div>
-        <div onclick="window.toggleWaypoint()" id="waypoint-toggle" style="padding:4px 10px;border-radius:8px;background:var(--s2);border:1px solid var(--b1);font-size:11px;cursor:pointer;">+ 경유지 추가</div>
-      </div>
-      <div id="waypoint-form" style="display:none;">
-        <input class="finput" id="call-waypoint" placeholder="경유지 주소">
-        <div style="margin-top:6px;padding:8px 10px;background:rgba(255,69,84,.06);border:1px solid rgba(255,69,84,.2);border-radius:8px;font-size:11px;color:var(--red);">
-          ⚠️ 경유지가 있는 경우 경유지별 별도 송장 작성이 필요합니다
-        </div>
-      </div>
-    </div>
-
-    <!-- AI 운송비 추천 -->
+    <div class="fgroup"><div class="flabel">출발지 *</div><input class="finput" id="call-origin" placeholder="경북 의성군 단촌면"></div>
+    <div class="fgroup"><div class="flabel">도착지 *</div><input class="finput" id="call-dest" placeholder="서울 송파구 가락로 320"></div>
     <div id="ai-fare-box" style="display:none;background:rgba(0,232,188,.06);border:1.5px solid rgba(0,232,188,.3);border-radius:12px;padding:12px;margin-bottom:12px;">
-      <div style="font-size:11px;color:var(--a1);font-weight:700;margin-bottom:8px;">🤖 AI 운송비 추천</div>
+      <div style="font-size:11px;color:var(--a1);font-weight:700;margin-bottom:6px;">🤖 AI 운송비 추천</div>
       <div id="ai-fare-detail" style="font-size:12px;color:var(--t1);line-height:1.8;"></div>
-      <div style="margin-top:8px;">
-        <div class="flabel">운송비 (출하자 수정 가능)</div>
-        <input class="finput" id="call-fare" type="number" placeholder="0" inputmode="decimal">
-        <div style="font-size:10px;color:var(--t2);margin-top:4px;">※ 배차가 안될 경우 금액을 올려서 재요청하세요</div>
-      </div>
+      <div style="margin-top:8px;"><div class="flabel">운송비</div><input class="finput" id="call-fare" type="number" placeholder="0" inputmode="decimal"></div>
     </div>
-
-    <button class="btn btn-p" style="background:linear-gradient(135deg,var(--a4),var(--org));" onclick="window.submitCall()">
-      🚛 배차 요청 발송
-    </button>
-  </div>
-</div>
-
-<!-- ══ 송장 상세 시트 ══ -->
-<div class="sheet-overlay" id="sh-invoice-detail">
-  <div class="sheet">
-    <div class="sheet-hd">
-      <div class="sheet-title">📋 송장 상세</div>
-      <button onclick="window.closeSheet('sh-invoice-detail')" style="color:var(--t2);font-size:20px;">✕</button>
-    </div>
-    <div id="invoice-detail-body"></div>
+    <button class="btn btn-p" style="background:linear-gradient(135deg,var(--a4),var(--org));" onclick="window.submitCall()">🚛 배차 요청 발송</button>
   </div>
 </div>
 
 <script>
-// ══ Supabase ══
+// ══════════════════════════════════════════
+// GARAK AI 4.0 — 프로토타입
+// ══════════════════════════════════════════
+
 const SUPABASE_URL = 'https://stqmgwwpuphqflwtekuy.supabase.co';
 const SUPABASE_KEY = 'YOUR_PUBLISHABLE_KEY_HERE';
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ══ 역할 데이터 ══
+// ── AI 데이터 ──
+const AI_PRICES = {사과:32000,배:28000,감자:11000,배추:8500,마늘:28000,양파:12000,딸기:55000,토마토:22000,고추:45000,포도:38000,복숭아:35000,수박:25000,참외:22000,무:5500,당근:15000,오이:18000};
+const TRUCK_FEES = {용달:80000,'1톤':100000,'1톤냉장':140000,'2.5톤':150000,'2.5톤냉장':200000,'5톤':220000,'5톤냉장':290000,'5톤냉동':330000,'11톤':400000};
+const CROP_YIELD = {사과:{perUnit:1.2,days:150},배:{perUnit:1.0,days:160},감자:{perUnit:3.0,days:90},배추:{perUnit:2.5,days:80},마늘:{perUnit:0.8,days:200},양파:{perUnit:2.0,days:180},딸기:{perUnit:0.3,days:120},토마토:{perUnit:0.8,days:90},고추:{perUnit:0.5,days:150},포도:{perUnit:0.8,days:130}};
+const AI_BUYERS = ['한국청과','서울청과','중앙청과','농협청과','동화청과','서울중도매','강남청과상회'];
+const COLD_ITEMS = ['딸기','포도','복숭아','토마토','수박','참외'];
+
+// ── 신뢰등급 ──
+const GRADE_INFO = {
+  seed:   {label:'🌱 씨앗',   cls:'grade-seed',   min:0,   desc:'신규 가입'},
+  sprout: {label:'🌿 새싹',   cls:'grade-sprout', min:10,  desc:'기본 데이터 완성'},
+  grow:   {label:'🌾 성장',   cls:'grade-grow',   min:30,  desc:'3개월 이상 성실 기록'},
+  best:   {label:'🏆 우수',   cls:'grade-best',   min:60,  desc:'6개월 + 높은 완성도'},
+  master: {label:'👑 마스터', cls:'grade-master',  min:90,  desc:'1년 이상 최상위'},
+};
+
+// ── 역할 정의 ──
 const ROLES = {
-  producer_ind:   {n:'생산자(개인)',  ic:'🌾', gkp:'GK-P', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'송장',pg:'invoice'},{ic:'🚛',lb:'화물콜',pg:'call'},{ic:'👤',lb:'내정보',pg:'profile'}]},
-  producer_corp:  {n:'생산자(법인)',  ic:'🏢', gkp:'GK-C', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'송장',pg:'invoice'},{ic:'🚛',lb:'화물콜',pg:'call'},{ic:'👤',lb:'내정보',pg:'profile'}]},
-  merchant_ind:   {n:'중도매인',      ic:'🛒', gkp:'GK-M', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'📬',lb:'수신송장',pg:'invoice'},{ic:'📊',lb:'통계',pg:'stats'},{ic:'👤',lb:'내정보',pg:'profile'}]},
-  wholesale:      {n:'청과법인',      ic:'🏛', gkp:'GK-W', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'🔨',lb:'경매',pg:'invoice'},{ic:'📊',lb:'통계',pg:'stats'},{ic:'👤',lb:'내정보',pg:'profile'}]},
-  transport:      {n:'운송업체',      ic:'🚛', gkp:'GK-T', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'📞',lb:'배차콜',pg:'call'},{ic:'📋',lb:'이력',pg:'invoice'},{ic:'👤',lb:'내정보',pg:'profile'}]},
-  warehouse_owner:{n:'물류창고',      ic:'🏭', gkp:'GK-S', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'🏭',lb:'창고',pg:'invoice'},{ic:'📊',lb:'통계',pg:'stats'},{ic:'👤',lb:'내정보',pg:'profile'}]},
-  gov_garaksa:    {n:'가락시장관리공단',ic:'🏛',gkp:'GK-G', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'📊',lb:'현황',pg:'stats'},{ic:'👤',lb:'내정보',pg:'profile'}]},
-  gov_seoul:      {n:'서울시',        ic:'🌆', gkp:'GK-G', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'📊',lb:'현황',pg:'stats'},{ic:'👤',lb:'내정보',pg:'profile'}]},
-  gov_nts:        {n:'국세청',        ic:'🏦', gkp:'GK-G', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'📊',lb:'현황',pg:'stats'},{ic:'👤',lb:'내정보',pg:'profile'}]},
-  gov_public:     {n:'공공기관',      ic:'🏢', gkp:'GK-G', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'📊',lb:'현황',pg:'stats'},{ic:'👤',lb:'내정보',pg:'profile'}]},
-  tax_agent:      {n:'세무사',        ic:'🧾', gkp:'GK-T', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'👥',lb:'고객',pg:'invoice'},{ic:'📊',lb:'통계',pg:'stats'},{ic:'👤',lb:'내정보',pg:'profile'}]},
-  accounting:     {n:'회계사',        ic:'📊', gkp:'GK-T', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'👥',lb:'고객',pg:'invoice'},{ic:'📊',lb:'통계',pg:'stats'},{ic:'👤',lb:'내정보',pg:'profile'}]},
-  labor_agent:    {n:'노무사',        ic:'👷', gkp:'GK-T', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'👥',lb:'고객',pg:'invoice'},{ic:'📊',lb:'통계',pg:'stats'},{ic:'👤',lb:'내정보',pg:'profile'}]},
-  lawyer:         {n:'변호사',        ic:'⚖️', gkp:'GK-T', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'👥',lb:'고객',pg:'invoice'},{ic:'📊',lb:'통계',pg:'stats'},{ic:'👤',lb:'내정보',pg:'profile'}]},
-  customs:        {n:'관세사',        ic:'✈️', gkp:'GK-C', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'통관',pg:'invoice'},{ic:'📊',lb:'통계',pg:'stats'},{ic:'👤',lb:'내정보',pg:'profile'}]},
-  admin_agent:    {n:'행정사',        ic:'📜', gkp:'GK-A', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'업무',pg:'invoice'},{ic:'📊',lb:'통계',pg:'stats'},{ic:'👤',lb:'내정보',pg:'profile'}]},
-  admin:          {n:'관리자',        ic:'⚙️', gkp:'GK-A', tabs:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'전표',pg:'invoice'},{ic:'📊',lb:'통계',pg:'stats'},{ic:'👤',lb:'내정보',pg:'profile'}]},
+  producer_ind:   {n:'생산자(개인)',       ic:'🌾', gkp:'GK-P'},
+  producer_corp:  {n:'생산자(법인)',       ic:'🏢', gkp:'GK-C'},
+  merchant_ind:   {n:'중도매인',           ic:'🛒', gkp:'GK-M'},
+  wholesale:      {n:'청과법인',           ic:'🏛', gkp:'GK-W'},
+  transport:      {n:'운송업체',           ic:'🚛', gkp:'GK-T'},
+  warehouse_owner:{n:'물류창고',           ic:'🏭', gkp:'GK-S'},
+  gov_garaksa:    {n:'가락시장관리공단',   ic:'🏛', gkp:'GK-G'},
+  gov_seoul:      {n:'서울시',             ic:'🌆', gkp:'GK-G'},
+  gov_nts:        {n:'국세청',             ic:'🏦', gkp:'GK-G'},
+  gov_public:     {n:'공공기관',           ic:'🏢', gkp:'GK-G'},
+  tax_agent:      {n:'세무사',             ic:'🧾', gkp:'GK-T'},
+  accounting:     {n:'회계사',             ic:'📊', gkp:'GK-T'},
+  labor_agent:    {n:'노무사',             ic:'👷', gkp:'GK-T'},
+  lawyer:         {n:'변호사',             ic:'⚖️', gkp:'GK-T'},
+  customs:        {n:'관세사',             ic:'✈️', gkp:'GK-C'},
+  admin_agent:    {n:'행정사',             ic:'📜', gkp:'GK-A'},
+  admin:          {n:'관리자',             ic:'⚙️', gkp:'GK-A'},
 };
 
 const ROLE_GROUPS = [
-  {label:'🌾 농수산 유통', color:'var(--a1)', roles:['producer_ind','producer_corp','merchant_ind','wholesale']},
-  {label:'🏭 물류·운송',  color:'var(--a4)', roles:['warehouse_owner','transport']},
-  {label:'🏛 주무감독기관',color:'var(--a2)', roles:['gov_garaksa','gov_seoul','gov_nts','gov_public']},
-  {label:'🧾 세무·회계·법률',color:'#c084fc',roles:['tax_agent','accounting','labor_agent','lawyer']},
-  {label:'✈️ 수입통관·시스템',color:'var(--org)',roles:['customs','admin_agent','admin']},
+  {label:'🌾 농수산 유통',     color:'var(--a1)', roles:['producer_ind','producer_corp','merchant_ind','wholesale']},
+  {label:'🏭 물류·운송',       color:'var(--a4)', roles:['warehouse_owner','transport']},
+  {label:'🏛 주무감독기관',    color:'var(--a2)', roles:['gov_garaksa','gov_seoul','gov_nts','gov_public']},
+  {label:'🧾 세무·회계·법률',  color:'#c084fc',   roles:['tax_agent','accounting','labor_agent','lawyer']},
+  {label:'✈️ 수입통관·시스템', color:'var(--org)', roles:['customs','admin_agent','admin']},
 ];
 
 const ROLE_INFO = {
@@ -571,114 +510,108 @@ const ROLE_INFO = {
   admin:{ic:'⚙️',name:'관리자',desc:'전체모니터링'},
 };
 
-// ══ AI 데이터 ══
-const AI_PRICES = {
-  사과:32000,배:28000,감자:11000,배추:8500,마늘:28000,
-  양파:12000,딸기:55000,토마토:22000,고추:45000,포도:38000,
-  복숭아:35000,수박:25000,참외:22000,무:5500,당근:15000,오이:18000
+// ── 탭 정의 (역할별) ──
+const TABS_BY_ROLE = {
+  producer_ind:   [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'송장',pg:'invoice'},{ic:'🌱',lb:'작물',pg:'crop'},{ic:'🤝',lb:'거래처',pg:'partner'},{ic:'🚛',lb:'차량',pg:'vehicle'},{ic:'📄',lb:'전표',pg:'eform'},{ic:'💰',lb:'정산',pg:'settle'},{ic:'💎',lb:'혜택',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  producer_corp:  [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'송장',pg:'invoice'},{ic:'🌱',lb:'작물',pg:'crop'},{ic:'🤝',lb:'거래처',pg:'partner'},{ic:'🚛',lb:'차량',pg:'vehicle'},{ic:'📄',lb:'전표',pg:'eform'},{ic:'💰',lb:'정산',pg:'settle'},{ic:'💎',lb:'혜택',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  merchant_ind:   [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📬',lb:'수신송장',pg:'invoice'},{ic:'🤝',lb:'거래처',pg:'partner'},{ic:'📄',lb:'전표',pg:'eform'},{ic:'💰',lb:'정산',pg:'settle'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  wholesale:      [{ic:'🏠',lb:'홈',pg:'home'},{ic:'🔨',lb:'경매',pg:'invoice'},{ic:'🤝',lb:'거래처',pg:'partner'},{ic:'📄',lb:'전표',pg:'eform'},{ic:'💰',lb:'정산',pg:'settle'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  transport:      [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📞',lb:'배차콜',pg:'vehicle'},{ic:'📋',lb:'이력',pg:'invoice'},{ic:'💰',lb:'정산',pg:'settle'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  warehouse_owner:[{ic:'🏠',lb:'홈',pg:'home'},{ic:'🏭',lb:'창고',pg:'eform'},{ic:'💰',lb:'정산',pg:'settle'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  gov_garaksa:    [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📊',lb:'현황',pg:'public'},{ic:'⚠️',lb:'규제',pg:'policy'},{ic:'📢',lb:'공지',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  gov_seoul:      [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📊',lb:'현황',pg:'public'},{ic:'⚠️',lb:'규제',pg:'policy'},{ic:'💎',lb:'정책자금',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  gov_nts:        [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📊',lb:'현황',pg:'public'},{ic:'⚠️',lb:'규제',pg:'policy'},{ic:'📄',lb:'전표',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  gov_public:     [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📊',lb:'현황',pg:'public'},{ic:'⚠️',lb:'규제',pg:'policy'},{ic:'💎',lb:'정책자금',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  tax_agent:      [{ic:'🏠',lb:'홈',pg:'home'},{ic:'👥',lb:'고객',pg:'partner'},{ic:'📄',lb:'전표',pg:'eform'},{ic:'📊',lb:'통계',pg:'settle'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  accounting:     [{ic:'🏠',lb:'홈',pg:'home'},{ic:'👥',lb:'고객',pg:'partner'},{ic:'📄',lb:'전표',pg:'eform'},{ic:'📊',lb:'통계',pg:'settle'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  labor_agent:    [{ic:'🏠',lb:'홈',pg:'home'},{ic:'👥',lb:'고객',pg:'partner'},{ic:'📄',lb:'전표',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  lawyer:         [{ic:'🏠',lb:'홈',pg:'home'},{ic:'👥',lb:'고객',pg:'partner'},{ic:'📄',lb:'전표',pg:'eform'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  customs:        [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'통관',pg:'invoice'},{ic:'👥',lb:'고객',pg:'partner'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  admin_agent:    [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'업무',pg:'invoice'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  admin:          [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📊',lb:'전체현황',pg:'public'},{ic:'📋',lb:'전표',pg:'eform'},{ic:'⚙️',lb:'관리',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
 };
-const TRUCK_FEES = {
-  용달:80000,'1톤':100000,'1톤냉장':140000,
-  '2.5톤':150000,'2.5톤냉장':200000,
-  '5톤':220000,'5톤냉장':290000,'5톤냉동':330000,'11톤':400000
-};
-const KG_PER_BOX = {사과:15,배:15,감자:20,배추:20,마늘:10,양파:20,딸기:2,토마토:5,고추:10,포도:5};
-const COLD_ITEMS = ['딸기','포도','복숭아','토마토','수박','참외'];
-const AI_BUYERS = ['한국청과','서울청과','중앙청과','농협청과','동화청과','서울중도매','강남청과상회'];
 
-// ══ 상태 ══
-let curRole='', curGkid='', curUserName='';
-let invReqs = {auction:false,consign:false};
-let invOrigin = 'domestic';
-let invDelivery = '';
-let invMemo = {};
-let INVOICES = [];
-let CALLS = [];
-let callLoadType = 'solo';
+// ── 규제/페널티 데이터 ──
+const PENALTY_DATA = [
+  {id:'p1', type:'red', title:'원산지 허위표시', desc:'국내산을 수입산으로 또는 수입산을 국내산으로 허위 표기 시', penalty:'과태료 최대 1,000만원 · 영업정지 3개월', law:'농수산물의 원산지 표시에 관한 법률 제6조'},
+  {id:'p2', type:'red', title:'무신고 거래 (미등록 거래)', desc:'가락시장 내 허가 없이 농수산물 거래 행위', penalty:'영업허가 취소 · 형사고발', law:'농수산물 유통 및 가격안정에 관한 법률 제40조'},
+  {id:'p3', type:'red', title:'전표 미발행 또는 위조', desc:'거래 후 전표 미발행, 금액 허위 기재, 전표 위조·변조', penalty:'과태료 최대 500만원 · 세무조사 의뢰', law:'부가가치세법 제32조'},
+  {id:'p4', type:'red', title:'위생기준 위반', desc:'농산물 위생·안전 기준 미달 제품 반입 또는 유통', penalty:'즉시 반입 금지 · 전량 폐기 명령', law:'식품위생법 제4조'},
+  {id:'p5', type:'yellow', title:'경매 방해 행위', desc:'경매 시 담합, 낙찰 방해, 허위 응찰 등 불공정 행위', penalty:'경고 · 누적 3회 시 거래 정지 6개월', law:'가락시장 경매 운영규정 제15조'},
+  {id:'p6', type:'yellow', title:'정산 지연', desc:'낙찰 후 정해진 기간 내 대금 미지급', penalty:'연체이자 부과 · 거래 정지', law:'농수산물 유통 및 가격안정에 관한 법률 제38조'},
+  {id:'p7', type:'yellow', title:'플랫폼 허위 정보 입력', desc:'GARAK AI 플랫폼에 허위 재배면적, 소출량, 원산지 등 입력', penalty:'계정 정지 · 정책자금 환수 · 신뢰등급 초기화', law:'GARAK 플랫폼 이용약관 제20조'},
+];
 
-// ══ 역할 카드 렌더 ══
-function renderRoleCards(containerId){
-  const el = document.getElementById(containerId);
+// ── 정책자금 데이터 ──
+const POLICY_FUNDS = [
+  {id:'pf1', title:'청년 농업인 영농 정착 지원', org:'농림축산식품부', amount:'최대 ₩3,000,000/년', target:'만 18~40세 신규 농업인', deadline:'2026-06-30', grade:'seed', tags:['청년','신규','개인']},
+  {id:'pf2', title:'스마트팜 전환 지원사업', org:'농림축산식품부', amount:'최대 ₩50,000,000', target:'시설원예 재배 농가', deadline:'2026-04-15', grade:'grow', tags:['스마트팜','시설재배','법인가능']},
+  {id:'pf3', title:'농업경영체 등록 지원', org:'국립농산물품질관리원', amount:'₩500,000 (등록비 지원)', target:'GARAK AI 사용 농가', deadline:'상시', grade:'seed', tags:['경영체','등록','필수']},
+  {id:'pf4', title:'가락시장 출하 활성화 장려금', org:'서울시농수산식품공사', amount:'출하액의 0.3% 환급', target:'GARAK AI 성장등급 이상', deadline:'분기별 지급', grade:'grow', tags:['장려금','정기','성장이상']},
+  {id:'pf5', title:'친환경 농산물 인증 지원', org:'국립농산물품질관리원', amount:'최대 ₩2,000,000', target:'친환경 재배 전환 희망 농가', deadline:'2026-05-31', grade:'sprout', tags:['친환경','인증','지원']},
+];
+
+// ── 상태 ──
+let curRole='', curGkid='', curUserName='', curGrade='seed';
+let invReqs={auction:false,consign:false}, invDelivery='';
+let INVOICES=[], CALLS=[], CROPS=[];
+let products=[], productIdCounter=0;
+let callLoadType='solo';
+
+// ══════════════
+// 역할 카드 렌더
+// ══════════════
+function renderRoleCards(containerId, withInput=true){
+  const el=document.getElementById(containerId);
   if(!el) return;
   el.innerHTML = ROLE_GROUPS.map(g=>`
     <div class="role-label" style="color:${g.color};">${g.label}</div>
     <div class="role-grid">
-      ${g.roles.map(r=>{
-        const info = ROLE_INFO[r];
-        return `<div class="role-card" data-role="${r}">
-          <span class="role-ic">${info.ic}</span>
-          <span class="role-name">${info.name}</span>
-          <span class="role-desc">${info.desc}</span>
-        </div>`;
-      }).join('')}
-    </div>`).join('') + `
+      ${g.roles.map(r=>{const i=ROLE_INFO[r];return `<div class="role-card" data-role="${r}"><span class="role-ic">${i.ic}</span><span class="role-name">${i.name}</span><span class="role-desc">${i.desc}</span></div>`;}).join('')}
+    </div>`).join('') + (withInput?`
     <div style="margin-top:12px;">
       <div class="flabel">이름 / 상호명 *</div>
       <input type="text" class="finput" id="reg-name" placeholder="홍길동 / 드레곤팜" style="margin-bottom:8px;">
       <div class="flabel">휴대폰 번호</div>
       <input type="tel" class="finput" id="reg-tel" placeholder="010-0000-0000">
-    </div>`;
+    </div>`:'');
 }
 
-function renderLoginRoleCards(containerId){
-  const el = document.getElementById(containerId);
-  if(!el) return;
-  el.innerHTML = ROLE_GROUPS.map(g=>`
-    <div class="role-label" style="color:${g.color};">${g.label}</div>
-    <div class="role-grid">
-      ${g.roles.map(r=>{
-        const info = ROLE_INFO[r];
-        return `<div class="role-card" data-role="${r}">
-          <span class="role-ic">${info.ic}</span>
-          <span class="role-name">${info.name}</span>
-          <span class="role-desc">${info.desc}</span>
-        </div>`;
-      }).join('')}
-    </div>`).join('');
-}
-
-// ══ 화면 전환 ══
+// ══════════════
+// 화면 전환
+// ══════════════
 window.showScreen = function(screen){
   document.getElementById('login-landing').style.display  = screen==='landing'  ? 'flex'  : 'none';
   document.getElementById('login-register').style.display = screen==='register' ? 'block' : 'none';
   document.getElementById('login-login').style.display    = screen==='login'    ? 'block' : 'none';
-  if(screen==='register') renderRoleCards('reg-role-area');
-  if(screen==='login')    renderLoginRoleCards('login-role-area');
+  if(screen==='register') renderRoleCards('reg-role-area', true);
+  if(screen==='login')    renderRoleCards('login-role-area', false);
   curRole='';
   document.querySelectorAll('.role-card').forEach(c=>c.classList.remove('sel'));
 };
 
-// ══ 역할 선택 ══
 document.addEventListener('click', function(e){
-  const card = e.target.closest('.role-card[data-role]');
+  const card=e.target.closest('.role-card[data-role]');
   if(card){
     document.querySelectorAll('.role-card').forEach(c=>c.classList.remove('sel'));
     card.classList.add('sel');
-    curRole = card.dataset.role;
+    curRole=card.dataset.role;
   }
 });
-document.addEventListener('touchend', function(e){
-  const card = e.target.closest('.role-card[data-role]');
-  if(card){
-    e.preventDefault();
-    document.querySelectorAll('.role-card').forEach(c=>c.classList.remove('sel'));
-    card.classList.add('sel');
-    curRole = card.dataset.role;
-  }
-},{passive:false});
 
-// ══ 로그인 ══
+// ══════════════
+// 로그인
+// ══════════════
 window.doLogin = async function(){
   if(!curRole){ toast('역할을 선택하세요'); return; }
-  const r = ROLES[curRole];
+  const r=ROLES[curRole];
   if(!r){ toast('역할 정보를 찾을 수 없습니다'); return; }
-  const nameEl = document.getElementById('reg-name');
-  const telEl  = document.getElementById('reg-tel');
-  curUserName = (nameEl && nameEl.value.trim()) || r.n+' 사용자';
-  const finalTel = (telEl && telEl.value.trim()) || '';
-  curGkid = r.gkp+'-'+String(Math.floor(Math.random()*99999)+1).padStart(6,'0');
-  try{ await db.from('users').insert({gkid:curGkid,name:curUserName,role:curRole,tel:finalTel}); }catch(e){ console.log(e); }
-  localStorage.setItem('garak_user',JSON.stringify({role:curRole,gkid:curGkid,name:curUserName}));
+  const nameEl=document.getElementById('reg-name');
+  curUserName=(nameEl&&nameEl.value.trim())||r.n+' 사용자';
+  curGkid=r.gkp+'-'+String(Math.floor(Math.random()*99999)+1).padStart(6,'0');
+  curGrade='seed';
+  try{ await db.from('users').insert({gkid:curGkid,name:curUserName,role:curRole}); }catch(e){}
+  localStorage.setItem('garak_user',JSON.stringify({role:curRole,gkid:curGkid,name:curUserName,grade:curGrade}));
   startApp(r);
 };
 
@@ -688,27 +621,61 @@ function startApp(r){
   document.getElementById('tb-ic').textContent=r.ic;
   document.getElementById('tb-name').textContent=r.n;
   document.getElementById('tb-gkid').textContent=curGkid;
+  updateGradeBadge();
   buildTabbar();
   startClock();
   renderHome();
+  const isProducer=['producer_ind','producer_corp'].includes(curRole);
+  document.getElementById('ai-float').style.display=isProducer?'block':'none';
 }
 
 function loadSavedLogin(){
   const saved=localStorage.getItem('garak_user');
   if(saved){
     const u=JSON.parse(saved);
-    curRole=u.role; curGkid=u.gkid; curUserName=u.name||'';
+    curRole=u.role; curGkid=u.gkid; curUserName=u.name||''; curGrade=u.grade||'seed';
     const r=ROLES[curRole];
     if(r) startApp(r);
   }
 }
 loadSavedLogin();
 
-// ══ 탭바 ══
+// ══════════════
+// 신뢰등급
+// ══════════════
+function updateGradeBadge(){
+  const gi=GRADE_INFO[curGrade]||GRADE_INFO.seed;
+  const el=document.getElementById('tb-grade');
+  if(el){ el.textContent=gi.label; el.className='tb-grade tag '+gi.cls; }
+}
+
+function calcGradeScore(){
+  let score=0;
+  score += CROPS.length * 5;
+  score += INVOICES.length * 3;
+  if(curUserName && curUserName.length > 1) score += 5;
+  return Math.min(score, 100);
+}
+
+function updateGrade(){
+  const score=calcGradeScore();
+  if(score>=90) curGrade='master';
+  else if(score>=60) curGrade='best';
+  else if(score>=30) curGrade='grow';
+  else if(score>=10) curGrade='sprout';
+  else curGrade='seed';
+  updateGradeBadge();
+  const saved=localStorage.getItem('garak_user');
+  if(saved){ const u=JSON.parse(saved); u.grade=curGrade; localStorage.setItem('garak_user',JSON.stringify(u)); }
+}
+
+// ══════════════
+// 탭바
+// ══════════════
 function buildTabbar(){
-  const r=ROLES[curRole];
-  document.getElementById('tabbar').innerHTML=r.tabs.map(t=>
-    `<div class="tab" onclick="goTab('${t.pg}')" data-pg="${t.pg}">
+  const tabs=TABS_BY_ROLE[curRole]||[{ic:'🏠',lb:'홈',pg:'home'},{ic:'👤',lb:'MY',pg:'mypage'}];
+  document.getElementById('tabbar').innerHTML=tabs.map(t=>`
+    <div class="tab" onclick="goTab('${t.pg}')" data-pg="${t.pg}">
       <span class="tab-ic">${t.ic}</span><span class="tab-lb">${t.lb}</span>
     </div>`).join('');
   goTab('home');
@@ -721,23 +688,51 @@ function goTab(pg){
   if(p) p.classList.add('on');
   document.querySelectorAll(`[data-pg="${pg}"]`).forEach(t=>t.classList.add('on'));
   document.getElementById('scroll').scrollTop=0;
-  if(pg==='home')    renderHome();
-  if(pg==='invoice') renderInvoicePage();
-  if(pg==='call')    renderCallPage();
-  if(pg==='profile') renderProfile();
+  const renders={home:renderHome,invoice:renderInvoicePage,crop:renderCropPage,partner:renderPartnerPage,vehicle:renderVehiclePage,eform:renderEformPage,settle:renderSettlePage,policy:renderPolicyPage,public:renderPublicPage,mypage:renderMyPage};
+  if(renders[pg]) renders[pg]();
 }
 
-// ══ 홈 ══
+// ══════════════
+// 홈
+// ══════════════
 function renderHome(){
   const r=ROLES[curRole];
   const isProducer=['producer_ind','producer_corp'].includes(curRole);
-  document.getElementById('home-content').innerHTML=`
-    <div style="margin-bottom:16px;">
-      <div style="font-size:10px;color:var(--a1);letter-spacing:2px;margin-bottom:4px;">GARAK 4.0</div>
+  const isGov=['gov_garaksa','gov_seoul','gov_nts','gov_public'].includes(curRole);
+  const gi=GRADE_INFO[curGrade]||GRADE_INFO.seed;
+
+  let homeHTML = `
+    <div style="margin-bottom:14px;">
+      <div style="font-size:10px;color:var(--a1);letter-spacing:2px;margin-bottom:4px;">GARAK AI 4.0</div>
       <div style="font-size:20px;font-weight:800;">안녕하세요 ${curUserName||r.n} 님 👋</div>
-      <div style="font-size:12px;color:var(--t2);margin-top:3px;">${r.n} · ${curGkid}</div>
-    </div>
-    <div style="background:rgba(0,232,188,.06);border:1px solid rgba(0,232,188,.2);border-radius:14px;padding:12px 14px;margin-bottom:12px;">
+      <div style="font-size:12px;color:var(--t2);margin-top:2px;">${r.n} · ${curGkid}</div>
+    </div>`;
+
+  // 생산자: 신뢰등급 카드
+  if(isProducer){
+    const score=calcGradeScore();
+    homeHTML += `
+    <div class="card" style="background:var(--s2);margin-bottom:12px;cursor:pointer;" onclick="goTab('mypage')">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="flex:1;">
+          <div style="font-size:11px;color:var(--t2);margin-bottom:4px;">GARAK 신뢰등급</div>
+          <div style="font-size:16px;font-weight:800;">${gi.label}</div>
+          <div style="font-size:10px;color:var(--t2);">${gi.desc}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:22px;font-weight:900;color:var(--a1);">${score}<span style="font-size:12px;">점</span></div>
+          <div style="font-size:10px;color:var(--t2);">다음 등급까지 ${Math.max(0,(curGrade==='master'?100:Object.values(GRADE_INFO).find(g=>g.min>score)?.min||100)-score)}점</div>
+        </div>
+      </div>
+      <div style="margin-top:8px;height:4px;background:var(--s3);border-radius:2px;">
+        <div style="width:${score}%;height:100%;border-radius:2px;background:linear-gradient(90deg,var(--a1),var(--a2));"></div>
+      </div>
+    </div>`;
+  }
+
+  // AI 시세 정보
+  homeHTML += `
+    <div class="card" style="margin-bottom:12px;">
       <div style="font-size:11px;color:var(--a1);font-weight:700;margin-bottom:8px;">🤖 AI 오늘의 시세</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
         ${['사과','배추','감자','마늘','양파','딸기'].map(item=>`
@@ -746,57 +741,581 @@ function renderHome(){
             <div style="font-size:12px;font-weight:700;color:var(--a4);">₩${(AI_PRICES[item]||0).toLocaleString()}</div>
           </div>`).join('')}
       </div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
-      <div class="card" style="cursor:pointer;" onclick="goTab('invoice')">
-        <div style="font-size:10px;color:var(--t2);">${isProducer?'내 송장':'수신 송장'}</div>
-        <div style="font-size:24px;font-weight:800;color:var(--a1);">${INVOICES.length}건</div>
-      </div>
-      <div class="card" style="cursor:pointer;" onclick="goTab('call')">
-        <div style="font-size:10px;color:var(--t2);">화물콜</div>
-        <div style="font-size:24px;font-weight:800;color:var(--a4);">${CALLS.length}건</div>
-      </div>
-    </div>
-    ${isProducer?`<button class="btn btn-p" onclick="window.openInvoiceSheet()" style="margin-bottom:12px;padding:16px;font-size:15px;font-weight:800;">📋 새 송장 만들기</button>`:''}
-    <div class="card">
-      <div style="font-size:13px;font-weight:700;margin-bottom:10px;">📋 최근 송장</div>
-      <div id="home-invoice-list">
-        ${INVOICES.length?INVOICES.slice(0,3).map(inv=>renderInvoiceCardSmall(inv)).join(''):'<div style="font-size:12px;color:var(--t2);text-align:center;padding:16px;">송장이 없습니다</div>'}
+    </div>`;
+
+  // 생산자: 내 작물 현황 요약
+  if(isProducer && CROPS.length > 0){
+    const nextHarvest = CROPS.filter(c=>c.harvestDate).sort((a,b)=>new Date(a.harvestDate)-new Date(b.harvestDate))[0];
+    homeHTML += `
+    <div class="card" style="margin-bottom:12px;cursor:pointer;" onclick="goTab('crop')">
+      <div class="sec-hd" style="margin-bottom:8px;"><span style="font-size:13px;font-weight:700;">🌱 내 작물 현황</span><span class="sec-more">전체보기</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div style="background:var(--s2);border-radius:10px;padding:10px;text-align:center;">
+          <div style="font-size:10px;color:var(--t2);">재배 작물</div>
+          <div style="font-size:22px;font-weight:800;color:var(--a1);">${CROPS.length}종</div>
+        </div>
+        <div style="background:var(--s2);border-radius:10px;padding:10px;text-align:center;">
+          <div style="font-size:10px;color:var(--t2);">가장 빠른 수확</div>
+          <div style="font-size:13px;font-weight:700;color:var(--a4);">${nextHarvest?nextHarvest.name:'—'}</div>
+          ${nextHarvest?`<div style="font-size:10px;color:var(--t2);">D-${Math.max(0,Math.floor((new Date(nextHarvest.harvestDate)-new Date())/(1000*60*60*24)))}</div>`:''}
+        </div>
       </div>
     </div>`;
+  }
+
+  // 공공기관: 규제/페널티 배너 (홈에도 표시)
+  if(isGov){
+    homeHTML += `
+    <div class="penalty-banner" style="cursor:pointer;" onclick="goTab('policy')">
+      <div class="pb-hd">
+        <span class="pb-ic">🚨</span>
+        <span class="pb-title">규제 · 페널티 현황</span>
+        <span class="pb-badge">NEW 2건</span>
+      </div>
+      <div class="penalty-item"><div class="penalty-dot"></div><div style="color:var(--t2);">이번 달 원산지 허위표시 위반 3건 적발 · 과태료 처분 진행 중</div></div>
+      <div class="penalty-item"><div class="penalty-dot"></div><div style="color:var(--t2);">전표 미발행 업체 경고 7건 · 2건 누적 3회 거래정지 예정</div></div>
+      <div style="margin-top:8px;font-size:11px;color:var(--red);font-weight:600;">→ 전체 규제 현황 보기</div>
+    </div>`;
+  }
+
+  // 생산자: 규제 주의사항 (작게)
+  if(isProducer){
+    homeHTML += `
+    <div class="warning-banner" style="cursor:pointer;" onclick="window.openPenaltySheet('producer')">
+      <div class="wb-hd">
+        <span style="font-size:14px;">⚠️</span>
+        <span class="wb-title">준수사항 안내</span>
+      </div>
+      <div style="font-size:11px;color:var(--t2);line-height:1.7;">원산지 정확히 표기 · 전표 발행 필수 · 허위 정보 입력 시 계정 정지</div>
+    </div>`;
+  }
+
+  // 퀵 액션
+  homeHTML += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+    <div class="card" style="cursor:pointer;text-align:center;padding:16px;" onclick="goTab('invoice')">
+      <div style="font-size:24px;margin-bottom:4px;">📋</div>
+      <div style="font-size:11px;color:var(--t2);">${isProducer?'내 송장':'수신 송장'}</div>
+      <div style="font-size:20px;font-weight:800;color:var(--a1);">${INVOICES.length}건</div>
+    </div>
+    <div class="card" style="cursor:pointer;text-align:center;padding:16px;" onclick="goTab('settle')">
+      <div style="font-size:24px;margin-bottom:4px;">💰</div>
+      <div style="font-size:11px;color:var(--t2);">정산 현황</div>
+      <div style="font-size:20px;font-weight:800;color:var(--a4);">₩0</div>
+    </div>
+  </div>`;
+
+  if(isProducer){
+    homeHTML += `<button class="btn btn-p" onclick="window.openInvoiceSheet()" style="margin-bottom:10px;padding:16px;font-size:15px;font-weight:800;">📋 새 송장 만들기</button>`;
+  }
+
+  document.getElementById('home-content').innerHTML = homeHTML;
 }
 
-function renderInvoiceCardSmall(inv){
-  const statusColor={draft:'var(--t2)',ready:'var(--a2)',transit:'var(--org)',confirmed:'var(--a1)',reported:'var(--a4)',eform:'var(--pur)'}[inv.status]||'var(--t2)';
-  const statusText={draft:'작성중',ready:'준비완료',transit:'배송중',confirmed:'수령확인',reported:'출하신고',eform:'전표완료'}[inv.status]||inv.status;
-  return `<div onclick="window.openInvoiceDetail('${inv.id}')" style="padding:10px 0;border-bottom:1px solid var(--b2);cursor:pointer;">
-    <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-      <span style="font-size:13px;font-weight:700;">${inv.item} ${inv.qty}박스</span>
-      <span class="tag" style="background:${statusColor}18;color:${statusColor};">${statusText}</span>
+// ══════════════
+// 작물관리 페이지
+// ══════════════
+function renderCropPage(){
+  const isProducer=['producer_ind','producer_corp'].includes(curRole);
+  if(!isProducer){ document.getElementById('crop-content').innerHTML='<div style="text-align:center;padding:40px;color:var(--t2);">생산자 전용 페이지입니다</div>'; return; }
+
+  let html = `
+    <div class="sec-hd">
+      <div class="sec-title">🌱 작물 관리</div>
+      <button class="btn btn-p" style="width:auto;padding:8px 14px;font-size:12px;" onclick="window.openCropSheet()">+ 작물 등록</button>
     </div>
-    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--t2);">
-      <span>→ ${inv.buyer_name}</span>
-      <span style="color:var(--a4);font-weight:700;">₩${((inv.qty||0)*(inv.price||0)).toLocaleString()}</span>
+
+    <!-- AI 예측 요약 -->
+    <div class="card" style="background:rgba(0,232,188,.04);border-color:rgba(0,232,188,.2);margin-bottom:12px;">
+      <div style="font-size:11px;color:var(--a1);font-weight:700;margin-bottom:8px;">🤖 AI 농사 어시스턴트</div>
+      <div style="font-size:12px;color:var(--t2);line-height:1.7;">
+        ${CROPS.length===0
+          ? '작물을 등록하면 AI가 수확 시기, 예상 소출량, 출하 전략을 분석해드려요.'
+          : `현재 ${CROPS.length}종 재배 중 · 가장 빠른 수확 예정: ${CROPS[0]?.name||'—'}<br>오늘 시세 기준 최적 출하 타이밍을 분석 중...`}
+      </div>
+      ${CROPS.length>0?`<button class="btn btn-s" style="margin-top:8px;padding:8px;font-size:12px;" onclick="window.openAI()">🤖 AI에게 물어보기</button>`:''}
+    </div>`;
+
+  // 작물 목록
+  if(CROPS.length === 0){
+    html += `
+    <div style="text-align:center;padding:40px 20px;color:var(--t2);">
+      <div style="font-size:48px;margin-bottom:12px;">🌱</div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:6px;">아직 등록된 작물이 없습니다</div>
+      <div style="font-size:12px;margin-bottom:20px;">작물을 등록하면 출하 전략 · 정책자금 혜택이 연결됩니다</div>
+      <button class="btn btn-p" style="max-width:200px;margin:0 auto;" onclick="window.openCropSheet()">🌱 첫 작물 등록하기</button>
+    </div>`;
+  } else {
+    html += CROPS.map(c=>renderCropCard(c)).join('');
+  }
+
+  // 지역 현황 (프로토타입: 더미)
+  html += `
+    <div style="margin-top:16px;">
+      <div class="sec-hd"><span style="font-size:14px;font-weight:700;">🗺️ 지역 작물 현황</span><span class="sec-more">지도보기</span></div>
+      <div class="card" style="background:var(--s2);">
+        <div style="font-size:11px;color:var(--a1);font-weight:700;margin-bottom:8px;">🤖 전국 파종·수확 현황 (AI 집계)</div>
+        ${[
+          {crop:'사과', region:'경북', farmers:1240, status:'수확기'},
+          {crop:'배추', region:'강원', farmers:890,  status:'파종중'},
+          {crop:'딸기', region:'충남', farmers:560,  status:'생육중'},
+        ].map(d=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--b2);font-size:12px;">
+          <span style="color:var(--t1);font-weight:600;">${d.crop} · ${d.region}</span>
+          <span style="color:var(--t2);">${d.farmers.toLocaleString()}농가</span>
+          <span class="tag ${d.status==='수확기'?'tag-g':d.status==='파종중'?'tag-b':'tag-y'}">${d.status}</span>
+        </div>`).join('')}
+        <div style="font-size:10px;color:var(--t3);margin-top:8px;">※ 데이터는 GARAK AI 플랫폼 참여 농가 기준</div>
+      </div>
+    </div>`;
+
+  document.getElementById('crop-content').innerHTML = html;
+}
+
+function renderCropCard(c){
+  const now = new Date();
+  const plantDate = c.plantDate ? new Date(c.plantDate) : null;
+  const harvestDate = c.harvestDate ? new Date(c.harvestDate) : null;
+  const daysToHarvest = harvestDate ? Math.max(0, Math.floor((harvestDate-now)/(1000*60*60*24))) : null;
+  const total = harvestDate && plantDate ? Math.floor((harvestDate-plantDate)/(1000*60*60*24)) : 1;
+  const elapsed = plantDate ? Math.floor((now-plantDate)/(1000*60*60*24)) : 0;
+  const progress = Math.min(100, Math.max(0, Math.round(elapsed/total*100)));
+  const statusLabel = progress>=100?'수확완료':progress>=80?'수확기':progress>=50?'생육중':progress>=20?'정착중':'파종완료';
+  const statusCls = progress>=100?'tag-g':progress>=80?'tag-y':progress>=50?'tag-b':'tag-o';
+
+  return `
+  <div class="crop-card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+      <div>
+        <div style="font-size:15px;font-weight:800;">${c.name}</div>
+        <div style="font-size:11px;color:var(--t2);margin-top:2px;">📍 ${c.region} · ${c.area}${c.unit}</div>
+      </div>
+      <span class="tag ${statusCls}">${statusLabel}</span>
     </div>
+    <div class="crop-progress"><div class="crop-progress-fill" style="width:${progress}%;"></div></div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--t2);margin-bottom:8px;">
+      <span>파종: ${c.plantDate||'미입력'}</span>
+      <span style="font-weight:700;color:var(--t1);">${progress}%</span>
+      <span>수확: ${c.harvestDate||'미정'}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-size:11px;">
+        ${c.estYield?`<span style="color:var(--a4);font-weight:700;">예상 소출: ${c.estYield}${c.yieldUnit}</span>`:'<span style="color:var(--t3);">소출량 미입력</span>'}
+      </div>
+      ${daysToHarvest!==null?`<span style="font-size:12px;font-weight:800;color:var(--a1);">D-${daysToHarvest}</span>`:''}
+    </div>
+    ${c.aiNote?`<div style="margin-top:8px;padding:7px 9px;background:rgba(0,232,188,.06);border:1px solid rgba(0,232,188,.15);border-radius:8px;font-size:11px;color:var(--t2);">🤖 ${c.aiNote}</div>`:''}
   </div>`;
 }
 
-// ══ 송장 페이지 ══
+window.openCropSheet = function(){
+  document.getElementById('crop-ai-suggest').style.display='none';
+  ['crop-name','crop-region1','crop-region2','crop-area','crop-memo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  window.openSheet('sh-crop');
+};
+
+window.saveCrop = function(){
+  const name=document.getElementById('crop-name').value;
+  const r1=document.getElementById('crop-region1').value.trim();
+  const r2=document.getElementById('crop-region2').value.trim();
+  const area=document.getElementById('crop-area').value;
+  const unit=document.getElementById('crop-unit').value;
+  const plantDate=document.getElementById('crop-plant-date').value;
+  const harvestDate=document.getElementById('crop-harvest-date').value;
+  const estYield=document.getElementById('crop-est-yield').value;
+  const yieldUnit=document.getElementById('crop-yield-unit').value;
+  const memo=document.getElementById('crop-memo').value;
+  if(!name||!r1||!area){ toast('작물명, 위치, 면적은 필수입니다'); return; }
+  const yieldData=CROP_YIELD[name];
+  let aiNote='';
+  if(yieldData && area){
+    const est=Math.round(parseFloat(area)*yieldData.perUnit);
+    aiNote=`${area}${unit} 기준 예상 소출 약 ${est}박스 · 오늘 시세 ₩${(AI_PRICES[name]||0).toLocaleString()}/박스`;
+  }
+  CROPS.unshift({id:'CROP-'+Date.now(),name,region:r1+(r2?' '+r2:''),area,unit,plantDate,harvestDate,estYield,yieldUnit,memo,aiNote,createdAt:new Date().toISOString()});
+  window.closeSheet('sh-crop');
+  updateGrade();
+  toast('🌱 작물 등록 완료! AI가 소출량을 분석했어요');
+  renderCropPage();
+  renderHome();
+  // 정책자금 안내
+  setTimeout(()=>{
+    toast('💎 회원님께 맞는 정책자금이 있어요! [혜택] 탭에서 확인해보세요');
+  }, 2000);
+};
+
+// ══════════════
+// 정책자금 페이지
+// ══════════════
+function renderPolicyPage(){
+  const isGov=['gov_garaksa','gov_seoul','gov_nts','gov_public'].includes(curRole);
+  const isProducer=['producer_ind','producer_corp'].includes(curRole);
+
+  if(isGov){
+    // 공공기관: 규제·페널티 관리 페이지
+    renderPublicPenaltyPage();
+    return;
+  }
+
+  let html = `<div class="sec-title" style="margin-bottom:16px;">💎 혜택 · 정책자금</div>`;
+
+  // AI 맞춤 추천
+  html += `
+    <div class="card" style="background:rgba(0,232,188,.04);border-color:rgba(0,232,188,.2);margin-bottom:14px;">
+      <div style="font-size:11px;color:var(--a1);font-weight:700;margin-bottom:6px;">🤖 AI 맞춤 추천</div>
+      <div style="font-size:12px;color:var(--t2);line-height:1.7;">
+        ${curGrade==='seed'?'작물을 등록하고 송장을 작성하면 맞춤 정책자금을 안내해드려요. 지금 바로 시작해보세요!':
+          `현재 ${GRADE_INFO[curGrade].label} 등급으로 신청 가능한 정책자금 ${POLICY_FUNDS.filter(p=>Object.keys(GRADE_INFO).indexOf(p.grade)<=Object.keys(GRADE_INFO).indexOf(curGrade)).length}건이 있어요.`}
+      </div>
+    </div>`;
+
+  // 규제·준수사항 (생산자용 — 경고 배너)
+  html += `
+    <div class="warning-banner" style="margin-bottom:14px;cursor:pointer;" onclick="window.openPenaltySheet('producer')">
+      <div class="wb-hd">
+        <span style="font-size:14px;">⚠️</span>
+        <span class="wb-title">반드시 지켜야 할 준수사항</span>
+        <span style="margin-left:auto;font-size:10px;color:var(--a4);">전체보기 →</span>
+      </div>
+      <div class="penalty-item"><div class="penalty-dot" style="background:var(--a4);"></div><div style="color:var(--t2);">원산지 정확히 표기 (허위 시 과태료 최대 1,000만원)</div></div>
+      <div class="penalty-item"><div class="penalty-dot" style="background:var(--a4);"></div><div style="color:var(--t2);">전표 발행 의무 (미발행 시 과태료 최대 500만원)</div></div>
+      <div class="penalty-item"><div class="penalty-dot" style="background:var(--a4);"></div><div style="color:var(--t2);">플랫폼 허위 정보 입력 시 계정 정지 및 정책자금 환수</div></div>
+    </div>`;
+
+  // 정책자금 목록
+  html += `<div style="font-size:13px;font-weight:700;margin-bottom:10px;">📋 신청 가능한 정책자금</div>`;
+  POLICY_FUNDS.forEach(pf=>{
+    const available = Object.keys(GRADE_INFO).indexOf(pf.grade) <= Object.keys(GRADE_INFO).indexOf(curGrade);
+    html += `
+    <div class="policy-card ${available?'':'opacity:.5'}" onclick="window.openPolicyDetail('${pf.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+        <div style="font-size:13px;font-weight:700;flex:1;margin-right:8px;">${pf.title}</div>
+        <span class="tag ${available?'tag-g':'tag-r'}">${available?'신청가능':'등급부족'}</span>
+      </div>
+      <div style="font-size:11px;color:var(--t2);margin-bottom:6px;">${pf.org}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:13px;font-weight:700;color:var(--a4);">${pf.amount}</span>
+        <span style="font-size:10px;color:var(--t2);">마감: ${pf.deadline}</span>
+      </div>
+      <div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">
+        ${pf.tags.map(t=>`<span class="tag tag-b">${t}</span>`).join('')}
+        <span class="tag" style="background:rgba(168,85,247,.1);color:var(--pur);">${GRADE_INFO[pf.grade].label} 이상</span>
+      </div>
+    </div>`;
+  });
+
+  document.getElementById('policy-content').innerHTML = html;
+}
+
+window.openPolicyDetail = function(id){
+  const pf=POLICY_FUNDS.find(x=>x.id===id);
+  if(!pf) return;
+  const available=Object.keys(GRADE_INFO).indexOf(pf.grade)<=Object.keys(GRADE_INFO).indexOf(curGrade);
+  document.getElementById('policy-detail-title').textContent=pf.title;
+  document.getElementById('policy-detail-body').innerHTML=`
+    <div style="font-size:12px;color:var(--t2);margin-bottom:14px;">${pf.org}</div>
+    ${[['지원금액',pf.amount],['신청대상',pf.target],['신청마감',pf.deadline],['필요등급',GRADE_INFO[pf.grade].label+' 이상']].map(r=>`
+    <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--b2);font-size:13px;">
+      <span style="color:var(--t2);">${r[0]}</span><span style="font-weight:700;">${r[1]}</span>
+    </div>`).join('')}
+    <div style="margin-top:14px;padding:12px;background:rgba(0,232,188,.06);border:1px solid rgba(0,232,188,.2);border-radius:10px;font-size:12px;color:var(--t2);line-height:1.7;">
+      🤖 AI 신청서 자동완성 기능 준비 중<br>본 서비스가 완성되면 플랫폼 데이터를 기반으로 신청서를 자동으로 작성해드려요.
+    </div>
+    <button class="btn ${available?'btn-p':'btn-s'}" style="margin-top:14px;" onclick="${available?"toast('🤖 AI 신청서 작성 기능 준비 중입니다. 빠른 시일 내 오픈 예정!')":"toast('신뢰등급 '+GRADE_INFO['${pf.grade}'].label+' 이상 필요합니다. 작물·거래 이력을 쌓아보세요!')"}" >
+      ${available?'✅ 신청하기 (준비중)':'🔒 등급 달성 후 신청 가능'}
+    </button>`;
+  window.openSheet('sh-policy');
+};
+
+// ══════════════
+// 공공기관 페이지
+// ══════════════
+function renderPublicPage(){
+  const isGov=['gov_garaksa','gov_seoul','gov_nts','gov_public'].includes(curRole);
+  let html = `<div class="sec-title" style="margin-bottom:16px;">📊 시장 현황 대시보드</div>`;
+
+  // 주요 지표 (더미)
+  html += `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+      ${[
+        {lb:'오늘 반입량',val:'1,240톤',clr:'var(--a1)'},
+        {lb:'거래 건수',val:'3,891건',clr:'var(--a2)'},
+        {lb:'평균 낙찰가',val:'₩28,400',clr:'var(--a4)'},
+        {lb:'GARAK 사용자',val:'2,341명',clr:'var(--pur)'},
+      ].map(d=>`
+      <div class="card" style="text-align:center;padding:14px;">
+        <div style="font-size:10px;color:var(--t2);">${d.lb}</div>
+        <div style="font-size:18px;font-weight:800;color:${d.clr};margin-top:4px;">${d.val}</div>
+      </div>`).join('')}
+    </div>`;
+
+  if(isGov){
+    // 규제·페널티 현황 배너
+    html += `
+    <div class="penalty-banner" style="cursor:pointer;margin-bottom:12px;" onclick="window.openPenaltySheet('all')">
+      <div class="pb-hd">
+        <span class="pb-ic">🚨</span>
+        <span class="pb-title">이번 달 규제 집행 현황</span>
+        <span class="pb-badge">총 12건</span>
+      </div>
+      ${[
+        {txt:'원산지 허위표시 3건 · 과태료 2,400만원 부과'},
+        {txt:'전표 미발행 7건 · 경고 처분'},
+        {txt:'경매 방해 행위 2건 · 거래정지 처분'},
+      ].map(i=>`<div class="penalty-item"><div class="penalty-dot"></div><div style="color:var(--t2);">${i.txt}</div></div>`).join('')}
+      <div style="margin-top:8px;font-size:11px;color:var(--red);font-weight:600;">→ 상세 규제 현황 및 관리 페이지</div>
+    </div>
+
+    <div class="warning-banner" style="margin-bottom:12px;cursor:pointer;" onclick="goTab('policy')">
+      <div class="wb-hd">
+        <span style="font-size:14px;">📢</span>
+        <span class="wb-title">공지 발송 및 정책자금 관리</span>
+      </div>
+      <div style="font-size:11px;color:var(--t2);">타겟 사용자에게 정책 공지 발송 · 정책자금 신청 관리</div>
+    </div>`;
+  }
+
+  // 품목별 시세 현황
+  html += `
+    <div class="card">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px;">📈 품목별 가격 현황</div>
+      ${Object.entries(AI_PRICES).slice(0,6).map(([k,v])=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--b2);">
+        <span style="font-size:13px;">${k}</span>
+        <div style="text-align:right;">
+          <span style="font-size:13px;font-weight:700;color:var(--a4);">₩${v.toLocaleString()}</span>
+          <span style="font-size:10px;color:var(--a1);margin-left:6px;">▲2.3%</span>
+        </div>
+      </div>`).join('')}
+    </div>`;
+
+  document.getElementById('public-content').innerHTML = html;
+}
+
+function renderPublicPenaltyPage(){
+  let html = `
+    <div class="sec-hd">
+      <div class="sec-title" style="color:var(--red);">⚠️ 규제 · 페널티 관리</div>
+      <button class="btn btn-r" style="width:auto;padding:6px 12px;font-size:11px;">+ 규제 등록</button>
+    </div>
+
+    <!-- 규제 통계 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">
+      ${[{lb:'이번달 위반',val:'12건',clr:'var(--red)'},{lb:'경고 누적',val:'23건',clr:'var(--org)'},{lb:'처분 완료',val:'8건',clr:'var(--a1)'}].map(d=>`
+      <div class="card" style="text-align:center;padding:12px;">
+        <div style="font-size:10px;color:var(--t2);">${d.lb}</div>
+        <div style="font-size:18px;font-weight:800;color:${d.clr};">${d.val}</div>
+      </div>`).join('')}
+    </div>`;
+
+  // 규제 항목 전체
+  html += `<div style="font-size:13px;font-weight:700;margin-bottom:10px;">📋 규제 항목 및 페널티</div>`;
+  PENALTY_DATA.forEach(p=>{
+    const isRed=p.type==='red';
+    html += `
+    <div class="${isRed?'penalty-banner':'warning-banner'}" style="margin-bottom:10px;cursor:pointer;" onclick="window.openPenaltyDetail('${p.id}')">
+      <div class="${isRed?'pb-hd':'wb-hd'}">
+        <span style="font-size:14px;">${isRed?'🚫':'⚠️'}</span>
+        <span class="${isRed?'pb-title':'wb-title'}">${p.title}</span>
+      </div>
+      <div style="font-size:11px;color:var(--t2);margin-bottom:6px;line-height:1.6;">${p.desc}</div>
+      <div style="font-size:11px;font-weight:700;color:${isRed?'var(--red)':'var(--a4)'};">처벌: ${p.penalty}</div>
+      <div style="font-size:10px;color:var(--t3);margin-top:3px;">${p.law}</div>
+    </div>`;
+  });
+
+  document.getElementById('policy-content').innerHTML = html;
+}
+
+window.openPenaltySheet = function(type){
+  const body=document.getElementById('penalty-detail-body');
+  body.innerHTML = `
+    <div style="margin-bottom:14px;font-size:12px;color:var(--t2);line-height:1.7;">
+      GARAK AI 플랫폼 이용 시 아래 규정을 반드시 준수해야 합니다.<br>
+      위반 시 과태료, 거래 정지, 계정 정지 등의 조치가 취해집니다.
+    </div>
+    ${PENALTY_DATA.map(p=>`
+    <div class="${p.type==='red'?'penalty-banner':'warning-banner'}" style="margin-bottom:10px;">
+      <div class="${p.type==='red'?'pb-hd':'wb-hd'}">
+        <span style="font-size:14px;">${p.type==='red'?'🚫':'⚠️'}</span>
+        <span class="${p.type==='red'?'pb-title':'wb-title'}">${p.title}</span>
+      </div>
+      <div style="font-size:11px;color:var(--t2);margin-bottom:5px;">${p.desc}</div>
+      <div style="font-size:11px;font-weight:700;color:${p.type==='red'?'var(--red)':'var(--a4)'};">처벌: ${p.penalty}</div>
+      <div style="font-size:10px;color:var(--t3);margin-top:2px;">${p.law}</div>
+    </div>`).join('')}
+    <div style="margin-top:14px;padding:12px;background:var(--s2);border-radius:10px;font-size:11px;color:var(--t2);line-height:1.7;">
+      📌 GARAK AI 플랫폼은 모든 거래 데이터를 기록·보존하며, 관계 기관 요청 시 제공될 수 있습니다.<br>
+      📌 신고 접수: 가락시장관리공단 ☎ 02-3435-1000
+    </div>`;
+  window.openSheet('sh-penalty');
+};
+
+window.openPenaltyDetail = function(id){
+  window.openPenaltySheet('all');
+};
+
+// ══════════════
+// 거래처 페이지 (뼈대)
+// ══════════════
+function renderPartnerPage(){
+  document.getElementById('partner-content').innerHTML = `
+    <div class="sec-hd"><div class="sec-title">🤝 거래처 관리</div><button class="btn btn-p" style="width:auto;padding:8px 14px;font-size:12px;">+ 거래처 추가</button></div>
+    <div class="card" style="text-align:center;padding:40px 20px;color:var(--t2);">
+      <div style="font-size:40px;margin-bottom:12px;">🤝</div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:6px;">거래처 관리 준비 중</div>
+      <div style="font-size:12px;">거래처 추가·수락·권한 부여 기능이 곧 오픈됩니다</div>
+    </div>
+    <div class="card" style="background:rgba(79,156,249,.04);border-color:rgba(79,156,249,.2);">
+      <div style="font-size:11px;color:var(--a2);font-weight:700;margin-bottom:8px;">🔜 예정 기능</div>
+      ${['거래처 추가 및 양방향 수락','거래처별 거래 이력 조회','세무사·회계사에게 전표 열람 권한 부여','자주 거래하는 거래처 즐겨찾기'].map(f=>`
+      <div style="font-size:12px;color:var(--t2);padding:5px 0;border-bottom:1px solid var(--b2);">· ${f}</div>`).join('')}
+    </div>`;
+}
+
+// ══════════════
+// 차량 페이지 (뼈대)
+// ══════════════
+function renderVehiclePage(){
+  const isTransport=curRole==='transport';
+  document.getElementById('vehicle-content').innerHTML = `
+    <div class="sec-hd">
+      <div class="sec-title">🚛 ${isTransport?'배차 콜':'화물차 배차요청'}</div>
+      ${!isTransport?`<button class="btn btn-p" style="width:auto;padding:8px 14px;font-size:12px;" onclick="window.openCallSheet()">+ 배차요청</button>`:''}
+    </div>
+    ${CALLS.length===0?`
+    <div style="text-align:center;padding:40px 20px;color:var(--t2);">
+      <div style="font-size:40px;margin-bottom:12px;">🚛</div>
+      <div>${isTransport?'수신된 배차 콜이 없습니다':'배차 요청이 없습니다'}</div>
+    </div>`:CALLS.map(c=>renderCallCard(c,isTransport)).join('')}`;
+}
+
+function renderCallCard(call, isTransport){
+  const statusColor={pending:'var(--a4)',accepted:'var(--a1)',done:'var(--t2)'}[call.status]||'var(--t2)';
+  const statusText={pending:'배차대기',accepted:'배차확정',done:'완료'}[call.status]||call.status;
+  return `<div class="card" style="margin-bottom:8px;">
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+      <div style="font-size:14px;font-weight:800;">${call.item} ${call.qty}박스</div>
+      <span class="tag" style="background:${statusColor}18;color:${statusColor};">${statusText}</span>
+    </div>
+    <div style="font-size:11px;color:var(--t2);">${call.origin} → ${call.dest}</div>
+    <div style="font-size:11px;color:var(--a4);font-weight:700;margin-top:4px;">₩${(call.fare||0).toLocaleString()}</div>
+  </div>`;
+}
+
+// ══════════════
+// 전표 페이지 (뼈대)
+// ══════════════
+function renderEformPage(){
+  const isGov=['gov_garaksa','gov_seoul'].includes(curRole);
+  document.getElementById('eform-content').innerHTML = `
+    <div class="sec-hd"><div class="sec-title">📄 ${isGov?'공지 발송':'전자전표 관리'}</div></div>
+    <div class="card" style="text-align:center;padding:40px 20px;color:var(--t2);">
+      <div style="font-size:40px;margin-bottom:12px;">📄</div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:6px;">${isGov?'공지 발송 시스템 준비 중':'전자전표 시스템 준비 중'}</div>
+      <div style="font-size:12px;">${isGov?'타겟 사용자에게 정책 공지 발송 기능이 곧 오픈됩니다':'종이전표를 완전히 대체하는 전자전표 기능이 곧 오픈됩니다'}</div>
+    </div>
+    <div class="card" style="background:rgba(79,156,249,.04);border-color:rgba(79,156,249,.2);">
+      <div style="font-size:11px;color:var(--a2);font-weight:700;margin-bottom:8px;">🔜 예정 기능</div>
+      ${(isGov?['지역·작물·등급별 타겟 발송','정책자금 신청 관리','발송 통계 및 열람률 확인','AI 자동 적격자 필터링']:
+        ['송장 → 전자전표 자동 변환','전표 번호 체계 (국세청 연동 준비)','PDF 출력 및 공유','중도매인 마진 자동 계산 기록']).map(f=>`
+      <div style="font-size:12px;color:var(--t2);padding:5px 0;border-bottom:1px solid var(--b2);">· ${f}</div>`).join('')}
+    </div>`;
+}
+
+// ══════════════
+// 정산 페이지 (뼈대)
+// ══════════════
+function renderSettlePage(){
+  document.getElementById('settle-content').innerHTML = `
+    <div class="sec-hd"><div class="sec-title">💰 정산 내역</div></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+      ${[{lb:'이번달 정산',val:'₩0',clr:'var(--a1)'},{lb:'미정산',val:'₩0',clr:'var(--a4)'}].map(d=>`
+      <div class="card" style="text-align:center;padding:14px;">
+        <div style="font-size:10px;color:var(--t2);">${d.lb}</div>
+        <div style="font-size:18px;font-weight:800;color:${d.clr};margin-top:4px;">${d.val}</div>
+      </div>`).join('')}
+    </div>
+    <div class="card" style="text-align:center;padding:40px 20px;color:var(--t2);">
+      <div style="font-size:40px;margin-bottom:12px;">💰</div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:6px;">정산 내역 준비 중</div>
+      <div style="font-size:12px;">월별·품목별 정산 통계 기능이 곧 오픈됩니다</div>
+    </div>`;
+}
+
+// ══════════════
+// 내 정보 페이지
+// ══════════════
+function renderMyPage(){
+  const r=ROLES[curRole];
+  const gi=GRADE_INFO[curGrade]||GRADE_INFO.seed;
+  const score=calcGradeScore();
+  document.getElementById('mypage-content').innerHTML = `
+    <div class="sec-title" style="margin-bottom:16px;">👤 MY 페이지</div>
+    <div class="card" style="margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+        <div style="width:52px;height:52px;border-radius:14px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:26px;">${r.ic}</div>
+        <div>
+          <div style="font-size:17px;font-weight:800;">${curUserName||r.n}</div>
+          <div style="font-size:12px;color:var(--t2);">${r.n}</div>
+          <div style="font-family:monospace;color:var(--a1);font-size:11px;margin-top:2px;">${curGkid}</div>
+        </div>
+      </div>
+
+      <!-- 신뢰등급 -->
+      <div style="background:var(--s2);border-radius:12px;padding:12px;margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div>
+            <div style="font-size:11px;color:var(--t2);">GARAK 신뢰등급</div>
+            <div style="font-size:18px;font-weight:800;margin-top:2px;">${gi.label}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:28px;font-weight:900;color:var(--a1);">${score}<span style="font-size:14px;">점</span></div>
+          </div>
+        </div>
+        <div style="height:6px;background:var(--s3);border-radius:3px;margin-bottom:6px;">
+          <div style="width:${score}%;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--a1),var(--a2));"></div>
+        </div>
+        <div style="font-size:10px;color:var(--t2);">${gi.desc}</div>
+      </div>
+
+      <!-- 등급별 혜택 -->
+      <div style="font-size:12px;font-weight:700;margin-bottom:8px;">등급별 혜택</div>
+      ${Object.entries(GRADE_INFO).map(([key,g])=>{
+        const isActive=key===curGrade;
+        const isPast=Object.keys(GRADE_INFO).indexOf(key)<Object.keys(GRADE_INFO).indexOf(curGrade);
+        return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--b2);opacity:${isPast||isActive?1:.4};">
+          <span class="tag ${g.cls}" style="min-width:68px;text-align:center;">${g.label}</span>
+          <span style="font-size:11px;color:${isActive?'var(--t1)':'var(--t2)'};">${g.desc}</span>
+          ${isActive?'<span style="margin-left:auto;font-size:10px;color:var(--a1);font-weight:700;">현재</span>':isPast?'<span style="margin-left:auto;font-size:12px;">✓</span>':''}
+        </div>`;
+      }).join('')}
+
+      <button class="btn btn-s" style="margin-top:12px;" onclick="if(confirm('로그아웃 하시겠습니까?')){localStorage.removeItem('garak_user');location.reload();}">로그아웃</button>
+    </div>`;
+}
+
+// ══════════════
+// 송장 페이지
+// ══════════════
 function renderInvoicePage(){
   const isProducer=['producer_ind','producer_corp'].includes(curRole);
-  document.getElementById('invoice-content').innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-      <div style="font-size:18px;font-weight:800;">📋 ${isProducer?'내 송장':'수신 송장'}</div>
-      ${isProducer?'<button class="btn btn-p" style="width:auto;padding:8px 14px;font-size:12px;" onclick="window.openInvoiceSheet()">+ 새 송장</button>':''}
+  document.getElementById('invoice-content').innerHTML = `
+    <div class="sec-hd">
+      <div class="sec-title">📋 ${isProducer?'내 송장':'수신 송장'}</div>
+      ${isProducer?`<button class="btn btn-p" style="width:auto;padding:8px 14px;font-size:12px;" onclick="window.openInvoiceSheet()">+ 새 송장</button>`:''}
     </div>
-    ${INVOICES.length?INVOICES.map(inv=>renderInvoiceCard(inv)).join(''):'<div style="text-align:center;padding:40px 20px;color:var(--t2);"><div style="font-size:40px;margin-bottom:10px;">📭</div><div>송장이 없습니다</div></div>'}`;
+    ${INVOICES.length?INVOICES.map(inv=>renderInvoiceCard(inv)).join(''):`
+    <div style="text-align:center;padding:40px 20px;color:var(--t2);">
+      <div style="font-size:40px;margin-bottom:10px;">📭</div>
+      <div>송장이 없습니다</div>
+    </div>`}`;
 }
 
 function renderInvoiceCard(inv){
-  const statusColor={draft:'var(--t2)',ready:'var(--a2)',transit:'var(--org)',confirmed:'var(--a1)',reported:'var(--a4)',eform:'var(--pur)'}[inv.status]||'var(--t2)';
-  const statusText={draft:'작성중',ready:'준비완료',transit:'배송중',confirmed:'수령확인',reported:'출하신고',eform:'전표완료'}[inv.status]||inv.status;
+  const statusColor={draft:'var(--t2)',sent:'var(--a2)',transit:'var(--org)',confirmed:'var(--a1)',reported:'var(--a4)',eform:'var(--pur)'}[inv.status]||'var(--t2)';
+  const statusText={draft:'작성중',sent:'발송됨',transit:'배송중',confirmed:'수령확인',reported:'출하신고',eform:'전표완료'}[inv.status]||inv.status;
   const total=(inv.qty||0)*(inv.price||0);
-  return `<div onclick="window.openInvoiceDetail('${inv.id}')" class="card" style="cursor:pointer;margin-bottom:8px;">
+  return `<div class="card" style="cursor:pointer;margin-bottom:8px;">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
       <div>
         <div style="font-size:14px;font-weight:800;">${inv.item} ${inv.qty}박스</div>
@@ -804,915 +1323,222 @@ function renderInvoiceCard(inv){
       </div>
       <span class="tag" style="background:${statusColor}18;color:${statusColor};">${statusText}</span>
     </div>
-    <div style="background:var(--s2);border-radius:8px;padding:8px 10px;font-size:11px;color:var(--t2);">
-      <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-        <span>수취인</span><span style="font-weight:600;color:var(--t1);">${inv.buyer_name}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-        <span>원산지</span><span>${inv.origin_type==='import'?'✈️ 수입산('+inv.origin_detail+')':'🇰🇷 국내산('+inv.origin_detail+')'}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;">
-        <span>물품대금</span><span style="color:var(--a4);font-weight:700;">₩${total.toLocaleString()}</span>
-      </div>
-    </div>
-    <div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">
-      ${inv.delivery_type==='call'?'<span class="tag tag-y">🚛 배차요청</span>':'<span class="tag tag-g">🚗 자차배송</span>'}
-      ${inv.req_auction?'<span class="tag tag-y">🔨 경매희망</span>':''}
-      ${inv.req_consign?'<span class="tag tag-b">🤝 위탁판매</span>':''}
-      ${inv.memo&&inv.memo.message?'<span class="tag" style="background:rgba(79,156,249,.12);color:var(--a2);">📝 기재사항</span>':''}
-    </div>
-    ${inv.truck_num?`<div style="margin-top:5px;font-size:10px;color:var(--t2);">🚛 ${inv.truck_type} · ${inv.truck_num} · ${inv.driver_name}</div>`:''}
+    <div style="font-size:11px;color:var(--t2);">→ ${inv.buyer_name} · <span style="color:var(--a4);font-weight:700;">₩${total.toLocaleString()}</span></div>
   </div>`;
 }
 
-// ══ 송장 상세 ══
-window.openInvoiceDetail = function(id){
-  const inv=INVOICES.find(x=>x.id===id);
-  if(!inv) return;
-  const total=(inv.qty||0)*(inv.price||0);
-  const truckFee=TRUCK_FEES[inv.truck_type]||0;
-  const unloadFee=(inv.qty||0)*350;
-  const commFee=Math.round(total*0.04);
-  const platFee=Math.round(total*0.005);
-  const netAmt=total-truckFee-unloadFee-commFee-platFee;
-  const statusText={draft:'작성중',sent:'발송됨',transit:'배송중',confirmed:'수령확인',reported:'출하신고',eform:'전표완료'};
-  const steps=['draft','ready','transit','confirmed','reported','eform'];
-  const curIdx=steps.indexOf(inv.status);
+// ══════════════
+// 송장 작성 (간소화)
+// ══════════════
+let ITEMS_LIST=['사과','배','감자','배추','마늘','양파','딸기','토마토','고추','포도','복숭아','수박','참외','무','당근','오이','파','호박','버섯','깻잎','기타'];
+let UNITS_LIST=['박스','kg','단','망','개','묶음','포대','팩'];
 
-  document.getElementById('invoice-detail-body').innerHTML=`
-    <!-- 송장 헤더 -->
-    <div style="background:rgba(244,196,48,.05);border:1px solid rgba(244,196,48,.2);border-radius:12px;padding:12px;margin-bottom:14px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <div style="font-size:15px;font-weight:800;">${inv.item} ${inv.qty}박스</div>
-        <span class="tag tag-y">${statusText[inv.status]||inv.status}</span>
-      </div>
-      <div style="font-family:monospace;font-size:11px;color:var(--a1);margin-bottom:10px;">${inv.id}</div>
-      ${[
-        ['수취인',inv.buyer_name],['연락처',inv.buyer_tel||'-'],['배송지',inv.buyer_addr||'-'],
-        ['원산지',inv.origin_type==='import'?'✈️ 수입산('+inv.origin_detail+')':'🇰🇷 국내산('+inv.origin_detail+')'],
-        ['총수량',inv.qty+'개(합계)'],['총물품대금직접','₩'+(inv.total_amt||((inv.qty||0)*(inv.price||0))).toLocaleString()],
-        ['총물품대금','₩'+total.toLocaleString()],
-        ['배송방식',inv.delivery_type==='call'?'🚛 배차요청':'🚗 자차배송'],
-        ...(inv.truck_num?[['차량',inv.truck_type+' '+inv.truck_num],['기사',inv.driver_name+' '+inv.driver_tel]]:[]),
-      ].map(r=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--b2);">
-        <span style="color:var(--t2);">${r[0]}</span>
-        <span style="font-weight:600;">${r[1]}</span>
-      </div>`).join('')}
-    </div>
-
-    <!-- 기재사항 -->
-    ${inv.memo&&(inv.memo.message||inv.memo.caution||inv.memo.driverName)?`
-    <div style="background:rgba(79,156,249,.06);border:1px solid rgba(79,156,249,.2);border-radius:12px;padding:12px;margin-bottom:12px;">
-      <div style="font-size:12px;font-weight:700;color:var(--a2);margin-bottom:8px;">📝 기재사항</div>
-      ${inv.memo.driverName?`<div style="font-size:11px;color:var(--t2);margin-bottom:4px;">임시운전자: <strong style="color:var(--t1);">${inv.memo.driverName} ${inv.memo.driverTel||''}</strong></div>`:''}
-      ${inv.memo.caution?`<div style="font-size:11px;color:var(--t2);margin-bottom:4px;">취급주의: <strong style="color:var(--a4);">${inv.memo.caution}</strong></div>`:''}
-      ${inv.memo.message?`<div style="font-size:11px;color:var(--t1);white-space:pre-line;">${inv.memo.message}</div>`:''}
-    </div>`:''}
-
-    <!-- 상태 타임라인 -->
-    <div style="font-size:13px;font-weight:700;margin-bottom:10px;">📍 배송 현황</div>
-    <div class="card" style="margin-bottom:12px;">
-      ${['작성됨','준비완료','배송중','수령확인','출하신고','전표완료'].map((s,i)=>`
-        <div style="display:flex;align-items:flex-start;gap:10px;${i<5?'margin-bottom:8px;':''}">
-          <div style="width:20px;height:20px;border-radius:50%;flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:10px;
-            background:${i<curIdx?'var(--a1)':i===curIdx?'var(--a4)':'var(--s3)'};
-            border:2px solid ${i<=curIdx?i===curIdx?'var(--a4)':'var(--a1)':'var(--b1)'};
-            color:${i<curIdx?'#080d18':i===curIdx?'#080d18':'var(--t3)'};">
-            ${i<curIdx?'✓':''}
-          </div>
-          <div style="font-size:12px;color:${i<=curIdx?'var(--t1)':'var(--t3)'};font-weight:${i===curIdx?700:400};padding-top:1px;">${s}
-            ${i===curIdx?'<span style="font-size:10px;color:var(--a4);margin-left:4px;">← 현재</span>':''}
-          </div>
-        </div>`).join('')}
-    </div>
-
-    <!-- 정산 예상 -->
-    <div style="font-size:13px;font-weight:700;margin-bottom:8px;">💰 정산 예상</div>
-    <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;overflow:hidden;margin-bottom:10px;">
-      ${[
-        ['총 물품대금',total,'var(--a4)',true],
-        ['운송비',-truckFee,'var(--red)',false],
-        ['하역비 ('+inv.qty+'박스×₩350)',-unloadFee,'var(--red)',false],
-        ['청과법인 수수료 (4%)',-commFee,'var(--red)',false],
-        ['플랫폼 수수료 (0.5%)',-platFee,'var(--red)',false],
-      ].map(r=>`<div class="settle-row">
-        <span style="color:${r[3]?'var(--t1)':'var(--t2)'};">${r[0]}</span>
-        <span style="color:${r[2]};font-weight:${r[3]?800:600};">${r[1]>=0?'':'- '}₩${Math.abs(r[1]).toLocaleString()}</span>
-      </div>`).join('')}
-    </div>
-    <div class="settle-total" style="margin-bottom:14px;">
-      <div><div style="font-size:11px;color:var(--t2);">예상 수령액</div><div style="font-size:10px;color:var(--t2);">경매 후 확정</div></div>
-      <div style="font-size:22px;font-weight:900;color:var(--a1);">₩${netAmt.toLocaleString()}</div>
-    </div>
-
-    <!-- 액션 버튼 -->
-    <div style="display:flex;flex-direction:column;gap:8px;">
-      \${inv.status==='ready'&&inv.delivery_type!=='call'?\`
-      <button class="btn" style="background:var(--a2);color:#fff;" onclick="window.updateInvStatus('\${inv.id}','transit')">🚛 배송 시작 확인</button>\`:''}      \${inv.status==='transit'&&['merchant_ind','wholesale'].includes(curRole)?\`
-      <button class="btn btn-p" onclick="window.updateInvStatus('\${inv.id}','confirmed')">✅ 배송 확인 (물건 도착)</button>\`:''}
-      ${inv.status==='transit'&&['merchant_ind','wholesale'].includes(curRole)?`<button class="btn btn-p" onclick="window.updateInvStatus('${inv.id}','confirmed')">✅ 수령 확인 (배송완료)</button>`:''}
-      ${inv.status==='confirmed'&&['merchant_ind','wholesale'].includes(curRole)?`<button class="btn" style="background:var(--a4);color:#080d18;" onclick="window.updateInvStatus('${inv.id}','reported')">📢 출하 신고</button>`:''}
-      ${inv.status==='reported'&&['merchant_ind','wholesale'].includes(curRole)?`<button class="btn" style="background:var(--pur);color:#fff;" onclick="window.convertToEform('${inv.id}')">📄 전표 전환 ${inv.req_auction?'· 🔨 경매 등록':''}</button>`:''}
-    </div>`;
-  window.openSheet('sh-invoice-detail');
-};
-
-window.updateInvStatus = function(id, status){
-  const inv=INVOICES.find(x=>x.id===id);
-  if(inv){ inv.status=status; }
-  const msg={transit:'🚛 배송이 시작됐습니다!',confirmed:'✅ 배송 확인 완료! 이제 출하신고를 해주세요 📢',reported:'📢 출하 신고 완료!'}[status]||'상태 업데이트';
-  window.closeSheet('sh-invoice-detail');
-  toast(msg);
-  renderInvoicePage();
-  renderHome();
-};
-
-window.convertToEform = function(id){
-  const inv=INVOICES.find(x=>x.id===id);
-  if(inv){ inv.status='eform'; }
-  window.closeSheet('sh-invoice-detail');
-  if(inv&&inv.req_auction) toast('📄 전표 전환! 🔨 경매 목록에 자동 등록됐어요');
-  else toast('📄 전표 전환 완료!');
-  renderInvoicePage();
-};
-
-// ══ 화물콜 페이지 ══
-function renderCallPage(){
-  const isTransport = curRole==='transport';
-  document.getElementById('call-content').innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-      <div style="font-size:18px;font-weight:800;">🚛 ${isTransport?'배차 콜':'화물차 배차요청'}</div>
-      ${!isTransport?'<button class="btn btn-p" style="width:auto;padding:8px 14px;font-size:12px;" onclick="window.openCallSheet()">+ 배차요청</button>':''}
-    </div>
-    ${CALLS.length?CALLS.map(call=>renderCallCard(call,isTransport)).join(''):`
-    <div style="text-align:center;padding:40px 20px;color:var(--t2);">
-      <div style="font-size:40px;margin-bottom:10px;">🚛</div>
-      <div style="margin-bottom:16px;">${isTransport?'수신된 배차 콜이 없습니다':'배차 요청이 없습니다'}</div>
-      ${!isTransport?'<button class="btn btn-p" style="max-width:200px;margin:0 auto;" onclick="window.openCallSheet()">+ 배차요청 하기</button>':''}
-    </div>`}`;
-}
-
-function renderCallCard(call, isTransport){
-  const statusColor={pending:'var(--a4)',accepted:'var(--a1)',done:'var(--t2)'}[call.status]||'var(--t2)';
-  const statusText={pending:'배차대기',accepted:'배차확정',done:'완료'}[call.status]||call.status;
-  return `<div class="card" style="margin-bottom:8px;">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
-      <div>
-        <div style="font-size:14px;font-weight:800;">${call.item} ${call.qty}박스</div>
-        <div style="font-size:10px;font-family:monospace;color:var(--t2);margin-top:2px;">${call.id}</div>
-      </div>
-      <span class="tag" style="background:${statusColor}18;color:${statusColor};">${statusText}</span>
-    </div>
-    <div style="background:var(--s2);border-radius:8px;padding:8px 10px;font-size:11px;color:var(--t2);margin-bottom:8px;">
-      <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-        <span>출발</span><span style="color:var(--t1);">${call.origin}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-        <span>도착</span><span style="color:var(--t1);">${call.dest}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-        <span>차량</span><span>${call.truck_type} · ${call.load_type==='solo'?'단독':'혼적'}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;">
-        <span>운송비</span><span style="color:var(--a4);font-weight:700;">₩${(call.fare||0).toLocaleString()}</span>
-      </div>
-    </div>
-    ${isTransport&&call.status==='pending'?`
-    <div style="display:flex;gap:6px;">
-      <button class="btn btn-r" style="flex:.4;" onclick="window.rejectCall('${call.id}')">거절</button>
-      <button class="btn btn-p" style="flex:.6;" onclick="window.acceptCall('${call.id}')">✅ 수락</button>
-    </div>`:''}
-    ${isTransport&&call.status==='accepted'?`
-    <div style="background:rgba(0,232,188,.06);border:1px solid rgba(0,232,188,.2);border-radius:10px;padding:10px;margin-bottom:8px;font-size:11px;color:var(--t2);">
-      📋 송장 내용을 확인하고 상차 완료 후 아래 버튼을 눌러주세요
-    </div>
-    <button class="btn btn-p" onclick="window.completeLoading('${call.id}')">📋 송장접수 완료</button>`:''}
-  </div>`;
-}
-
-window.acceptCall = function(id){
-  const call=CALLS.find(x=>x.id===id);
-  if(call){ call.status='accepted'; }
-  toast('✅ 배차 수락! 출하자에게 알림 발송됨');
-  renderCallPage();
-};
-window.rejectCall = function(id){
-  const call=CALLS.find(x=>x.id===id);
-  if(call){ call.status='rejected'; }
-  toast('배차를 거절했습니다');
-  renderCallPage();
-};
-
-window.completeLoading = function(id){
-  const call=CALLS.find(x=>x.id===id);
-  if(call){
-    call.status='done';
-    // 연결된 송장 상태 → 배송중 활성화
-    const linked = INVOICES.find(x=>x.id===call.inv_id || (x.buyer_name&&call.dest&&call.dest.includes(x.buyer_name)));
-    if(linked){
-      linked.status='transit';
-      linked.truck_type=call.truck_type||'';
-      linked.truck_num=call.truck_num||'';
-      linked.driver_name=call.driver_name||'';
-      linked.driver_tel=call.driver_tel||'';
-    } else {
-      // inv_id 없어도 준비완료 상태 송장 활성화
-      const readyInv = INVOICES.find(x=>x.status==='ready');
-      if(readyInv){ readyInv.status='transit'; }
-    }
-  }
-  toast('📋 송장접수 완료! 생산자·거래처에 출발 알림 발송됨 🚛');
-  renderCallPage();
-  renderHome();
-};
-
-// ══ 화물콜 시트 ══
-window.openCallSheet = function(invId){
-  ['call-item','call-qty','call-weight','call-truck-type','call-origin','call-dest','call-waypoint','call-fare'].forEach(id=>{
-    const el=document.getElementById(id); if(el) el.value='';
-  });
-  document.getElementById('ai-call-truck').style.display='none';
-  document.getElementById('ai-fare-box').style.display='none';
-  document.getElementById('waypoint-form').style.display='none';
-  callLoadType='solo';
-  window.selLoad('solo');
-  // 거래처 주소 자동입력
-  if(invId){
-    const inv=INVOICES.find(x=>x.id===invId);
-    if(inv){
-      const destEl=document.getElementById('call-dest');
-      if(destEl) destEl.value=inv.buyer_addr||inv.buyer_name;
-      const itemEl=document.getElementById('call-item');
-      if(itemEl) itemEl.value=inv.item;
-      const qtyEl=document.getElementById('call-qty');
-      if(qtyEl){ qtyEl.value=inv.qty; window.onCallQtyChange(); }
-    }
-  }
-  window.openSheet('sh-call');
-};
-
-window.onCallItemChange = function(){
-  window.onCallQtyChange();
-};
-
-window.onCallQtyChange = function(){
-  const qty=parseInt(document.getElementById('call-qty').value)||0;
-  const item=document.getElementById('call-item').value;
-  if(!qty) return;
-  const kgPerBox=KG_PER_BOX[item]||15;
-  const totalKg=qty*kgPerBox;
-  const weightEl=document.getElementById('call-weight');
-  if(weightEl) weightEl.value=totalKg;
-  // AI 차량 추천
-  const isColed=COLD_ITEMS.includes(item);
-  let rec='';
-  if(totalKg<=500) rec=isColed?'1톤냉장':'용달';
-  else if(totalKg<=1000) rec=isColed?'1톤냉장':'1톤';
-  else if(totalKg<=2500) rec=isColed?'2.5톤냉장':'2.5톤';
-  else if(totalKg<=5000) rec=isColed?'5톤냉장':'5톤';
-  else rec='11톤';
-  const aiEl=document.getElementById('ai-call-truck');
-  if(aiEl){
-    aiEl.style.display='block';
-    aiEl.innerHTML=`🤖 AI 추천: <strong style="color:var(--a4);">${rec}</strong> (${totalKg.toLocaleString()}kg)${isColed?' · ❄️ 냉장 필요':''}`;
-  }
-  const selEl=document.getElementById('call-truck-type');
-  if(selEl) selEl.value=rec;
-  window.onCallRouteChange();
-};
-
-window.onCallTruckChange = function(){
-  window.onCallRouteChange();
-};
-
-window.onCallRouteChange = function(){
-  const origin=document.getElementById('call-origin').value.trim();
-  const dest=document.getElementById('call-dest').value.trim();
-  const truck=document.getElementById('call-truck-type').value;
-  if(!origin||!dest||!truck) return;
-  // AI 거리 추정 (실제는 Maps API 연동 필요, 현재는 로직 시뮬레이션)
-  const baseFee=TRUCK_FEES[truck.replace('냉장','').replace('냉동','')]||150000;
-  const coldExtra=truck.includes('냉장')||truck.includes('냉동')?50000:0;
-  const distExtra=origin.includes('경북')||origin.includes('경남')||origin.includes('전남')||origin.includes('전북')?80000:
-                  origin.includes('강원')||origin.includes('충청')?50000:20000;
-  const mixedDiscount=callLoadType==='mixed'?-Math.round((baseFee+distExtra)*0.3):0;
-  const totalFare=baseFee+coldExtra+distExtra+mixedDiscount;
-  const fareEl=document.getElementById('call-fare');
-  if(fareEl) fareEl.value=totalFare;
-  const box=document.getElementById('ai-fare-box');
-  const detail=document.getElementById('ai-fare-detail');
-  if(box&&detail){
-    box.style.display='block';
-    detail.innerHTML=`
-      기본요금: ₩${baseFee.toLocaleString()}<br>
-      ${coldExtra?'냉장/냉동 할증: +₩'+coldExtra.toLocaleString()+'<br>':''}
-      거리 할증: +₩${distExtra.toLocaleString()}<br>
-      ${mixedDiscount?'혼적 할인: ₩'+mixedDiscount.toLocaleString()+'<br>':''}
-      <strong style="color:var(--a1);">AI 추천 운송비: ₩${totalFare.toLocaleString()}</strong>`;
-  }
-};
-
-window.selLoad = function(type){
-  callLoadType=type;
-  ['solo','mixed'].forEach(t=>{
-    const el=document.getElementById('load-'+t);
-    if(el){
-      el.style.borderColor=t===type?'var(--a1)':'var(--b1)';
-      el.style.background=t===type?'rgba(0,232,188,.06)':'var(--s2)';
-      el.style.color=t===type?'var(--a1)':'var(--t2)';
-    }
-  });
-  window.onCallRouteChange();
-};
-
-window.toggleWaypoint = function(){
-  const form=document.getElementById('waypoint-form');
-  const btn=document.getElementById('waypoint-toggle');
-  const isOpen=form.style.display!=='none';
-  form.style.display=isOpen?'none':'block';
-  if(btn) btn.textContent=isOpen?'+ 경유지 추가':'− 경유지 제거';
-};
-
-window.submitCall = function(){
-  const item=document.getElementById('call-item').value;
-  const qty=parseInt(document.getElementById('call-qty').value)||0;
-  const truck=document.getElementById('call-truck-type').value;
-  const origin=document.getElementById('call-origin').value.trim();
-  const dest=document.getElementById('call-dest').value.trim();
-  const fare=parseInt(document.getElementById('call-fare').value)||0;
-  if(!item||!qty){ toast('화물 정보를 입력하세요'); return; }
-  if(!truck){ toast('차량 종류를 선택하세요'); return; }
-  if(!origin||!dest){ toast('출발지와 도착지를 입력하세요'); return; }
-  if(!fare){ toast('운송비를 입력하세요'); return; }
-  const now=new Date();
-  const id='CALL-'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'-'+String(Math.floor(Math.random()*9999)).padStart(4,'0');
-  CALLS.unshift({
-    id, item, qty, truck_type:truck,
-    origin, dest,
-    load_type:callLoadType, fare,
-    status:'pending',
-    requester_gkid:curGkid,
-    created_at:now.toISOString(),
-  });
-  window.closeSheet('sh-call');
-  toast('🚛 배차 요청 발송! 주변 운송업자에게 알림 발송됨');
-  renderCallPage();
-  renderHome();
-};
-
-// ══ 송장 시트 ══
 window.openInvoiceSheet = function(){
-  invReqs={auction:false,consign:false};
-  invDelivery='';
-  invMemo={};
+  invReqs={auction:false,consign:false}; invDelivery='';
   products=[]; productIdCounter=0;
-  waypoints=[]; waypointIdCounter=0;
   window.addProduct();
-  const ids=['inv-buyer-name','inv-buyer-contact','inv-buyer-tel','inv-buyer-addr',
-    'inv-min-price','inv-consign-rate','self-truck-num','self-driver-name','self-driver-tel',
-    'inv-origin-addr','inv-dest-addr','inv-waypoint','self-transport-fee'];
-  ids.forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  const hideIds=['ai-price-suggest','req-auction-detail','req-consign-detail','ai-buyer-suggest',
-    'self-delivery-form','call-delivery-info','delivery-address-form',
-    'inv-waypoint-form','inv-route-ai','inv-ai-truck'];
-  hideIds.forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
-  const selIds=['self-truck-type','call-truck-type-inv'];
-  selIds.forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  const dsh=document.getElementById('delivery-select-hint');if(dsh)dsh.style.display='block';
-  ['dmode-call','dmode-self'].forEach(id=>{const el=document.getElementById(id);if(el)el.className='delivery-btn';});
-  document.querySelectorAll('.req-btn').forEach(b=>b.classList.remove('sel'));
-  const wpl=document.getElementById('inv-waypoints-list');if(wpl)wpl.innerHTML='';
-  window._invFare=0; window._invTruck='';
-  calcTotalAll();
+  ['inv-buyer-name','inv-buyer-contact','inv-buyer-tel','inv-buyer-addr'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('ai-buyer-suggest').style.display='none';
   window.invNextStep(1);
   window.openSheet('sh-invoice');
-  setTimeout(window.showAIBuyerSuggest, 400);
+  setTimeout(window.showAIBuyerSuggest, 300);
 };
 
-window.showAIBuyerSuggest = function(){
-  const el=document.getElementById('ai-buyer-list');
-  const box=document.getElementById('ai-buyer-suggest');
+window.showAIBuyerSuggest=function(){
+  const el=document.getElementById('ai-buyer-list'), box=document.getElementById('ai-buyer-suggest');
   if(!el||!box) return;
-  el.innerHTML=AI_BUYERS.map(b=>`
-    <div onclick="window.selectAIBuyer('${b}')" style="display:inline-block;margin:2px;padding:4px 9px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;font-size:11px;cursor:pointer;">${b}</div>`).join('');
+  el.innerHTML=AI_BUYERS.map(b=>`<div onclick="window.selectAIBuyer('${b}')" style="display:inline-block;margin:2px;padding:4px 9px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;font-size:11px;cursor:pointer;">${b}</div>`).join('');
   box.style.display='block';
 };
-
-window.onBuyerInput = function(){
-  const val=document.getElementById('inv-buyer-name').value.trim();
-  if(!val) window.showAIBuyerSuggest();
-  else document.getElementById('ai-buyer-suggest').style.display='none';
+window.onBuyerInput=function(){
+  const v=document.getElementById('inv-buyer-name').value.trim();
+  if(!v) window.showAIBuyerSuggest(); else document.getElementById('ai-buyer-suggest').style.display='none';
 };
-
-window.selectAIBuyer = function(name){
+window.selectAIBuyer=function(name){
   document.getElementById('inv-buyer-name').value=name;
   document.getElementById('ai-buyer-suggest').style.display='none';
-  toast('✅ '+name+' 선택됨');
 };
 
-window.invNextStep = function(step){
+window.invNextStep=function(step){
+  [1,2,3,4].forEach(i=>{document.getElementById('inv-step'+i).style.display=i===step?'block':'none';});
   [1,2,3,4].forEach(i=>{
-    document.getElementById('inv-step'+i).style.display=i===step?'block':'none';
-  });
-  if(step===2 && products.length===0){ window.addProduct(); }
-  [1,2,3,4].forEach(i=>{
-    const dot=document.getElementById('sd'+i);
-    const line=document.getElementById('sl'+i);
-    if(dot){ dot.className='step-dot'+(i<step?' done':i===step?' cur':''); dot.textContent=i<step?'✓':String(i); }
+    const dot=document.getElementById('sd'+i), line=document.getElementById('sl'+i);
+    if(dot){dot.className='step-dot'+(i<step?' done':i===step?' cur':'');dot.textContent=i<step?'✓':String(i);}
     if(line&&i<4) line.className='step-line'+(i<step?' done':'');
   });
-  if(step===4) window.renderSettlePreview();
+  if(step===4) window.renderSettlePreview2();
 };
 
-// ══ 다중 상품 관리 ══
-let products = []; // [{id, origin, originDetail, item, unit, price, qty}]
-let productIdCounter = 0;
-
-const ITEMS_LIST = ['사과','배','감자','배추','마늘','양파','딸기','토마토','고추','포도','복숭아','수박','참외','무','당근','오이','파','호박','버섯','깻잎','상추','시금치','미나리','도라지','더덕','기타'];
-const UNITS_LIST = ['박스','kg','단','망','개','묶음','포대','팩','트레이'];
-
-window.addProduct = function(){
-  const id = ++productIdCounter;
-  products.push({id, origin:'domestic', originDetail:'', item:'', unit:'박스', price:0, qty:0});
+window.addProduct=function(){
+  const id=++productIdCounter;
+  products.push({id,origin:'domestic',originDetail:'',item:'',unit:'박스',price:0,qty:0});
   renderProductList();
 };
-
-window.removeProduct = function(id){
-  if(products.length<=1){ toast('최소 1개 상품이 필요합니다'); return; }
-  products = products.filter(p=>p.id!==id);
-  renderProductList();
-  calcTotalAll();
+window.removeProduct=function(id){
+  if(products.length<=1){toast('최소 1개 필요');return;}
+  products=products.filter(p=>p.id!==id); renderProductList(); calcTotalAll();
 };
-
-window.onProductChange = function(id, field, value){
-  const p = products.find(x=>x.id===id);
-  if(!p) return;
-  p[field] = field==='price'||field==='qty' ? (parseInt(value)||0) : value;
-  // AI 시세 자동입력
-  if(field==='item' && value && AI_PRICES[value] && !p.price){
-    p.price = AI_PRICES[value];
-    const priceEl = document.getElementById('p-price-'+id);
-    if(priceEl) priceEl.value = p.price;
-    // 단위 자동추천
-    if(!p.unit||p.unit==='박스'){
-      const unitEl = document.getElementById('p-unit-'+id);
-      if(unitEl) unitEl.value='박스';
-      p.unit='박스';
-    }
-    showAIPriceHint(id, value);
-  }
-  if(field==='origin'){
-    const domesticEl=document.getElementById('p-origin-d-'+id);
-    const importEl=document.getElementById('p-origin-i-'+id);
-    const dBtn=document.getElementById('p-btn-d-'+id);
-    const iBtn=document.getElementById('p-btn-i-'+id);
-    if(domesticEl) domesticEl.style.display=value==='domestic'?'block':'none';
-    if(importEl)   importEl.style.display=value==='import'?'block':'none';
-    if(dBtn){ dBtn.className='origin-btn'+(value==='domestic'?' sel':''); }
-    if(iBtn){ iBtn.className='origin-btn'+(value==='import'?' sel':''); }
-  }
+window.onProductChange=function(id,field,value){
+  const p=products.find(x=>x.id===id); if(!p) return;
+  p[field]=field==='price'||field==='qty'?(parseInt(value)||0):value;
+  if(field==='item'&&value&&AI_PRICES[value]&&!p.price){p.price=AI_PRICES[value];const el=document.getElementById('p-price-'+id);if(el)el.value=p.price;}
   calcTotalAll();
-  // 해당 상품 소계 즉시 업데이트
-  const subEl = document.getElementById('p-sub-'+id);
-  if(subEl){ const pp=products.find(x=>x.id===id); if(pp) subEl.textContent='₩'+((pp.price||0)*(pp.qty||0)).toLocaleString(); }
+  const sub=document.getElementById('p-sub-'+id); if(sub){const pp=products.find(x=>x.id===id);if(pp)sub.textContent='₩'+((pp.price||0)*(pp.qty||0)).toLocaleString();}
 };
-
-function showAIPriceHint(id, item){
-  const hint = document.getElementById('p-ai-'+id);
-  if(!hint) return;
-  const price = AI_PRICES[item];
-  const isCold = COLD_ITEMS.includes(item);
-  if(price){
-    hint.style.display='block';
-    hint.innerHTML=`🤖 오늘 시세: <strong style="color:var(--a4);">₩${price.toLocaleString()}</strong>${isCold?' · ❄️ 냉장 권장':''}`;
-  }
-}
-
 function calcTotalAll(){
-  const wpTotal = waypoints.reduce((ws,w)=>ws+w.wpProducts.reduce((s,p)=>s+(p.price*p.qty),0),0);
-  const total = products.reduce((s,p)=>s+(p.price*p.qty),0) + wpTotal;
-  const amtEl = document.getElementById('inv-total-amt');
-  if(amtEl) amtEl.textContent='₩'+total.toLocaleString();
-  const mainDetails = products.filter(p=>p.item&&p.qty&&p.price)
-    .map(p=>`${p.item} ${p.qty}${p.unit} × ₩${p.price.toLocaleString()} = ₩${(p.price*p.qty).toLocaleString()}`);
-  const wpDetails = waypoints.flatMap(w=>w.wpProducts.filter(p=>p.item&&p.qty&&p.price)
-    .map(p=>`[경유지] ${p.item} ${p.qty}${p.unit} × ₩${p.price.toLocaleString()} = ₩${(p.price*p.qty).toLocaleString()}`));
-  const detailEl = document.getElementById('inv-total-detail');
-  if(detailEl) detailEl.textContent = [...mainDetails,...wpDetails].join('\n');
-  // AI 최저가 힌트
-  const hint=document.getElementById('ai-min-price-suggest');
-  if(hint&&products.length>0&&products[0].item){
-    const recMin=Math.round((AI_PRICES[products[0].item]||products[0].price||0)*0.85);
-    if(recMin) hint.textContent=`🤖 AI 추천 최저가: ₩${recMin.toLocaleString()} (시세 85%)`;
-  }
+  const total=products.reduce((s,p)=>s+(p.price*p.qty),0);
+  const amtEl=document.getElementById('inv-total-amt'); if(amtEl) amtEl.textContent='₩'+total.toLocaleString();
 }
-
-window.calcTotal = calcTotalAll; // 하위호환
-
-// 경유지 추가 송장 열기
-window.openExtraInvoice = function(){
-  toast('📋 경유지 추가 송장을 작성합니다. 새 송장이 열려요!');
-  window.closeSheet('sh-invoice');
-  setTimeout(()=>{
-    window.openInvoiceSheet();
-    toast('📋 경유지 추가 송장 작성 중 - 수취인/상품을 입력해주세요');
-  }, 400);
-};
-
-function renderProductList(){
-  const el = document.getElementById('product-list');
-  if(!el) return;
-  el.innerHTML = products.map((p,idx)=>`
-    <div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:10px 12px;margin-bottom:10px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <span style="font-size:11px;font-weight:700;color:var(--a2);">📦 상품 ${idx+1}</span>
-        ${products.length>1?`<button onclick="window.removeProduct(${p.id})" style="color:var(--red);font-size:18px;padding:0 4px;">🗑</button>`:''}
-      </div>
-
-      <!-- 원산지 -->
-      <div style="margin-bottom:8px;">
-        <div class="flabel">원산지 *</div>
-        <div style="display:flex;gap:6px;margin-bottom:6px;">
-          <div id="p-btn-d-${p.id}" class="origin-btn${p.origin==='domestic'?' sel':''}" onclick="window.onProductChange(${p.id},'origin','domestic')" style="padding:7px;">🇰🇷 국내산</div>
-          <div id="p-btn-i-${p.id}" class="origin-btn${p.origin==='import'?' sel':''}" onclick="window.onProductChange(${p.id},'origin','import')" style="padding:7px;">✈️ 수입산</div>
-        </div>
-        <div id="p-origin-d-${p.id}" style="display:${p.origin==='domestic'?'block':'none'};">
-          <input class="finput" id="p-region-${p.id}" placeholder="예: 경북 의성, 전남 나주" value="${p.originDetail||''}" oninput="window.onProductChange(${p.id},'originDetail',this.value)" style="font-size:12px;padding:8px 10px;">
-        </div>
-        <div id="p-origin-i-${p.id}" style="display:${p.origin==='import'?'block':'none'};">
-          <input class="finput" id="p-country-${p.id}" placeholder="예: 미국, 칠레, 중국" value="${p.originDetail||''}" oninput="window.onProductChange(${p.id},'originDetail',this.value)" style="font-size:12px;padding:8px 10px;">
-        </div>
-      </div>
-
-      <!-- 상품명 -->
-      <div style="margin-bottom:8px;">
-        <div class="flabel">상품명 *</div>
-        <select class="finput" id="p-item-${p.id}" onchange="window.onProductChange(${p.id},'item',this.value)" style="font-size:12px;padding:8px 10px;">
-          <option value="">선택하세요</option>
-          ${ITEMS_LIST.map(i=>`<option${p.item===i?' selected':''}>${i}</option>`).join('')}
-        </select>
-        <div id="p-ai-${p.id}" style="display:${p.item&&AI_PRICES[p.item]?'block':'none'};margin-top:5px;padding:6px 9px;background:rgba(244,196,48,.06);border:1px solid rgba(244,196,48,.2);border-radius:7px;font-size:11px;">
-          ${p.item&&AI_PRICES[p.item]?`🤖 오늘 시세: <strong style="color:var(--a4);">₩${AI_PRICES[p.item].toLocaleString()}</strong>`:''}
-        </div>
-      </div>
-
-      <!-- 단위/단가/수량 -->
-      <div style="display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:6px;margin-bottom:6px;">
-        <div>
-          <div class="flabel">단위 *</div>
-          <select class="finput" id="p-unit-${p.id}" onchange="window.onProductChange(${p.id},'unit',this.value)" style="font-size:12px;padding:8px 6px;">
-            ${UNITS_LIST.map(u=>`<option${p.unit===u?' selected':''}>${u}</option>`).join('')}
-          </select>
-        </div>
-        <div>
-          <div class="flabel">단가 (원) *</div>
-          <input class="finput" id="p-price-${p.id}" type="number" value="${p.price||''}" placeholder="32000" inputmode="decimal" oninput="window.onProductChange(${p.id},'price',this.value)" style="font-size:12px;padding:8px 10px;">
-        </div>
-        <div>
-          <div class="flabel">수량 *</div>
-          <input class="finput" id="p-qty-${p.id}" type="number" value="${p.qty||''}" placeholder="100" inputmode="decimal" oninput="window.onProductChange(${p.id},'qty',this.value)" style="font-size:12px;padding:8px 10px;">
-        </div>
-      </div>
-
-      <!-- 소계 -->
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;padding-top:4px;border-top:1px solid var(--b2);">
-        <span style="font-size:10px;color:var(--t2);">소계</span>
-        <strong id="p-sub-${p.id}" style="font-size:13px;color:var(--a4);">₩${((p.price||0)*(p.qty||0)).toLocaleString()}</strong>
-      </div>
-    </div>`).join('');
-}
-
-window.toggleReq = function(type){
+window.calcTotal=calcTotalAll;
+window.toggleReq=function(type){
   invReqs[type]=!invReqs[type];
   document.getElementById('req-'+type).className='req-btn'+(invReqs[type]?' sel':'');
   document.getElementById('req-'+type+'-detail').style.display=invReqs[type]?'block':'none';
 };
-
-window.selDelivery = function(type){
+window.selDelivery=function(type){
   invDelivery=type;
-  document.getElementById('dmode-call').className='delivery-btn'+(type==='call'?' sel':'');
-  document.getElementById('dmode-self').className='delivery-btn'+(type==='self'?' sel':'');
-  document.getElementById('self-delivery-form').style.display=type==='self'?'block':'none';
-  document.getElementById('call-delivery-info').style.display=type==='call'?'block':'none';
-  document.getElementById('delivery-select-hint').style.display='none';
+  ['call','self'].forEach(t=>{const el=document.getElementById('dmode-'+t);if(el)el.className='delivery-btn'+(t===type?' sel':'');});
   document.getElementById('delivery-address-form').style.display='block';
-  // 하차지 자동입력 (거래처 주소)
-  const destEl=document.getElementById('inv-dest-addr');
-  const buyerAddr=document.getElementById('inv-buyer-addr').value;
-  const buyerName=document.getElementById('inv-buyer-name').value;
-  if(destEl&&!destEl.value){ destEl.value=buyerAddr||buyerName; }
-  // AI 차량 추천 (배차요청)
-  if(type==='call') window.aiInvTruckRecommend();
+  document.getElementById('self-delivery-form').style.display=type==='self'?'block':'none';
 };
 
-window.aiInvTruckRecommend = function(){
-  const qty = products.reduce((s,p)=>s+p.qty,0);
-  const item = products.length>0?products[0].item:'';
-  const isColed = COLD_ITEMS.includes(item);
-  let rec='';
-  if(qty<=30) rec=isColed?'1톤냉장':'용달';
-  else if(qty<=80) rec=isColed?'1톤냉장':'1톤';
-  else if(qty<=150) rec=isColed?'2.5톤냉장':'2.5톤';
-  else if(qty<=300) rec=isColed?'5톤냉장':'5톤';
-  else rec='11톤';
-  const aiEl=document.getElementById('inv-ai-truck');
-  const selEl=document.getElementById('call-truck-type-inv');
-  if(aiEl){ aiEl.style.display='block'; aiEl.innerHTML='🤖 AI 추천: <strong style="color:var(--a4);">'+rec+'</strong> ('+qty+'박스 기준)'+(isColed?' · ❄️ 냉장 필요':''); }
-  if(selEl&&!selEl.value) selEl.value=rec;
-  window.onInvRouteChange();
-};
-
-window.onSelfTruckChange = function(){
-  window.onInvRouteChange();
-};
-
-window.onInvRouteChange = function(){
-  const origin=document.getElementById('inv-origin-addr').value.trim();
-  const dest=document.getElementById('inv-dest-addr').value.trim();
-  const truck=invDelivery==='self'
-    ?(document.getElementById('self-truck-type').value||'')
-    :(document.getElementById('call-truck-type-inv').value||'');
-  if(!origin||!dest) return;
-  const baseFee=TRUCK_FEES[truck.replace('냉장','').replace('냉동','')]||150000;
-  const coldExtra=(truck.includes('냉장')||truck.includes('냉동'))?50000:0;
-  const distExtra=origin.includes('경북')||origin.includes('경남')||origin.includes('전남')||origin.includes('전북')?80000:
-                  origin.includes('강원')||origin.includes('충청')||origin.includes('충남')||origin.includes('충북')?50000:20000;
-  const totalFare=baseFee+coldExtra+distExtra;
-  const box=document.getElementById('inv-route-ai');
-  const text=document.getElementById('inv-route-ai-text');
-  if(box&&text){
-    box.style.display='block';
-    text.innerHTML=`출발: ${origin}<br>도착: ${dest}<br>${truck?'차량: '+truck+'<br>':''}예상 운송비: <strong style="color:var(--a4);">₩${totalFare.toLocaleString()}</strong>`;
-    // 운송비 저장
-    window._invFare = totalFare;
-    window._invTruck = truck;
-  }
-};
-
-// ══ 경유지 시스템 ══
-let waypoints = []; // [{id, addr, products:[]}]
-let waypointIdCounter = 0;
-
-window.addWaypoint = function(){
-  const id = ++waypointIdCounter;
-  waypoints.push({id, addr:'', wpProducts:[]});
-  renderWaypoints();
-};
-
-window.removeWaypoint = function(id){
-  waypoints = waypoints.filter(w=>w.id!==id);
-  renderWaypoints();
-};
-
-window.onWaypointAddrChange = function(id, val){
-  const w = waypoints.find(x=>x.id===id);
-  if(w) w.addr = val;
-};
-
-window.addWaypointProduct = function(wid){
-  const w = waypoints.find(x=>x.id===wid);
-  if(!w) return;
-  const pid = wid*100 + (w.wpProducts.length+1);
-  w.wpProducts.push({id:pid, item:'', unit:'박스', price:0, qty:0, origin:'domestic', originDetail:''});
-  renderWaypoints();
-};
-
-window.onWaypointProductChange = function(wid, pid, field, value){
-  const w = waypoints.find(x=>x.id===wid);
-  if(!w) return;
-  const p = w.wpProducts.find(x=>x.id===pid);
-  if(!p) return;
-  p[field] = field==='price'||field==='qty'?(parseInt(value)||0):value;
-  if(field==='item' && AI_PRICES[value] && !p.price){
-    p.price = AI_PRICES[value];
-    const el = document.getElementById('wp-price-'+pid);
-    if(el) el.value = p.price;
-  }
-  calcTotalAll();
-  renderWaypoints();
-};
-
-function renderWaypoints(){
-  const el = document.getElementById('inv-waypoints-list');
-  if(!el) return;
-  if(!waypoints.length){ el.innerHTML=''; return; }
-  el.innerHTML = waypoints.map((w,idx)=>`
-    <div style="background:rgba(255,165,2,.04);border:1px solid rgba(255,165,2,.2);border-radius:12px;padding:10px 12px;margin-bottom:8px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <span style="font-size:11px;font-weight:700;color:var(--org);">📍 경유지 ${idx+1}</span>
-        <button onclick="window.removeWaypoint(${w.id})" style="color:var(--red);font-size:16px;">✕</button>
-      </div>
-      <input class="finput" placeholder="경유지 주소 입력" value="${w.addr||''}"
-        oninput="window.onWaypointAddrChange(${w.id},this.value)"
-        style="margin-bottom:8px;font-size:12px;padding:8px 10px;">
-      
-      <!-- 경유지 상품 -->
-      <div style="font-size:10px;color:var(--t2);margin-bottom:6px;">📦 이 경유지에서 추가 상차할 상품</div>
-      ${w.wpProducts.map(p=>`
-        <div style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:8px;margin-bottom:6px;">
-          <div style="display:flex;gap:6px;margin-bottom:5px;">
-            <div onclick="window.onWaypointProductChange(${w.id},${p.id},'origin','domestic')" 
-              style="flex:1;padding:5px;border-radius:7px;text-align:center;font-size:10px;font-weight:700;cursor:pointer;
-              border:1px solid ${p.origin==='domestic'?'var(--a1)':'var(--b1)'};
-              background:${p.origin==='domestic'?'rgba(0,232,188,.08)':'var(--s3)'};
-              color:${p.origin==='domestic'?'var(--a1)':'var(--t2)'};">🇰🇷 국내산</div>
-            <div onclick="window.onWaypointProductChange(${w.id},${p.id},'origin','import')"
-              style="flex:1;padding:5px;border-radius:7px;text-align:center;font-size:10px;font-weight:700;cursor:pointer;
-              border:1px solid ${p.origin==='import'?'var(--a1)':'var(--b1)'};
-              background:${p.origin==='import'?'rgba(0,232,188,.08)':'var(--s3)'};
-              color:${p.origin==='import'?'var(--a1)':'var(--t2)'};">✈️ 수입산</div>
-          </div>
-          <input class="finput" placeholder="${p.origin==='domestic'?'산지 (예: 경북 안동)':'원산지 국가'}" value="${p.originDetail||''}"
-            oninput="window.onWaypointProductChange(${w.id},${p.id},'originDetail',this.value)"
-            style="margin-bottom:5px;font-size:11px;padding:6px 8px;">
-          <select class="finput" onchange="window.onWaypointProductChange(${w.id},${p.id},'item',this.value)"
-            style="margin-bottom:5px;font-size:11px;padding:6px 8px;">
-            <option value="">상품명 선택</option>
-            ${ITEMS_LIST.map(i=>`<option${p.item===i?' selected':''}>${i}</option>`).join('')}
-          </select>
-          <div style="display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:4px;">
-            <select class="finput" onchange="window.onWaypointProductChange(${w.id},${p.id},'unit',this.value)"
-              style="font-size:11px;padding:6px 4px;">
-              ${UNITS_LIST.map(u=>`<option${p.unit===u?' selected':''}>${u}</option>`).join('')}
-            </select>
-            <input id="wp-price-${p.id}" class="finput" type="number" placeholder="단가" value="${p.price||''}"
-              oninput="window.onWaypointProductChange(${w.id},${p.id},'price',this.value)"
-              style="font-size:11px;padding:6px 8px;" inputmode="decimal">
-            <input class="finput" type="number" placeholder="수량" value="${p.qty||''}"
-              oninput="window.onWaypointProductChange(${w.id},${p.id},'qty',this.value)"
-              style="font-size:11px;padding:6px 8px;" inputmode="decimal">
-          </div>
-          <div style="text-align:right;font-size:11px;color:var(--t2);margin-top:4px;">
-            소계: <strong style="color:var(--a4);">₩${((p.price||0)*(p.qty||0)).toLocaleString()}</strong>
-          </div>
-        </div>`).join('')}
-      <button onclick="window.addWaypointProduct(${w.id})" 
-        style="width:100%;padding:7px;border-radius:8px;border:1px dashed var(--org);background:transparent;color:var(--org);font-size:11px;cursor:pointer;margin-top:2px;">
-        + 상품 추가
-      </button>
-    </div>`).join('');
+function renderProductList(){
+  const el=document.getElementById('product-list'); if(!el) return;
+  el.innerHTML=products.map((p,idx)=>`
+  <div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:10px 12px;margin-bottom:10px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <span style="font-size:11px;font-weight:700;color:var(--a2);">📦 상품 ${idx+1}</span>
+      ${products.length>1?`<button onclick="window.removeProduct(${p.id})" style="color:var(--red);font-size:18px;">🗑</button>`:''}
+    </div>
+    <select class="finput" onchange="window.onProductChange(${p.id},'item',this.value)" style="margin-bottom:6px;font-size:12px;padding:8px 10px;">
+      <option value="">상품명 선택</option>${ITEMS_LIST.map(i=>`<option${p.item===i?' selected':''}>${i}</option>`).join('')}
+    </select>
+    <div style="display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:6px;margin-bottom:6px;">
+      <select class="finput" onchange="window.onProductChange(${p.id},'unit',this.value)" style="font-size:12px;padding:8px 6px;">${UNITS_LIST.map(u=>`<option${p.unit===u?' selected':''}>${u}</option>`).join('')}</select>
+      <input class="finput" id="p-price-${p.id}" type="number" value="${p.price||''}" placeholder="단가" oninput="window.onProductChange(${p.id},'price',this.value)" style="font-size:12px;padding:8px 10px;" inputmode="decimal">
+      <input class="finput" type="number" value="${p.qty||''}" placeholder="수량" oninput="window.onProductChange(${p.id},'qty',this.value)" style="font-size:12px;padding:8px 10px;" inputmode="decimal">
+    </div>
+    <div style="text-align:right;font-size:11px;color:var(--t2);">소계: <strong id="p-sub-${p.id}" style="color:var(--a4);">₩${((p.price||0)*(p.qty||0)).toLocaleString()}</strong></div>
+  </div>`).join('');
 }
 
-// ══ 기재사항 ══
-window.openMemo = function(){
-  document.getElementById('memo-driver-name').value=invMemo.driverName||'';
-  document.getElementById('memo-driver-tel').value=invMemo.driverTel||'';
-  document.getElementById('memo-caution').value=invMemo.caution||'';
-  document.getElementById('memo-message').value=invMemo.message||'';
-  document.getElementById('memo-extra').value=invMemo.extra||'';
-  window.openSheet('sh-memo');
-};
-
-window.saveMemo = function(){
-  invMemo={
-    driverName:document.getElementById('memo-driver-name').value.trim(),
-    driverTel:document.getElementById('memo-driver-tel').value.trim(),
-    caution:document.getElementById('memo-caution').value,
-    message:document.getElementById('memo-message').value.trim(),
-    extra:document.getElementById('memo-extra').value.trim(),
-  };
-  window.closeSheet('sh-memo');
-  // 미리보기 업데이트
-  const prev=document.getElementById('inv-memo-preview');
-  const prevText=document.getElementById('inv-memo-preview-text');
-  const hasContent=invMemo.driverName||invMemo.caution||invMemo.message||invMemo.extra;
-  if(prev){ prev.style.display=hasContent?'block':'none'; }
-  if(prevText&&hasContent){
-    let txt='';
-    if(invMemo.driverName) txt+=`임시운전자: ${invMemo.driverName} ${invMemo.driverTel}\n`;
-    if(invMemo.caution)    txt+=`취급주의: ${invMemo.caution}\n`;
-    if(invMemo.message)    txt+=invMemo.message;
-    prevText.textContent=txt.trim();
-  }
-  toast('📝 기재사항 저장됨');
-};
-
-// ══ 정산 미리보기 ══
-window.renderSettlePreview = function(){
-  // 배송방식에 따라 버튼 텍스트 변경
-  const btn = document.getElementById('btn-submit-inv');
-  if(btn){
-    if(invDelivery==='call'){
-      btn.innerHTML='🚛 차량부르기';
-      btn.style.background='linear-gradient(135deg,var(--a4),var(--org))';
-    } else {
-      btn.innerHTML='✅ 송장 준비 완료';
-      btn.style.background='linear-gradient(135deg,var(--a1),var(--a2))';
-    }
-  }
+window.renderSettlePreview2=function(){
   const validProducts=products.filter(p=>p.item&&p.price&&p.qty);
   const total=validProducts.reduce((s,p)=>s+(p.price*p.qty),0);
   const qty=validProducts.reduce((s,p)=>s+p.qty,0);
-  const truck=invDelivery==='self'?(document.getElementById('self-truck-type').value||''):(document.getElementById('call-truck-type-inv')?document.getElementById('call-truck-type-inv').value:'');
-  const selfFee=parseInt((document.getElementById('self-transport-fee')||{}).value)||0;
-  const truckFee=invDelivery==='self'?(selfFee||TRUCK_FEES[truck]||0):(window._invFare||0);
-  const unloadFee=qty*350;
-  const commFee=Math.round(total*0.04);
-  const platFee=Math.round(total*0.005);
-  const netAmt=total-truckFee-unloadFee-commFee-platFee;
+  const unloadFee=qty*350, commFee=Math.round(total*.04), platFee=Math.round(total*.005);
+  const netAmt=total-unloadFee-commFee-platFee;
   document.getElementById('inv-settle-preview').innerHTML=`
     <div style="font-size:12px;font-weight:700;margin-bottom:10px;">💰 예상 정산 내역</div>
-    ${[
-      ['총 물품대금',total,'var(--a4)',true],
-      ['① 운송비',-(truckFee||0),'var(--red)',false],
-      ['② 하역비 ('+qty+'박스×₩350)',-(unloadFee||0),'var(--red)',false],
-      ['③ 청과법인 수수료 (4%)',-(commFee||0),'var(--red)',false],
-      ['④ 플랫폼 수수료 (0.5%)',-(platFee||0),'var(--red)',false],
-    ].map(r=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--b2);font-size:12px;">
+    ${[['총 물품대금',total,'var(--a4)',true],['하역비 ('+qty+'×₩350)',-(unloadFee),'var(--red)',false],['청과법인 수수료 (4%)',-(commFee),'var(--red)',false],['플랫폼 수수료 (0.5%)',-(platFee),'var(--red)',false]].map(r=>`
+    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--b2);font-size:12px;">
       <span style="color:${r[3]?'var(--t1)':'var(--t2)'};">${r[0]}</span>
       <span style="color:${r[2]};font-weight:${r[3]?800:600};">${r[1]>=0?'':'- '}₩${Math.abs(r[1]).toLocaleString()}</span>
     </div>`).join('')}
-    <div style="display:flex;justify-content:space-between;padding:10px 0 0;margin-top:4px;">
-      <span style="font-size:13px;font-weight:700;">예상 수령액</span>
-      <span style="font-size:20px;font-weight:900;color:var(--a1);">₩${netAmt.toLocaleString()}</span>
-    </div>
-    <div style="font-size:10px;color:var(--t2);margin-top:4px;">* 배차요청인 경우 실제 운송비 확정 후 재계산</div>`;
-  // 기재사항 미리보기
-  const hasMemo=invMemo.driverName||invMemo.caution||invMemo.message||invMemo.extra;
-  const prev=document.getElementById('inv-memo-preview');
-  if(prev) prev.style.display=hasMemo?'block':'none';
+    <div style="display:flex;justify-content:space-between;padding:10px 0 0;"><span style="font-size:13px;font-weight:700;">예상 수령액</span><span style="font-size:20px;font-weight:900;color:var(--a1);">₩${netAmt.toLocaleString()}</span></div>`;
 };
 
-// ══ 송장 발송 ══
-window.submitInvoice = function(){
+window.submitInvoice=function(){
   const buyerName=document.getElementById('inv-buyer-name').value.trim();
-  if(!buyerName){ toast('수취인을 입력하세요'); window.invNextStep(1); return; }
+  if(!buyerName){toast('수취인을 입력하세요');window.invNextStep(1);return;}
   const validProducts=products.filter(p=>p.item&&p.price&&p.qty);
-  if(!validProducts.length){ toast('상품 정보를 입력하세요'); window.invNextStep(2); return; }
-  if(!invDelivery){ toast('배송 방식을 선택하세요'); window.invNextStep(3); return; }
-  if(invDelivery==='self'){
-    const truckNum=document.getElementById('self-truck-num').value.trim();
-    const driverName=document.getElementById('self-driver-name').value.trim();
-    const driverTel=document.getElementById('self-driver-tel').value.trim();
-    const truckType=document.getElementById('self-truck-type').value;
-    if(!truckNum||!driverName||!driverTel||!truckType){ toast('배송차량 정보를 모두 입력하세요'); window.invNextStep(3); return; }
-  }
+  if(!validProducts.length){toast('상품 정보를 입력하세요');window.invNextStep(2);return;}
+  if(!invDelivery){toast('배송 방식을 선택하세요');window.invNextStep(3);return;}
   const now=new Date();
   const id='INV-'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'-'+String(Math.floor(Math.random()*9999)).padStart(4,'0');
-  const truckType=invDelivery==='self'?document.getElementById('self-truck-type').value:'';
   const totalAmt=validProducts.reduce((s,p)=>s+(p.price*p.qty),0);
-  const mainProduct=validProducts[0];
-  const inv={
-    id, status:'sent',
-    seller_name:curUserName, seller_gkid:curGkid,
-    buyer_name:buyerName,
-    buyer_tel:document.getElementById('inv-buyer-tel').value,
-    buyer_addr:document.getElementById('inv-buyer-addr').value,
-    products:validProducts,
-    waypoints:waypoints.filter(w=>w.addr),
-    item:validProducts.map(p=>p.item).join(', '),
-    qty:validProducts.reduce((s,p)=>s+p.qty,0),
+  const mainP=validProducts[0];
+  INVOICES.unshift({id,status:'sent',seller_gkid:curGkid,buyer_name:buyerName,
+    item:validProducts.map(p=>p.item).join(', '),qty:validProducts.reduce((s,p)=>s+p.qty,0),
     price:Math.round(totalAmt/(validProducts.reduce((s,p)=>s+p.qty,0)||1)),
-    total_amt:totalAmt,
-    origin_type:mainProduct.origin,
-    origin_detail:mainProduct.originDetail,
-    origin_addr:document.getElementById('inv-origin-addr').value,
-    dest_addr:document.getElementById('inv-dest-addr').value,
-    est_fare:window._invFare||parseInt((document.getElementById('self-transport-fee')||{}).value)||0,
-    req_auction:invReqs.auction,
-    req_consign:invReqs.consign,
-    min_price:invReqs.auction?(parseInt(document.getElementById('inv-min-price').value)||0):0,
-    delivery_type:invDelivery,
-    truck_type:truckType,
-    truck_num:invDelivery==='self'?document.getElementById('self-truck-num').value:'',
-    driver_name:invDelivery==='self'?document.getElementById('self-driver-name').value:'',
-    driver_tel:invDelivery==='self'?document.getElementById('self-driver-tel').value:'',
-    memo:Object.keys(invMemo).some(k=>invMemo[k])?invMemo:null,
-    created_at:now.toISOString(),
-  };
-  INVOICES.unshift(inv);
+    total_amt:totalAmt,origin_type:mainP.origin,origin_detail:mainP.originDetail,
+    delivery_type:invDelivery,req_auction:invReqs.auction,req_consign:invReqs.consign,
+    created_at:now.toISOString()});
   window.closeSheet('sh-invoice');
-  if(invDelivery==='call'){
-    toast('🚛 차량부르기! 화물콜을 작성해주세요');
-    setTimeout(()=>window.openCallSheet(id), 600);
-  } else {
-    toast('✅ 송장 준비 완료! '+buyerName+'에게 알림 발송됨 📬');
-  }
-  renderHome();
-  renderInvoicePage();
-  try{ db.from('invoices').insert({...inv,products:JSON.stringify(inv.products||[])}); }catch(e){ console.log('DB:', e); }
+  updateGrade();
+  toast('✅ 송장 발송 완료! '+buyerName+'에게 알림 발송됨 📬');
+  renderHome(); renderInvoicePage();
 };
 
-// ══ 내정보 ══
-function renderProfile(){
-  const r=ROLES[curRole];
-  document.getElementById('profile-content').innerHTML=`
-    <div style="font-size:18px;font-weight:800;margin-bottom:16px;">👤 내 정보</div>
-    <div class="card">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
-        <div style="width:48px;height:48px;border-radius:14px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:24px;">${r.ic}</div>
-        <div>
-          <div style="font-size:16px;font-weight:800;">${curUserName||r.n}</div>
-          <div style="font-size:12px;color:var(--t2);">${r.n}</div>
-          <div style="font-family:monospace;color:var(--a1);font-size:12px;">${curGkid}</div>
-        </div>
-      </div>
-      <button class="btn btn-s" onclick="if(confirm('로그아웃 하시겠습니까?')){localStorage.removeItem('garak_user');location.reload();}">로그아웃</button>
-    </div>`;
-}
+// ══════════════
+// 화물콜
+// ══════════════
+window.openCallSheet=function(){
+  window.openSheet('sh-call');
+};
+window.submitCall=function(){
+  const item=document.getElementById('call-item').value;
+  const qty=parseInt(document.getElementById('call-qty').value)||0;
+  const origin=document.getElementById('call-origin').value.trim();
+  const dest=document.getElementById('call-dest').value.trim();
+  const fare=parseInt(document.getElementById('call-fare').value)||0;
+  if(!item||!qty||!origin||!dest){toast('모든 항목을 입력하세요');return;}
+  const now=new Date();
+  const id='CALL-'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'-'+String(Math.floor(Math.random()*9999)).padStart(4,'0');
+  CALLS.unshift({id,item,qty,origin,dest,fare,status:'pending',truck_type:document.getElementById('call-truck-type').value,created_at:now.toISOString()});
+  window.closeSheet('sh-call');
+  toast('🚛 배차 요청 발송!');
+  renderVehiclePage(); renderHome();
+};
 
-window.openSheet  = function(id){ document.getElementById(id).classList.add('on'); };
-window.closeSheet = function(id){ document.getElementById(id).classList.remove('on'); };
+// ══════════════
+// AI 어시스턴트
+// ══════════════
+const AI_QUICK = {
+  producer_ind:['오늘 시세 알려줘','내 작물 수확 언제?','정책자금 뭐 있어?','송장 써줘'],
+  producer_corp:['오늘 시세 알려줘','법인 출하 전략','세금 계산해줘','정책자금 뭐 있어?'],
+  merchant_ind:['오늘 입고 현황','마진 계산해줘','정산 현황 알려줘','출하자 연락처'],
+  wholesale:['경매 현황','오늘 반입량','시세 분석해줘','전표 현황'],
+  transport:['오늘 콜 있어?','운송비 계산','최적 경로 알려줘','이번달 실적'],
+  gov_garaksa:['오늘 시장 현황','규제 위반 현황','정책 발송 대상','반입량 통계'],
+  gov_seoul:['가락시장 현황','정책자금 현황','생산자 현황','규제 이슈'],
+  default:['도움말','현황 알려줘','기능 안내','연락처'],
+};
+
+window.openAI=function(){
+  const r=ROLES[curRole];
+  document.getElementById('ai-sheet-sub').textContent=`${r.n} 전용 AI 어시스턴트`;
+  const btns=AI_QUICK[curRole]||AI_QUICK.default;
+  document.getElementById('ai-quick-btns').innerHTML=btns.map(b=>`<button onclick="window.sendAIMsg('${b}')" style="padding:6px 12px;border-radius:20px;border:1px solid var(--b1);background:var(--s2);color:var(--t1);font-size:11px;cursor:pointer;">${b}</button>`).join('');
+  document.getElementById('ai-chat-area').innerHTML=`<div style="color:var(--t2);">안녕하세요 ${curUserName||r.n}님! 🤖 무엇을 도와드릴까요?</div>`;
+  window.openSheet('sh-ai');
+};
+
+window.sendAI=function(){
+  const inp=document.getElementById('ai-input');
+  const msg=inp.value.trim();
+  if(!msg) return;
+  window.sendAIMsg(msg);
+  inp.value='';
+};
+
+window.sendAIMsg=function(msg){
+  const area=document.getElementById('ai-chat-area');
+  area.innerHTML+=`<div style="margin:6px 0;"><span style="color:var(--a2);font-size:10px;">나</span><br>${msg}</div>`;
+  // AI 응답 (프로토타입: 규칙 기반)
+  let reply='';
+  if(msg.includes('시세')){
+    reply=`오늘 주요 시세: 사과 ₩${AI_PRICES['사과'].toLocaleString()} · 배추 ₩${AI_PRICES['배추'].toLocaleString()} · 딸기 ₩${AI_PRICES['딸기'].toLocaleString()}`;
+  } else if(msg.includes('정책자금')||msg.includes('혜택')){
+    reply=`현재 ${GRADE_INFO[curGrade].label} 등급으로 신청 가능한 정책자금 ${POLICY_FUNDS.filter(p=>Object.keys(GRADE_INFO).indexOf(p.grade)<=Object.keys(GRADE_INFO).indexOf(curGrade)).length}건이 있어요. [혜택] 탭에서 확인하세요!`;
+  } else if(msg.includes('작물')||msg.includes('수확')){
+    reply=CROPS.length>0?`현재 ${CROPS.length}종 재배 중. 가장 빠른 수확: ${CROPS[0]?.name||'—'}`:'아직 등록된 작물이 없어요. [작물] 탭에서 등록해보세요!';
+  } else if(msg.includes('송장')){
+    reply=`송장 작성은 홈 화면의 [새 송장 만들기] 버튼을 눌러주세요. 수취인 → 상품 → 배송 → 정산 4단계로 작성합니다.`;
+  } else if(msg.includes('규제')||msg.includes('처벌')||msg.includes('페널티')){
+    reply=`원산지 허위표시 시 과태료 최대 1,000만원, 전표 미발행 시 최대 500만원입니다. 자세한 내용은 [혜택] 탭의 준수사항을 확인하세요.`;
+  } else {
+    reply=`"${msg}"에 대한 답변을 준비 중이에요. 현재 프로토타입에서는 기본 질문만 지원됩니다. 시세, 정책자금, 작물, 송장에 대해 물어보세요!`;
+  }
+  area.innerHTML+=`<div style="margin:6px 0;padding:8px 10px;background:rgba(0,232,188,.06);border:1px solid rgba(0,232,188,.15);border-radius:8px;"><span style="color:var(--a1);font-size:10px;">🤖 GARAK AI</span><br>${reply}</div>`;
+  area.scrollTop=area.scrollHeight;
+};
+
+// ══════════════
+// 유틸
+// ══════════════
+window.openSheet  = id=>document.getElementById(id).classList.add('on');
+window.closeSheet = id=>document.getElementById(id).classList.remove('on');
 
 function startClock(){
   const t=()=>document.getElementById('clock').textContent=new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
@@ -1724,7 +1550,7 @@ function toast(msg){
   const el=document.getElementById('toast');
   el.textContent=msg; el.classList.add('on');
   if(_tt) clearTimeout(_tt);
-  _tt=setTimeout(()=>el.classList.remove('on'),3000);
+  _tt=setTimeout(()=>el.classList.remove('on'),3500);
 }
 </script>
 </body>
