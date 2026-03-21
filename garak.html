@@ -4,6 +4,30 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>GARAK AI</title>
+
+<!-- PWA 필수 -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#080d18">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GARAK AI">
+
+<!-- 아이콘 (iOS용) -->
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="apple-touch-icon" sizes="152x152" href="icon-192.png">
+<link rel="apple-touch-icon" sizes="167x167" href="icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-192.png">
+
+<!-- 스플래시 배경 -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<style>
+  /* PWA 스플래시 */
+  @media (display-mode: standalone) {
+    body { padding-top: env(safe-area-inset-top); }
+  }
+</style>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
@@ -152,17 +176,102 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
 <!-- ══ 로그인 ══ -->
 <div id="login">
   <div id="login-landing">
-    <div style="width:100%;max-width:340px;text-align:center;">
-      <div style="margin-bottom:44px;">
-        <p style="font-size:9px;letter-spacing:5px;color:var(--a1);font-weight:700;margin:0 0 8px;">AI SMART DISTRIBUTION</p>
-        <h1 style="font-size:46px;font-weight:900;letter-spacing:-2px;line-height:1;margin:0 0 4px;">GARAK AI</h1>
-        <p style="font-size:11px;color:var(--a1);font-family:monospace;margin:0 0 8px;letter-spacing:1px;">4.0 PROTOTYPE</p>
-        <p style="font-size:13px;color:var(--t2);margin:0;">가락시장 스마트 유통 플랫폼</p>
+    <div style="width:100%;max-width:380px;">
+
+      <!-- 로고 -->
+      <div style="text-align:center;margin-bottom:20px;padding-top:20px;">
+        <p style="font-size:9px;letter-spacing:5px;color:var(--a1);font-weight:700;margin:0 0 6px;">AI SMART DISTRIBUTION</p>
+        <h1 style="font-size:42px;font-weight:900;letter-spacing:-2px;line-height:1;margin:0 0 4px;">GARAK AI</h1>
+        <p style="font-size:11px;color:var(--a1);font-family:monospace;margin:0 0 6px;letter-spacing:1px;">4.0 PROTOTYPE · 1차 테스트</p>
+        <p style="font-size:12px;color:var(--t2);margin:0;">가락시장 스마트 유통 플랫폼</p>
       </div>
-      <div style="display:flex;flex-direction:column;gap:11px;">
-        <button onclick="window.showScreen('register')" style="width:100%;padding:18px;border-radius:16px;background:linear-gradient(135deg,#00e8bc,#4f9cf9);color:#080d18;font-size:16px;font-weight:800;border:none;">🌱 가입하기</button>
-        <button onclick="window.showScreen('login')" style="width:100%;padding:18px;border-radius:16px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.13);color:#fff;font-size:16px;font-weight:700;">🔑 로그인</button>
+
+      <!-- ✨ PR 문구 -->
+      <div style="background:linear-gradient(135deg,rgba(0,232,188,.08),rgba(79,156,249,.06));border:1.5px solid rgba(0,232,188,.2);border-radius:16px;padding:14px 16px;margin-bottom:16px;text-align:center;">
+        <div style="font-size:10px;color:var(--a1);letter-spacing:2px;font-weight:700;margin-bottom:6px;">✨ MADE WITH LOVE</div>
+        <div style="font-size:13px;font-weight:700;color:var(--t1);line-height:1.8;">
+          이 곳은 <span style="color:var(--a1);">최승현</span>님과 <span style="color:var(--a2);">최용준</span>님이<br>함께 만드는 Agent AI 세상입니다
+        </div>
+        <div style="font-size:10px;color:var(--t3);margin-top:6px;">Powered by Claude AI · Built on Supabase</div>
       </div>
+
+      <!-- 테스트 기간 카운트다운 -->
+      <div style="background:rgba(255,69,84,.07);border:1.5px solid rgba(255,69,84,.3);border-radius:12px;padding:10px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-size:10px;color:var(--red);font-weight:700;">🔴 1차 테스트 운영 중</div>
+          <div style="font-size:11px;color:var(--t2);margin-top:2px;">테스트 기간 종료까지</div>
+        </div>
+        <div id="test-countdown" style="font-size:20px;font-weight:900;color:var(--red);font-family:monospace;">--:--:--</div>
+      </div>
+
+      <!-- 비밀번호 입력 -->
+      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:14px;margin-bottom:14px;">
+        <div style="font-size:11px;color:var(--t2);margin-bottom:8px;">🔑 테스트 참여 비밀번호를 입력하세요</div>
+        <div style="display:flex;gap:8px;">
+          <input type="password" id="test-password" class="finput" placeholder="비밀번호 입력"
+            style="flex:1;margin:0;" onkeydown="if(event.key==='Enter')window.checkTestPassword()">
+          <button onclick="window.checkTestPassword()"
+            style="padding:10px 16px;border-radius:10px;background:linear-gradient(135deg,var(--a1),var(--a2));color:#080d18;font-size:13px;font-weight:800;border:none;cursor:pointer;white-space:nowrap;">
+            입장 →
+          </button>
+        </div>
+        <div id="pw-error" style="display:none;font-size:11px;color:var(--red);margin-top:6px;">❌ 비밀번호가 올바르지 않습니다</div>
+      </div>
+
+      <!-- 테스트 계정 목록 -->
+      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:14px;margin-bottom:16px;">
+        <div style="font-size:12px;font-weight:700;margin-bottom:10px;">📋 테스트 계정 목록</div>
+
+        ${[
+          {group:'🌾 생산자', color:'var(--a1)', accounts:[
+            {id:'PROD-001', name:'드레곤팜', role:'생산자(개인)', region:'경북 의성'},
+            {id:'PROD-002', name:'나주배농원', role:'생산자(개인)', region:'전남 나주'},
+            {id:'PROD-003', name:'논산딸기농협', role:'생산자(법인)', region:'충남 논산'},
+            {id:'PROD-004', name:'의성마늘영농', role:'생산자(법인)', region:'경북 의성'},
+            {id:'PROD-005', name:'강원감자농장', role:'생산자(개인)', region:'강원 평창'},
+          ]},
+          {group:'🛒 중도매인', color:'var(--a2)', accounts:[
+            {id:'MERCH-001', name:'서울청과상회', role:'중도매인', region:'서울 송파'},
+            {id:'MERCH-002', name:'강남청과', role:'중도매인', region:'서울 송파'},
+          ]},
+          {group:'🏛 청과법인', color:'#c084fc', accounts:[
+            {id:'CORP-001', name:'한국청과(주)', role:'청과법인', region:'가락시장'},
+            {id:'CORP-002', name:'중앙청과', role:'청과법인', region:'가락시장'},
+          ]},
+          {group:'🏛 관리공단', color:'var(--a4)', accounts:[
+            {id:'GOV-001', name:'가락시장관리공단', role:'가락시장관리공단', region:'서울 송파'},
+          ]},
+          {group:'🚛 운송업체', color:'var(--org)', accounts:[
+            {id:'TRANS-001', name:'빠른배송', role:'운송업체', region:'경기 성남'},
+            {id:'TRANS-002', name:'전국콜배송', role:'운송업체', region:'서울'},
+            {id:'TRANS-003', name:'냉장특송', role:'운송업체', region:'인천'},
+            {id:'TRANS-004', name:'가락운송', role:'운송업체', region:'서울 송파'},
+            {id:'TRANS-005', name:'농산물전문운송', role:'운송업체', region:'경기 광주'},
+          ]},
+          {group:'🧾 세무/회계', color:'var(--red)', accounts:[
+            {id:'TAX-001', name:'가락세무회계', role:'세무사', region:'서울 송파'},
+          ]},
+        ].map(g=>`
+        <div style="margin-bottom:10px;">
+          <div style="font-size:10px;font-weight:700;color:${g.color};margin-bottom:5px;letter-spacing:1px;">${g.group}</div>
+          ${g.accounts.map(a=>`
+          <div onclick="window.fillTestAccount('${a.id}')"
+            style="display:flex;justify-content:space-between;align-items:center;padding:6px 9px;border-radius:8px;background:var(--s2);margin-bottom:3px;cursor:pointer;border:1px solid transparent;transition:border .15s;"
+            onmouseover="this.style.border='1px solid ${g.color}33'" onmouseout="this.style.border='1px solid transparent'">
+            <div>
+              <span style="font-size:11px;font-weight:700;color:${g.color};font-family:monospace;">${a.id}</span>
+              <span style="font-size:11px;color:var(--t1);margin-left:6px;">${a.name}</span>
+            </div>
+            <span style="font-size:10px;color:var(--t3);">${a.region}</span>
+          </div>`).join('')}
+        </div>`).join('')}
+
+        <div style="margin-top:8px;padding:8px 10px;background:var(--s2);border-radius:8px;font-size:10px;color:var(--t2);line-height:1.7;">
+          💡 계정 ID를 탭하면 자동으로 채워집니다<br>
+          🔑 비밀번호는 별도 공유된 값을 입력하세요
+        </div>
+      </div>
+
     </div>
   </div>
   <div id="login-register">
@@ -190,7 +299,8 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
     <span class="tb-name" id="tb-name">생산자</span>
     <span class="tb-gkid" id="tb-gkid">GK-P-000001</span>
     <span class="tb-grade tag" id="tb-grade" onclick="goTab('mypage')">🌱 씨앗</span>
-    <span style="font-size:11px;color:var(--t2);" id="clock">00:00</span>
+    <span style="font-size:9px;color:var(--red);font-weight:700;background:rgba(255,69,84,.1);border:1px solid rgba(255,69,84,.2);padding:2px 6px;border-radius:5px;display:none;" id="tb-test-badge">TEST</span>
+    <span style="font-size:11px;color:var(--t2);margin-left:auto;" id="clock">00:00</span>
   </div>
   <div class="scroll" id="scroll">
     <div class="page on" id="page-home"><div id="home-content"></div></div>
@@ -1188,7 +1298,7 @@ const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Supabase 연결 여부 확인
-const SUPABASE_READY = SUPABASE_KEY !== 'sb_publishable_E5FHlxYRRSgXWF_CYyBYTA_wTUZQtQ2';
+const SUPABASE_READY = SUPABASE_KEY !== 'YOUR_PUBLISHABLE_KEY_HERE' && SUPABASE_KEY.startsWith('sb_');
 
 // ── Supabase DB 동기화 함수 ──
 async function syncToSupabase(){
@@ -2339,9 +2449,110 @@ window.showScreen = function(screen){
   document.querySelectorAll('.role-card').forEach(c=>c.classList.remove('sel'));
 };
 
-document.addEventListener('click', function(e){
-  // role-card 클릭은 onclick으로 처리됨 (onRoleCardClick)
-});
+// ══════════════
+// 테스트 시스템
+// ══════════════
+
+// 테스트 만료일: 지금부터 3일
+const TEST_EXPIRE = (() => {
+  const saved = localStorage.getItem('garak_test_expire');
+  if(saved) return parseInt(saved);
+  const expire = Date.now() + 3 * 24 * 60 * 60 * 1000;
+  localStorage.setItem('garak_test_expire', expire);
+  return expire;
+})();
+
+// 카운트다운 타이머
+function startTestCountdown(){
+  const el = document.getElementById('test-countdown');
+  if(!el) return;
+  function update(){
+    const left = TEST_EXPIRE - Date.now();
+    if(left <= 0){
+      el.textContent = '종료';
+      el.style.color = 'var(--t3)';
+      return;
+    }
+    const d = Math.floor(left / 86400000);
+    const h = Math.floor((left % 86400000) / 3600000);
+    const m = Math.floor((left % 3600000) / 60000);
+    const s = Math.floor((left % 60000) / 1000);
+    el.textContent = d > 0 ? `${d}일 ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    setTimeout(update, 1000);
+  }
+  update();
+}
+startTestCountdown();
+
+// 테스트 계정 데이터
+const TEST_ACCOUNTS = {
+  'PROD-001': {name:'드레곤팜',          role:'producer_ind',  region:'경북 의성'},
+  'PROD-002': {name:'나주배농원',         role:'producer_ind',  region:'전남 나주'},
+  'PROD-003': {name:'논산딸기농협',       role:'producer_corp', region:'충남 논산'},
+  'PROD-004': {name:'의성마늘영농',       role:'producer_corp', region:'경북 의성'},
+  'PROD-005': {name:'강원감자농장',       role:'producer_ind',  region:'강원 평창'},
+  'MERCH-001':{name:'서울청과상회',       role:'merchant_ind',  region:'서울 송파'},
+  'MERCH-002':{name:'강남청과',           role:'merchant_ind',  region:'서울 송파'},
+  'CORP-001': {name:'한국청과(주)',        role:'wholesale',     region:'가락시장'},
+  'CORP-002': {name:'중앙청과',           role:'wholesale',     region:'가락시장'},
+  'GOV-001':  {name:'가락시장관리공단',   role:'gov_garaksa',   region:'서울 송파'},
+  'TRANS-001':{name:'빠른배송',           role:'transport',     region:'경기 성남'},
+  'TRANS-002':{name:'전국콜배송',         role:'transport',     region:'서울'},
+  'TRANS-003':{name:'냉장특송',           role:'transport',     region:'인천'},
+  'TRANS-004':{name:'가락운송',           role:'transport',     region:'서울 송파'},
+  'TRANS-005':{name:'농산물전문운송',     role:'transport',     region:'경기 광주'},
+  'TAX-001':  {name:'가락세무회계',       role:'tax_agent',     region:'서울 송파'},
+};
+
+// 계정 ID 탭하면 자동 입력
+window.fillTestAccount = function(id){
+  const pwEl = document.getElementById('test-password');
+  if(pwEl) pwEl.focus();
+  window._selectedTestId = id;
+  const acc = TEST_ACCOUNTS[id];
+  // 선택 표시
+  toast('✅ '+id+' ('+acc.name+') 선택됨\n비밀번호를 입력하세요');
+};
+
+// 비밀번호 확인 후 입장
+window.checkTestPassword = function(){
+  const pw = document.getElementById('test-password')?.value;
+  const errEl = document.getElementById('pw-error');
+
+  // 만료 확인
+  if(Date.now() > TEST_EXPIRE){
+    toast('⏰ 테스트 기간이 종료됐습니다. 관리자에게 문의하세요.');
+    return;
+  }
+
+  if(pw !== 'shlove1004'){
+    if(errEl) errEl.style.display = 'block';
+    setTimeout(()=>{ if(errEl) errEl.style.display='none'; }, 2500);
+    return;
+  }
+
+  // 테스트 계정 선택됐으면 바로 입장
+  const id = window._selectedTestId;
+  if(id && TEST_ACCOUNTS[id]){
+    const acc = TEST_ACCOUNTS[id];
+    const r = ROLES[acc.role];
+    if(!r){ toast('역할 정보 오류'); return; }
+    curRole    = acc.role;
+    curUserName = acc.name;
+    curGkid    = id+'-GK';
+    curGrade   = 'seed';
+    window._userTel=''; window._userBiznum=''; window._userCorpnum='';
+    window._testAccountId = id;
+    const userData = { role:curRole, gkid:curGkid, name:curUserName, grade:curGrade, testAccount:true };
+    localStorage.setItem('garak_user', JSON.stringify(userData));
+    startApp(r);
+    return;
+  }
+
+  // 계정 선택 없으면 가입/로그인 화면으로
+  window.showScreen('register');
+};
+
 
 // ══════════════
 // 로그인
@@ -2454,6 +2665,9 @@ function startApp(r){
   document.getElementById('tb-ic').textContent=r.ic;
   document.getElementById('tb-name').textContent=r.n;
   document.getElementById('tb-gkid').textContent=curGkid;
+  // 테스트 계정 배지 표시
+  const testBadge = document.getElementById('tb-test-badge');
+  if(testBadge) testBadge.style.display = window._testAccountId ? 'inline' : 'none';
   updateGradeBadge();
   buildTabbar();
   startClock();
@@ -2526,6 +2740,7 @@ function loadSavedLogin(){
     curRole=u.role; curGkid=u.gkid; curUserName=u.name||''; curGrade=u.grade||'seed';
     window._userTel=u.tel||''; window._userBiznum=u.biznum||''; window._userCorpnum=u.corpnum||'';
     window._specialReq=u.specialReq||false;
+    window._testAccountId = u.testAccount ? curGkid.replace('-GK','') : null;
     const r=ROLES[curRole];
     if(r) startApp(r);
   }
@@ -7261,6 +7476,16 @@ function toast(msg){
   el.textContent=msg; el.classList.add('on');
   if(_tt) clearTimeout(_tt);
   _tt=setTimeout(()=>el.classList.remove('on'),3500);
+}
+</script>
+<script>
+// PWA Service Worker 등록
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js')
+      .then(reg => console.log('✅ SW 등록:', reg.scope))
+      .catch(err => console.log('SW 등록 실패:', err));
+  });
 }
 </script>
 </body>
