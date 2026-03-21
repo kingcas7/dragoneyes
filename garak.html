@@ -1183,12 +1183,12 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
 // ══════════════════════════════════════════
 
 const SUPABASE_URL = 'https://stqmgwwpuphqflwtekuy.supabase.co';
-const SUPABASE_KEY = 'YOUR_PUBLISHABLE_KEY_HERE'; // ← 여기에 Publishable Key 붙여넣기
+const SUPABASE_KEY = 'sb_publishable_E5FHlxYRRSgXWF_CYyBYTA_wTUZQtQ2'; // ← 여기에 Publishable Key 붙여넣기
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Supabase 연결 여부 확인
-const SUPABASE_READY = SUPABASE_KEY !== 'YOUR_PUBLISHABLE_KEY_HERE';
+const SUPABASE_READY = SUPABASE_KEY !== 'sb_publishable_E5FHlxYRRSgXWF_CYyBYTA_wTUZQtQ2';
 
 // ── Supabase DB 동기화 함수 ──
 async function syncToSupabase(){
