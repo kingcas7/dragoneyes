@@ -512,8 +512,8 @@ const ROLE_INFO = {
 
 // ── 탭 정의 (역할별) ──
 const TABS_BY_ROLE = {
-  producer_ind:   [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'송장',pg:'invoice'},{ic:'🌱',lb:'작물',pg:'crop'},{ic:'🤝',lb:'거래처',pg:'partner'},{ic:'🚛',lb:'차량',pg:'vehicle'},{ic:'📄',lb:'전표',pg:'eform'},{ic:'💰',lb:'정산',pg:'settle'},{ic:'💎',lb:'혜택',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
-  producer_corp:  [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'송장',pg:'invoice'},{ic:'🌱',lb:'작물',pg:'crop'},{ic:'🤝',lb:'거래처',pg:'partner'},{ic:'🚛',lb:'차량',pg:'vehicle'},{ic:'📄',lb:'전표',pg:'eform'},{ic:'💰',lb:'정산',pg:'settle'},{ic:'💎',lb:'혜택',pg:'policy'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  producer_ind:   [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'송장',pg:'invoice'},{ic:'🤝',lb:'거래처',pg:'partner'},{ic:'🚛',lb:'차량',pg:'vehicle'},{ic:'📄',lb:'전표',pg:'eform'},{ic:'💰',lb:'정산',pg:'settle'},{ic:'👤',lb:'MY',pg:'mypage'}],
+  producer_corp:  [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📋',lb:'송장',pg:'invoice'},{ic:'🤝',lb:'거래처',pg:'partner'},{ic:'🚛',lb:'차량',pg:'vehicle'},{ic:'📄',lb:'전표',pg:'eform'},{ic:'💰',lb:'정산',pg:'settle'},{ic:'👤',lb:'MY',pg:'mypage'}],
   merchant_ind:   [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📬',lb:'수신송장',pg:'invoice'},{ic:'🤝',lb:'거래처',pg:'partner'},{ic:'📄',lb:'전표',pg:'eform'},{ic:'💰',lb:'정산',pg:'settle'},{ic:'👤',lb:'MY',pg:'mypage'}],
   wholesale:      [{ic:'🏠',lb:'홈',pg:'home'},{ic:'🔨',lb:'경매',pg:'invoice'},{ic:'🤝',lb:'거래처',pg:'partner'},{ic:'📄',lb:'전표',pg:'eform'},{ic:'💰',lb:'정산',pg:'settle'},{ic:'👤',lb:'MY',pg:'mypage'}],
   transport:      [{ic:'🏠',lb:'홈',pg:'home'},{ic:'📞',lb:'배차콜',pg:'vehicle'},{ic:'📋',lb:'이력',pg:'invoice'},{ic:'💰',lb:'정산',pg:'settle'},{ic:'👤',lb:'MY',pg:'mypage'}],
@@ -688,7 +688,7 @@ function goTab(pg){
   if(p) p.classList.add('on');
   document.querySelectorAll(`[data-pg="${pg}"]`).forEach(t=>t.classList.add('on'));
   document.getElementById('scroll').scrollTop=0;
-  const renders={home:renderHome,invoice:renderInvoicePage,crop:renderCropPage,partner:renderPartnerPage,vehicle:renderVehiclePage,eform:renderEformPage,settle:renderSettlePage,policy:renderPolicyPage,public:renderPublicPage,mypage:renderMyPage};
+  const renders={home:renderHome,invoice:renderInvoicePage,partner:renderPartnerPage,vehicle:renderVehiclePage,eform:renderEformPage,settle:renderSettlePage,public:renderPublicPage,mypage:renderMyPage};
   if(renders[pg]) renders[pg]();
 }
 
@@ -712,7 +712,7 @@ function renderHome(){
   if(isProducer){
     const score=calcGradeScore();
     homeHTML += `
-    <div class="card" style="background:var(--s2);margin-bottom:12px;cursor:pointer;" onclick="goTab('mypage')">
+    <div class="card" style="background:var(--s2);margin-bottom:12px;cursor:pointer;" onclick="window._myTab='profile';goTab('mypage')">
       <div style="display:flex;align-items:center;gap:10px;">
         <div style="flex:1;">
           <div style="font-size:11px;color:var(--t2);margin-bottom:4px;">GARAK 신뢰등급</div>
@@ -747,7 +747,7 @@ function renderHome(){
   if(isProducer && CROPS.length > 0){
     const nextHarvest = CROPS.filter(c=>c.harvestDate).sort((a,b)=>new Date(a.harvestDate)-new Date(b.harvestDate))[0];
     homeHTML += `
-    <div class="card" style="margin-bottom:12px;cursor:pointer;" onclick="goTab('crop')">
+    <div class="card" style="margin-bottom:12px;cursor:pointer;" onclick="window._myTab='crop';goTab('mypage')">
       <div class="sec-hd" style="margin-bottom:8px;"><span style="font-size:13px;font-weight:700;">🌱 내 작물 현황</span><span class="sec-more">전체보기</span></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
         <div style="background:var(--s2);border-radius:10px;padding:10px;text-align:center;">
@@ -805,7 +805,8 @@ function renderHome(){
   </div>`;
 
   if(isProducer){
-    homeHTML += `<button class="btn btn-p" onclick="window.openInvoiceSheet()" style="margin-bottom:10px;padding:16px;font-size:15px;font-weight:800;">📋 새 송장 만들기</button>`;
+    homeHTML += `<button class="btn btn-p" onclick="window.openInvoiceSheet()" style="margin-bottom:10px;padding:16px;font-size:15px;font-weight:800;">📋 새 송장 만들기</button>
+    <button onclick="window._myTab='crop';goTab('mypage')" style="width:100%;padding:13px;border-radius:12px;border:1.5px dashed var(--a1);background:rgba(0,232,188,.04);color:var(--a1);font-size:13px;font-weight:700;cursor:pointer;margin-bottom:10px;">🌱 작물 관리하기</button>`;
   }
 
   document.getElementById('home-content').innerHTML = homeHTML;
@@ -1243,15 +1244,21 @@ function renderSettlePage(){
 }
 
 // ══════════════
-// 내 정보 페이지
+// MY 페이지 — 생산자: 작물관리+신뢰등급+혜택 통합 / 기타: 프로필
 // ══════════════
 function renderMyPage(){
   const r=ROLES[curRole];
+  const isProducer=['producer_ind','producer_corp'].includes(curRole);
+  if(isProducer) renderMyPageProducer(r);
+  else renderMyPageGeneral(r);
+}
+
+function renderMyPageGeneral(r){
   const gi=GRADE_INFO[curGrade]||GRADE_INFO.seed;
   const score=calcGradeScore();
-  document.getElementById('mypage-content').innerHTML = `
+  document.getElementById('mypage-content').innerHTML=`
     <div class="sec-title" style="margin-bottom:16px;">👤 MY 페이지</div>
-    <div class="card" style="margin-bottom:12px;">
+    <div class="card">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
         <div style="width:52px;height:52px;border-radius:14px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:26px;">${r.ic}</div>
         <div>
@@ -1260,38 +1267,219 @@ function renderMyPage(){
           <div style="font-family:monospace;color:var(--a1);font-size:11px;margin-top:2px;">${curGkid}</div>
         </div>
       </div>
-
-      <!-- 신뢰등급 -->
-      <div style="background:var(--s2);border-radius:12px;padding:12px;margin-bottom:12px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-          <div>
-            <div style="font-size:11px;color:var(--t2);">GARAK 신뢰등급</div>
-            <div style="font-size:18px;font-weight:800;margin-top:2px;">${gi.label}</div>
-          </div>
-          <div style="text-align:right;">
-            <div style="font-size:28px;font-weight:900;color:var(--a1);">${score}<span style="font-size:14px;">점</span></div>
-          </div>
-        </div>
-        <div style="height:6px;background:var(--s3);border-radius:3px;margin-bottom:6px;">
-          <div style="width:${score}%;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--a1),var(--a2));"></div>
-        </div>
-        <div style="font-size:10px;color:var(--t2);">${gi.desc}</div>
-      </div>
-
-      <!-- 등급별 혜택 -->
-      <div style="font-size:12px;font-weight:700;margin-bottom:8px;">등급별 혜택</div>
-      ${Object.entries(GRADE_INFO).map(([key,g])=>{
-        const isActive=key===curGrade;
-        const isPast=Object.keys(GRADE_INFO).indexOf(key)<Object.keys(GRADE_INFO).indexOf(curGrade);
-        return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--b2);opacity:${isPast||isActive?1:.4};">
-          <span class="tag ${g.cls}" style="min-width:68px;text-align:center;">${g.label}</span>
-          <span style="font-size:11px;color:${isActive?'var(--t1)':'var(--t2)'};">${g.desc}</span>
-          ${isActive?'<span style="margin-left:auto;font-size:10px;color:var(--a1);font-weight:700;">현재</span>':isPast?'<span style="margin-left:auto;font-size:12px;">✓</span>':''}
-        </div>`;
-      }).join('')}
-
-      <button class="btn btn-s" style="margin-top:12px;" onclick="if(confirm('로그아웃 하시겠습니까?')){localStorage.removeItem('garak_user');location.reload();}">로그아웃</button>
+      <button class="btn btn-s" onclick="if(confirm('로그아웃 하시겠습니까?')){localStorage.removeItem('garak_user');location.reload();}">로그아웃</button>
     </div>`;
+}
+
+function renderMyPageProducer(r){
+  const gi=GRADE_INFO[curGrade]||GRADE_INFO.seed;
+  const score=calcGradeScore();
+
+  // ── 현재 MY 서브탭 상태 ──
+  if(!window._myTab) window._myTab='profile';
+
+  const tabs=[
+    {id:'profile', ic:'👤', lb:'내정보'},
+    {id:'crop',    ic:'🌱', lb:'작물관리'},
+    {id:'benefit', ic:'💎', lb:'혜택·정책자금'},
+  ];
+
+  let html=`
+    <div class="sec-title" style="margin-bottom:12px;">👤 MY 페이지</div>
+
+    <!-- 서브탭 -->
+    <div style="display:flex;gap:6px;margin-bottom:16px;background:var(--s2);border-radius:12px;padding:4px;">
+      ${tabs.map(t=>`
+      <div onclick="window.switchMyTab('${t.id}')" id="mytab-${t.id}"
+        style="flex:1;padding:8px 4px;border-radius:9px;text-align:center;cursor:pointer;transition:all .15s;
+          ${window._myTab===t.id?'background:var(--s3);':''}">
+        <div style="font-size:15px;">${t.ic}</div>
+        <div style="font-size:9px;font-weight:700;color:${window._myTab===t.id?'var(--a1)':'var(--t3)'};">${t.lb}</div>
+      </div>`).join('')}
+    </div>
+
+    <div id="my-sub-content">`;
+
+  if(window._myTab==='profile') html+=renderMyProfile(r,gi,score);
+  else if(window._myTab==='crop') html+=renderMyCropSection();
+  else if(window._myTab==='benefit') html+=renderMyBenefitSection();
+
+  html+=`</div>`;
+  document.getElementById('mypage-content').innerHTML=html;
+}
+
+window.switchMyTab=function(tab){
+  window._myTab=tab;
+  renderMyPage();
+  document.getElementById('scroll').scrollTop=0;
+};
+
+// ── MY > 내정보 ──
+function renderMyProfile(r,gi,score){
+  return `
+  <div class="card" style="margin-bottom:12px;">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+      <div style="width:52px;height:52px;border-radius:14px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:26px;">${r.ic}</div>
+      <div>
+        <div style="font-size:17px;font-weight:800;">${curUserName||r.n}</div>
+        <div style="font-size:12px;color:var(--t2);">${r.n}</div>
+        <div style="font-family:monospace;color:var(--a1);font-size:11px;margin-top:2px;">${curGkid}</div>
+      </div>
+    </div>
+
+    <!-- 신뢰등급 -->
+    <div style="background:var(--s2);border-radius:12px;padding:12px;margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div>
+          <div style="font-size:11px;color:var(--t2);">GARAK 신뢰등급</div>
+          <div style="font-size:18px;font-weight:800;margin-top:2px;">${gi.label}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:28px;font-weight:900;color:var(--a1);">${score}<span style="font-size:14px;">점</span></div>
+          <div style="font-size:10px;color:var(--t2);">/ 100점</div>
+        </div>
+      </div>
+      <div style="height:6px;background:var(--s3);border-radius:3px;margin-bottom:6px;">
+        <div style="width:${score}%;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--a1),var(--a2));"></div>
+      </div>
+      <div style="font-size:10px;color:var(--t2);">${gi.desc}</div>
+    </div>
+
+    <!-- 점수 구성 -->
+    <div style="font-size:12px;font-weight:700;margin-bottom:8px;">점수 구성</div>
+    ${[
+      {lb:'작물 등록',val:CROPS.length*5,max:40,desc:CROPS.length+'종 등록'},
+      {lb:'송장 발행',val:INVOICES.length*3,max:35,desc:INVOICES.length+'건 발행'},
+      {lb:'프로필 완성',val:curUserName&&curUserName.length>1?5:0,max:25,desc:'기본 정보'},
+    ].map(s=>`
+    <div style="margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;">
+        <span style="color:var(--t2);">${s.lb} <span style="color:var(--t3);">(${s.desc})</span></span>
+        <span style="color:var(--a1);font-weight:700;">${Math.min(s.val,s.max)}점</span>
+      </div>
+      <div style="height:3px;background:var(--s3);border-radius:2px;">
+        <div style="width:${Math.min(100,s.val/s.max*100)}%;height:100%;border-radius:2px;background:var(--a1);"></div>
+      </div>
+    </div>`).join('')}
+
+    <!-- 등급별 혜택 -->
+    <div style="font-size:12px;font-weight:700;margin:12px 0 8px;">등급별 혜택</div>
+    ${Object.entries(GRADE_INFO).map(([key,g])=>{
+      const isActive=key===curGrade;
+      const isPast=Object.keys(GRADE_INFO).indexOf(key)<Object.keys(GRADE_INFO).indexOf(curGrade);
+      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--b2);opacity:${isPast||isActive?1:.4};">
+        <span class="tag ${g.cls}" style="min-width:68px;text-align:center;">${g.label}</span>
+        <span style="font-size:11px;color:${isActive?'var(--t1)':'var(--t2)'};">${g.desc}</span>
+        ${isActive?'<span style="margin-left:auto;font-size:10px;color:var(--a1);font-weight:700;">현재</span>':isPast?'<span style="margin-left:auto;font-size:12px;color:var(--a1);">✓</span>':''}
+      </div>`;
+    }).join('')}
+
+    <button class="btn btn-s" style="margin-top:14px;" onclick="if(confirm('로그아웃 하시겠습니까?')){localStorage.removeItem('garak_user');location.reload();}">로그아웃</button>
+  </div>`;
+}
+
+// ── MY > 작물관리 ──
+function renderMyCropSection(){
+  let html=`
+  <!-- AI 어시스턴트 -->
+  <div class="card" style="background:rgba(0,232,188,.04);border-color:rgba(0,232,188,.2);margin-bottom:12px;">
+    <div style="font-size:11px;color:var(--a1);font-weight:700;margin-bottom:6px;">🤖 AI 농사 어시스턴트</div>
+    <div style="font-size:12px;color:var(--t2);line-height:1.7;">
+      ${CROPS.length===0
+        ? '작물을 등록하면 수확 시기, 예상 소출량, 출하 전략을 AI가 분석해드려요.'
+        : `${CROPS.length}종 재배 중 · AI가 최적 출하 타이밍을 분석 중...`}
+    </div>
+    ${CROPS.length>0?`<button class="btn btn-s" style="margin-top:8px;padding:8px;font-size:12px;" onclick="window.openAI()">🤖 AI에게 물어보기</button>`:''}
+  </div>
+
+  <!-- 작물 등록 버튼 -->
+  <button onclick="window.openCropSheet()" style="width:100%;padding:13px;border-radius:12px;border:1.5px dashed var(--a1);background:rgba(0,232,188,.04);color:var(--a1);font-size:13px;font-weight:700;cursor:pointer;margin-bottom:14px;">
+    🌱 + 작물 등록하기
+  </button>`;
+
+  // 작물 목록
+  if(CROPS.length===0){
+    html+=`
+    <div style="text-align:center;padding:30px 20px;color:var(--t2);">
+      <div style="font-size:44px;margin-bottom:10px;">🌱</div>
+      <div style="font-size:13px;font-weight:700;margin-bottom:6px;">등록된 작물이 없습니다</div>
+      <div style="font-size:12px;">작물 등록 시 정책자금 혜택이 연결돼요</div>
+    </div>`;
+  } else {
+    html+=CROPS.map(c=>renderCropCard(c)).join('');
+  }
+
+  // 지역 현황
+  html+=`
+  <div style="margin-top:16px;">
+    <div class="sec-hd"><span style="font-size:13px;font-weight:700;">🗺️ 전국 작물 현황</span></div>
+    <div class="card" style="background:var(--s2);">
+      <div style="font-size:11px;color:var(--a1);font-weight:700;margin-bottom:8px;">🤖 AI 집계 (GARAK 참여 농가)</div>
+      ${[
+        {crop:'사과',region:'경북',farmers:1240,status:'수확기',cls:'tag-g'},
+        {crop:'배추',region:'강원',farmers:890,status:'파종중',cls:'tag-b'},
+        {crop:'딸기',region:'충남',farmers:560,status:'생육중',cls:'tag-y'},
+      ].map(d=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--b2);font-size:12px;">
+        <span style="font-weight:600;">${d.crop} · ${d.region}</span>
+        <span style="color:var(--t2);">${d.farmers.toLocaleString()}농가</span>
+        <span class="tag ${d.cls}">${d.status}</span>
+      </div>`).join('')}
+    </div>
+  </div>`;
+
+  return html;
+}
+
+// ── MY > 혜택·정책자금 ──
+function renderMyBenefitSection(){
+  const gi=GRADE_INFO[curGrade]||GRADE_INFO.seed;
+  let html=`
+  <!-- AI 맞춤 추천 -->
+  <div class="card" style="background:rgba(0,232,188,.04);border-color:rgba(0,232,188,.2);margin-bottom:12px;">
+    <div style="font-size:11px;color:var(--a1);font-weight:700;margin-bottom:6px;">🤖 AI 맞춤 추천</div>
+    <div style="font-size:12px;color:var(--t2);line-height:1.7;">
+      ${curGrade==='seed'
+        ? '작물을 등록하고 송장을 작성하면 맞춤 정책자금을 안내해드려요!'
+        : `${gi.label} 등급으로 신청 가능한 정책자금 ${POLICY_FUNDS.filter(p=>Object.keys(GRADE_INFO).indexOf(p.grade)<=Object.keys(GRADE_INFO).indexOf(curGrade)).length}건이 있어요.`}
+    </div>
+  </div>
+
+  <!-- 준수사항 경고 -->
+  <div class="warning-banner" style="margin-bottom:14px;cursor:pointer;" onclick="window.openPenaltySheet('producer')">
+    <div class="wb-hd">
+      <span style="font-size:14px;">⚠️</span>
+      <span class="wb-title">반드시 지켜야 할 준수사항</span>
+      <span style="margin-left:auto;font-size:10px;color:var(--a4);">전체보기 →</span>
+    </div>
+    <div class="penalty-item"><div class="penalty-dot" style="background:var(--a4);"></div><div style="color:var(--t2);">원산지 정확히 표기 (허위 시 과태료 최대 1,000만원)</div></div>
+    <div class="penalty-item"><div class="penalty-dot" style="background:var(--a4);"></div><div style="color:var(--t2);">전표 발행 의무 (미발행 시 과태료 최대 500만원)</div></div>
+    <div class="penalty-item"><div class="penalty-dot" style="background:var(--a4);"></div><div style="color:var(--t2);">플랫폼 허위 정보 입력 시 계정 정지 및 정책자금 환수</div></div>
+  </div>
+
+  <div style="font-size:13px;font-weight:700;margin-bottom:10px;">📋 신청 가능한 정책자금</div>`;
+
+  POLICY_FUNDS.forEach(pf=>{
+    const available=Object.keys(GRADE_INFO).indexOf(pf.grade)<=Object.keys(GRADE_INFO).indexOf(curGrade);
+    html+=`
+    <div class="policy-card" onclick="window.openPolicyDetail('${pf.id}')" style="${available?'':'opacity:.55'}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+        <div style="font-size:13px;font-weight:700;flex:1;margin-right:8px;">${pf.title}</div>
+        <span class="tag ${available?'tag-g':'tag-r'}">${available?'신청가능':'등급부족'}</span>
+      </div>
+      <div style="font-size:11px;color:var(--t2);margin-bottom:6px;">${pf.org}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:13px;font-weight:700;color:var(--a4);">${pf.amount}</span>
+        <span style="font-size:10px;color:var(--t2);">마감: ${pf.deadline}</span>
+      </div>
+      <div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">
+        ${pf.tags.map(t=>`<span class="tag tag-b">${t}</span>`).join('')}
+        <span class="tag" style="background:rgba(168,85,247,.1);color:var(--pur);">${GRADE_INFO[pf.grade].label} 이상</span>
+      </div>
+    </div>`;
+  });
+
+  return html;
 }
 
 // ══════════════
