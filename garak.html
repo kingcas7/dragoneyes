@@ -1037,81 +1037,100 @@ function renderRoleCards(containerId, withInput=true){
       <div class="flabel">휴대폰 번호 *</div>
       <input type="tel" class="finput" id="reg-tel" placeholder="010-0000-0000" style="margin-bottom:8px;">
 
-      <!-- 국적 선택 -->
-      <div class="flabel">국적 *</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">
-        <div id="nat-korean" onclick="window.selectNationality('korean')"
-          style="padding:12px;border-radius:12px;text-align:center;cursor:pointer;border:1.5px solid var(--a1);background:rgba(0,232,188,.08);">
-          <div style="font-size:20px;margin-bottom:4px;">🇰🇷</div>
-          <div style="font-size:12px;font-weight:700;color:var(--a1);">내국인</div>
-        </div>
-        <div id="nat-foreign" onclick="window.selectNationality('foreign')"
-          style="padding:12px;border-radius:12px;text-align:center;cursor:pointer;border:1.5px solid var(--b1);background:var(--s2);">
-          <div style="font-size:20px;margin-bottom:4px;">🌏</div>
-          <div style="font-size:12px;font-weight:700;color:var(--t2);">외국인</div>
-        </div>
-      </div>
-
-      <!-- 외국인 추가 필드 (기본 숨김) -->
-      <div id="reg-foreign-fields" style="display:none;">
-        <div style="background:rgba(79,156,249,.05);border:1.5px solid rgba(79,156,249,.25);border-radius:12px;padding:12px 14px;margin-bottom:10px;">
-          <div style="font-size:12px;font-weight:700;color:var(--a2);margin-bottom:10px;">🌏 외국인 추가 정보 <span style="color:var(--red);font-size:10px;">(필수)</span></div>
-
-          <div class="flabel">국가명 (영문) *</div>
-          <input type="text" class="finput" id="reg-country" placeholder="예: Vietnam / China / Philippines" style="margin-bottom:8px;">
-
-          <div class="flabel">비자 종류 *</div>
-          <select class="finput" id="reg-visa-type" style="margin-bottom:8px;" onchange="window.onVisaTypeChange()">
-            <option value="">선택하세요</option>
-            <option value="E9">E-9 (비전문 취업, 고용허가제)</option>
-            <option value="E6">E-6 (예술흥행)</option>
-            <option value="H2">H-2 (방문취업, 재외동포)</option>
-            <option value="F4">F-4 (재외동포)</option>
-            <option value="F2">F-2 (거주)</option>
-            <option value="F5">F-5 (영주권)</option>
-            <option value="F6">F-6 (결혼이민)</option>
-            <option value="D8">D-8 (기업투자)</option>
-            <option value="OTHER">기타</option>
-          </select>
-
-          <div id="reg-visa-other-wrap" style="display:none;">
-            <div class="flabel">비자 종류 직접 입력</div>
-            <input type="text" class="finput" id="reg-visa-other" placeholder="예: D-10, G-1 등" style="margin-bottom:8px;">
+      <!-- 국적 선택 — 생산자(개인)만 표시 (기본 숨김) -->
+      <div id="reg-nationality-section" style="display:none;">
+        <div class="flabel">국적 *</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">
+          <div id="nat-korean" onclick="window.selectNationality('korean')"
+            style="padding:12px;border-radius:12px;text-align:center;cursor:pointer;border:1.5px solid var(--a1);background:rgba(0,232,188,.08);">
+            <div style="font-size:20px;margin-bottom:4px;">🇰🇷</div>
+            <div style="font-size:12px;font-weight:700;color:var(--a1);">내국인</div>
           </div>
-
-          <div class="flabel">여권번호 *</div>
-          <input type="text" class="finput" id="reg-passport" placeholder="예: M12345678"
-            oninput="this.value=this.value.toUpperCase()"
-            style="margin-bottom:8px;">
-
-          <div class="flabel">여권 만료일 *</div>
-          <input type="date" class="finput" id="reg-passport-exp" style="margin-bottom:8px;">
-
-          <div class="flabel">외국인 등록번호 (있는 경우)</div>
-          <input type="text" class="finput" id="reg-alien-num" placeholder="000000-0000000" maxlength="14"
-            oninput="let v=this.value.replace(/[^0-9]/g,'');if(v.length>6)v=v.slice(0,6)+'-'+v.slice(6,13);this.value=v;"
-            style="margin-bottom:8px;">
-
-          <div class="flabel">국내 체류지 주소 *</div>
-          <input type="text" class="finput" id="reg-stay-addr" placeholder="예: 경기도 안성시 미양면 00길 00" style="margin-bottom:8px;">
-
-          <div class="frow" style="gap:8px;margin-bottom:8px;">
-            <div style="flex:1;">
-              <div class="flabel">체류 기간 시작일 *</div>
-              <input type="date" class="finput" id="reg-stay-from">
-            </div>
-            <div style="flex:1;">
-              <div class="flabel">체류 기간 만료일 *</div>
-              <input type="date" class="finput" id="reg-stay-to">
-            </div>
+          <div id="nat-foreign" onclick="window.selectNationality('foreign')"
+            style="padding:12px;border-radius:12px;text-align:center;cursor:pointer;border:1.5px solid var(--b1);background:var(--s2);">
+            <div style="font-size:20px;margin-bottom:4px;">🌏</div>
+            <div style="font-size:12px;font-weight:700;color:var(--t2);">외국인</div>
           </div>
+        </div>
 
-          <div class="flabel">고용주 / 소속 업체명</div>
-          <input type="text" class="finput" id="reg-employer" placeholder="예: 드레곤팜 / 가락농협" style="margin-bottom:4px;">
+        <!-- 내국인 추가 필드 (기본 표시) -->
+        <div id="reg-korean-fields">
+          <div class="flabel">이메일 (선택)</div>
+          <input type="email" class="finput" id="reg-email" placeholder="example@email.com" style="margin-bottom:8px;">
+          <div style="background:rgba(0,232,188,.05);border:1px solid rgba(0,232,188,.2);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
+            <div style="font-size:11px;font-weight:700;color:var(--a1);margin-bottom:6px;">🔐 개인 인증</div>
+            <div style="font-size:10px;color:var(--t2);margin-bottom:8px;line-height:1.6;">
+              본인 명의 휴대폰으로 인증을 진행합니다<br>
+              (실제 서비스에서 PASS·카카오·네이버 인증 연동)
+            </div>
+            <button onclick="window.doKoreanAuth()"
+              style="width:100%;padding:9px;border-radius:9px;background:rgba(0,232,188,.1);border:1.5px solid rgba(0,232,188,.3);color:var(--a1);font-size:12px;font-weight:700;cursor:pointer;" id="reg-auth-btn">
+              📱 휴대폰 본인인증 하기
+            </button>
+            <div id="reg-auth-status" style="display:none;margin-top:6px;text-align:center;font-size:11px;color:var(--a1);font-weight:700;">✅ 인증 완료</div>
+          </div>
+        </div>
 
-          <div style="margin-top:8px;padding:8px 10px;background:rgba(244,196,48,.06);border:1px solid rgba(244,196,48,.2);border-radius:8px;font-size:10px;color:var(--t2);line-height:1.7;">
-            ⚠️ 입력하신 외국인 정보는 관계법령에 따라 안전하게 관리되며,
-            출입국관리법 준수 확인 목적으로만 사용됩니다.
+        <!-- 외국인 추가 필드 (기본 숨김) -->
+        <div id="reg-foreign-fields" style="display:none;">
+          <div style="background:rgba(79,156,249,.05);border:1.5px solid rgba(79,156,249,.25);border-radius:12px;padding:12px 14px;margin-bottom:10px;">
+            <div style="font-size:12px;font-weight:700;color:var(--a2);margin-bottom:10px;">🌏 외국인 추가 정보 <span style="color:var(--red);font-size:10px;">(필수)</span></div>
+
+            <div class="flabel">국가명 (영문) *</div>
+            <input type="text" class="finput" id="reg-country" placeholder="예: Vietnam / China / Philippines" style="margin-bottom:8px;">
+
+            <div class="flabel">비자 종류 *</div>
+            <select class="finput" id="reg-visa-type" style="margin-bottom:8px;" onchange="window.onVisaTypeChange()">
+              <option value="">선택하세요</option>
+              <option value="E9">E-9 (비전문 취업, 고용허가제)</option>
+              <option value="E6">E-6 (예술흥행)</option>
+              <option value="H2">H-2 (방문취업, 재외동포)</option>
+              <option value="F4">F-4 (재외동포)</option>
+              <option value="F2">F-2 (거주)</option>
+              <option value="F5">F-5 (영주권)</option>
+              <option value="F6">F-6 (결혼이민)</option>
+              <option value="D8">D-8 (기업투자)</option>
+              <option value="OTHER">기타</option>
+            </select>
+
+            <div id="reg-visa-other-wrap" style="display:none;">
+              <div class="flabel">비자 종류 직접 입력</div>
+              <input type="text" class="finput" id="reg-visa-other" placeholder="예: D-10, G-1 등" style="margin-bottom:8px;">
+            </div>
+
+            <div class="flabel">여권번호 *</div>
+            <input type="text" class="finput" id="reg-passport" placeholder="예: M12345678"
+              oninput="this.value=this.value.toUpperCase()" style="margin-bottom:8px;">
+
+            <div class="flabel">여권 만료일 *</div>
+            <input type="date" class="finput" id="reg-passport-exp" style="margin-bottom:8px;">
+
+            <div class="flabel">외국인 등록번호 (있는 경우)</div>
+            <input type="text" class="finput" id="reg-alien-num" placeholder="000000-0000000" maxlength="14"
+              oninput="let v=this.value.replace(/[^0-9]/g,'');if(v.length>6)v=v.slice(0,6)+'-'+v.slice(6,13);this.value=v;"
+              style="margin-bottom:8px;">
+
+            <div class="flabel">국내 체류지 주소 *</div>
+            <input type="text" class="finput" id="reg-stay-addr" placeholder="예: 경기도 안성시 미양면 00길 00" style="margin-bottom:8px;">
+
+            <div class="frow" style="gap:8px;margin-bottom:8px;">
+              <div style="flex:1;">
+                <div class="flabel">체류 기간 시작일 *</div>
+                <input type="date" class="finput" id="reg-stay-from">
+              </div>
+              <div style="flex:1;">
+                <div class="flabel">체류 기간 만료일 *</div>
+                <input type="date" class="finput" id="reg-stay-to">
+              </div>
+            </div>
+
+            <div class="flabel">고용주 / 소속 업체명</div>
+            <input type="text" class="finput" id="reg-employer" placeholder="예: 드레곤팜 / 가락농협" style="margin-bottom:4px;">
+
+            <div style="margin-top:8px;padding:8px 10px;background:rgba(244,196,48,.06);border:1px solid rgba(244,196,48,.2);border-radius:8px;font-size:10px;color:var(--t2);line-height:1.7;">
+              ⚠️ 입력하신 외국인 정보는 관계법령에 따라 안전하게 관리되며,
+              출입국관리법 준수 확인 목적으로만 사용됩니다.
+            </div>
           </div>
         </div>
       </div>
@@ -1178,21 +1197,39 @@ window.selectNationality = function(type){
   window._nationality = type;
   const korean = document.getElementById('nat-korean');
   const foreign = document.getElementById('nat-foreign');
+  const koreanFields  = document.getElementById('reg-korean-fields');
   const foreignFields = document.getElementById('reg-foreign-fields');
   if(!korean || !foreign) return;
   if(type === 'korean'){
-    korean.style.cssText += ';border:1.5px solid var(--a1);background:rgba(0,232,188,.08);';
+    korean.style.border='1.5px solid var(--a1)'; korean.style.background='rgba(0,232,188,.08)';
     korean.querySelectorAll('div')[1].style.color='var(--a1)';
-    foreign.style.cssText += ';border:1.5px solid var(--b1);background:var(--s2);';
+    foreign.style.border='1.5px solid var(--b1)'; foreign.style.background='var(--s2)';
     foreign.querySelectorAll('div')[1].style.color='var(--t2)';
+    if(koreanFields)  koreanFields.style.display='block';
     if(foreignFields) foreignFields.style.display='none';
   } else {
-    foreign.style.cssText += ';border:1.5px solid var(--a2);background:rgba(79,156,249,.1);';
+    foreign.style.border='1.5px solid var(--a2)'; foreign.style.background='rgba(79,156,249,.1)';
     foreign.querySelectorAll('div')[1].style.color='var(--a2)';
-    korean.style.cssText += ';border:1.5px solid var(--b1);background:var(--s2);';
+    korean.style.border='1.5px solid var(--b1)'; korean.style.background='var(--s2)';
     korean.querySelectorAll('div')[1].style.color='var(--t2)';
+    if(koreanFields)  koreanFields.style.display='none';
     if(foreignFields) foreignFields.style.display='block';
   }
+};
+
+// 내국인 휴대폰 본인인증 (프로토타입)
+window.doKoreanAuth = function(){
+  const tel = document.getElementById('reg-tel')?.value.trim();
+  if(!tel || tel.length < 10){ toast('휴대폰 번호를 먼저 입력하세요'); return; }
+  const btn = document.getElementById('reg-auth-btn');
+  const status = document.getElementById('reg-auth-status');
+  if(btn) btn.textContent = '📱 인증 중...';
+  setTimeout(()=>{
+    window._koreanAuthDone = true;
+    if(btn) btn.style.display='none';
+    if(status) status.style.display='block';
+    toast('✅ 본인인증이 완료됐습니다');
+  }, 1500);
 };
 
 // 비자 타입 기타 선택 시 직접 입력 표시
@@ -1499,10 +1536,28 @@ window.onRoleCardClick = function(role, containerId){
   if(card) card.classList.add('sel');
   curRole = role;
 
+  // ── 국적 섹션: 생산자(개인)만 표시 ──
+  const natSection = document.getElementById('reg-nationality-section');
+  if(natSection){
+    if(role === 'producer_ind'){
+      natSection.style.display = 'block';
+      // 기본 내국인으로 초기화
+      window._nationality = 'korean';
+      const kEl=document.getElementById('nat-korean'), fEl=document.getElementById('nat-foreign');
+      const kf=document.getElementById('reg-korean-fields'), ff=document.getElementById('reg-foreign-fields');
+      if(kEl){ kEl.style.border='1.5px solid var(--a1)'; kEl.style.background='rgba(0,232,188,.08)'; }
+      if(fEl){ fEl.style.border='1.5px solid var(--b1)'; fEl.style.background='var(--s2)'; }
+      if(kf) kf.style.display='block';
+      if(ff) ff.style.display='none';
+    } else {
+      natSection.style.display = 'none';
+      window._nationality = 'korean'; // 생산자(개인) 외 → 기본 내국인
+    }
+  }
+
+  // ── 사업자번호 섹션 ──
   const biznumSection = document.getElementById('reg-biznum-section');
   if(!biznumSection) return;
-
-  // 생산자(개인)만 사업자번호 숨김, 나머지 전체 표시
   const needBiznum = role !== 'producer_ind';
   biznumSection.style.display = needBiznum ? 'block' : 'none';
 
@@ -4452,14 +4507,15 @@ function renderMyPageProducer(r){
   const score=calcGradeScore();
   if(!window._myTab) window._myTab='profile';
   const tabs=[
-    {id:'profile', ic:'👤', lb:'내정보'},
-    {id:'partner', ic:'🤝', lb:'거래처관리'},
-    {id:'crop',    ic:'🌱', lb:'작물관리'},
-    {id:'benefit', ic:'💎', lb:'혜택·정책자금'},
-    {id:'payment', ic:'💳', lb:'결제·토큰'},
+    {id:'profile',  ic:'👤', lb:'내정보'},
+    {id:'partner',  ic:'🤝', lb:'거래처관리'},
+    {id:'crop',     ic:'🌱', lb:'작물관리'},
+    {id:'benefit',  ic:'💎', lb:'혜택·정책자금'},
+    {id:'payment',  ic:'💳', lb:'결제·토큰'},
+    {id:'users',    ic:'👥', lb:'사용자관리'},
   ];
   let html=`<div class="sec-title" style="margin-bottom:10px;">👤 MY 페이지</div>
-    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:14px;">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:14px;">
       ${tabs.map(t=>`<div onclick="window.switchMyTab('${t.id}')" style="padding:9px 3px;border-radius:12px;text-align:center;cursor:pointer;background:${window._myTab===t.id?'var(--s3)':' var(--s2)'};border:1.5px solid ${window._myTab===t.id?'var(--a1)':' transparent'};">
         <div style="font-size:18px;margin-bottom:3px;">${t.ic}</div>
         <div style="font-size:8px;font-weight:700;color:${window._myTab===t.id?'var(--a1)':' var(--t3)'};">${t.lb}</div>
@@ -4470,6 +4526,7 @@ function renderMyPageProducer(r){
   else if(window._myTab==='crop')    html+=renderMyCropSection();
   else if(window._myTab==='benefit') html+=renderMyBenefitSection();
   else if(window._myTab==='payment') html+=renderMyPaymentSection();
+  else if(window._myTab==='users')   html+=renderMyUsersSection();
   html+='</div>';
   document.getElementById('mypage-content').innerHTML=html;
 }
@@ -4480,7 +4537,95 @@ window.switchMyTab=function(tab){
   document.getElementById('scroll').scrollTop=0;
 };
 
-// ── MY > 거래처관리 ──
+// ── MY > 사용자 관리 ──
+function renderMyUsersSection(){
+  const subUsers = window._subUsers||[];
+  const korean = subUsers.filter(u=>u.nationality!=='foreign');
+  const foreign = subUsers.filter(u=>u.nationality==='foreign');
+
+  return `
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+    <div style="font-size:13px;font-weight:700;">👥 사용자 관리</div>
+    <button onclick="window.openAddUserSheet()"
+      style="padding:6px 12px;border-radius:8px;background:var(--a1);color:#080d18;font-size:11px;font-weight:700;border:none;cursor:pointer;">
+      + 사용자 추가
+    </button>
+  </div>
+
+  <!-- 본인 정보 -->
+  <div style="background:var(--s2);border-radius:12px;padding:10px 13px;margin-bottom:12px;">
+    <div style="font-size:10px;color:var(--t2);font-weight:700;margin-bottom:6px;">👤 본인 계정</div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="width:36px;height:36px;border-radius:10px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:18px;">
+        ${window._foreignInfo?'🌏':'🇰🇷'}
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:700;">${curUserName||'—'}</div>
+        <div style="font-size:10px;color:var(--t2);">${ROLES[curRole]?.n||'—'} · ${window._foreignInfo?'외국인 ('+window._foreignInfo.visaType+')':'내국인'}</div>
+      </div>
+      <span class="tag tag-g" style="font-size:9px;">계정주</span>
+    </div>
+  </div>
+
+  <!-- 내국인 사용자 -->
+  ${korean.length>0?`
+  <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px;">🇰🇷 내국인 사용자 (${korean.length}명)</div>
+  ${korean.map((u,i)=>`
+  <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:10px 13px;margin-bottom:6px;display:flex;align-items:center;gap:10px;">
+    <div style="width:32px;height:32px;border-radius:8px;background:rgba(0,232,188,.1);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">👤</div>
+    <div style="flex:1;">
+      <div style="font-size:12px;font-weight:700;">${u.name}</div>
+      <div style="font-size:10px;color:var(--t2);">${u.role} · ${u.tel}</div>
+    </div>
+    <div style="display:flex;gap:4px;align-items:center;">
+      <span class="tag" style="font-size:9px;background:rgba(0,232,188,.1);color:var(--a1);">${u.permission}</span>
+      <button onclick="window.removeSubUser(${window._subUsers.indexOf(u)})"
+        style="padding:3px 7px;border-radius:6px;background:rgba(255,69,84,.08);border:1px solid rgba(255,69,84,.2);color:var(--red);font-size:9px;cursor:pointer;">삭제</button>
+    </div>
+  </div>`).join('')}`:''}
+
+  <!-- 외국인 사용자 -->
+  ${foreign.length>0?`
+  <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px;margin-top:4px;">🌏 외국인 사용자 (${foreign.length}명)</div>
+  ${foreign.map((u,i)=>`
+  <div style="background:var(--s1);border:1.5px solid rgba(79,156,249,.2);border-radius:12px;padding:10px 13px;margin-bottom:6px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+      <div style="width:32px;height:32px;border-radius:8px;background:rgba(79,156,249,.1);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">🌏</div>
+      <div style="flex:1;">
+        <div style="font-size:12px;font-weight:700;">${u.name}</div>
+        <div style="font-size:10px;color:var(--t2);">${u.role} · ${u.country||'—'}</div>
+      </div>
+      <div style="display:flex;gap:4px;align-items:center;">
+        <span class="tag tag-b" style="font-size:9px;">${u.permission}</span>
+        <button onclick="window.removeSubUser(${window._subUsers.indexOf(u)})"
+          style="padding:3px 7px;border-radius:6px;background:rgba(255,69,84,.08);border:1px solid rgba(255,69,84,.2);color:var(--red);font-size:9px;cursor:pointer;">삭제</button>
+      </div>
+    </div>
+    <!-- 외국인 인증 정보 요약 -->
+    <div style="background:var(--s2);border-radius:8px;padding:7px 10px;font-size:10px;color:var(--t2);line-height:1.7;">
+      ${[
+        ['비자', u.visaType||'—'],
+        ['여권', u.passport||'—'],
+        ['체류 만료', u.stayTo||'—'],
+      ].map(([lb,val])=>`<span style="margin-right:12px;">${lb}: <span style="color:var(--t1);font-weight:600;">${val}</span></span>`).join('')}
+    </div>
+  </div>`).join('')}`:''}
+
+  <!-- 비어있을 때 -->
+  ${subUsers.length===0?`
+  <div style="text-align:center;padding:24px;background:var(--s2);border-radius:12px;margin-bottom:10px;">
+    <div style="font-size:32px;margin-bottom:8px;">👥</div>
+    <div style="font-size:13px;font-weight:700;margin-bottom:4px;">추가 사용자 없음</div>
+    <div style="font-size:11px;color:var(--t2);">직원·가족·공동대표를 추가하여<br>접근 권한을 부여하세요</div>
+  </div>`:''}
+
+  <!-- 안내 -->
+  <div style="background:rgba(79,156,249,.05);border:1px solid rgba(79,156,249,.15);border-radius:10px;padding:9px 12px;font-size:10px;color:var(--t2);line-height:1.7;">
+    🌏 외국인 사용자는 비자·여권·체류 정보가 필수 등록됩니다<br>
+    🇰🇷 내국인 사용자는 이름·연락처·본인인증으로 등록됩니다<br>
+    ⚠️ 체류 만료일이 지난 외국인 계정은 자동으로 접근이 제한됩니다
+  </div>`;
+}
 function renderMyPartnerSection(){
   if(!window._partners) window._partners=[];
   if(!window._servicePartners) window._servicePartners=[];
