@@ -176,59 +176,32 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
 <!-- ══ 로그인 ══ -->
 <div id="login">
   <div id="login-landing">
-    <div style="width:100%;max-width:380px;">
-
-      <!-- 로고 -->
-      <div style="text-align:center;margin-bottom:20px;padding-top:20px;">
-        <p style="font-size:9px;letter-spacing:5px;color:var(--a1);font-weight:700;margin:0 0 6px;">AI SMART DISTRIBUTION</p>
-        <h1 style="font-size:42px;font-weight:900;letter-spacing:-2px;line-height:1;margin:0 0 4px;">GARAK AI</h1>
-        <p style="font-size:11px;color:var(--a1);font-family:monospace;margin:0 0 6px;letter-spacing:1px;">4.0 PROTOTYPE · 1차 테스트</p>
-        <p style="font-size:12px;color:var(--t2);margin:0;">가락시장 스마트 유통 플랫폼</p>
+    <div style="width:100%;max-width:360px;text-align:center;padding-top:20px;">
+      <div style="margin-bottom:28px;">
+        <p style="font-size:9px;letter-spacing:5px;color:var(--a1);font-weight:700;margin:0 0 8px;">AI SMART DISTRIBUTION</p>
+        <h1 style="font-size:46px;font-weight:900;letter-spacing:-2px;line-height:1;margin:0 0 4px;">GARAK AI</h1>
+        <p style="font-size:11px;color:var(--a1);font-family:monospace;margin:0 0 8px;letter-spacing:1px;">4.0</p>
+        <p style="font-size:13px;color:var(--t2);margin:0;">가락시장 스마트 유통 플랫폼</p>
       </div>
-
-      <!-- ✨ PR 문구 -->
-      <div style="background:linear-gradient(135deg,rgba(0,232,188,.08),rgba(79,156,249,.06));border:1.5px solid rgba(0,232,188,.2);border-radius:16px;padding:14px 16px;margin-bottom:16px;text-align:center;">
+      <div style="background:linear-gradient(135deg,rgba(0,232,188,.08),rgba(79,156,249,.06));border:1.5px solid rgba(0,232,188,.2);border-radius:16px;padding:14px 16px;margin-bottom:28px;">
         <div style="font-size:10px;color:var(--a1);letter-spacing:2px;font-weight:700;margin-bottom:6px;">✨ MADE WITH LOVE</div>
         <div style="font-size:13px;font-weight:700;color:var(--t1);line-height:1.8;">
           이 곳은 <span style="color:var(--a1);">최승현</span>님과 <span style="color:var(--a2);">최용준</span>님,<br><span style="color:var(--a4);">최용진</span>님이 함께 만드는 Agent AI 세상입니다
         </div>
         <div style="font-size:10px;color:var(--t3);margin-top:6px;">Powered by Claude AI · Built on Supabase</div>
       </div>
-
-      <!-- 테스트 기간 카운트다운 -->
-      <div style="background:rgba(255,69,84,.07);border:1.5px solid rgba(255,69,84,.3);border-radius:12px;padding:10px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;">
-        <div>
-          <div style="font-size:10px;color:var(--red);font-weight:700;">🔴 1차 테스트 운영 중</div>
-          <div style="font-size:11px;color:var(--t2);margin-top:2px;">테스트 기간 종료까지</div>
-        </div>
-        <div id="test-countdown" style="font-size:20px;font-weight:900;color:var(--red);font-family:monospace;">--:--:--</div>
+      <div style="display:flex;flex-direction:column;gap:11px;">
+        <button onclick="window.showScreen('register')"
+          style="width:100%;padding:18px;border-radius:16px;background:linear-gradient(135deg,#00e8bc,#4f9cf9);color:#080d18;font-size:16px;font-weight:800;border:none;cursor:pointer;">
+          🌱 가입하기
+        </button>
+        <button onclick="window.showScreen('login')"
+          style="width:100%;padding:18px;border-radius:16px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.13);color:#fff;font-size:16px;font-weight:700;cursor:pointer;">
+          🔑 로그인
+        </button>
       </div>
-
-      <!-- 비밀번호 입력 -->
-      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:14px;margin-bottom:14px;">
-        <div style="font-size:11px;color:var(--t2);margin-bottom:8px;">🔑 테스트 참여 비밀번호를 입력하세요</div>
-        <div style="display:flex;gap:8px;">
-          <input type="password" id="test-password" class="finput" placeholder="비밀번호 입력"
-            style="flex:1;margin:0;" onkeydown="if(event.key==='Enter')window.checkTestPassword()">
-          <button onclick="window.checkTestPassword()"
-            style="padding:10px 16px;border-radius:10px;background:linear-gradient(135deg,var(--a1),var(--a2));color:#080d18;font-size:13px;font-weight:800;border:none;cursor:pointer;white-space:nowrap;">
-            입장 →
-          </button>
-        </div>
-        <div id="pw-error" style="display:none;font-size:11px;color:var(--red);margin-top:6px;">❌ 비밀번호가 올바르지 않습니다</div>
-      </div>
-
-      <!-- 테스트 계정 목록 (JS로 렌더링) -->
-      <div id="test-account-list" style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:14px;margin-bottom:16px;">
-        <div style="font-size:12px;font-weight:700;margin-bottom:10px;">📋 테스트 계정 목록</div>
-        <div id="test-accounts-body"></div>
-        <div style="margin-top:8px;padding:8px 10px;background:var(--s2);border-radius:8px;font-size:10px;color:var(--t2);line-height:1.7;">
-          💡 계정을 탭하면 선택 → 비밀번호 입력 후 입장<br>
-          🔑 비밀번호는 별도 공유된 값을 입력하세요
-        </div>
-      </div>
-
     </div>
+  </div>
   </div>
   <div id="login-register">
     <div style="position:sticky;top:0;z-index:10;background:rgba(8,13,24,.95);backdrop-filter:blur(12px);padding:12px 16px;border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:12px;">
@@ -255,7 +228,6 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
     <span class="tb-name" id="tb-name">생산자</span>
     <span class="tb-gkid" id="tb-gkid">GK-P-000001</span>
     <span class="tb-grade tag" id="tb-grade" onclick="goTab('mypage')">🌱 씨앗</span>
-    <span style="font-size:9px;color:var(--red);font-weight:700;background:rgba(255,69,84,.1);border:1px solid rgba(255,69,84,.2);padding:2px 6px;border-radius:5px;display:none;" id="tb-test-badge">TEST</span>
     <span style="font-size:11px;color:var(--t2);margin-left:auto;" id="clock">00:00</span>
   </div>
   <div class="scroll" id="scroll">
@@ -677,6 +649,50 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
 </div>
 
 <div id="toast"></div>
+
+<!-- ══ 계약서 마법사 시트 ══ -->
+<div class="sheet-overlay" id="sh-contract-wizard">
+  <div class="sheet">
+    <div class="sheet-hd">
+      <div class="sheet-title" id="cw-title">📝 계약서 만들기</div>
+      <button onclick="window.closeSheet('sh-contract-wizard')" style="color:var(--t2);font-size:20px;">✕</button>
+    </div>
+    <div id="cw-body" style="padding-bottom:20px;"></div>
+  </div>
+</div>
+
+<!-- ══ 전자서명 시트 ══ -->
+<div class="sheet-overlay" id="sh-esign">
+  <div class="sheet">
+    <div class="sheet-hd">
+      <div class="sheet-title">✍️ 전자서명</div>
+      <button onclick="window.closeSheet('sh-esign')" style="color:var(--t2);font-size:20px;">✕</button>
+    </div>
+    <div style="font-size:11px;color:var(--t2);margin-bottom:10px;">서명란에 손가락으로 서명해주세요</div>
+    <div style="background:var(--s2);border:1.5px solid var(--b1);border-radius:12px;padding:8px;margin-bottom:10px;position:relative;">
+      <canvas id="esign-canvas" style="width:100%;height:180px;border-radius:8px;background:#fff;display:block;touch-action:none;cursor:crosshair;"></canvas>
+      <button onclick="window.clearSignature()" style="position:absolute;top:12px;right:12px;padding:4px 10px;border-radius:7px;background:rgba(255,69,84,.1);border:1px solid rgba(255,69,84,.2);color:var(--red);font-size:10px;cursor:pointer;">지우기</button>
+    </div>
+    <div style="background:var(--s2);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:11px;">
+      <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--b2);"><span style="color:var(--t2);">서명자</span><span id="esign-name" style="font-weight:700;">—</span></div>
+      <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--b2);"><span style="color:var(--t2);">GARAK ID</span><span id="esign-gkid" style="font-weight:700;font-family:monospace;font-size:10px;">—</span></div>
+      <div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:var(--t2);">서명 일시</span><span id="esign-datetime" style="font-weight:700;">—</span></div>
+    </div>
+    <button onclick="window.submitSignature()" style="width:100%;padding:13px;border-radius:13px;background:linear-gradient(135deg,#a855f7,rgba(168,85,247,.7));color:#fff;font-size:14px;font-weight:800;border:none;cursor:pointer;">✍️ 서명 완료</button>
+    <div style="text-align:center;font-size:10px;color:var(--t3);margin-top:6px;">서명은 법적 효력을 가집니다</div>
+  </div>
+</div>
+
+<!-- ══ 계약서 뷰어 시트 ══ -->
+<div class="sheet-overlay" id="sh-contract-view">
+  <div class="sheet">
+    <div class="sheet-hd">
+      <div class="sheet-title" id="cv-title">📄 계약서</div>
+      <button onclick="window.closeSheet('sh-contract-view')" style="color:var(--t2);font-size:20px;">✕</button>
+    </div>
+    <div id="cv-body"></div>
+  </div>
+</div>
 
 <!-- ══ 추가 사용자 등록 시트 ══ -->
 <div class="sheet-overlay" id="sh-adduser">
@@ -2078,6 +2094,287 @@ window.requestTerminateService = function(id){
 
 // requestTerminate 통합 (구 코드 호환)
 window.requestTerminate = function(id){ window.requestTerminateService(id); };
+// ══════════════════════════════════════════
+// 📝 전자계약서 시스템
+// ══════════════════════════════════════════
+if(!window._contracts) window._contracts = [];
+
+const CONTRACT_TYPES = {
+  supply: {
+    name:'물품 공급계약서', icon:'📦', desc:'농산물 정기 공급 계약',
+    fields:['품목','공급수량','단가','결제조건','공급기간','인도장소'],
+    template:(d)=>`【 물품 공급계약서 】
+
+제1조 (목적)
+공급자 ${d.party_a}(이하 "공급자")와 수급자 ${d.party_b}(이하 "수급자")는 농산물 공급에 관하여 다음과 같이 계약을 체결합니다.
+
+제2조 (공급 물품)
+- 품목: ${d.item||'사과, 배 등 농산물'}
+- 공급수량: ${d.qty||'협의에 따름'}
+- 단가: ${d.price||'시세 기준 협의'}
+
+제3조 (공급 기간)
+${d.period||'계약 체결일로부터 1년간'}
+
+제4조 (인도 장소)
+${d.location||'서울특별시 송파구 가락로 320 가락시장'}
+
+제5조 (결제 조건)
+${d.payment||'출하 익일 정산 (GARAK AI 플랫폼 기준)'}
+
+제6조 (계약 위반)
+본 계약을 위반한 경우 GARAK AI 플랫폼의 분쟁 조정 절차에 따릅니다.
+
+계약 체결일: ${d.date}
+GARAK AI 플랫폼에서 전자계약으로 체결됨`
+  },
+  consign: {
+    name:'위탁판매 계약서', icon:'🤝', desc:'농산물 위탁판매 위임 계약',
+    fields:['위탁품목','위탁수수료율','정산주기','최저판매가'],
+    template:(d)=>`【 위탁판매 계약서 】
+
+위탁자: ${d.party_a}
+수탁자: ${d.party_b}
+
+제1조 (위탁 물품) ${d.item||'농산물'}
+제2조 (위탁 수수료) 판매금액의 ${d.commission||'8'}%
+제3조 (정산) ${d.settlement||'판매 익일 정산'}
+제4조 (최저판매가) ${d.min_price||'시세의 80% 이상'}
+제5조 (계약기간) ${d.period||'계약 체결일로부터 1년'}
+
+계약 체결일: ${d.date}
+GARAK AI 플랫폼에서 전자계약으로 체결됨`
+  },
+  tax_service: {
+    name:'세무/회계 서비스 계약서', icon:'🧾', desc:'세무·회계 업무 위임 계약',
+    fields:['업무범위','수임료','계약기간','자료제공방식'],
+    template:(d)=>`【 세무/회계 서비스 위임계약서 】
+
+수임인: ${d.party_a}
+위임인: ${d.party_b}
+
+제1조 (업무 범위) ${d.scope||'종합소득세 신고, 부가세 신고, 기장대리, 세무 자문'}
+제2조 (수임료) ${d.fee||'월 정액 협의'}
+제3조 (계약기간) ${d.period||'1년 (자동갱신)'}
+제4조 (자료 제공) GARAK AI 플랫폼을 통해 거래내역 및 장부를 수임인에게 공유합니다.
+제5조 (비밀유지) 수임인은 업무상 알게 된 위임인의 정보를 제3자에게 제공하지 않습니다.
+
+계약 체결일: ${d.date}
+GARAK AI 플랫폼에서 전자계약으로 체결됨`
+  },
+  custom: {
+    name:'기타 계약서', icon:'📋', desc:'직접 작성하는 계약서',
+    fields:['계약제목','계약내용'],
+    template:(d)=>`【 ${d.title||'계약서'} 】
+
+갑: ${d.party_a}
+을: ${d.party_b}
+
+${d.content||'계약 내용을 입력하세요.'}
+
+계약 체결일: ${d.date}
+GARAK AI 플랫폼에서 전자계약으로 체결됨`
+  },
+};
+
+window.openContractWizard = function(){
+  window._cwStep = 1;
+  window._cwData = { date: new Date().toLocaleDateString('ko-KR') };
+  window._cwContractId = 'CTR-'+Date.now();
+  window.renderContractWizard();
+  window.openSheet('sh-contract-wizard');
+};
+
+window.renderContractWizard = function(){
+  const step = window._cwStep;
+  const d = window._cwData;
+  const el = document.getElementById('cw-body');
+  const titleEl = document.getElementById('cw-title');
+  if(!el) return;
+
+  const steps = ['당사자','계약유형','초안','수정','AI완성','검토·서명'];
+  const stepBar = `<div style="display:flex;gap:3px;margin-bottom:14px;">${steps.map((s,i)=>`<div style="flex:1;text-align:center;"><div style="height:3px;border-radius:2px;background:${i<step?'var(--a1)':i===step-1?'#a855f7':'var(--s3)'};margin-bottom:3px;"></div><div style="font-size:8px;color:${i===step-1?'#a855f7':'var(--t3)'};">${s}</div></div>`).join('')}</div>`;
+
+  if(step===1){
+    titleEl.textContent='📝 Step 1 · 당사자 선택';
+    const allPartners=[...(window._partners||[]).filter(p=>p.status==='active'),...(window._servicePartners||[]).filter(p=>p.status==='active')];
+    el.innerHTML=stepBar+`<div style="font-size:12px;color:var(--t2);margin-bottom:10px;">계약 상대방을 선택하세요</div>
+    <div style="background:rgba(0,232,188,.06);border:1px solid rgba(0,232,188,.2);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
+      <div style="font-size:10px;color:var(--a1);margin-bottom:3px;">갑 (나)</div>
+      <div style="font-size:13px;font-weight:700;">${curUserName}</div>
+      <div style="font-size:10px;color:var(--t2);">${ROLES[curRole]?.n||''} · ${curGkid}</div>
+    </div>
+    <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px;">을 (상대방) 선택</div>
+    ${allPartners.length===0?`<div style="text-align:center;padding:20px;background:var(--s2);border-radius:10px;margin-bottom:10px;font-size:11px;color:var(--t2);">등록된 거래처가 없습니다<br>거래처 추가 후 계약서를 만들 수 있어요</div>`:allPartners.map(p=>`<div id="cw-party-${p.id}" onclick="window.selectContractParty('${p.id}','${p.name}','${p.serviceType||p.type||''}')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--s2);border:1.5px solid var(--b1);margin-bottom:5px;cursor:pointer;"><div style="flex:1;"><div style="font-size:12px;font-weight:700;">${p.name}</div><div style="font-size:10px;color:var(--t2);">${p.serviceType||p.type||'거래처'} · ${p.biznum||'—'}</div></div><span style="font-size:14px;color:var(--t3);">›</span></div>`).join('')}
+    <div style="margin-top:8px;"><div style="font-size:11px;color:var(--t2);margin-bottom:5px;">거래처 목록에 없으면 직접 입력</div><input class="finput" id="cw-party-manual" placeholder="상대방 이름/상호명 입력" style="margin-bottom:6px;"><button onclick="window.selectContractPartyManual()" style="width:100%;padding:9px;border-radius:9px;background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-size:11px;cursor:pointer;">직접 입력으로 선택</button></div>`;
+  }
+  else if(step===2){
+    titleEl.textContent='📝 Step 2 · 계약 유형';
+    el.innerHTML=stepBar+`<div style="font-size:12px;color:var(--t2);margin-bottom:10px;"><b>${d.party_b}</b>와 어떤 계약을 하시겠어요?</div>`+
+    Object.entries(CONTRACT_TYPES).map(([key,ct])=>`<div onclick="window.selectContractType('${key}')" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:13px;background:var(--s1);border:1.5px solid ${d.type===key?'#a855f7':'var(--b1)'};margin-bottom:8px;cursor:pointer;"><div style="font-size:26px;">${ct.icon}</div><div style="flex:1;"><div style="font-size:13px;font-weight:800;">${ct.name}</div><div style="font-size:11px;color:var(--t2);margin-top:2px;">${ct.desc}</div></div>${d.type===key?'<span style="color:#a855f7;font-size:16px;">✓</span>':'<span style="color:var(--t3);">›</span>'}</div>`).join('');
+  }
+  else if(step===3){
+    const ct=CONTRACT_TYPES[d.type];
+    titleEl.textContent='📝 Step 3 · 표준 초안';
+    el.innerHTML=stepBar+`<div style="background:rgba(168,85,247,.06);border:1px solid rgba(168,85,247,.2);border-radius:10px;padding:9px 12px;margin-bottom:10px;font-size:11px;color:#a855f7;">${ct.icon} ${ct.name} 표준 초안이 생성됐습니다</div>
+    <div style="background:var(--s2);border-radius:10px;padding:12px;margin-bottom:12px;font-size:11px;line-height:1.9;white-space:pre-line;max-height:300px;overflow-y:auto;">${ct.template(d)}</div>
+    <div style="display:flex;gap:8px;"><button onclick="window._cwStep=2;window.renderContractWizard();" style="flex:1;padding:10px;border-radius:10px;background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-size:12px;cursor:pointer;">← 이전</button><button onclick="window._cwStep=4;window.renderContractWizard();" style="flex:2;padding:10px;border-radius:10px;background:#a855f7;color:#fff;font-size:12px;font-weight:700;border:none;cursor:pointer;">세부사항 수정하기 →</button></div>`;
+  }
+  else if(step===4){
+    const ct=CONTRACT_TYPES[d.type];
+    titleEl.textContent='📝 Step 4 · 세부사항 수정';
+    const fieldMap={'품목':['cw-item','text','예: 사과, 배, 배추'],'공급수량':['cw-qty','text','예: 매주 200박스'],'단가':['cw-price','text','예: 시세 기준'],'결제조건':['cw-payment','text','예: 출하 익일 정산'],'공급기간':['cw-period','text','예: 2026.04~2027.03'],'인도장소':['cw-location','text','예: 가락시장 A동'],'위탁품목':['cw-item','text','예: 농산물'],'위탁수수료율':['cw-commission','number','예: 8 (%)'],'정산주기':['cw-settlement','text','예: 판매 익일'],'최저판매가':['cw-min_price','text','예: 시세의 80%'],'업무범위':['cw-scope','text','예: 종합소득세, 부가세'],'수임료':['cw-fee','text','예: 월 30만원'],'계약기간':['cw-period','text','예: 1년 (자동갱신)'],'자료제공방식':['cw-data','text','예: GARAK AI 플랫폼 장부 공유'],'계약제목':['cw-title','text','계약서 제목'],'계약내용':['cw-content','textarea','계약 내용을 입력하세요']};
+    el.innerHTML=stepBar+`<div style="font-size:12px;color:var(--t2);margin-bottom:10px;">세부 내용을 입력하면 계약서에 자동 반영됩니다</div>`+
+    ct.fields.map(f=>{const [id,type,ph]=fieldMap[f]||[f.toLowerCase(),'text','입력'];const key=id.replace('cw-','');return `<div class="fgroup" style="margin-bottom:8px;"><div class="flabel">${f}</div>${type==='textarea'?`<textarea class="finput" id="${id}" rows="4" placeholder="${ph}" style="resize:none;">${d[key]||''}</textarea>`:`<input class="finput" id="${id}" type="${type}" placeholder="${ph}" value="${d[key]||''}">`}</div>`;}).join('')+
+    `<div style="display:flex;gap:8px;margin-top:4px;"><button onclick="window._cwStep=3;window.renderContractWizard();" style="flex:1;padding:10px;border-radius:10px;background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-size:12px;cursor:pointer;">← 이전</button><button onclick="window.saveContractFields();window._cwStep=5;window.renderContractWizard();" style="flex:2;padding:10px;border-radius:10px;background:#a855f7;color:#fff;font-size:12px;font-weight:700;border:none;cursor:pointer;">🤖 AI로 완성하기 →</button></div>`;
+  }
+  else if(step===5){
+    const ct=CONTRACT_TYPES[d.type];
+    titleEl.textContent='📝 Step 5 · AI 계약서 완성';
+    el.innerHTML=stepBar+`<div style="background:rgba(0,232,188,.06);border:1px solid rgba(0,232,188,.2);border-radius:10px;padding:9px 12px;margin-bottom:10px;font-size:11px;color:var(--a1);">🤖 AI가 계약서를 검토하고 완성합니다...</div>
+    <div id="cw-ai-result" style="background:var(--s2);border-radius:10px;padding:12px;margin-bottom:12px;font-size:11px;line-height:1.9;white-space:pre-line;max-height:280px;overflow-y:auto;">${ct.template(d)}</div>
+    <div style="display:flex;gap:8px;"><button onclick="window._cwStep=4;window.renderContractWizard();" style="flex:1;padding:10px;border-radius:10px;background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-size:12px;cursor:pointer;">← 수정</button><button onclick="window._cwStep=6;window.renderContractWizard();" style="flex:2;padding:10px;border-radius:10px;background:linear-gradient(135deg,#a855f7,rgba(79,156,249,.8));color:#fff;font-size:12px;font-weight:700;border:none;cursor:pointer;">✍️ 검토 후 서명하기 →</button></div>`;
+    setTimeout(()=>{ window.aiCompleteContract(ct.template(d)); }, 500);
+  }
+  else if(step===6){
+    const ct=CONTRACT_TYPES[d.type];
+    titleEl.textContent='📝 Step 6 · 검토 및 서명';
+    const finalText=d.aiCompleted||ct.template(d);
+    el.innerHTML=stepBar+`<div style="font-size:12px;font-weight:700;margin-bottom:8px;">📄 최종 계약서 확인</div>
+    <div style="background:var(--s2);border-radius:10px;padding:12px;margin-bottom:12px;font-size:11px;line-height:1.9;white-space:pre-line;max-height:220px;overflow-y:auto;">${finalText}</div>
+    <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:10px 13px;margin-bottom:10px;">
+      <div style="font-size:11px;font-weight:700;margin-bottom:8px;">✍️ 서명 현황</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--b2);">
+        <div style="font-size:11px;">갑 (나) · ${curUserName}</div>
+        ${d.my_signed?`<span class="tag tag-g" style="font-size:9px;">✅ 서명 완료</span>`:`<button onclick="window.openEsign('my')" style="padding:5px 12px;border-radius:8px;background:#a855f7;color:#fff;font-size:11px;font-weight:700;border:none;cursor:pointer;">✍️ 서명하기</button>`}
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;">
+        <div style="font-size:11px;">을 · ${d.party_b}</div>
+        ${d.other_signed?`<span class="tag tag-g" style="font-size:9px;">✅ 서명 완료</span>`:`<span class="tag tag-y" style="font-size:9px;">⏳ 서명 대기</span>`}
+      </div>
+    </div>
+    ${d.my_signed&&!d.other_signed?`<button onclick="window.sendContractToOther()" style="width:100%;padding:12px;border-radius:12px;background:linear-gradient(135deg,var(--a1),var(--a2));color:#080d18;font-size:13px;font-weight:800;border:none;cursor:pointer;margin-bottom:8px;">📨 상대방에게 서명 요청 발송</button>`:''}
+    ${d.my_signed&&d.other_signed?`<button onclick="window.finalizeContract()" style="width:100%;padding:12px;border-radius:12px;background:linear-gradient(135deg,#a855f7,rgba(168,85,247,.7));color:#fff;font-size:13px;font-weight:800;border:none;cursor:pointer;margin-bottom:8px;">✅ 계약서 최종 저장</button>`:''}
+    <button onclick="window.closeSheet('sh-contract-wizard')" style="width:100%;padding:10px;border-radius:10px;background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-size:12px;cursor:pointer;">닫기</button>`;
+  }
+};
+
+window.selectContractParty = function(id,name,type){
+  window._cwData.party_b_id=id; window._cwData.party_b=name; window._cwData.party_b_type=type;
+  document.querySelectorAll('[id^="cw-party-"]').forEach(el=>{el.style.border='1.5px solid var(--b1)';el.style.background='var(--s2)';});
+  const sel=document.getElementById('cw-party-'+id);
+  if(sel){sel.style.border='1.5px solid #a855f7';sel.style.background='rgba(168,85,247,.08)';}
+  setTimeout(()=>{window._cwStep=2;window.renderContractWizard();},400);
+};
+window.selectContractPartyManual = function(){
+  const name=document.getElementById('cw-party-manual')?.value.trim();
+  if(!name){toast('상대방 이름을 입력하세요');return;}
+  window._cwData.party_b=name; window._cwData.party_b_id='manual';
+  window._cwStep=2; window.renderContractWizard();
+};
+window.selectContractType = function(type){
+  window._cwData.type=type; window._cwData.party_a=curUserName;
+  window.renderContractWizard();
+  setTimeout(()=>{window._cwStep=3;window.renderContractWizard();},300);
+};
+window.saveContractFields = function(){
+  const fields=['item','qty','price','payment','period','location','commission','settlement','min_price','scope','fee','data','title','content'];
+  fields.forEach(f=>{const el=document.getElementById('cw-'+f);if(el&&el.value)window._cwData[f]=el.value;});
+};
+window.aiCompleteContract = function(draft){
+  fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1500,
+      system:'당신은 농수산물 유통 전문 계약서 작성 AI입니다. 계약서 초안을 법적으로 명확하게 다듬어주세요. 계약서 본문만 출력하세요.',
+      messages:[{role:'user',content:'다음 계약서 초안을 완성해주세요:
+
+'+draft}]})})
+  .then(r=>r.json()).then(data=>{
+    const result=data.content?.[0]?.text||draft;
+    window._cwData.aiCompleted=result;
+    const el=document.getElementById('cw-ai-result');
+    if(el){el.innerHTML='<div style="color:var(--a1);font-size:10px;margin-bottom:6px;">🤖 AI 검토 완료</div>'+result.replace(/
+/g,'<br>');}
+  }).catch(()=>{window._cwData.aiCompleted=draft;});
+};
+window.openEsign = function(party){
+  window._esignParty=party;
+  const now=new Date();
+  document.getElementById('esign-name').textContent=curUserName;
+  document.getElementById('esign-gkid').textContent=curGkid;
+  document.getElementById('esign-datetime').textContent=now.toLocaleString('ko-KR');
+  window.openSheet('sh-esign');
+  setTimeout(()=>window.initSignCanvas(),300);
+};
+window.initSignCanvas = function(){
+  const canvas=document.getElementById('esign-canvas');
+  if(!canvas) return;
+  const rect=canvas.getBoundingClientRect();
+  canvas.width=rect.width*window.devicePixelRatio;
+  canvas.height=rect.height*window.devicePixelRatio;
+  const ctx=canvas.getContext('2d');
+  ctx.scale(window.devicePixelRatio,window.devicePixelRatio);
+  ctx.strokeStyle='#1a1a2e'; ctx.lineWidth=2.5; ctx.lineCap='round'; ctx.lineJoin='round';
+  let drawing=false,lastX,lastY;
+  function getPos(e){const r=canvas.getBoundingClientRect();if(e.touches)return{x:e.touches[0].clientX-r.left,y:e.touches[0].clientY-r.top};return{x:e.clientX-r.left,y:e.clientY-r.top};}
+  canvas.onmousedown=e=>{drawing=true;const p=getPos(e);lastX=p.x;lastY=p.y;};
+  canvas.ontouchstart=e=>{e.preventDefault();drawing=true;const p=getPos(e);lastX=p.x;lastY=p.y;};
+  canvas.onmousemove=e=>{if(!drawing)return;const p=getPos(e);ctx.beginPath();ctx.moveTo(lastX,lastY);ctx.lineTo(p.x,p.y);ctx.stroke();lastX=p.x;lastY=p.y;};
+  canvas.ontouchmove=e=>{e.preventDefault();if(!drawing)return;const p=getPos(e);ctx.beginPath();ctx.moveTo(lastX,lastY);ctx.lineTo(p.x,p.y);ctx.stroke();lastX=p.x;lastY=p.y;};
+  canvas.onmouseup=canvas.ontouchend=()=>drawing=false;
+};
+window.clearSignature = function(){
+  const canvas=document.getElementById('esign-canvas');
+  if(!canvas)return;
+  canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height);
+};
+window.submitSignature = function(){
+  const canvas=document.getElementById('esign-canvas');
+  if(!canvas){toast('서명 캔버스를 찾을 수 없습니다');return;}
+  const data=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;
+  if(!Array.from(data).some((v,i)=>i%4===3&&v>0)){toast('서명을 먼저 해주세요');return;}
+  const signImg=canvas.toDataURL('image/png');
+  const now=new Date().toLocaleString('ko-KR');
+  if(window._esignParty==='my'){window._cwData.my_signed=true;window._cwData.my_sign_img=signImg;window._cwData.my_sign_at=now;}
+  else{window._cwData.other_signed=true;window._cwData.other_sign_img=signImg;window._cwData.other_sign_at=now;}
+  window.closeSheet('sh-esign');
+  toast('✅ 서명 완료!');
+  window.renderContractWizard();
+};
+window.sendContractToOther = function(){
+  const d=window._cwData;
+  if(!window._contracts)window._contracts=[];
+  if(!window._contracts.find(c=>c.id===window._cwContractId)){
+    window._contracts.push({id:window._cwContractId,type:d.type,typeName:CONTRACT_TYPES[d.type]?.name,party_a:d.party_a,party_a_gkid:curGkid,party_b:d.party_b,party_b_id:d.party_b_id,content:d.aiCompleted||CONTRACT_TYPES[d.type]?.template(d),my_signed:d.my_signed,my_sign_at:d.my_sign_at,other_signed:false,status:'waiting_other',created_at:new Date().toISOString()});
+  }
+  saveAppData();
+  toast('📨 '+d.party_b+'에게 전자서명 요청을 발송했습니다!');
+  window.renderContractWizard();
+};
+window.finalizeContract = function(){
+  const d=window._cwData;
+  const ct=CONTRACT_TYPES[d.type];
+  const contract={id:window._cwContractId,type:d.type,typeName:ct?.name,party_a:d.party_a,party_a_gkid:curGkid,party_b:d.party_b,party_b_id:d.party_b_id,content:d.aiCompleted||ct?.template(d),my_signed:d.my_signed,my_sign_at:d.my_sign_at,my_sign_img:d.my_sign_img,other_signed:d.other_signed,other_sign_at:d.other_sign_at,other_sign_img:d.other_sign_img,status:'completed',created_at:new Date().toISOString(),completed_at:new Date().toISOString()};
+  if(!window._contracts)window._contracts=[];
+  const idx=window._contracts.findIndex(c=>c.id===window._cwContractId);
+  if(idx>=0)window._contracts[idx]=contract;else window._contracts.push(contract);
+  saveAppData();
+  window.closeSheet('sh-contract-wizard');
+  toast('✅ 계약서 완성! 사용자 관리 → 계약서 탭에 저장됐어요');
+  window.printContractPDF(contract);
+};
+window.printContractPDF = function(contract){
+  const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+contract.typeName+'</title><style>body{font-family:"Noto Sans KR",sans-serif;margin:40px;font-size:13px;color:#111;line-height:1.8;}h2{font-size:18px;text-align:center;border-bottom:2px solid #333;padding-bottom:10px;}.parties{display:flex;gap:30px;margin:20px 0;padding:15px;background:#f9f9f9;border-radius:8px;}.party{flex:1;text-align:center;}.sign-box{border:1px solid #ddd;border-radius:8px;padding:15px;text-align:center;margin-top:8px;}.sign-img{max-width:180px;max-height:80px;}.footer{margin-top:30px;text-align:center;font-size:11px;color:#888;border-top:1px solid #eee;padding-top:10px;}</style></head><body><h2>'+contract.typeName+'</h2><div class="parties"><div class="party"><div><b>갑</b></div><div>'+contract.party_a+'</div>'+(contract.my_sign_img?'<div class="sign-box"><img class="sign-img" src="'+contract.my_sign_img+'"><br><small>'+contract.my_sign_at+'</small></div>':'<div class="sign-box">서명 없음</div>')+'</div><div class="party"><div><b>을</b></div><div>'+contract.party_b+'</div>'+(contract.other_sign_img?'<div class="sign-box"><img class="sign-img" src="'+contract.other_sign_img+'"><br><small>'+contract.other_sign_at+'</small></div>':'<div class="sign-box">서명 없음</div>')+'</div></div><pre style="white-space:pre-wrap;font-family:inherit;font-size:12px;">'+contract.content+'</pre><div class="footer">GARAK AI 4.0 · 전자계약 · '+new Date().toLocaleString('ko-KR')+'</div></body></html>';
+  const w=window.open('','_blank');
+  if(w){w.document.write(html);w.document.close();w.print();}
+};
+window.openContractView = function(contractId){
+  const c=(window._contracts||[]).find(x=>x.id===contractId);
+  if(!c){toast('계약서를 찾을 수 없습니다');return;}
+  document.getElementById('cv-title').textContent=c.typeName;
+  document.getElementById('cv-body').innerHTML=`<div style="background:var(--s2);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:11px;">${[['유형',c.typeName],['갑',c.party_a],['을',c.party_b],['내 서명',c.my_signed?'✅ '+c.my_sign_at:'미서명'],['상대방 서명',c.other_signed?'✅ '+c.other_sign_at:'⏳ 대기'],['상태',c.status==='completed'?'✅ 완료':'⏳ 서명 대기'],['작성일',new Date(c.created_at).toLocaleDateString('ko-KR')]].map(([lb,val])=>`<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--b2);"><span style="color:var(--t2);">${lb}</span><span style="font-weight:600;">${val}</span></div>`).join('')}</div><div style="background:var(--s2);border-radius:10px;padding:12px;margin-bottom:12px;font-size:11px;line-height:1.9;white-space:pre-line;max-height:250px;overflow-y:auto;">${c.content}</div><div style="display:flex;gap:8px;"><button onclick="window.printContractPDF(window._contracts.find(x=>x.id==='${c.id}'))" style="flex:1;padding:10px;border-radius:10px;background:rgba(168,85,247,.1);border:1px solid rgba(168,85,247,.25);color:#a855f7;font-size:12px;font-weight:700;cursor:pointer;">🖨️ PDF 출력</button></div>`;
+  window.openSheet('sh-contract-view');
+};
+
 
 // ══════════════
 // 프로필 정보 수정 / 서류 / 계좌
@@ -2410,173 +2707,6 @@ window.showScreen = function(screen){
   document.querySelectorAll('.role-card').forEach(c=>c.classList.remove('sel'));
 };
 
-// ══════════════
-// 테스트 시스템
-// ══════════════
-
-// 테스트 만료일: 지금부터 3일
-const TEST_EXPIRE = (() => {
-  const saved = localStorage.getItem('garak_test_expire');
-  if(saved) return parseInt(saved);
-  const expire = Date.now() + 3 * 24 * 60 * 60 * 1000;
-  localStorage.setItem('garak_test_expire', expire);
-  return expire;
-})();
-
-// 카운트다운 타이머
-function startTestCountdown(){
-  const el = document.getElementById('test-countdown');
-  if(!el) return;
-  function update(){
-    const left = TEST_EXPIRE - Date.now();
-    if(left <= 0){
-      el.textContent = '종료';
-      el.style.color = 'var(--t3)';
-      return;
-    }
-    const d = Math.floor(left / 86400000);
-    const h = Math.floor((left % 86400000) / 3600000);
-    const m = Math.floor((left % 3600000) / 60000);
-    const s = Math.floor((left % 60000) / 1000);
-    el.textContent = d > 0 ? `${d}일 ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-    setTimeout(update, 1000);
-  }
-  update();
-}
-startTestCountdown();
-
-// 테스트 계정 데이터
-const TEST_ACCOUNTS = {
-  'PROD-001': {name:'드레곤팜',          role:'producer_ind',  region:'경북 의성'},
-  'PROD-002': {name:'나주배농원',         role:'producer_ind',  region:'전남 나주'},
-  'PROD-003': {name:'논산딸기농협',       role:'producer_corp', region:'충남 논산'},
-  'PROD-004': {name:'의성마늘영농',       role:'producer_corp', region:'경북 의성'},
-  'PROD-005': {name:'강원감자농장',       role:'producer_ind',  region:'강원 평창'},
-  'MERCH-001':{name:'서울청과상회',       role:'merchant_ind',  region:'서울 송파'},
-  'MERCH-002':{name:'강남청과',           role:'merchant_ind',  region:'서울 송파'},
-  'CORP-001': {name:'한국청과(주)',        role:'wholesale',     region:'가락시장'},
-  'CORP-002': {name:'중앙청과',           role:'wholesale',     region:'가락시장'},
-  'GOV-001':  {name:'가락시장관리공단',   role:'gov_garaksa',   region:'서울 송파'},
-  'TRANS-001':{name:'빠른배송',           role:'transport',     region:'경기 성남'},
-  'TRANS-002':{name:'전국콜배송',         role:'transport',     region:'서울'},
-  'TRANS-003':{name:'냉장특송',           role:'transport',     region:'인천'},
-  'TRANS-004':{name:'가락운송',           role:'transport',     region:'서울 송파'},
-  'TRANS-005':{name:'농산물전문운송',     role:'transport',     region:'경기 광주'},
-  'TAX-001':  {name:'가락세무회계',       role:'tax_agent',     region:'서울 송파'},
-};
-
-// 테스트 계정 목록 렌더링
-const TEST_GROUPS = [
-  {group:'🌾 생산자', color:'#00e8bc', accounts:[
-    {id:'PROD-001', name:'드레곤팜',      region:'경북 의성'},
-    {id:'PROD-002', name:'나주배농원',    region:'전남 나주'},
-    {id:'PROD-003', name:'논산딸기농협',  region:'충남 논산'},
-    {id:'PROD-004', name:'의성마늘영농',  region:'경북 의성'},
-    {id:'PROD-005', name:'강원감자농장',  region:'강원 평창'},
-  ]},
-  {group:'🛒 중도매인', color:'#4f9cf9', accounts:[
-    {id:'MERCH-001', name:'서울청과상회', region:'서울 송파'},
-    {id:'MERCH-002', name:'강남청과',     region:'서울 송파'},
-  ]},
-  {group:'🏛 청과법인', color:'#c084fc', accounts:[
-    {id:'CORP-001', name:'한국청과(주)',  region:'가락시장'},
-    {id:'CORP-002', name:'중앙청과',      region:'가락시장'},
-  ]},
-  {group:'🏛 관리공단', color:'#f4c430', accounts:[
-    {id:'GOV-001', name:'가락시장관리공단', region:'서울 송파'},
-  ]},
-  {group:'🚛 운송업체', color:'#ffa502', accounts:[
-    {id:'TRANS-001', name:'빠른배송',         region:'경기 성남'},
-    {id:'TRANS-002', name:'전국콜배송',       region:'서울'},
-    {id:'TRANS-003', name:'냉장특송',         region:'인천'},
-    {id:'TRANS-004', name:'가락운송',         region:'서울 송파'},
-    {id:'TRANS-005', name:'농산물전문운송',   region:'경기 광주'},
-  ]},
-  {group:'🧾 세무/회계', color:'#ff4554', accounts:[
-    {id:'TAX-001', name:'가락세무회계', region:'서울 송파'},
-  ]},
-];
-
-function renderTestAccountList(){
-  const body = document.getElementById('test-accounts-body');
-  if(!body) return;
-  body.innerHTML = TEST_GROUPS.map(g=>`
-    <div style="margin-bottom:10px;">
-      <div style="font-size:10px;font-weight:700;color:${g.color};margin-bottom:5px;letter-spacing:1px;">${g.group}</div>
-      ${g.accounts.map(a=>`
-      <div id="ta-${a.id}" onclick="window.fillTestAccount('${a.id}')"
-        style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-radius:9px;background:var(--s2);margin-bottom:3px;cursor:pointer;border:1.5px solid transparent;transition:all .15s;">
-        <div>
-          <span style="font-size:11px;font-weight:700;color:${g.color};font-family:monospace;">${a.id}</span>
-          <span style="font-size:11px;color:var(--t1);margin-left:6px;">${a.name}</span>
-        </div>
-        <span style="font-size:10px;color:var(--t3);">${a.region}</span>
-      </div>`).join('')}
-    </div>`).join('');
-}
-
-// 페이지 로드 시 렌더
-document.addEventListener('DOMContentLoaded', renderTestAccountList);
-
-// 비밀번호 확인 후 입장
-window.checkTestPassword = function(){
-  const pw = document.getElementById('test-password')?.value;
-  const errEl = document.getElementById('pw-error');
-
-  // 만료 확인
-  if(Date.now() > TEST_EXPIRE){
-    toast('⏰ 테스트 기간이 종료됐습니다. 관리자에게 문의하세요.');
-    return;
-  }
-
-  if(pw !== 'shlove1004'){
-    if(errEl) errEl.style.display = 'block';
-    setTimeout(()=>{ if(errEl) errEl.style.display='none'; }, 2500);
-    return;
-  }
-
-  // 테스트 계정 선택됐으면 바로 입장
-  const id = window._selectedTestId;
-  if(id && TEST_ACCOUNTS[id]){
-    const acc = TEST_ACCOUNTS[id];
-    const r = ROLES[acc.role];
-    if(!r){ toast('역할 정보 오류'); return; }
-    curRole    = acc.role;
-    curUserName = acc.name;
-    curGkid    = id+'-GK';
-    curGrade   = 'seed';
-    window._userTel=''; window._userBiznum=''; window._userCorpnum='';
-    window._testAccountId = id;
-    const userData = { role:curRole, gkid:curGkid, name:curUserName, grade:curGrade, testAccount:true };
-    localStorage.setItem('garak_user', JSON.stringify(userData));
-    startApp(r);
-    return;
-  }
-
-  // 계정 선택 없으면 가입/로그인 화면으로
-  window.showScreen('register');
-};
-
-// 계정 선택 시 하이라이트
-window.fillTestAccount = function(id){
-  window._selectedTestId = id;
-  // 모든 행 초기화
-  document.querySelectorAll('[id^="ta-"]').forEach(el=>{
-    el.style.border='1.5px solid transparent';
-    el.style.background='var(--s2)';
-  });
-  // 선택 강조
-  const sel = document.getElementById('ta-'+id);
-  if(sel){
-    sel.style.border='1.5px solid #00e8bc';
-    sel.style.background='rgba(0,232,188,.08)';
-    sel.scrollIntoView({behavior:'smooth',block:'nearest'});
-  }
-  // 비밀번호 입력창 포커스
-  const pwEl = document.getElementById('test-password');
-  if(pwEl){ pwEl.focus(); pwEl.placeholder=id+' 선택 — 비밀번호 입력'; }
-};
-
 
 // ══════════════
 // 로그인
@@ -2689,11 +2819,6 @@ function startApp(r){
   document.getElementById('tb-ic').textContent=r.ic;
   document.getElementById('tb-name').textContent=r.n;
   document.getElementById('tb-gkid').textContent=curGkid;
-  // 테스트 계정 배지 표시
-  const testBadge = document.getElementById('tb-test-badge');
-  if(testBadge) testBadge.style.display = window._testAccountId ? 'inline' : 'none';
-  // 자동 테스트 데이터 초기화
-  initAutoTrade();
   updateGradeBadge();
   buildTabbar();
   startClock();
@@ -2717,6 +2842,7 @@ function saveAppData(){
       _userAddr:    window._userAddr,
       _subUsers:    window._subUsers,
       _partners:    window._partners,
+      _contracts:   window._contracts,
       _servicePartners: window._servicePartners,
       _tokenBalance:window._tokenBalance,
       _autoDeduct:  window._autoDeduct,
@@ -2746,6 +2872,7 @@ function loadAppData(){
       if(d._userAddr)        window._userAddr        = d._userAddr;
       if(d._subUsers)        window._subUsers        = d._subUsers;
       if(d._partners)        window._partners        = d._partners;
+      if(d._contracts)       window._contracts       = d._contracts;
       if(d._servicePartners) window._servicePartners = d._servicePartners;
       if(d._tokenBalance)    window._tokenBalance    = d._tokenBalance;
       if(d._autoDeduct!=null)window._autoDeduct      = d._autoDeduct;
@@ -2766,7 +2893,6 @@ function loadSavedLogin(){
     curRole=u.role; curGkid=u.gkid; curUserName=u.name||''; curGrade=u.grade||'seed';
     window._userTel=u.tel||''; window._userBiznum=u.biznum||''; window._userCorpnum=u.corpnum||'';
     window._specialReq=u.specialReq||false;
-    window._testAccountId = u.testAccount ? curGkid.replace('-GK','') : null;
     const r=ROLES[curRole];
     if(r) startApp(r);
   }
@@ -2999,7 +3125,7 @@ function renderHome(){
   }
 
   // ── 세무/회계: 모든 거래처 장부 열람 ──
-  if(curRole==='tax_agent' && window._testAccountId){
+  if(curRole==='tax_agent' &&
     const db = getTestDB();
     const allInvs = db.invoices||[];
     const total = allInvs.reduce((s,i)=>s+(i.total_amt||0),0);
@@ -3028,28 +3154,6 @@ function renderHome(){
         </div>`;
       }).join('')}
     </div>`;
-  }
-  if(window._testAccountId){
-    const db = getTestDB();
-    const stats = db.todayStats;
-    const myInvCount = (db.invoices||[]).filter(i=>
-      i.producer_name===TEST_TRADE_NAMES[window._testAccountId] ||
-      i.buyer_name===TEST_TRADE_NAMES[window._testAccountId]
-    ).length;
-    homeHTML+=`
-    <div onclick="window.viewAutoTradeStats()"
-      style="background:rgba(0,232,188,.05);border:1.5px solid rgba(0,232,188,.2);border-radius:12px;padding:10px 13px;margin-bottom:12px;cursor:pointer;display:flex;align-items:center;gap:10px;">
-      <span style="font-size:20px;">🤖</span>
-      <div style="flex:1;">
-        <div style="font-size:11px;font-weight:700;color:var(--a1);">오늘 자동 테스트 거래 생성됨</div>
-        <div style="font-size:10px;color:var(--t2);">
-          ${stats?`사과 ₩${stats.applePrice.toLocaleString()} · 배 ₩${stats.pearPrice.toLocaleString()} · 운임 ₩${stats.truckFare.toLocaleString()}`:'생성 중...'}
-          ${myInvCount>0?` · 내 거래 ${myInvCount}건`:''}
-        </div>
-      </div>
-      <span style="font-size:12px;color:var(--t3);">›</span>
-    </div>`;
-  }
 
   document.getElementById('home-content').innerHTML=homeHTML;
 }
@@ -5758,12 +5862,16 @@ function renderMyPartnerSection(){
   const pendingSent     = servicePartners.filter(p=>p.status==='pending_them');
   const activeService   = servicePartners.filter(p=>p.status==='active');
 
+  const pendingContracts=(window._contracts||[]).filter(c=>c.status==='waiting_other');
   return `
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
     <div style="font-size:13px;font-weight:700;">🤝 거래처 관리</div>
-    <button onclick="window.openPartnerSearch()"
-      style="padding:6px 12px;border-radius:8px;background:var(--a1);color:#080d18;font-size:11px;font-weight:700;border:none;cursor:pointer;">+ 거래처 찾기</button>
+    <div style="display:flex;gap:6px;">
+      <button onclick="window.openContractWizard()" style="padding:6px 11px;border-radius:8px;background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.3);color:#a855f7;font-size:11px;font-weight:700;cursor:pointer;">📝 계약서 만들기</button>
+      <button onclick="window.openPartnerSearch()" style="padding:6px 11px;border-radius:8px;background:var(--a1);color:#080d18;font-size:11px;font-weight:700;border:none;cursor:pointer;">+ 거래처 찾기</button>
+    </div>
   </div>
+  \${pendingContracts.length>0?\`<div onclick="window._myTab='users';renderMyPage();" style="background:rgba(168,85,247,.08);border:1.5px solid rgba(168,85,247,.3);border-radius:12px;padding:9px 13px;margin-bottom:10px;cursor:pointer;display:flex;align-items:center;gap:8px;"><span style="font-size:16px;">✍️</span><div style="flex:1;"><div style="font-size:11px;font-weight:700;color:#a855f7;">상대방 전자서명 대기 \${pendingContracts.length}건</div><div style="font-size:10px;color:var(--t2);">계약서 관리에서 확인하세요 →</div></div></div>\`:''}
 
   <!-- 수락 대기 (내가 받은 요청) -->
   ${pendingReceived.length>0?`
@@ -7557,386 +7665,6 @@ function toast(msg){
   _tt=setTimeout(()=>el.classList.remove('on'),3500);
 }
 
-// ══════════════════════════════════════════
-// 🤖 자동 테스트 데이터 생성기
-// 매일 1회 자동으로 실제 거래 흐름을 시뮬레이션
-// ══════════════════════════════════════════
-
-// 테스트 거래 참여자 매핑
-const TEST_TRADE_MAP = {
-  producers: ['PROD-001','PROD-002','PROD-003','PROD-004','PROD-005'],
-  merchants: ['MERCH-001','MERCH-002'],
-  corps:     ['CORP-001','CORP-002'],
-  transport: ['TRANS-001','TRANS-002','TRANS-003','TRANS-004','TRANS-005'],
-  tax:       ['TAX-001'],
-  gov:       ['GOV-001'],
-};
-
-const TEST_TRADE_NAMES = {
-  'PROD-001':'드레곤팜','PROD-002':'나주배농원','PROD-003':'논산딸기농협',
-  'PROD-004':'의성마늘영농','PROD-005':'강원감자농장',
-  'MERCH-001':'서울청과상회','MERCH-002':'강남청과',
-  'CORP-001':'한국청과(주)','CORP-002':'중앙청과',
-  'TRANS-001':'빠른배송','TRANS-002':'전국콜배송','TRANS-003':'냉장특송',
-  'TRANS-004':'가락운송','TRANS-005':'농산물전문운송',
-  'TAX-001':'가락세무회계','GOV-001':'가락시장관리공단',
-};
-
-// 테스트 공유 데이터 저장소 (localStorage)
-function getTestDB(){ try{ return JSON.parse(localStorage.getItem('garak_test_db')||'{}'); }catch(e){ return {}; } }
-function saveTestDB(db){ try{ localStorage.setItem('garak_test_db', JSON.stringify(db)); }catch(e){} }
-
-// 오늘 날짜 키
-function todayKey(){ return new Date().toISOString().slice(0,10); }
-
-// ── 하루 자동 거래 생성 ──
-window.runDailyAutoTrade = function(silent){
-  const db = getTestDB();
-  const today = todayKey();
-
-  // 이미 오늘 실행됐으면 스킵
-  if(db['ran_'+today] && !silent){
-    toast('오늘 자동 거래가 이미 생성됐습니다 ('+today+')');
-    return db;
-  }
-
-  const now = new Date();
-  const invoices = db.invoices || [];
-  const eforms   = db.eforms || [];
-  const calls    = db.calls || [];
-  const payments = db.payments || [];
-  const auctions = db.auctions || [];
-
-  // 가격 (약간의 변동)
-  const applePrice = 31000 + Math.floor(Math.random()*3000 - 1000);
-  const pearPrice  = 27000 + Math.floor(Math.random()*2000 - 500);
-  const truckFare  = 220000 + Math.floor(Math.random()*10000);
-
-  let newItems = [];
-
-  // ── 생산자별 송장 생성 ──
-  TEST_TRADE_MAP.producers.forEach((prodId, pi) => {
-    const prodName = TEST_TRADE_NAMES[prodId];
-    const isLegal  = prodId.includes('003') || prodId.includes('004'); // 법인
-
-    // 청과법인 2곳에 경매 송장 (사과 200박스)
-    TEST_TRADE_MAP.corps.forEach((corpId, ci) => {
-      const corpName = TEST_TRADE_NAMES[corpId];
-      const invId = `AUTO-${today.replace(/-/g,'')}-${prodId}-CORP${ci+1}-APPLE`;
-      const soldPrice = Math.round(applePrice * (1 + (Math.random()*0.08-0.02)));
-
-      const inv = {
-        id: invId,
-        producer_gkid: prodId+'GK',
-        producer_name: prodName,
-        buyer_name: corpName,
-        buyer_type: 'corp',
-        buyer_id: corpId,
-        item: '사과', grade: '특', origin: '전남 나주',
-        qty: 200, price: applePrice,
-        sale_type: 'auction',
-        min_price: applePrice,
-        confirmed_price: soldPrice,
-        truck_type: '5톤', fare: truckFare,
-        transport_id: TEST_TRADE_MAP.transport[pi % 5],
-        transport_name: TEST_TRADE_NAMES[TEST_TRADE_MAP.transport[pi % 5]],
-        status: 'eform',
-        created_at: today+'T05:30:00',
-        confirmed_at: today+'T07:00:00',
-        paid_at: today+'T17:00:00',   // 청과법인: 당일 지급
-        payment_status: 'paid',
-        total_amt: soldPrice * 200,
-        eform_id: `GARAK-${today.replace(/-/g,'')}-${String(invoices.length+newItems.length+1).padStart(6,'0')}`,
-        auto: true, date: today,
-      };
-      newItems.push(inv);
-
-      // 경매 낙찰 기록
-      const bidder = TEST_TRADE_NAMES[TEST_TRADE_MAP.merchants[ci % 2]];
-      auctions.push({
-        id: invId+'-AUC', auction_date: today,
-        corp: corpName, producer: prodName,
-        item: '사과', qty: 200, min_price: applePrice,
-        sold_price: soldPrice, buyer: bidder,
-        date: today,
-      });
-    });
-
-    // 중도매인 2곳에 위탁판매 송장 (배 200박스)
-    TEST_TRADE_MAP.merchants.forEach((mercId, mi) => {
-      const mercName = TEST_TRADE_NAMES[mercId];
-      const invId = `AUTO-${today.replace(/-/g,'')}-${prodId}-MERC${mi+1}-PEAR`;
-      const soldPrice = Math.round(pearPrice * (1 + (Math.random()*0.06-0.01)));
-      const transId = TEST_TRADE_MAP.transport[(pi+mi+2) % 5];
-
-      const inv = {
-        id: invId,
-        producer_gkid: prodId+'GK',
-        producer_name: prodName,
-        buyer_name: mercName,
-        buyer_type: 'merchant',
-        buyer_id: mercId,
-        item: '배', grade: '특', origin: '전남 나주',
-        qty: 200, price: pearPrice,
-        sale_type: 'consign',
-        consign_rate: 8,
-        confirmed_price: soldPrice,
-        truck_type: '5톤', fare: truckFare,
-        transport_id: transId,
-        transport_name: TEST_TRADE_NAMES[transId],
-        status: 'eform',
-        created_at: today+'T06:00:00',
-        confirmed_at: today+'T08:00:00',
-        paid_at: new Date(now.getTime()+86400000).toISOString().slice(0,10)+'T10:00:00', // 익일 지급
-        payment_status: 'paid',
-        total_amt: Math.round(soldPrice * 200 * 0.92), // 수수료 8% 제외
-        eform_id: `GARAK-${today.replace(/-/g,'')}-${String(invoices.length+newItems.length+1).padStart(6,'0')}`,
-        auto: true, date: today,
-      };
-      newItems.push(inv);
-    });
-  });
-
-  // ── 배차 기록 ──
-  TEST_TRADE_MAP.transport.forEach((transId, ti) => {
-    calls.push({
-      id: `CALL-${today.replace(/-/g,'')}-${transId}`,
-      transport_id: transId,
-      transport_name: TEST_TRADE_NAMES[transId],
-      item: ti < 3 ? '사과' : '배',
-      origin: '전남 나주',
-      dest: '서울 송파구 가락로 320 (가락시장)',
-      truck_type: '5톤',
-      fare: truckFare,
-      status: 'delivered',
-      depart_at: today+'T05:00:00',
-      arrive_at: today+'T12:00:00',
-      date: today, auto: true,
-    });
-  });
-
-  // ── 세무/회계 거래처 연결 권한 ──
-  const taxAccess = db.taxAccess || {};
-  ['PROD-001','PROD-002','PROD-003','PROD-004','PROD-005',
-   'MERCH-001','MERCH-002','CORP-001','CORP-002'].forEach(id => {
-    taxAccess[id] = { grantedAt: today, ledgerAccess: true, by: 'TAX-001' };
-  });
-
-  // 저장
-  db.invoices  = [...invoices, ...newItems];
-  db.eforms    = [...eforms, ...newItems.filter(i=>i.eform_id).map(i=>({
-    eform_id: i.eform_id, inv_id: i.id, producer: i.producer_name,
-    buyer: i.buyer_name, item: i.item, qty: i.qty,
-    price: i.confirmed_price, total: i.total_amt,
-    sale_type: i.sale_type, date: today,
-  }))];
-  db.calls     = [...calls];
-  db.payments  = [...payments, ...newItems.map(i=>({
-    inv_id: i.id, payer: i.buyer_name, payee: i.producer_name,
-    amount: i.total_amt, paid_at: i.paid_at,
-    payment_type: i.buyer_type==='corp'?'당일결제':'익일결제',
-    date: today,
-  }))];
-  db.auctions  = [...auctions];
-  db.taxAccess = taxAccess;
-  db['ran_'+today] = true;
-  db.lastRun = now.toISOString();
-  db.todayStats = {
-    date: today,
-    totalInvoices: newItems.length,
-    totalAmount: newItems.reduce((s,i)=>s+i.total_amt, 0),
-    applePrice, pearPrice, truckFare,
-  };
-
-  saveTestDB(db);
-
-  if(!silent){
-    const total = newItems.reduce((s,i)=>s+i.total_amt,0);
-    toast(`🤖 오늘 자동 거래 생성 완료!\n송장 ${newItems.length}건 · 총 ₩${(total/10000).toFixed(0)}만원`);
-  }
-
-  // 현재 로그인된 계정이면 INVOICES·CALLS 업데이트
-  window.syncTestDataToCurrentUser();
-  return db;
-};
-
-// 현재 로그인 계정에 자동 데이터 주입
-window.syncTestDataToCurrentUser = function(){
-  if(!curRole || !curGkid) return;
-  const db = getTestDB();
-  if(!db.invoices) return;
-
-  const testId = window._testAccountId;
-  if(!testId) return;
-
-  // 생산자: 내 송장 주입
-  if(['producer_ind','producer_corp'].includes(curRole)){
-    const myInvs = db.invoices.filter(i => i.producer_id === testId || i.producer_name === TEST_TRADE_NAMES[testId]);
-    myInvs.forEach(inv => {
-      if(!INVOICES.find(i=>i.id===inv.id)) INVOICES.unshift(inv);
-    });
-  }
-  // 중도매인: 수신 송장
-  if(curRole==='merchant_ind'){
-    const myInvs = db.invoices.filter(i => i.buyer_id === testId);
-    myInvs.forEach(inv => {
-      if(!INVOICES.find(i=>i.id===inv.id)) INVOICES.unshift(inv);
-    });
-  }
-  // 청과법인: 낙찰 내역
-  if(curRole==='wholesale'){
-    const myInvs = db.invoices.filter(i => i.buyer_id === testId);
-    myInvs.forEach(inv => {
-      if(!INVOICES.find(i=>i.id===inv.id)) INVOICES.unshift(inv);
-    });
-    // 경매 낙찰 주입
-    if(!window._wholesaleMembers){
-      window._wholesaleMembers = TEST_TRADE_MAP.merchants.map(id=>({
-        id, name:TEST_TRADE_NAMES[id], gkid:id+'-GK',
-        status:'active', bids:15, totalAmt:12000000, lastBid:todayKey(),
-      }));
-    }
-  }
-  // 운송업체: 배차 이력
-  if(curRole==='transport'){
-    const myCalls = (db.calls||[]).filter(c => c.transport_id === testId);
-    myCalls.forEach(call => {
-      if(!CALLS.find(c=>c.id===call.id)) CALLS.unshift(call);
-    });
-  }
-  // 세무/회계: 모든 거래 열람 권한
-  if(curRole==='tax_agent'){
-    const allInvs = db.invoices || [];
-    if(!window._servicePartners) window._servicePartners = [];
-    // 모든 생산자·중도매인·청과법인을 서비스 거래처로 자동 연결
-    ['PROD-001','PROD-002','PROD-003','PROD-004','PROD-005',
-     'MERCH-001','MERCH-002','CORP-001','CORP-002'].forEach(id => {
-      if(!window._servicePartners.find(p=>p.id===id)){
-        window._servicePartners.push({
-          id, name:TEST_TRADE_NAMES[id], biznum:'000-00-'+id,
-          serviceType:'세무/회계', status:'active',
-          ledgerAccess:true, unpaidAmt:0,
-          autoConnected:true,
-        });
-      }
-    });
-    // 전체 송장 주입
-    allInvs.forEach(inv => {
-      if(!INVOICES.find(i=>i.id===inv.id)) INVOICES.push(inv);
-    });
-  }
-  saveAppData();
-};
-
-// 앱 시작 시 자동 거래 실행 + 데이터 주입
-function initAutoTrade(){
-  // 오늘 거래 자동 생성 (조용히)
-  const db = getTestDB();
-  const today = todayKey();
-  if(!db['ran_'+today]){
-    setTimeout(()=>{ window.runDailyAutoTrade(true); }, 1500);
-  }
-  // 로그인 된 경우 데이터 동기화
-  if(curGkid && window._testAccountId){
-    setTimeout(()=>{ window.syncTestDataToCurrentUser(); }, 2000);
-  }
-}
-
-// 관리자용: 수동 트리거 (MY페이지에서 확인 가능)
-window.viewAutoTradeStats = function(){
-  const db = getTestDB();
-  const stats = db.todayStats;
-  if(!stats){ toast('자동 거래 데이터 없음. 잠시 후 다시 확인하세요'); return; }
-  const total = (db.invoices||[]).length;
-  const paid = (db.payments||[]).length;
-  alert(`🤖 자동 테스트 거래 현황\n\n` +
-    `📅 오늘(${stats.date})\n` +
-    `  사과 낙찰가: ₩${stats.applePrice.toLocaleString()}/박스\n` +
-    `  배 위탁가: ₩${stats.pearPrice.toLocaleString()}/박스\n` +
-    `  운임: ₩${stats.truckFare.toLocaleString()}\n\n` +
-    `📋 누적 송장: ${total}건\n` +
-    `💳 결제 완료: ${paid}건\n` +
-    `🧾 세무/회계 공유: ${Object.keys(db.taxAccess||{}).length}개 거래처`
-  );
-};
-
-// ── 세무/회계: 거래처별 장부 열람 ──
-window.openTaxClientLedger = function(clientId){
-  const db = getTestDB();
-  const name = TEST_TRADE_NAMES[clientId];
-  const invs = (db.invoices||[]).filter(i=>i.producer_name===name||i.buyer_name===name);
-  const total = invs.reduce((s,i)=>s+(i.total_amt||0),0);
-  const now = new Date();
-  document.getElementById('lv-sub').textContent = name+' 거래 장부';
-  document.getElementById('lv-body').innerHTML=`
-    <div style="background:rgba(168,85,247,.06);border:1px solid rgba(168,85,247,.2);border-radius:12px;padding:11px 13px;margin-bottom:12px;">
-      <div style="font-size:11px;color:#a855f7;font-weight:700;margin-bottom:5px;">🧾 ${name}</div>
-      ${[['총 거래액','₩'+total.toLocaleString()],['거래 건수',invs.length+'건'],['열람 일시',now.toLocaleString('ko-KR')]].map(([lb,val])=>`
-      <div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid var(--b2);">
-        <span style="color:var(--t2);">${lb}</span><span style="font-weight:600;">${val}</span>
-      </div>`).join('')}
-    </div>
-    <div style="font-size:12px;font-weight:700;margin-bottom:8px;">📋 거래 내역</div>
-    ${invs.length===0?'<div style="text-align:center;padding:20px;color:var(--t2);">거래 내역 없음</div>':
-    invs.map(inv=>`
-    <div style="padding:8px 0;border-bottom:1px solid var(--b2);font-size:11px;">
-      <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-        <div style="font-weight:700;">${inv.item} ${inv.qty}박스
-          <span class="tag ${inv.sale_type==='auction'?'tag-b':'tag-g'}" style="font-size:9px;">${inv.sale_type==='auction'?'경매':'위탁'}</span>
-        </div>
-        <span style="font-weight:700;color:var(--a4);">₩${(inv.total_amt||0).toLocaleString()}</span>
-      </div>
-      <div style="color:var(--t2);">${inv.producer_name} → ${inv.buyer_name} · ${inv.date}</div>
-      <div style="color:var(--a1);font-size:10px;">${inv.eform_id||''} · ${inv.payment_status==='paid'?'✅ 결제완료':'⏳ 결제대기'}</div>
-    </div>`).join('')}
-    <div style="display:flex;gap:8px;margin-top:12px;">
-      <button onclick="window.downloadTestLedgerCSV('${clientId}')"
-        style="flex:1;padding:10px;border-radius:10px;background:rgba(0,232,188,.1);border:1.5px solid rgba(0,232,188,.3);color:var(--a1);font-size:11px;font-weight:700;cursor:pointer;">📥 CSV</button>
-      <button onclick="window.downloadTestLedgerPDF('${clientId}')"
-        style="flex:1;padding:10px;border-radius:10px;background:rgba(168,85,247,.1);border:1.5px solid rgba(168,85,247,.25);color:#a855f7;font-size:11px;font-weight:700;cursor:pointer;">🖨️ PDF</button>
-    </div>`;
-  window.openSheet('sh-ledger-view');
-};
-
-window.downloadTestLedgerCSV = function(clientId){
-  const db = getTestDB();
-  const name = TEST_TRADE_NAMES[clientId];
-  const invs = (db.invoices||[]).filter(i=>i.producer_name===name||i.buyer_name===name);
-  const rows=[['전표번호','품목','수량','출하자','수취인','거래유형','확정단가','물품대금','결제상태','날짜']];
-  invs.forEach(i=>rows.push([i.eform_id||i.id,i.item,i.qty,i.producer_name,i.buyer_name,
-    i.sale_type==='auction'?'경매':'위탁',i.confirmed_price||i.price,i.total_amt,
-    i.payment_status==='paid'?'결제완료':'대기',i.date]));
-  const csv='\uFEFF'+rows.map(r=>r.join(',')).join('\n');
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
-  a.download=name+'_장부_'+todayKey()+'.csv';
-  a.click();
-  toast('📥 '+name+' CSV 다운로드 완료');
-};
-
-window.downloadTestLedgerPDF = function(clientId){
-  const db = getTestDB();
-  const name = TEST_TRADE_NAMES[clientId];
-  const invs = (db.invoices||[]).filter(i=>i.producer_name===name||i.buyer_name===name);
-  const total = invs.reduce((s,i)=>s+(i.total_amt||0),0);
-  const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>장부-'+name+'</title>'
-    +'<style>body{font-family:sans-serif;margin:30px;font-size:12px;}h1{font-size:18px;}'
-    +'table{width:100%;border-collapse:collapse;margin-top:10px;}'
-    +'th{background:#f5f0ff;padding:7px;border:1px solid #ddd;}td{padding:7px;border:1px solid #eee;}'
-    +'.total{font-weight:800;color:#7c3aed;text-align:right;margin-top:10px;font-size:14px;}'
-    +'</style></head><body><h1>🧾 장부 — '+name+'</h1>'
-    +'<p>열람: 가락세무회계 | '+new Date().toLocaleString('ko-KR')+'</p>'
-    +'<table><tr><th>전표번호</th><th>품목</th><th>수량</th><th>출하자</th><th>수취인</th><th>유형</th><th>금액</th><th>결제</th><th>날짜</th></tr>'
-    +invs.map(i=>`<tr><td>${i.eform_id||i.id}</td><td>${i.item}</td><td>${i.qty}박스</td>`
-      +`<td>${i.producer_name}</td><td>${i.buyer_name}</td>`
-      +`<td>${i.sale_type==='auction'?'경매':'위탁'}</td>`
-      +`<td>&#8361;${(i.total_amt||0).toLocaleString()}</td>`
-      +`<td>${i.payment_status==='paid'?'완료':'대기'}</td><td>${i.date}</td></tr>`).join('')
-    +'</table><div class="total">총: &#8361;'+total.toLocaleString()+'</div></body></html>';
-  const w=window.open('','_blank');
-  if(w){w.document.write(html);w.document.close();w.print();}
-  toast('🖨️ '+name+' PDF 출력');
-};
 
 </script>
 <script>
