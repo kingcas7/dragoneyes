@@ -3121,36 +3121,6 @@ function renderHome(){
     </div>`;
   }
 
-  // ── 세무/회계: 모든 거래처 장부 열람 ──
-  if(curRole==='tax_agent' &&
-    const db = getTestDB();
-    const allInvs = db.invoices||[];
-    const total = allInvs.reduce((s,i)=>s+(i.total_amt||0),0);
-    homeHTML+=`
-    <div style="background:rgba(168,85,247,.06);border:1.5px solid rgba(168,85,247,.2);border-radius:14px;padding:12px 14px;margin-bottom:12px;">
-      <div style="font-size:12px;font-weight:700;color:#a855f7;margin-bottom:8px;">🧾 연결된 거래처 장부 (자동 공유)</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;">
-        <div style="background:var(--s2);border-radius:8px;padding:8px;text-align:center;">
-          <div style="font-size:10px;color:var(--t2);">총 거래액</div>
-          <div style="font-size:14px;font-weight:800;color:#a855f7;">₩${(total/10000).toFixed(0)}만</div>
-        </div>
-        <div style="background:var(--s2);border-radius:8px;padding:8px;text-align:center;">
-          <div style="font-size:10px;color:var(--t2);">전표 건수</div>
-          <div style="font-size:14px;font-weight:800;color:var(--a1);">${allInvs.length}건</div>
-        </div>
-      </div>
-      ${['PROD-001','PROD-002','PROD-003','PROD-004','PROD-005','MERCH-001','MERCH-002','CORP-001','CORP-002'].map(id=>{
-        const cnt = allInvs.filter(i=>i.producer_name===TEST_TRADE_NAMES[id]||i.buyer_name===TEST_TRADE_NAMES[id]).length;
-        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--b2);font-size:11px;">
-          <span style="color:var(--t1);">${TEST_TRADE_NAMES[id]}</span>
-          <div style="display:flex;gap:6px;align-items:center;">
-            <span style="color:var(--t2);">${cnt}건</span>
-            <button onclick="window.openTaxClientLedger('${id}')"
-              style="padding:3px 8px;border-radius:6px;background:rgba(168,85,247,.1);border:1px solid rgba(168,85,247,.2);color:#a855f7;font-size:10px;cursor:pointer;">열람</button>
-          </div>
-        </div>`;
-      }).join('')}
-    </div>`;
 
   document.getElementById('home-content').innerHTML=homeHTML;
 }
