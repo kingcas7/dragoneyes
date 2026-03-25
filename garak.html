@@ -215,7 +215,7 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
     <div style="position:sticky;top:0;z-index:10;background:rgba(8,13,24,.95);backdrop-filter:blur(12px);padding:12px 16px;border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:12px;">
       <button onclick="window.showScreen('landing')" style="color:var(--t2);font-size:14px;">← 뒤로</button>
       <div style="flex:1;font-size:15px;font-weight:800;">🔑 로그인</div>
-      <button onclick="window.doLogin()" style="padding:9px 18px;border-radius:12px;background:linear-gradient(135deg,#00e8bc,#4f9cf9);color:#080d18;font-size:13px;font-weight:800;border:none;">입장 →</button>
+      <button onclick="window.doLoginExisting()" style="padding:9px 18px;border-radius:12px;background:linear-gradient(135deg,#00e8bc,#4f9cf9);color:#080d18;font-size:13px;font-weight:800;border:none;">입장 →</button>
     </div>
     <div style="padding:12px 16px 40px;" id="login-role-area"></div>
   </div>
@@ -2694,6 +2694,31 @@ window.toggleSpecialRequest = function(){
 // ══════════════
 // 화면 전환
 // ══════════════
+window.doLoginExisting = function(){
+  if(!curRole){ toast('역할을 선택하세요'); return; }
+  const r = ROLES[curRole];
+  if(!r){ toast('역할 정보를 찾을 수 없습니다'); return; }
+  // 기존 저장 데이터 불러오기
+  const saved = localStorage.getItem('garak_user');
+  if(saved){
+    try{
+      const u = JSON.parse(saved);
+      if(u.role === curRole){
+        curUserName = u.name; curGkid = u.gkid; curGrade = u.grade||'seed';
+        curRole = u.role;
+        window._userTel = u.tel||''; window._userBiznum = u.biznum||'';
+        window._userCorpnum = u.corpnum||''; window._foreignInfo = u.foreignInfo||null;
+        startApp(r); return;
+      }
+    }catch(e){}
+  }
+  // 저장된 데이터 없으면 역할만으로 임시 입장
+  curUserName = r.n+' 사용자';
+  curGkid = r.gkp+'-'+String(Math.floor(Math.random()*99999)+1).padStart(6,'0');
+  curGrade = 'seed';
+  startApp(r);
+};
+
 window.showScreen = function(screen){
   document.getElementById('login-landing').style.display  = screen==='landing'  ? 'flex'  : 'none';
   document.getElementById('login-register').style.display = screen==='register' ? 'block' : 'none';
