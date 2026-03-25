@@ -2720,6 +2720,8 @@ window.doLoginExisting = function(){
 };
 
 window.showScreen = function(screen){
+  const loginWrap = document.getElementById('login');
+  loginWrap.style.display = screen==='landing'||screen==='register'||screen==='login' ? 'block' : 'none';
   document.getElementById('login-landing').style.display  = screen==='landing'  ? 'flex'  : 'none';
   document.getElementById('login-register').style.display = screen==='register' ? 'block' : 'none';
   document.getElementById('login-login').style.display    = screen==='login'    ? 'block' : 'none';
