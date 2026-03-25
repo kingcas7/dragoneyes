@@ -2838,7 +2838,10 @@ window.doLogin = async function(){
 };
 
 function startApp(r){
-  document.getElementById('login').style.display='none';
+  const loginEl = document.getElementById('login');
+  loginEl.style.display='none';
+  loginEl.style.visibility='hidden';
+  loginEl.style.zIndex='-1';
   document.getElementById('app').classList.add('on');
   document.getElementById('tb-ic').textContent=r.ic;
   document.getElementById('tb-name').textContent=r.n;
