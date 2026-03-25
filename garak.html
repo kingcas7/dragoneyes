@@ -2290,7 +2290,7 @@ window.aiCompleteContract = function(draft){
     const result=data.content?.[0]?.text||draft;
     window._cwData.aiCompleted=result;
     const el=document.getElementById('cw-ai-result');
-    if(el){el.innerHTML='<div style="color:var(--a1);font-size:10px;margin-bottom:6px;">🤖 AI 검토 완료</div>'+result.replace(//g,'<br>');}
+    if(el){el.innerHTML='<div style="color:var(--a1);font-size:10px;margin-bottom:6px;">🤖 AI 검토 완료</div>'+result.replace(/\n/g,'<br>');}
   }).catch(()=>{window._cwData.aiCompleted=draft;});
 };
 window.openEsign = function(party){
