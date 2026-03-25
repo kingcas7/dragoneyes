@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>GARAK AI</title>
+<title>Smart AI K-Chain</title>
 
 <!-- PWA 필수 -->
 <link rel="manifest" href="manifest.json">
@@ -181,7 +181,7 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
         <p style="font-size:9px;letter-spacing:5px;color:var(--a1);font-weight:700;margin:0 0 8px;">AI SMART DISTRIBUTION</p>
         <h1 style="font-size:46px;font-weight:900;letter-spacing:-2px;line-height:1;margin:0 0 4px;">GARAK AI</h1>
         <p style="font-size:11px;color:var(--a1);font-family:monospace;margin:0 0 8px;letter-spacing:1px;">4.0</p>
-        <p style="font-size:13px;color:var(--t2);margin:0;">가락시장 스마트 유통 플랫폼</p>
+        <p style="font-size:13px;color:var(--t2);margin:0;">전국 농수산식품 스마트 유통 플렛폼</p>
       </div>
       <div style="background:linear-gradient(135deg,rgba(0,232,188,.08),rgba(79,156,249,.06));border:1.5px solid rgba(0,232,188,.2);border-radius:16px;padding:14px 16px;margin-bottom:28px;">
         <div style="font-size:10px;color:var(--a1);letter-spacing:2px;font-weight:700;margin-bottom:6px;">✨ MADE WITH LOVE</div>
@@ -1265,7 +1265,7 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
 
 <script>
 // ══════════════════════════════════════════
-// GARAK AI 4.0 — 프로토타입
+// Smart AI K-Chain — 프로토타입
 // ══════════════════════════════════════════
 
 const SUPABASE_URL = 'https://stqmgwwpuphqflwtekuy.supabase.co';
@@ -2026,7 +2026,7 @@ window.downloadLedgerPDF = function(partnerId){
     +'<table><tr><th>송장ID</th><th>품목</th><th>수량</th><th>거래처</th><th>확정단가</th><th>물품대금</th><th>상태</th><th>날짜</th></tr>'
     +rows+'</table>'
     +'<div class="total">총 거래액: &#8361;'+totalAmt.toLocaleString()+'</div>'
-    +'<div class="footer">GARAK AI 4.0 · 세무/회계 장부 열람 리포트 · 고객 수락 기반 열람</div>'
+    +'<div class="footer">Smart AI K-Chain · 세무/회계 장부 열람 리포트 · 고객 수락 기반 열람</div>'
     +'</body></html>';
   const w=window.open('','_blank');
   if(w){ w.document.write(html); w.document.close(); w.print(); }
@@ -2359,7 +2359,7 @@ window.finalizeContract = function(){
   window.printContractPDF(contract);
 };
 window.printContractPDF = function(contract){
-  const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+contract.typeName+'</title><style>body{font-family:"Noto Sans KR",sans-serif;margin:40px;font-size:13px;color:#111;line-height:1.8;}h2{font-size:18px;text-align:center;border-bottom:2px solid #333;padding-bottom:10px;}.parties{display:flex;gap:30px;margin:20px 0;padding:15px;background:#f9f9f9;border-radius:8px;}.party{flex:1;text-align:center;}.sign-box{border:1px solid #ddd;border-radius:8px;padding:15px;text-align:center;margin-top:8px;}.sign-img{max-width:180px;max-height:80px;}.footer{margin-top:30px;text-align:center;font-size:11px;color:#888;border-top:1px solid #eee;padding-top:10px;}</style></head><body><h2>'+contract.typeName+'</h2><div class="parties"><div class="party"><div><b>갑</b></div><div>'+contract.party_a+'</div>'+(contract.my_sign_img?'<div class="sign-box"><img class="sign-img" src="'+contract.my_sign_img+'"><br><small>'+contract.my_sign_at+'</small></div>':'<div class="sign-box">서명 없음</div>')+'</div><div class="party"><div><b>을</b></div><div>'+contract.party_b+'</div>'+(contract.other_sign_img?'<div class="sign-box"><img class="sign-img" src="'+contract.other_sign_img+'"><br><small>'+contract.other_sign_at+'</small></div>':'<div class="sign-box">서명 없음</div>')+'</div></div><pre style="white-space:pre-wrap;font-family:inherit;font-size:12px;">'+contract.content+'</pre><div class="footer">GARAK AI 4.0 · 전자계약 · '+new Date().toLocaleString('ko-KR')+'</div></body></html>';
+  const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+contract.typeName+'</title><style>body{font-family:"Noto Sans KR",sans-serif;margin:40px;font-size:13px;color:#111;line-height:1.8;}h2{font-size:18px;text-align:center;border-bottom:2px solid #333;padding-bottom:10px;}.parties{display:flex;gap:30px;margin:20px 0;padding:15px;background:#f9f9f9;border-radius:8px;}.party{flex:1;text-align:center;}.sign-box{border:1px solid #ddd;border-radius:8px;padding:15px;text-align:center;margin-top:8px;}.sign-img{max-width:180px;max-height:80px;}.footer{margin-top:30px;text-align:center;font-size:11px;color:#888;border-top:1px solid #eee;padding-top:10px;}</style></head><body><h2>'+contract.typeName+'</h2><div class="parties"><div class="party"><div><b>갑</b></div><div>'+contract.party_a+'</div>'+(contract.my_sign_img?'<div class="sign-box"><img class="sign-img" src="'+contract.my_sign_img+'"><br><small>'+contract.my_sign_at+'</small></div>':'<div class="sign-box">서명 없음</div>')+'</div><div class="party"><div><b>을</b></div><div>'+contract.party_b+'</div>'+(contract.other_sign_img?'<div class="sign-box"><img class="sign-img" src="'+contract.other_sign_img+'"><br><small>'+contract.other_sign_at+'</small></div>':'<div class="sign-box">서명 없음</div>')+'</div></div><pre style="white-space:pre-wrap;font-family:inherit;font-size:12px;">'+contract.content+'</pre><div class="footer">Smart AI K-Chain · 전자계약 · '+new Date().toLocaleString('ko-KR')+'</div></body></html>';
   const w=window.open('','_blank');
   if(w){w.document.write(html);w.document.close();w.print();}
 };
@@ -2998,7 +2998,7 @@ function renderHome(){
   let homeHTML = `
     <!-- 헤더 인사말 -->
     <div style="margin-bottom:14px;">
-      <div style="font-size:10px;color:var(--a1);letter-spacing:2px;margin-bottom:4px;">GARAK AI 4.0</div>
+      <div style="font-size:10px;color:var(--a1);letter-spacing:2px;margin-bottom:4px;">Smart AI K-Chain</div>
       <div style="font-size:20px;font-weight:800;">안녕하세요 ${curUserName||r.n} 님 👋</div>
       <div style="font-size:11px;color:var(--t2);margin-top:2px;">${r.n} · ${curGkid} · ${now.getMonth()+1}/${now.getDate()}(${['일','월','화','수','목','금','토'][now.getDay()]})</div>
     </div>`;
@@ -4296,7 +4296,7 @@ window.printLocalTaxNotice = function(orgId, taxId){
     ※ 농업인·영농법인은 감면 신청을 통해 세금을 절감할 수 있습니다.
   </div>
   <div class="footer">
-    GARAK AI 4.0 · 발행: ${now.toLocaleString('ko-KR')} · ${window._userBiznum||'사업자번호 미입력'}
+    Smart AI K-Chain · 발행: ${now.toLocaleString('ko-KR')} · ${window._userBiznum||'사업자번호 미입력'}
   </div>
   </body></html>`;
   const w=window.open('','_blank');
@@ -4357,7 +4357,7 @@ window.printTaxNotice = function(type){
     ※ GARAK AI에서 세무/회계 거래처 연결 후 신고 대리 서비스 이용 가능합니다.
   </div>
   <div class="footer">
-    GARAK AI 4.0 · 발행: ${now.toLocaleString('ko-KR')} · ${window._userBiznum||'사업자번호 미입력'}
+    Smart AI K-Chain · 발행: ${now.toLocaleString('ko-KR')} · ${window._userBiznum||'사업자번호 미입력'}
   </div>
   </body></html>`;
   const w=window.open('','_blank');
@@ -5167,7 +5167,7 @@ window.printPDF=function(){
   }).join('')}
   <tr><td colspan="5" style="font-weight:800;">합계</td><td class="total" style="font-size:15px;">₩${totalAmt.toLocaleString()}</td><td colspan="2"></td></tr>
   </table>
-  <div class="footer">GARAK AI 4.0 · ${curGkid} · ${curUserName}</div>
+  <div class="footer">Smart AI K-Chain · ${curGkid} · ${curUserName}</div>
   </body></html>`;
   const w=window.open('','_blank');
   w.document.write(html); w.document.close(); w.print();
@@ -5210,7 +5210,7 @@ window.printSinglePDF=function(id){
   </style></head><body>
   <div class="seal">🌾</div>
   <h1>📄 전자전표</h1>
-  <span class="badge">GARAK AI 4.0</span>
+  <span class="badge">Smart AI K-Chain</span>
   ${isConfirmed?'<span class="badge badge-green">✅ 확정 전표</span>':'<span class="badge" style="background:#856404;">⏳ 예상 전표</span>'}
   <br><br>
   <div class="status-banner">
@@ -5253,7 +5253,7 @@ window.printSinglePDF=function(id){
     ${inv.memo?`<tr><td>메모</td><td>${inv.memo}</td></tr>`:''}
   </table>
   <div class="footer">
-    본 전표는 GARAK AI 4.0 플랫폼에서 자동 발행된 전자전표입니다<br>
+    본 전표는 Smart AI K-Chain 플랫폼에서 자동 발행된 전자전표입니다<br>
     발행: ${new Date().toLocaleString('ko-KR')} · ${curGkid}
   </div>
   </body></html>`;
@@ -5280,7 +5280,7 @@ window.printExpensePDF=function(id){
     .footer{margin-top:30px;text-align:center;font-size:11px;color:#aaa;border-top:1px solid #eee;padding-top:14px;}
   </style></head><body>
   <h1>🧾 경비 전표</h1>
-  <span class="badge">GARAK AI 4.0</span>
+  <span class="badge">Smart AI K-Chain</span>
   ${e.imageData?`<br><img class="img" src="${e.imageData}">`:''}
   <table>
     <tr><td>전표번호</td><td>${e.id}</td></tr>
