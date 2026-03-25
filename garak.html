@@ -11,7 +11,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="GARAK AI">
+<meta name="apple-mobile-web-app-title" content="K-Chain">
 
 <!-- 아이콘 (iOS용) -->
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -178,8 +178,8 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
   <div id="login-landing">
     <div style="width:100%;max-width:360px;text-align:center;padding-top:20px;">
       <div style="margin-bottom:28px;">
-        <p style="font-size:9px;letter-spacing:5px;color:var(--a1);font-weight:700;margin:0 0 8px;">AI SMART DISTRIBUTION</p>
-        <h1 style="font-size:46px;font-weight:900;letter-spacing:-2px;line-height:1;margin:0 0 4px;">GARAK AI</h1>
+        <p style="font-size:18px;letter-spacing:5px;color:var(--a1);font-weight:700;margin:0 0 8px;">Smart Agent AI</p>
+        <h1 style="font-size:46px;font-weight:900;letter-spacing:-2px;line-height:1;margin:0 0 4px;">K-Chain</h1>
         <p style="font-size:11px;color:var(--a1);font-family:monospace;margin:0 0 8px;letter-spacing:1px;">4.0</p>
         <p style="font-size:13px;color:var(--t2);margin:0;">전국 농수산식품 스마트 유통 플렛폼</p>
       </div>
@@ -315,7 +315,7 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
       <div class="sheet-title" id="tp-title">💳 세금 납부</div>
       <button onclick="window.closeSheet('sh-tax-payment')" style="color:var(--t2);font-size:20px;">✕</button>
     </div>
-    <div class="sheet-sub" id="tp-sub">GARAK AI 결제 시스템으로 납부합니다</div>
+    <div class="sheet-sub" id="tp-sub">K-Chain 결제 시스템으로 납부합니다</div>
 
     <!-- 납부 정보 -->
     <div style="background:var(--s2);border-radius:12px;padding:12px 14px;margin-bottom:12px;" id="tp-info">
@@ -351,7 +351,7 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
       <div class="flabel">결제 수단</div>
       <div style="background:var(--s2);border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
         <div>
-          <div style="font-size:12px;font-weight:700;">등록 카드 (GARAK AI)</div>
+          <div style="font-size:12px;font-weight:700;">등록 카드 (K-Chain)</div>
           <div style="font-size:10px;color:var(--t2);">카드 등록 후 간편납부 가능</div>
         </div>
         <span class="tag tag-b" style="font-size:9px;">준비 중</span>
@@ -563,7 +563,7 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
 
     <div style="background:rgba(0,232,188,.05);border:1px solid rgba(0,232,188,.15);border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:10px;color:var(--t2);line-height:1.7;">
       📌 출품 등록 후 청과법인 승인 시 경매에 등재됩니다<br>
-      📌 GARAK AI 거래 이력과 신뢰등급이 경매 우선순위에 반영됩니다
+      📌 K-Chain 거래 이력과 신뢰등급이 경매 우선순위에 반영됩니다
     </div>
 
     <button onclick="window.submitListing()" class="btn btn-p">📦 출품 등록 완료</button>
@@ -577,7 +577,7 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
       <div class="sheet-title">💳 낙찰 대금 결제</div>
       <button onclick="window.closeSheet('sh-auction-payment')" style="color:var(--t2);font-size:20px;">✕</button>
     </div>
-    <div class="sheet-sub">낙찰 대금을 GARAK AI로 결제하세요</div>
+    <div class="sheet-sub">낙찰 대금을 K-Chain로 결제하세요</div>
 
     <div style="background:var(--s2);border-radius:12px;padding:12px 14px;margin-bottom:12px;">
       <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--b2);font-size:12px;">
@@ -796,7 +796,7 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
 <div class="sheet-overlay" id="sh-ai">
   <div class="sheet">
     <div class="sheet-hd">
-      <div class="sheet-title">🤖 GARAK AI 어시스턴트</div>
+      <div class="sheet-title">🤖 K-Chain 어시스턴트</div>
       <button onclick="window.closeSheet('sh-ai')" style="color:var(--t2);font-size:20px;">✕</button>
     </div>
     <div class="sheet-sub" id="ai-sheet-sub">역할에 맞는 AI 도움을 드려요</div>
@@ -1029,7 +1029,7 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
     <div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:12px;margin-bottom:14px;">
       <div style="font-size:10px;color:var(--a2);font-weight:700;margin-bottom:8px;">📨 발송될 메시지</div>
       <div style="font-size:12px;color:var(--t1);line-height:1.8;" id="dunning-msg-preview">
-        안녕하세요. GARAK AI 플랫폼을 통해 출하한 농산물 대금 지급을 요청드립니다.<br><br>
+        안녕하세요. K-Chain 플랫폼을 통해 출하한 농산물 대금 지급을 요청드립니다.<br><br>
         미수금액이 발생하고 있어 조속한 처리를 부탁드립니다.<br>
         대금 지급 예정일을 이 메시지에 답장으로 알려주시면 감사하겠습니다.
       </div>
@@ -1408,15 +1408,15 @@ const PENALTY_DATA = [
   {id:'p4', type:'red', title:'위생기준 위반', desc:'농산물 위생·안전 기준 미달 제품 반입 또는 유통', penalty:'즉시 반입 금지 · 전량 폐기 명령', law:'식품위생법 제4조'},
   {id:'p5', type:'yellow', title:'경매 방해 행위', desc:'경매 시 담합, 낙찰 방해, 허위 응찰 등 불공정 행위', penalty:'경고 · 누적 3회 시 거래 정지 6개월', law:'가락시장 경매 운영규정 제15조'},
   {id:'p6', type:'yellow', title:'정산 지연', desc:'낙찰 후 정해진 기간 내 대금 미지급', penalty:'연체이자 부과 · 거래 정지', law:'농수산물 유통 및 가격안정에 관한 법률 제38조'},
-  {id:'p7', type:'yellow', title:'플랫폼 허위 정보 입력', desc:'GARAK AI 플랫폼에 허위 재배면적, 소출량, 원산지 등 입력', penalty:'계정 정지 · 정책자금 환수 · 신뢰등급 초기화', law:'GARAK 플랫폼 이용약관 제20조'},
+  {id:'p7', type:'yellow', title:'플랫폼 허위 정보 입력', desc:'K-Chain 플랫폼에 허위 재배면적, 소출량, 원산지 등 입력', penalty:'계정 정지 · 정책자금 환수 · 신뢰등급 초기화', law:'GARAK 플랫폼 이용약관 제20조'},
 ];
 
 // ── 정책자금 데이터 ──
 const POLICY_FUNDS = [
   {id:'pf1', title:'청년 농업인 영농 정착 지원', org:'농림축산식품부', amount:'최대 ₩3,000,000/년', target:'만 18~40세 신규 농업인', deadline:'2026-06-30', grade:'seed', tags:['청년','신규','개인']},
   {id:'pf2', title:'스마트팜 전환 지원사업', org:'농림축산식품부', amount:'최대 ₩50,000,000', target:'시설원예 재배 농가', deadline:'2026-04-15', grade:'grow', tags:['스마트팜','시설재배','법인가능']},
-  {id:'pf3', title:'농업경영체 등록 지원', org:'국립농산물품질관리원', amount:'₩500,000 (등록비 지원)', target:'GARAK AI 사용 농가', deadline:'상시', grade:'seed', tags:['경영체','등록','필수']},
-  {id:'pf4', title:'가락시장 출하 활성화 장려금', org:'서울시농수산식품공사', amount:'출하액의 0.3% 환급', target:'GARAK AI 성장등급 이상', deadline:'분기별 지급', grade:'grow', tags:['장려금','정기','성장이상']},
+  {id:'pf3', title:'농업경영체 등록 지원', org:'국립농산물품질관리원', amount:'₩500,000 (등록비 지원)', target:'K-Chain 사용 농가', deadline:'상시', grade:'seed', tags:['경영체','등록','필수']},
+  {id:'pf4', title:'가락시장 출하 활성화 장려금', org:'서울시농수산식품공사', amount:'출하액의 0.3% 환급', target:'K-Chain 성장등급 이상', deadline:'분기별 지급', grade:'grow', tags:['장려금','정기','성장이상']},
   {id:'pf5', title:'친환경 농산물 인증 지원', org:'국립농산물품질관리원', amount:'최대 ₩2,000,000', target:'친환경 재배 전환 희망 농가', deadline:'2026-05-31', grade:'sprout', tags:['친환경','인증','지원']},
 ];
 
@@ -2083,7 +2083,7 @@ window.requestTerminateService = function(id){
   const p=(window._servicePartners||[]).find(x=>x.id===id); if(!p) return;
   if(p.unpaidAmt>0){
     toast('⚠️ 미정산 업무 대금 ₩'+p.unpaidAmt.toLocaleString()+'이 있어 해지할 수 없습니다.');
-    setTimeout(()=>{ toast('🤖 AI: GARAK AI 내 업무 결제를 먼저 완료해야 해지할 수 있습니다. [결제·토큰] 탭에서 처리하세요.'); }, 2500);
+    setTimeout(()=>{ toast('🤖 AI: K-Chain 내 업무 결제를 먼저 완료해야 해지할 수 있습니다. [결제·토큰] 탭에서 처리하세요.'); }, 2500);
     return;
   }
   if(!confirm(p.name+' 서비스 거래처를 해지하시겠습니까?')) return;
@@ -2119,13 +2119,13 @@ ${d.period||'계약 체결일로부터 1년간'}
 ${d.location||'서울특별시 송파구 가락로 320 가락시장'}
 
 제5조 (결제 조건)
-${d.payment||'출하 익일 정산 (GARAK AI 플랫폼 기준)'}
+${d.payment||'출하 익일 정산 (K-Chain 플랫폼 기준)'}
 
 제6조 (계약 위반)
-본 계약을 위반한 경우 GARAK AI 플랫폼의 분쟁 조정 절차에 따릅니다.
+본 계약을 위반한 경우 K-Chain 플랫폼의 분쟁 조정 절차에 따릅니다.
 
 계약 체결일: ${d.date}
-GARAK AI 플랫폼에서 전자계약으로 체결됨`
+K-Chain 플랫폼에서 전자계약으로 체결됨`
   },
   consign: {
     name:'위탁판매 계약서', icon:'🤝', desc:'농산물 위탁판매 위임 계약',
@@ -2142,7 +2142,7 @@ GARAK AI 플랫폼에서 전자계약으로 체결됨`
 제5조 (계약기간) ${d.period||'계약 체결일로부터 1년'}
 
 계약 체결일: ${d.date}
-GARAK AI 플랫폼에서 전자계약으로 체결됨`
+K-Chain 플랫폼에서 전자계약으로 체결됨`
   },
   tax_service: {
     name:'세무/회계 서비스 계약서', icon:'🧾', desc:'세무·회계 업무 위임 계약',
@@ -2155,11 +2155,11 @@ GARAK AI 플랫폼에서 전자계약으로 체결됨`
 제1조 (업무 범위) ${d.scope||'종합소득세 신고, 부가세 신고, 기장대리, 세무 자문'}
 제2조 (수임료) ${d.fee||'월 정액 협의'}
 제3조 (계약기간) ${d.period||'1년 (자동갱신)'}
-제4조 (자료 제공) GARAK AI 플랫폼을 통해 거래내역 및 장부를 수임인에게 공유합니다.
+제4조 (자료 제공) K-Chain 플랫폼을 통해 거래내역 및 장부를 수임인에게 공유합니다.
 제5조 (비밀유지) 수임인은 업무상 알게 된 위임인의 정보를 제3자에게 제공하지 않습니다.
 
 계약 체결일: ${d.date}
-GARAK AI 플랫폼에서 전자계약으로 체결됨`
+K-Chain 플랫폼에서 전자계약으로 체결됨`
   },
   custom: {
     name:'기타 계약서', icon:'📋', desc:'직접 작성하는 계약서',
@@ -2172,7 +2172,7 @@ GARAK AI 플랫폼에서 전자계약으로 체결됨`
 ${d.content||'계약 내용을 입력하세요.'}
 
 계약 체결일: ${d.date}
-GARAK AI 플랫폼에서 전자계약으로 체결됨`
+K-Chain 플랫폼에서 전자계약으로 체결됨`
   },
 };
 
@@ -2222,7 +2222,7 @@ window.renderContractWizard = function(){
   else if(step===4){
     const ct=CONTRACT_TYPES[d.type];
     titleEl.textContent='📝 Step 4 · 세부사항 수정';
-    const fieldMap={'품목':['cw-item','text','예: 사과, 배, 배추'],'공급수량':['cw-qty','text','예: 매주 200박스'],'단가':['cw-price','text','예: 시세 기준'],'결제조건':['cw-payment','text','예: 출하 익일 정산'],'공급기간':['cw-period','text','예: 2026.04~2027.03'],'인도장소':['cw-location','text','예: 가락시장 A동'],'위탁품목':['cw-item','text','예: 농산물'],'위탁수수료율':['cw-commission','number','예: 8 (%)'],'정산주기':['cw-settlement','text','예: 판매 익일'],'최저판매가':['cw-min_price','text','예: 시세의 80%'],'업무범위':['cw-scope','text','예: 종합소득세, 부가세'],'수임료':['cw-fee','text','예: 월 30만원'],'계약기간':['cw-period','text','예: 1년 (자동갱신)'],'자료제공방식':['cw-data','text','예: GARAK AI 플랫폼 장부 공유'],'계약제목':['cw-title','text','계약서 제목'],'계약내용':['cw-content','textarea','계약 내용을 입력하세요']};
+    const fieldMap={'품목':['cw-item','text','예: 사과, 배, 배추'],'공급수량':['cw-qty','text','예: 매주 200박스'],'단가':['cw-price','text','예: 시세 기준'],'결제조건':['cw-payment','text','예: 출하 익일 정산'],'공급기간':['cw-period','text','예: 2026.04~2027.03'],'인도장소':['cw-location','text','예: 가락시장 A동'],'위탁품목':['cw-item','text','예: 농산물'],'위탁수수료율':['cw-commission','number','예: 8 (%)'],'정산주기':['cw-settlement','text','예: 판매 익일'],'최저판매가':['cw-min_price','text','예: 시세의 80%'],'업무범위':['cw-scope','text','예: 종합소득세, 부가세'],'수임료':['cw-fee','text','예: 월 30만원'],'계약기간':['cw-period','text','예: 1년 (자동갱신)'],'자료제공방식':['cw-data','text','예: K-Chain 플랫폼 장부 공유'],'계약제목':['cw-title','text','계약서 제목'],'계약내용':['cw-content','textarea','계약 내용을 입력하세요']};
     el.innerHTML=stepBar+`<div style="font-size:12px;color:var(--t2);margin-bottom:10px;">세부 내용을 입력하면 계약서에 자동 반영됩니다</div>`+
     ct.fields.map(f=>{const [id,type,ph]=fieldMap[f]||[f.toLowerCase(),'text','입력'];const key=id.replace('cw-','');return `<div class="fgroup" style="margin-bottom:8px;"><div class="flabel">${f}</div>${type==='textarea'?`<textarea class="finput" id="${id}" rows="4" placeholder="${ph}" style="resize:none;">${d[key]||''}</textarea>`:`<input class="finput" id="${id}" type="${type}" placeholder="${ph}" value="${d[key]||''}">`}</div>`;}).join('')+
     `<div style="display:flex;gap:8px;margin-top:4px;"><button onclick="window._cwStep=3;window.renderContractWizard();" style="flex:1;padding:10px;border-radius:10px;background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-size:12px;cursor:pointer;">← 이전</button><button onclick="window.saveContractFields();window._cwStep=5;window.renderContractWizard();" style="flex:2;padding:10px;border-radius:10px;background:#a855f7;color:#fff;font-size:12px;font-weight:700;border:none;cursor:pointer;">🤖 AI로 완성하기 →</button></div>`;
@@ -3207,7 +3207,7 @@ function renderCropPage(){
           <span style="color:var(--t2);">${d.farmers.toLocaleString()}농가</span>
           <span class="tag ${d.status==='수확기'?'tag-g':d.status==='파종중'?'tag-b':'tag-y'}">${d.status}</span>
         </div>`).join('')}
-        <div style="font-size:10px;color:var(--t3);margin-top:8px;">※ 데이터는 GARAK AI 플랫폼 참여 농가 기준</div>
+        <div style="font-size:10px;color:var(--t3);margin-top:8px;">※ 데이터는 K-Chain 플랫폼 참여 농가 기준</div>
       </div>
     </div>`;
 
@@ -3360,7 +3360,7 @@ const POLICY_ORG_DATA = {
       {name:'경매팀', role:'농산물 경매 운영 및 관리', tel:'02-3435-1041', items:['경매','낙찰','가격']},
     ],
     funds:[
-      {name:'가락시장 출하 장려금', amount:'출하액의 0.3% 환급', rate:'—', period:'분기 지급', target:'GARAK AI 등록 농가'},
+      {name:'가락시장 출하 장려금', amount:'출하액의 0.3% 환급', rate:'—', period:'분기 지급', target:'K-Chain 등록 농가'},
       {name:'전자송품장 전환 지원', amount:'시스템 지원', rate:'—', period:'상시', target:'종이전표 사용 출하자'},
     ],
     notices:[
@@ -3819,7 +3819,7 @@ function renderPolicyHome(){
       </div>
     </div>`).join('')}
     <div style="padding:10px;background:var(--s2);border-radius:10px;font-size:11px;color:var(--t2);text-align:center;">
-      🔜 전문가 등록 및 매칭 서비스 오픈 예정 · GARAK AI 내 업무 결제 지원
+      🔜 전문가 등록 및 매칭 서비스 오픈 예정 · K-Chain 내 업무 결제 지원
     </div>`;
   }
 
@@ -4093,7 +4093,7 @@ function renderPolicyOrg(id){
         color:'rgba(244,196,48,.05)', border:'rgba(244,196,48,.2)', titleClr:'var(--a4)',
         desc:'농업인·영농법인 지방세 감면 항목 및 신청 방법',
         deadline:'과세 전 신청 또는 납부 후 환급 신청',
-        steps:['농지 재산세 50~100% 감면 가능','영농법인 취득세·재산세 감면','지자체 세무과에 감면 신청서 제출','GARAK AI 송장·거래이력이 감면 증빙 자료로 활용 가능'],
+        steps:['농지 재산세 50~100% 감면 가능','영농법인 취득세·재산세 감면','지자체 세무과에 감면 신청서 제출','K-Chain 송장·거래이력이 감면 증빙 자료로 활용 가능'],
         links:[
           {name:'위택스 감면신청', url:'https://wetax.go.kr', badge:'외부링크'},
           {name:`${org.name} 세무과`, url:`tel:${org.tel}`, badge:'☎ 전화'},
@@ -4220,7 +4220,7 @@ window.openTaxPayment = function(taxType, orgOrMenu, subMenu){
   const isLocal = taxType==='local';
 
   document.getElementById('tp-title').textContent = (isLocal?'🏙 지방세':'🏦 국세')+' 바로납부';
-  document.getElementById('tp-sub').textContent = label+' 납부 — GARAK AI 결제 시스템';
+  document.getElementById('tp-sub').textContent = label+' 납부 — K-Chain 결제 시스템';
   document.getElementById('tp-name').textContent = curUserName||'—';
   document.getElementById('tp-type').textContent = label;
   document.getElementById('tp-biznum').textContent = window._userBiznum||'—';
@@ -4275,7 +4275,7 @@ window.printLocalTaxNotice = function(orgId, taxId){
     .stamp{float:right;font-size:36px;margin-top:-20px;}
     .watermark{color:#efefef;font-size:44px;font-weight:900;text-align:center;transform:rotate(-30deg);position:fixed;top:38%;left:12%;z-index:-1;}
   </style></head><body>
-  <div class="watermark">GARAK AI 견본</div>
+  <div class="watermark">K-Chain 견본</div>
   <div class="stamp">🏙</div>
   <h1>📄 ${label} 고지서 (견본)</h1>
   <span class="badge">위택스 협의 필요 · 프로토타입</span>
@@ -4287,12 +4287,12 @@ window.printLocalTaxNotice = function(orgId, taxId){
     <tr><td>과세연도</td><td>${yy}년도</td></tr>
     <tr><td>납부기한</td><td>${taxId==='prop_tax'?yy+'.09.30':yy+'.05.31'}</td></tr>
     <tr><td>납부세액</td><td class="total">₩ — (위택스 연동 후 실 금액 표시)</td></tr>
-    <tr><td>납부방법</td><td>위택스(wetax.go.kr) · 가상계좌 · GARAK AI 납부 (준비 중)</td></tr>
+    <tr><td>납부방법</td><td>위택스(wetax.go.kr) · 가상계좌 · K-Chain 납부 (준비 중)</td></tr>
   </table>
   <div class="notice">
-    ※ 이 고지서는 GARAK AI 프로토타입에서 생성된 <b>견본</b>입니다.<br>
+    ※ 이 고지서는 K-Chain 프로토타입에서 생성된 <b>견본</b>입니다.<br>
     ※ 실제 고지서는 <b>위택스(wetax.go.kr)</b> 또는 ${org?org.name:'해당 지자체'} 세무과에서 확인하세요.<br>
-    ※ GARAK AI에서 위택스 API 연동 협의 완료 후 실제 납부 정보가 표시됩니다.<br>
+    ※ K-Chain에서 위택스 API 연동 협의 완료 후 실제 납부 정보가 표시됩니다.<br>
     ※ 농업인·영농법인은 감면 신청을 통해 세금을 절감할 수 있습니다.
   </div>
   <div class="footer">
@@ -4335,7 +4335,7 @@ window.printTaxNotice = function(type){
     .stamp{float:right;font-size:36px;margin-top:-20px;}
     .watermark{color:#efefef;font-size:44px;font-weight:900;text-align:center;transform:rotate(-30deg);position:fixed;top:38%;left:12%;z-index:-1;}
   </style></head><body>
-  <div class="watermark">GARAK AI 견본</div>
+  <div class="watermark">K-Chain 견본</div>
   <div class="stamp">🏦</div>
   <h1>📄 ${label} 납부고지서 (견본)</h1>
   <span class="badge">국세청 협의 필요 · 프로토타입</span>
@@ -4346,15 +4346,15 @@ window.printTaxNotice = function(type){
     <tr><td>세목</td><td>${label}</td></tr>
     <tr><td>과세연도</td><td>${yy-1}년도 귀속</td></tr>
     <tr><td>신고기한</td><td>${type==='corp_tax'?yy+'.03.31':yy+'.05.31'}</td></tr>
-    <tr><td>납부세액</td><td class="total">₩ — (GARAK AI 연동 후 실 금액 표시)</td></tr>
+    <tr><td>납부세액</td><td class="total">₩ — (K-Chain 연동 후 실 금액 표시)</td></tr>
     <tr><td>납부기한</td><td>${type==='corp_tax'?yy+'.03.31':yy+'.05.31'}</td></tr>
     <tr><td>납부계좌</td><td>홈택스 연동 후 가상계좌 발급</td></tr>
   </table>
   <div class="notice">
-    ※ 이 고지서는 GARAK AI 프로토타입에서 생성된 <b>견본</b>입니다.<br>
+    ※ 이 고지서는 K-Chain 프로토타입에서 생성된 <b>견본</b>입니다.<br>
     ※ 실제 납부고지서는 <b>홈택스(hometax.go.kr)</b>에서 출력하거나 국세청(☎ 126)에 문의하세요.<br>
     ※ 국세청 API 연동 협의 완료 후 실제 납부 정보가 자동 표시됩니다.<br>
-    ※ GARAK AI에서 세무/회계 거래처 연결 후 신고 대리 서비스 이용 가능합니다.
+    ※ K-Chain에서 세무/회계 거래처 연결 후 신고 대리 서비스 이용 가능합니다.
   </div>
   <div class="footer">
     Smart AI K-Chain · 발행: ${now.toLocaleString('ko-KR')} · ${window._userBiznum||'사업자번호 미입력'}
@@ -4489,7 +4489,7 @@ window.openPenaltySheet = function(type){
   const body=document.getElementById('penalty-detail-body');
   body.innerHTML = `
     <div style="margin-bottom:14px;font-size:12px;color:var(--t2);line-height:1.7;">
-      GARAK AI 플랫폼 이용 시 아래 규정을 반드시 준수해야 합니다.<br>
+      K-Chain 플랫폼 이용 시 아래 규정을 반드시 준수해야 합니다.<br>
       위반 시 과태료, 거래 정지, 계정 정지 등의 조치가 취해집니다.
     </div>
     ${PENALTY_DATA.map(p=>`
@@ -4503,7 +4503,7 @@ window.openPenaltySheet = function(type){
       <div style="font-size:10px;color:var(--t3);margin-top:2px;">${p.law}</div>
     </div>`).join('')}
     <div style="margin-top:14px;padding:12px;background:var(--s2);border-radius:10px;font-size:11px;color:var(--t2);line-height:1.7;">
-      📌 GARAK AI 플랫폼은 모든 거래 데이터를 기록·보존하며, 관계 기관 요청 시 제공될 수 있습니다.<br>
+      📌 K-Chain 플랫폼은 모든 거래 데이터를 기록·보존하며, 관계 기관 요청 시 제공될 수 있습니다.<br>
       📌 신고 접수: 가락시장관리공단 ☎ 02-3435-1000
     </div>`;
   window.openSheet('sh-penalty');
@@ -5144,7 +5144,7 @@ window.printPDF=function(){
   const periodLabel=['주간','월간','년간'][['weekly','monthly','yearly'].indexOf(period)];
   const totalAmt=filtered.reduce((s,i)=>s+(i.total_amt||0),0);
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <title>GARAK AI - ${periodLabel} 거래내역</title>
+  <title>K-Chain - ${periodLabel} 거래내역</title>
   <style>
     body{font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;margin:30px;color:#111;font-size:13px;}
     h1{font-size:20px;margin-bottom:4px;}
@@ -5156,7 +5156,7 @@ window.printPDF=function(){
     .total{font-weight:800;color:#00b050;}
     .footer{margin-top:20px;font-size:11px;color:#999;text-align:center;}
   </style></head><body>
-  <h1>📊 GARAK AI 거래내역 — ${periodLabel}</h1>
+  <h1>📊 K-Chain 거래내역 — ${periodLabel}</h1>
   <div class="sub">출력일: ${now.toLocaleDateString('ko-KR')} · 총 ${filtered.length}건 · 합계 ₩${totalAmt.toLocaleString()}</div>
   <table><tr><th>#</th><th>날짜</th><th>송장번호</th><th>품목</th><th>수량</th><th>금액</th><th>수취인</th><th>상태</th></tr>
   ${filtered.map((inv,i)=>{
@@ -5291,7 +5291,7 @@ window.printExpensePDF=function(id){
     <tr><td>금액</td><td class="amount">₩${(e.amount||0).toLocaleString()}${e.vatIncluded?' (VAT포함)':''}</td></tr>
     ${e.memo?`<tr><td>메모</td><td>${e.memo}</td></tr>`:''}
   </table>
-  <div class="footer">GARAK AI · ${curGkid} · ${curUserName} · ${new Date().toLocaleString('ko-KR')}</div>
+  <div class="footer">K-Chain · ${curGkid} · ${curUserName} · ${new Date().toLocaleString('ko-KR')}</div>
   </body></html>`;
   const w=window.open('','_blank');
   w.document.write(html); w.document.close(); w.print();
@@ -5575,7 +5575,7 @@ function renderMyPaymentSection(){
     <div style="background:linear-gradient(135deg,rgba(0,232,188,.1),rgba(79,156,249,.08));border:1.5px solid rgba(0,232,188,.25);border-radius:14px;padding:14px;margin-bottom:10px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <div>
-          <div style="font-size:11px;color:var(--t2);">GARAK AI 토큰 잔액</div>
+          <div style="font-size:11px;color:var(--t2);">K-Chain 토큰 잔액</div>
           <div style="font-size:24px;font-weight:900;color:var(--a1);">${tokenBalance.toLocaleString()} <span style="font-size:13px;">T</span></div>
         </div>
         <div style="text-align:right;">
@@ -7578,7 +7578,7 @@ window.sendAIMsg=function(msg){
     body: JSON.stringify({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 1000,
-      system: `당신은 GARAK AI의 농수산물 유통 전문 AI 어시스턴트입니다.
+      system: `당신은 K-Chain의 농수산물 유통 전문 AI 어시스턴트입니다.
 현재 사용자 정보:
 - 역할: ${ROLES[curRole]?.n||curRole}
 - 이름: ${curUserName}
