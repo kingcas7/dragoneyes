@@ -1,14 +1,11 @@
-const CACHE = 'garak-ai-v1';
+// Service Worker 비활성화 - 캐시 없이 항상 최신 버전 로드
 self.addEventListener('install', e => { self.skipWaiting(); });
-self.addEventListener('activate', e => { self.clients.claim(); });
+self.addEventListener('activate', e => {
+  self.clients.claim();
+  // 모든 캐시 삭제
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))));
+});
 self.addEventListener('fetch', e => {
-  if(e.request.url.includes('supabase.co') || e.request.url.includes('anthropic.com')) return;
-  e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request).then(res => {
-      if(e.request.url.includes('garak.html')) {
-        caches.open(CACHE).then(c => c.put(e.request, res.clone()));
-      }
-      return res;
-    }).catch(() => caches.match('/dragoneyes/garak.html')))
-  );
+  // 캐시 없이 항상 네트워크에서 직접 가져옴
+  e.respondWith(fetch(e.request));
 });
