@@ -2672,6 +2672,12 @@ window.selectSubPerm = function(perm){
   });
 };
 
+// 역할별 사용자 추가 요금 계산
+window._getUserAddFee = function(){
+  const lowFeeRoles = ['producer_ind','producer_corp','gov_garaksa','gov_seoul','gov_nts','gov_public'];
+  return lowFeeRoles.includes(curRole) ? 10000 : 20000;
+};
+
 window.saveSubUser = function(){
   const name    = document.getElementById('su-name')?.value.trim();
   const role    = document.getElementById('su-role')?.value;
@@ -2692,6 +2698,50 @@ window.saveSubUser = function(){
     if(!stayTo)   { toast('체류 만료일을 입력하세요'); return; }
   }
 
+  // 요금 확인 모달
+  const fee = window._getUserAddFee();
+  const html=`
+  <div id="useradd-fee-overlay" onclick="if(event.target===this)document.getElementById('useradd-fee-overlay').remove()" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;">
+    <div style="background:var(--s1);border-radius:16px;padding:22px;width:100%;max-width:340px;">
+      <div style="font-size:15px;font-weight:800;margin-bottom:6px;">👤 사용자 추가 확인</div>
+      <div style="font-size:12px;color:var(--t2);margin-bottom:16px;">사용자 1명 추가 시 아래 요금이 크레딧에서 차감됩니다.</div>
+      <div style="background:var(--s2);border-radius:12px;padding:14px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px;">
+          <span style="color:var(--t2);">추가 대상</span>
+          <span style="font-weight:700;">${name}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;">
+          <span style="color:var(--t2);">사용자 추가 요금</span>
+          <span style="font-weight:800;color:var(--a4);">₩${fee.toLocaleString()} / 명</span>
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--t3);margin-bottom:14px;line-height:1.6;">
+        ${fee===10000?'생산자·공공기관은 1인당 ₩10,000이 적용됩니다.':'일반 역할은 1인당 ₩20,000이 적용됩니다.'}<br>
+        크레딧 잔액 부족 시 물품대금에서 자동 차감됩니다.
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="document.getElementById('useradd-fee-overlay').remove()" style="flex:1;padding:11px;border-radius:10px;background:var(--s2);border:1px solid var(--b1);color:var(--t1);font-size:13px;font-weight:700;cursor:pointer;">취소</button>
+        <button onclick="window._confirmAddUser('${name}','${role}','${tel}','${country}','${visaType}','${passport}','${stayTo}')" style="flex:2;padding:11px;border-radius:10px;background:var(--a1);color:#080d18;font-size:13px;font-weight:800;border:none;cursor:pointer;">₩${fee.toLocaleString()} 결제 후 추가</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+};
+
+window._confirmAddUser = function(name, role, tel, country, visaType, passport, stayTo){
+  document.getElementById('useradd-fee-overlay')?.remove();
+  const fee = window._getUserAddFee();
+
+  // 크레딧 차감 (실제 PG 연동 전 시뮬레이션)
+  if((window._tokenBalance||0) >= fee){
+    window._tokenBalance = (window._tokenBalance||0) - fee;
+  } else if(window._autoDeduct){
+    toast('💳 크레딧 부족 → 물품대금에서 ₩'+fee.toLocaleString()+' 자동 차감 예정');
+  } else {
+    toast('⚠️ 크레딧이 부족합니다. 충전 후 다시 시도하세요.');
+    return;
+  }
+
   if(!window._subUsers) window._subUsers=[];
   window._subUsers.push({
     name, role, tel,
@@ -2702,7 +2752,7 @@ window.saveSubUser = function(){
   });
 
   window.closeSheet('sh-adduser');
-  toast('✅ '+name+'님이 추가 사용자로 등록됐습니다');
+  toast('✅ '+name+'님 추가 완료 · ₩'+fee.toLocaleString()+' 차감됨');
   renderMyPage();
   saveAppData();
 };
@@ -6434,12 +6484,16 @@ function renderMyUsersSection(){
   const foreign = subUsers.filter(u=>u.nationality==='foreign');
 
   return `
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
     <div style="font-size:13px;font-weight:700;">👥 사용자 관리</div>
     <button onclick="window.openAddUserSheet()"
       style="padding:6px 12px;border-radius:8px;background:var(--a1);color:#080d18;font-size:11px;font-weight:700;border:none;cursor:pointer;">
       + 사용자 추가
     </button>
+  </div>
+  <div style="background:rgba(244,196,48,.06);border:1px solid rgba(244,196,48,.2);border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:10px;color:var(--t2);line-height:1.7;">
+    💡 사용자 추가 요금: ${['producer_ind','producer_corp','gov_garaksa','gov_seoul','gov_nts','gov_public'].includes(curRole)?'<strong style="color:var(--a4);">₩10,000 / 명</strong> (생산자·공공기관)':'<strong style="color:var(--a4);">₩20,000 / 명</strong> (일반 역할)'}<br>
+    크레딧 차감 또는 물품대금 자동 청구
   </div>
 
   <!-- 본인 정보 -->
