@@ -220,6 +220,79 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
   </div>
 </div>
 
+
+<!-- ══ 주문하기 시트 ══ -->
+<div id="sh-order" style="display:none;position:fixed;inset:0;z-index:300;background:var(--bg);overflow-y:auto;">
+  <div style="position:sticky;top:0;z-index:10;background:rgba(8,13,24,.95);backdrop-filter:blur(12px);padding:12px 16px;border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:12px;">
+    <button onclick="document.getElementById('sh-order').style.display='none'" style="color:var(--t2);font-size:14px;">← 뒤로</button>
+    <div style="flex:1;font-size:15px;font-weight:800;">📦 주문하기</div>
+    <button onclick="window.submitOrder()" style="padding:9px 18px;border-radius:12px;background:linear-gradient(135deg,#00e8bc,#4f9cf9);color:#080d18;font-size:13px;font-weight:800;border:none;">전송 →</button>
+  </div>
+  <div style="padding:16px;">
+    <div style="font-size:12px;color:var(--t3);margin-bottom:12px;">등록된 거래처에 주문을 전송합니다. 상대방이 수주 현황에서 바로 확인할 수 있습니다.</div>
+
+    <!-- 거래처 선택 -->
+    <div style="margin-bottom:14px;">
+      <div style="font-size:12px;color:var(--t2);font-weight:700;margin-bottom:6px;">📍 주문 대상 거래처</div>
+      <select id="order-partner" style="width:100%;padding:10px 12px;border-radius:10px;background:var(--s1);border:1px solid var(--b1);color:var(--t1);font-size:13px;">
+        <option value="">거래처를 선택하세요</option>
+      </select>
+    </div>
+
+    <!-- 품목 -->
+    <div style="margin-bottom:14px;">
+      <div style="font-size:12px;color:var(--t2);font-weight:700;margin-bottom:6px;">🌾 품목</div>
+      <input id="order-item" type="text" placeholder="예: 사과, 배추, 감자..." style="width:100%;padding:10px 12px;border-radius:10px;background:var(--s1);border:1px solid var(--b1);color:var(--t1);font-size:13px;box-sizing:border-box;">
+    </div>
+
+    <!-- 수량 + 단위 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+      <div>
+        <div style="font-size:12px;color:var(--t2);font-weight:700;margin-bottom:6px;">📦 수량</div>
+        <input id="order-qty" type="number" placeholder="0" min="1" style="width:100%;padding:10px 12px;border-radius:10px;background:var(--s1);border:1px solid var(--b1);color:var(--t1);font-size:13px;box-sizing:border-box;">
+      </div>
+      <div>
+        <div style="font-size:12px;color:var(--t2);font-weight:700;margin-bottom:6px;">단위</div>
+        <select id="order-unit" style="width:100%;padding:10px 12px;border-radius:10px;background:var(--s1);border:1px solid var(--b1);color:var(--t1);font-size:13px;">
+          <option value="박스">박스</option>
+          <option value="kg">kg</option>
+          <option value="포대">포대</option>
+          <option value="개">개</option>
+          <option value="묶음">묶음</option>
+          <option value="톤">톤</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 희망 납기일 -->
+    <div style="margin-bottom:14px;">
+      <div style="font-size:12px;color:var(--t2);font-weight:700;margin-bottom:6px;">📅 희망 납기일</div>
+      <input id="order-due" type="date" style="width:100%;padding:10px 12px;border-radius:10px;background:var(--s1);border:1px solid var(--b1);color:var(--t1);font-size:13px;box-sizing:border-box;">
+    </div>
+
+    <!-- 희망 단가 -->
+    <div style="margin-bottom:14px;">
+      <div style="font-size:12px;color:var(--t2);font-weight:700;margin-bottom:6px;">💰 희망 단가 (선택)</div>
+      <input id="order-price" type="number" placeholder="원 단위 입력 (없으면 비워도 됩니다)" style="width:100%;padding:10px 12px;border-radius:10px;background:var(--s1);border:1px solid var(--b1);color:var(--t1);font-size:13px;box-sizing:border-box;">
+    </div>
+
+    <!-- 메모 -->
+    <div style="margin-bottom:14px;">
+      <div style="font-size:12px;color:var(--t2);font-weight:700;margin-bottom:6px;">📝 메모 (선택)</div>
+      <textarea id="order-memo" rows="3" placeholder="특이사항, 규격, 포장 방식 등..." style="width:100%;padding:10px 12px;border-radius:10px;background:var(--s1);border:1px solid var(--b1);color:var(--t1);font-size:13px;box-sizing:border-box;resize:none;"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 수주 현황 시트 ══ -->
+<div id="sh-order-view" style="display:none;position:fixed;inset:0;z-index:300;background:var(--bg);overflow-y:auto;">
+  <div style="position:sticky;top:0;z-index:10;background:rgba(8,13,24,.95);backdrop-filter:blur(12px);padding:12px 16px;border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:12px;">
+    <button onclick="document.getElementById('sh-order-view').style.display='none'" style="color:var(--t2);font-size:14px;">← 뒤로</button>
+    <div style="flex:1;font-size:15px;font-weight:800;">📬 수주 현황</div>
+  </div>
+  <div id="order-view-content" style="padding:16px;"></div>
+</div>
+
 <!-- ══ 앱 ══ -->
 <div id="app">
   <div class="topbar">
@@ -2859,6 +2932,134 @@ function startApp(r){
 }
 
 // 앱 데이터 저장 (localStorage + Supabase)
+
+// ── 주문하기 시스템 ──
+window.openOrderSheet = function(){
+  const db = getDB();
+  const partners = (db._partners||[]).filter(p=>p.status==='active');
+  const sel = document.getElementById('order-partner');
+  sel.innerHTML = '<option value="">거래처를 선택하세요</option>';
+  partners.forEach(p=>{
+    const opt = document.createElement('option');
+    opt.value = p.gkid;
+    opt.textContent = (p.name||p.gkid) + ' (' + (p.role||'') + ')';
+    sel.appendChild(opt);
+  });
+  // 오늘 기준 +3일 기본 납기일
+  const due = new Date(); due.setDate(due.getDate()+3);
+  document.getElementById('order-due').value = due.toISOString().slice(0,10);
+  document.getElementById('order-item').value = '';
+  document.getElementById('order-qty').value = '';
+  document.getElementById('order-price').value = '';
+  document.getElementById('order-memo').value = '';
+  document.getElementById('sh-order').style.display = 'block';
+};
+
+window.submitOrder = function(){
+  const partner = document.getElementById('order-partner').value;
+  const item = document.getElementById('order-item').value.trim();
+  const qty = document.getElementById('order-qty').value;
+  const unit = document.getElementById('order-unit').value;
+  const due = document.getElementById('order-due').value;
+  const price = document.getElementById('order-price').value;
+  const memo = document.getElementById('order-memo').value.trim();
+
+  if(!partner){ toast('거래처를 선택해주세요'); return; }
+  if(!item){ toast('품목을 입력해주세요'); return; }
+  if(!qty||qty<1){ toast('수량을 입력해주세요'); return; }
+  if(!due){ toast('납기일을 입력해주세요'); return; }
+
+  const db = getDB();
+  if(!db._orders) db._orders = [];
+
+  const order = {
+    id: 'ORD-' + Date.now(),
+    fromGKID: curUser.gkid,
+    fromName: curUser.name || curUser.gkid,
+    fromRole: curRole,
+    toGKID: partner,
+    item, qty: Number(qty), unit,
+    due, price: price ? Number(price) : null,
+    memo, status: 'pending',
+    createdAt: new Date().toISOString()
+  };
+
+  db._orders.push(order);
+  saveAppData(db);
+  document.getElementById('sh-order').style.display = 'none';
+  toast('✅ 주문이 전송됐습니다!');
+  renderHome();
+};
+
+window.openOrderView = function(){
+  const db = getDB();
+  const orders = (db._orders||[]).filter(o=>o.toGKID===curUser.gkid);
+  const el = document.getElementById('order-view-content');
+
+  if(orders.length===0){
+    el.innerHTML = '<div style="text-align:center;color:var(--t3);padding:40px 0;">수주된 주문이 없습니다</div>';
+  } else {
+    // 품목별 수요 집계
+    const demand = {};
+    orders.filter(o=>o.status==='pending').forEach(o=>{
+      if(!demand[o.item]) demand[o.item] = {qty:0, unit:o.unit, orders:[]};
+      demand[o.item].qty += o.qty;
+      demand[o.item].orders.push(o);
+    });
+
+    let html = '';
+
+    // 품목별 수요 예측 요약
+    if(Object.keys(demand).length > 0){
+      html += `<div style="background:linear-gradient(135deg,rgba(0,232,188,.08),rgba(79,156,249,.05));border:1px solid rgba(0,232,188,.2);border-radius:14px;padding:14px;margin-bottom:16px;">
+        <div style="font-size:13px;font-weight:800;color:var(--a1);margin-bottom:10px;">📊 품목별 수요 예측 (대기 중)</div>
+        ${Object.entries(demand).map(([item,d])=>`
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--b1);">
+            <span style="font-size:13px;color:var(--t1);font-weight:700;">${item}</span>
+            <div style="text-align:right;">
+              <span style="font-size:15px;font-weight:800;color:var(--a1);">${d.qty.toLocaleString()} ${d.unit}</span>
+              <span style="font-size:10px;color:var(--t3);margin-left:6px;">${d.orders.length}건</span>
+            </div>
+          </div>`).join('')}
+      </div>`;
+    }
+
+    // 주문 목록
+    html += `<div style="font-size:12px;font-weight:800;color:var(--t2);margin-bottom:8px;">전체 수주 목록 (${orders.length}건)</div>`;
+    orders.sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).forEach(o=>{
+      const statusClr = o.status==='pending'?'#f59e0b':o.status==='confirmed'?'#10b981':'#6b7280';
+      const statusLbl = o.status==='pending'?'대기':o.status==='confirmed'?'확정':'완료';
+      html += `<div style="background:var(--s1);border-radius:12px;padding:12px 14px;margin-bottom:8px;border:1px solid var(--b1);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <span style="font-size:13px;font-weight:800;color:var(--t1);">${o.item} ${o.qty.toLocaleString()}${o.unit}</span>
+          <span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;background:${statusClr}22;color:${statusClr};">${statusLbl}</span>
+        </div>
+        <div style="font-size:11px;color:var(--t3);">주문자: ${o.fromName} (${o.fromGKID})</div>
+        <div style="font-size:11px;color:var(--t3);">납기일: ${o.due}${o.price?` · 희망단가: ₩${o.price.toLocaleString()}`:''}${o.memo?` · ${o.memo}`:''}</div>
+        <div style="display:flex;gap:6px;margin-top:8px;">
+          <button onclick="window.confirmOrder('${o.id}')" style="flex:1;padding:7px;border-radius:8px;background:rgba(0,232,188,.15);border:none;color:var(--a1);font-size:11px;font-weight:700;cursor:pointer;">✅ 확정</button>
+          <button onclick="window.rejectOrder('${o.id}')" style="flex:1;padding:7px;border-radius:8px;background:rgba(239,68,68,.1);border:none;color:#ef4444;font-size:11px;font-weight:700;cursor:pointer;">❌ 거절</button>
+        </div>
+      </div>`;
+    });
+    el.innerHTML = html;
+  }
+
+  document.getElementById('sh-order-view').style.display = 'block';
+};
+
+window.confirmOrder = function(id){
+  const db = getDB();
+  const o = (db._orders||[]).find(x=>x.id===id);
+  if(o){ o.status='confirmed'; saveAppData(db); toast('✅ 주문 확정됐습니다'); window.openOrderView(); }
+};
+
+window.rejectOrder = function(id){
+  const db = getDB();
+  const o = (db._orders||[]).find(x=>x.id===id);
+  if(o){ o.status='rejected'; saveAppData(db); toast('주문이 거절됐습니다'); window.openOrderView(); }
+};
+
 function saveAppData(){
   try {
     localStorage.setItem('garak_data_'+curGkid, JSON.stringify({
