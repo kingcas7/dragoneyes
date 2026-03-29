@@ -3194,6 +3194,7 @@ function renderHome(){
   const r=ROLES[curRole];
   const isProducer=['producer_ind','producer_corp'].includes(curRole);
   const isMerchant=['merchant_ind','wholesale'].includes(curRole);
+  const isBuyer=['retailer','sole_prop','individual'].includes(curRole);
   const isTransport=curRole==='transport';
   const isGov=['gov_garaksa','gov_seoul','gov_nts','gov_public'].includes(curRole);
   const gi=GRADE_INFO[curGrade]||GRADE_INFO.seed;
@@ -3354,6 +3355,74 @@ function renderHome(){
       homeHTML+=`<button onclick="window.openOrderView()" style="position:relative;padding:13px;border-radius:12px;background:linear-gradient(135deg,rgba(0,232,188,.15),rgba(79,156,249,.1));border:1.5px solid rgba(0,232,188,.3);color:var(--a1);font-size:13px;font-weight:800;cursor:pointer;">📬 수주 현황${pendingOrders>0?`<span style="position:absolute;top:6px;right:8px;background:#ef4444;color:#fff;font-size:9px;font-weight:800;border-radius:10px;padding:1px 5px;">${pendingOrders}</span>`:''}</button>`;
     }
     homeHTML+=`</div>`;
+  }
+
+  // ── 도소매업자·개인사업자·개인 홈 ──
+  if(isBuyer){
+    const db = getDB();
+    const myOrders = (db._orders||[]).filter(o=>o.fromGKID===curGkid);
+    const pendingMyOrders = myOrders.filter(o=>o.status==='pending').length;
+    const confirmedMyOrders = myOrders.filter(o=>o.status==='confirmed').length;
+    const roleLabel = curRole==='retailer'?'도소매업자':curRole==='sole_prop'?'개인사업자':'개인';
+    homeHTML+=`
+    <div style="margin-bottom:12px;">
+      <div style="font-size:11px;color:var(--t3);font-weight:700;margin-bottom:8px;">📊 나의 거래 현황</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
+        <div style="background:var(--s1);border-radius:12px;padding:12px;text-align:center;border:1px solid var(--b1);">
+          <div style="font-size:18px;font-weight:800;color:#4f9cf9;">${pendingMyOrders}</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:2px;">대기 주문</div>
+        </div>
+        <div style="background:var(--s1);border-radius:12px;padding:12px;text-align:center;border:1px solid var(--b1);">
+          <div style="font-size:18px;font-weight:800;color:var(--a1);">${confirmedMyOrders}</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:2px;">확정 주문</div>
+        </div>
+        <div style="background:var(--s1);border-radius:12px;padding:12px;text-align:center;border:1px solid var(--b1);">
+          <div style="font-size:18px;font-weight:800;color:var(--t1);">${INVOICES.length}</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:2px;">전체 송장</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+      <button onclick="window.openOrderSheet()" style="padding:14px;border-radius:12px;background:linear-gradient(135deg,rgba(79,156,249,.2),rgba(0,232,188,.1));border:1.5px solid rgba(79,156,249,.4);color:#4f9cf9;font-size:13px;font-weight:800;cursor:pointer;">
+        📦 주문하기
+      </button>
+      <button onclick="goTab('invoice')" style="padding:14px;border-radius:12px;background:var(--s1);border:1px solid var(--b1);color:var(--t1);font-size:13px;font-weight:800;cursor:pointer;">
+        📋 송장 현황
+      </button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+      <button onclick="goTab('partner')" style="padding:14px;border-radius:12px;background:var(--s1);border:1px solid var(--b1);color:var(--t1);font-size:13px;font-weight:800;cursor:pointer;">
+        🤝 거래처 관리
+      </button>
+      <button onclick="goTab('eform')" style="padding:14px;border-radius:12px;background:var(--s1);border:1px solid var(--b1);color:var(--t1);font-size:13px;font-weight:800;cursor:pointer;">
+        📒 장부·정산
+      </button>
+    </div>
+
+    <!-- 최근 주문 내역 -->
+    ${myOrders.length>0?`
+    <div style="margin-bottom:12px;">
+      <div style="font-size:11px;color:var(--t3);font-weight:700;margin-bottom:8px;">🕐 최근 주문 내역</div>
+      ${myOrders.slice(-3).reverse().map(o=>{
+        const stClr = o.status==='pending'?'#f59e0b':o.status==='confirmed'?'#10b981':'#6b7280';
+        const stLbl = o.status==='pending'?'대기':o.status==='confirmed'?'확정':'완료';
+        return `<div style="background:var(--s1);border-radius:10px;padding:10px 12px;margin-bottom:6px;border:1px solid var(--b1);display:flex;align-items:center;gap:10px;">
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:700;color:var(--t1);">${o.item} ${o.qty}${o.unit}</div>
+            <div style="font-size:10px;color:var(--t3);">납기: ${o.due} · ${o.toGKID}</div>
+          </div>
+          <span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;background:${stClr}22;color:${stClr};">${stLbl}</span>
+        </div>`;
+      }).join('')}
+    </div>`:''}
+
+    <!-- 준수사항 안내 -->
+    <div class="penalty-banner" style="cursor:pointer;" onclick="goTab('policy')">
+      <div class="pb-hd"><span class="pb-ic">📌</span>
+      <span class="pb-title">이용 안내</span></div>
+      <div class="pb-body">거래처 등록 후 주문하기 · 송장 수령 시 전표 확인 · 미확인 송장은 자동 알림</div>
+    </div>`;
   }
 
   // ── 공공기관 배너 ──
@@ -5785,6 +5854,7 @@ function renderMyPage(){
   const r=ROLES[curRole];
   const isProducer=['producer_ind','producer_corp'].includes(curRole);
   const isMerchant=['merchant_ind','wholesale'].includes(curRole);
+  const isBuyer=['retailer','sole_prop','individual'].includes(curRole);
   if(isProducer)      renderMyPageProducer(r);
   else if(isMerchant) renderMyPageMerchant(r);
   else                renderMyPageGeneral(r);
