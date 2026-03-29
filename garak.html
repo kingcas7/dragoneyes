@@ -1352,7 +1352,7 @@ const ROLES = {
 };
 
 const ROLE_GROUPS = [
-  {label:'🌾 농수산 유통',     color:'var(--a1)', roles:['producer_ind','producer_corp','merchant_ind','wholesale']},
+  {label:'🌾 농수산 유통',     color:'var(--a1)', roles:['producer_ind','producer_corp','merchant_ind','wholesale','retailer','sole_prop','individual']},
   {label:'🏭 물류·운송',       color:'var(--a4)', roles:['warehouse_owner','transport']},
   {label:'🏛 주무감독기관',    color:'var(--a2)', roles:['gov_garaksa','gov_seoul','gov_nts','gov_public']},
   {label:'🧾 세무·회계·법률',  color:'#c084fc',   roles:['tax_agent','accounting','labor_agent','lawyer']},
@@ -1364,6 +1364,9 @@ const ROLE_INFO = {
   producer_corp:{ic:'🏢',name:'생산자(법인)',desc:'법인출하'},
   merchant_ind:{ic:'🛒',name:'중도매인',desc:'경매·거래'},
   wholesale:{ic:'🏛',name:'청과법인',desc:'경매주관'},
+  retailer:{ic:'🏪',name:'도소매업자',desc:'매입·전표'},
+  sole_prop:{ic:'💼',name:'개인사업자',desc:'매입·전표'},
+  individual:{ic:'👤',name:'개인',desc:'직거래·전표'},
   warehouse_owner:{ic:'🏭',name:'물류창고',desc:'창고·임대'},
   transport:{ic:'🚛',name:'운송업체',desc:'콜·배송'},
   gov_garaksa:{ic:'🏛',name:'가락시장관리공단',desc:'시장관리'},
