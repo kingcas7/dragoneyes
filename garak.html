@@ -293,6 +293,61 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
   <div id="order-view-content" style="padding:16px;"></div>
 </div>
 
+
+<!-- ══ 내 QR 코드 시트 ══ -->
+<div id="sh-my-qr" style="display:none;position:fixed;inset:0;z-index:400;background:var(--bg);overflow-y:auto;">
+  <div style="position:sticky;top:0;z-index:10;background:rgba(8,13,24,.95);backdrop-filter:blur(12px);padding:12px 16px;border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:12px;">
+    <button onclick="document.getElementById('sh-my-qr').style.display='none'" style="color:var(--t2);font-size:14px;">← 뒤로</button>
+    <div style="flex:1;font-size:15px;font-weight:800;">📱 내 QR 코드</div>
+  </div>
+  <div style="padding:24px 16px;display:flex;flex-direction:column;align-items:center;">
+    <div style="background:#fff;border-radius:20px;padding:20px;margin-bottom:16px;box-shadow:0 4px 24px rgba(0,0,0,.2);">
+      <canvas id="my-qr-canvas" style="display:block;"></canvas>
+    </div>
+    <div id="my-qr-name" style="font-size:16px;font-weight:800;color:var(--t1);margin-bottom:4px;"></div>
+    <div id="my-qr-gkid" style="font-size:12px;color:var(--t3);margin-bottom:20px;"></div>
+
+    <!-- 액션 버튼 3개 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;width:100%;max-width:320px;margin-bottom:24px;">
+      <button onclick="window.downloadQR()" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 8px;border-radius:14px;background:rgba(0,232,188,.1);border:1.5px solid rgba(0,232,188,.3);color:var(--a1);cursor:pointer;">
+        <span style="font-size:22px;">💾</span>
+        <span style="font-size:11px;font-weight:700;">이미지 저장</span>
+      </button>
+      <button onclick="window.printQR()" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 8px;border-radius:14px;background:rgba(79,156,249,.1);border:1.5px solid rgba(79,156,249,.3);color:#4f9cf9;cursor:pointer;">
+        <span style="font-size:22px;">🖨️</span>
+        <span style="font-size:11px;font-weight:700;">인쇄/명함</span>
+      </button>
+      <button onclick="window.shareQR()" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 8px;border-radius:14px;background:rgba(168,85,247,.1);border:1.5px solid rgba(168,85,247,.3);color:#a855f7;cursor:pointer;">
+        <span style="font-size:22px;">📤</span>
+        <span style="font-size:11px;font-weight:700;">공유하기</span>
+      </button>
+    </div>
+
+    <div style="font-size:11px;color:var(--t3);text-align:center;line-height:1.6;">
+      이 QR 코드를 상대방이 스캔하면<br>거래처로 자동 등록됩니다
+    </div>
+  </div>
+</div>
+
+<!-- ══ QR 스캔 시트 ══ -->
+<div id="sh-qr-scan" style="display:none;position:fixed;inset:0;z-index:400;background:var(--bg);overflow-y:auto;">
+  <div style="position:sticky;top:0;z-index:10;background:rgba(8,13,24,.95);backdrop-filter:blur(12px);padding:12px 16px;border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:12px;">
+    <button onclick="window.closeQRScan()" style="color:var(--t2);font-size:14px;">← 뒤로</button>
+    <div style="flex:1;font-size:15px;font-weight:800;">📷 QR 스캔으로 거래처 추가</div>
+  </div>
+  <div style="padding:20px 16px;">
+    <div style="position:relative;width:100%;max-width:320px;margin:0 auto 20px;">
+      <video id="qr-video" style="width:100%;border-radius:16px;background:#000;" autoplay playsinline></video>
+      <canvas id="qr-scan-canvas" style="display:none;"></canvas>
+      <!-- 스캔 가이드 오버레이 -->
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+        <div style="width:200px;height:200px;border:3px solid var(--a1);border-radius:16px;box-shadow:0 0 0 2000px rgba(0,0,0,.4);"></div>
+      </div>
+    </div>
+    <div id="qr-scan-result" style="text-align:center;font-size:13px;color:var(--t3);">카메라를 QR 코드에 맞춰주세요</div>
+  </div>
+</div>
+
 <!-- ══ 앱 ══ -->
 <div id="app">
   <div class="topbar">
@@ -327,6 +382,7 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
   <div class="sheet">
     <div class="sheet-hd">
       <div class="sheet-title" id="ps-title">🔍 거래처 찾기</div>
+      <button onclick="window.closePartnerSearch();window.openQRScan()" style="padding:8px 12px;border-radius:10px;background:rgba(0,232,188,.15);border:1px solid rgba(0,232,188,.3);color:var(--a1);font-size:12px;font-weight:700;cursor:pointer;">📷 QR 스캔</button>
       <button onclick="window.closeSheet('sh-partner-search')" style="color:var(--t2);font-size:20px;">✕</button>
     </div>
     <div class="sheet-sub" id="ps-sub">상호명 또는 사업자등록번호로 검색하세요</div>
@@ -3064,6 +3120,189 @@ window.rejectOrder = function(id){
   const db = JSON.parse(localStorage.getItem('garak_data_'+curGkid)||'{}');
   const o = (db._orders||[]).find(x=>x.id===id);
   if(o){ o.status='rejected'; localStorage.setItem('garak_data_'+curGkid, JSON.stringify(db)); toast('주문이 거절됐습니다'); window.openOrderView(); }
+};
+
+
+// ── QR 코드 시스템 ──
+function loadScript(src){ return new Promise((res,rej)=>{ if(document.querySelector('script[src="'+src+'"]')){res();return;} const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s); }); }
+
+window.openMyQR = async function(){
+  document.getElementById('sh-my-qr').style.display='block';
+  document.getElementById('my-qr-name').textContent = curUserName || curGkid;
+  document.getElementById('my-qr-gkid').textContent = curGkid + ' · ' + (ROLES[curRole]?.n||curRole);
+
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js');
+
+  const canvas = document.getElementById('my-qr-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = 240; canvas.height = 240;
+  ctx.clearRect(0,0,240,240);
+
+  // QR 데이터: GKID|역할|이름
+  const qrData = JSON.stringify({gkid:curGkid, role:curRole, name:curUserName||curGkid, roleName:ROLES[curRole]?.n||curRole});
+
+  // QRCode 라이브러리로 임시 div에 생성 후 canvas에 그리기
+  const tmp = document.createElement('div');
+  tmp.style.display = 'none';
+  document.body.appendChild(tmp);
+  new QRCode(tmp, {text:qrData, width:240, height:240, colorDark:'#000000', colorLight:'#ffffff'});
+  setTimeout(()=>{
+    const qrImg = tmp.querySelector('img');
+    if(qrImg){ const i=new Image(); i.onload=()=>ctx.drawImage(i,0,0,240,240); i.src=qrImg.src; }
+    tmp.remove();
+  }, 300);
+};
+
+window.downloadQR = function(){
+  const canvas = document.getElementById('my-qr-canvas');
+  const bg = document.createElement('canvas');
+  bg.width = 320; bg.height = 380;
+  const ctx = bg.getContext('2d');
+
+  // 배경 흰색
+  ctx.fillStyle = '#ffffff';
+  ctx.roundRect(0,0,320,380,16);
+  ctx.fill();
+
+  // QR 코드
+  ctx.drawImage(canvas, 40, 20, 240, 240);
+
+  // 이름 텍스트
+  ctx.fillStyle = '#080d18';
+  ctx.font = 'bold 18px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(curUserName||curGkid, 160, 290);
+
+  // 역할 + GKID
+  ctx.font = '13px sans-serif';
+  ctx.fillStyle = '#666666';
+  ctx.fillText((ROLES[curRole]?.n||curRole) + ' · ' + curGkid, 160, 315);
+
+  // Smart AI K-Chain 워터마크
+  ctx.font = 'bold 11px sans-serif';
+  ctx.fillStyle = '#00e8bc';
+  ctx.fillText('Smart AI K-Chain', 160, 350);
+
+  const a = document.createElement('a');
+  a.download = 'KChain_QR_' + curGkid + '.png';
+  a.href = bg.toDataURL('image/png');
+  a.click();
+  toast('✅ QR 이미지가 저장됐습니다');
+};
+
+window.printQR = function(){
+  const canvas = document.getElementById('my-qr-canvas');
+  const imgData = canvas.toDataURL('image/png');
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>K-Chain QR 명함</title>
+  <style>
+    @page { size: 90mm 55mm; margin: 0; }
+    body { margin:0; display:flex; align-items:center; justify-content:center; height:55mm; background:#fff; font-family:sans-serif; }
+    .card { width:86mm; height:51mm; display:flex; align-items:center; gap:4mm; padding:4mm; box-sizing:border-box; border:0.5px solid #eee; border-radius:3mm; }
+    .qr { width:40mm; height:40mm; flex-shrink:0; }
+    .info { flex:1; }
+    .brand { font-size:7pt; color:#00e8bc; font-weight:bold; margin-bottom:2mm; }
+    .name { font-size:13pt; font-weight:800; color:#080d18; margin-bottom:1mm; }
+    .role { font-size:8pt; color:#666; margin-bottom:1mm; }
+    .gkid { font-size:7pt; color:#999; font-family:monospace; }
+  </style></head><body>
+  <div class="card">
+    <img class="qr" src="${imgData}"/>
+    <div class="info">
+      <div class="brand">Smart AI K-Chain</div>
+      <div class="name">${curUserName||curGkid}</div>
+      <div class="role">${ROLES[curRole]?.n||curRole}</div>
+      <div class="gkid">${curGkid}</div>
+    </div>
+  </div>
+  </body></html>`);
+  win.document.close();
+  setTimeout(()=>win.print(), 500);
+};
+
+window.shareQR = async function(){
+  const canvas = document.getElementById('my-qr-canvas');
+  try {
+    canvas.toBlob(async blob=>{
+      const file = new File([blob], 'KChain_QR_'+curGkid+'.png', {type:'image/png'});
+      if(navigator.canShare && navigator.canShare({files:[file]})){
+        await navigator.share({files:[file], title:'K-Chain QR 코드', text:(curUserName||curGkid)+' · '+(ROLES[curRole]?.n||curRole)});
+      } else {
+        window.downloadQR();
+        toast('공유 기능이 지원되지 않아 저장합니다');
+      }
+    });
+  } catch(e){ toast('공유 취소됨'); }
+};
+
+// ── QR 스캔 ──
+window.openQRScan = async function(){
+  document.getElementById('sh-qr-scan').style.display='block';
+  document.getElementById('qr-scan-result').textContent = '카메라를 QR 코드에 맞춰주세요';
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js');
+
+  const video = document.getElementById('qr-video');
+  const scanCanvas = document.getElementById('qr-scan-canvas');
+  const ctx = scanCanvas.getContext('2d');
+
+  try {
+    window._qrStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    video.srcObject = window._qrStream;
+    video.play();
+
+    window._qrTimer = setInterval(()=>{
+      if(video.readyState === video.HAVE_ENOUGH_DATA){
+        scanCanvas.width = video.videoWidth;
+        scanCanvas.height = video.videoHeight;
+        ctx.drawImage(video,0,0);
+        const imageData = ctx.getImageData(0,0,scanCanvas.width,scanCanvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        if(code){
+          clearInterval(window._qrTimer);
+          window.processQRResult(code.data);
+        }
+      }
+    }, 200);
+  } catch(e){
+    document.getElementById('qr-scan-result').textContent = '카메라 접근 권한이 필요합니다';
+  }
+};
+
+window.closeQRScan = function(){
+  if(window._qrTimer) clearInterval(window._qrTimer);
+  if(window._qrStream) window._qrStream.getTracks().forEach(t=>t.stop());
+  document.getElementById('sh-qr-scan').style.display='none';
+};
+
+window.processQRResult = function(data){
+  window.closeQRScan();
+  try {
+    const info = JSON.parse(data);
+    if(!info.gkid){ toast('❌ 올바른 K-Chain QR이 아닙니다'); return; }
+
+    // 거래처 등록
+    const db = JSON.parse(localStorage.getItem('garak_data_'+curGkid)||'{}');
+    if(!db._partners) db._partners = [];
+
+    const exists = db._partners.find(p=>p.gkid===info.gkid);
+    if(exists){ toast('이미 등록된 거래처입니다: '+info.name); return; }
+
+    db._partners.push({
+      id: 'P-'+Date.now(),
+      gkid: info.gkid,
+      name: info.name,
+      role: info.role,
+      roleName: info.roleName,
+      status: 'active',
+      addedAt: new Date().toISOString(),
+      addedBy: 'qr'
+    });
+    localStorage.setItem('garak_data_'+curGkid, JSON.stringify(db));
+    toast('✅ '+info.name+'님이 거래처로 등록됐습니다!');
+    renderPartnerPage();
+  } catch(e){
+    toast('❌ QR 인식 오류: 올바른 K-Chain QR인지 확인해주세요');
+  }
 };
 
 function saveAppData(){
@@ -6280,6 +6519,15 @@ function renderMyProfile(r, gi, score){
   };
 
   return `
+  <!-- 내 QR 코드 카드 -->
+  <div style="background:linear-gradient(135deg,rgba(0,232,188,.08),rgba(79,156,249,.05));border:1px solid rgba(0,232,188,.2);border-radius:14px;padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;cursor:pointer;" onclick="window.openMyQR()">
+    <div style="font-size:32px;">📱</div>
+    <div style="flex:1;">
+      <div style="font-size:13px;font-weight:800;color:var(--a1);">내 QR 코드</div>
+      <div style="font-size:11px;color:var(--t3);margin-top:2px;">거래처 추가 · 명함 인쇄 · 공유하기</div>
+    </div>
+    <div style="font-size:12px;color:var(--t3);">›</div>
+  </div>
   <!-- 프로필 헤더 -->
   <div class="card" style="margin-bottom:10px;">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
