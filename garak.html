@@ -2941,7 +2941,7 @@ function startApp(r){
 
 // ── 주문하기 시스템 ──
 window.openOrderSheet = function(){
-  const db = getDB();
+  const db = JSON.parse(localStorage.getItem('garak_data_'+curGkid)||'{}');
   const partners = (db._partners||[]).filter(p=>p.status==='active');
   const sel = document.getElementById('order-partner');
   sel.innerHTML = '<option value="">거래처를 선택하세요</option>';
@@ -2975,7 +2975,7 @@ window.submitOrder = function(){
   if(!qty||qty<1){ toast('수량을 입력해주세요'); return; }
   if(!due){ toast('납기일을 입력해주세요'); return; }
 
-  const db = getDB();
+  const db = JSON.parse(localStorage.getItem('garak_data_'+curGkid)||'{}');
   if(!db._orders) db._orders = [];
 
   const order = {
@@ -2991,15 +2991,15 @@ window.submitOrder = function(){
   };
 
   db._orders.push(order);
-  saveAppData(db);
+  localStorage.setItem('garak_data_'+curGkid, JSON.stringify(db));
   document.getElementById('sh-order').style.display = 'none';
   toast('✅ 주문이 전송됐습니다!');
   renderHome();
 };
 
 window.openOrderView = function(){
-  const db = getDB();
-  const orders = (db._orders||[]).filter(o=>o.toGKID===curUser.gkid);
+  const db = JSON.parse(localStorage.getItem('garak_data_'+curGkid)||'{}');
+  const orders = (db._orders||[]).filter(o=>o.toGKID===curGkid);
   const el = document.getElementById('order-view-content');
 
   if(orders.length===0){
@@ -3055,15 +3055,15 @@ window.openOrderView = function(){
 };
 
 window.confirmOrder = function(id){
-  const db = getDB();
+  const db = JSON.parse(localStorage.getItem('garak_data_'+curGkid)||'{}');
   const o = (db._orders||[]).find(x=>x.id===id);
-  if(o){ o.status='confirmed'; saveAppData(db); toast('✅ 주문 확정됐습니다'); window.openOrderView(); }
+  if(o){ o.status='confirmed'; localStorage.setItem('garak_data_'+curGkid, JSON.stringify(db)); toast('✅ 주문 확정됐습니다'); window.openOrderView(); }
 };
 
 window.rejectOrder = function(id){
-  const db = getDB();
+  const db = JSON.parse(localStorage.getItem('garak_data_'+curGkid)||'{}');
   const o = (db._orders||[]).find(x=>x.id===id);
-  if(o){ o.status='rejected'; saveAppData(db); toast('주문이 거절됐습니다'); window.openOrderView(); }
+  if(o){ o.status='rejected'; localStorage.setItem('garak_data_'+curGkid, JSON.stringify(db)); toast('주문이 거절됐습니다'); window.openOrderView(); }
 };
 
 function saveAppData(){
@@ -3345,7 +3345,7 @@ function renderHome(){
   const canOrder = ['wholesale','merchant_ind','retailer','sole_prop','individual'].includes(curRole);
   const canReceive = ['wholesale','merchant_ind'].includes(curRole);
   if(canOrder || canReceive){
-    const db = getDB();
+    const db = JSON.parse(localStorage.getItem('garak_data_'+curGkid)||'{}');
     const pendingOrders = (db._orders||[]).filter(o=>o.toGKID===curUser.gkid&&o.status==='pending').length;
     homeHTML+=`<div style="display:grid;grid-template-columns:${canOrder&&canReceive?'1fr 1fr':'1fr'};gap:8px;margin-bottom:12px;">`;
     if(canOrder){
@@ -3359,8 +3359,8 @@ function renderHome(){
 
   // ── 도소매업자·개인사업자·개인 홈 ──
   if(isBuyer){
-    const db = getDB();
-    const myOrders = (db._orders||[]).filter(o=>o.fromGKID===curGkid);
+    const _buyerDb = JSON.parse(localStorage.getItem('garak_data_'+curGkid)||'{}');
+    const myOrders = (_buyerDb._orders||[]).filter(o=>o.fromGKID===curGkid);
     const pendingMyOrders = myOrders.filter(o=>o.status==='pending').length;
     const confirmedMyOrders = myOrders.filter(o=>o.status==='confirmed').length;
     const roleLabel = curRole==='retailer'?'도소매업자':curRole==='sole_prop'?'개인사업자':'개인';
