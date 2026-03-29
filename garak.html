@@ -3334,6 +3334,22 @@ function renderHome(){
     <button onclick="window._myTab='crop';goTab('mypage')" style="width:100%;padding:12px;border-radius:12px;border:1.5px dashed var(--a1);background:rgba(0,232,188,.04);color:var(--a1);font-size:12px;font-weight:700;cursor:pointer;margin-bottom:10px;">🌱 작물 관리하기</button>`;
   }
 
+  // ── 주문하기 버튼 (청과법인·중도매인·도소매업자·개인사업자·개인) ──
+  const canOrder = ['wholesale','merchant_ind','retailer','sole_prop','individual'].includes(curRole);
+  const canReceive = ['wholesale','merchant_ind'].includes(curRole);
+  if(canOrder || canReceive){
+    const db = getDB();
+    const pendingOrders = (db._orders||[]).filter(o=>o.toGKID===curUser.gkid&&o.status==='pending').length;
+    homeHTML+=`<div style="display:grid;grid-template-columns:${canOrder&&canReceive?'1fr 1fr':'1fr'};gap:8px;margin-bottom:12px;">`;
+    if(canOrder){
+      homeHTML+=`<button onclick="window.openOrderSheet()" style="padding:13px;border-radius:12px;background:linear-gradient(135deg,rgba(79,156,249,.15),rgba(0,232,188,.1));border:1.5px solid rgba(79,156,249,.3);color:#4f9cf9;font-size:13px;font-weight:800;cursor:pointer;">📦 주문하기</button>`;
+    }
+    if(canReceive){
+      homeHTML+=`<button onclick="window.openOrderView()" style="position:relative;padding:13px;border-radius:12px;background:linear-gradient(135deg,rgba(0,232,188,.15),rgba(79,156,249,.1));border:1.5px solid rgba(0,232,188,.3);color:var(--a1);font-size:13px;font-weight:800;cursor:pointer;">📬 수주 현황${pendingOrders>0?`<span style="position:absolute;top:6px;right:8px;background:#ef4444;color:#fff;font-size:9px;font-weight:800;border-radius:10px;padding:1px 5px;">${pendingOrders}</span>`:''}</button>`;
+    }
+    homeHTML+=`</div>`;
+  }
+
   // ── 공공기관 배너 ──
   if(isGov){
     homeHTML+=`
