@@ -8331,10 +8331,11 @@ window.openCallSheet=function(invId){
   // 출발지 기본값 — 사용자 등록 주소
   const origDefault=document.getElementById('call-origin');
   if(origDefault&&window._userAddr) origDefault.value=window._userAddr;
-  document.getElementById('call-truck-type').value='';
-  document.getElementById('ai-fare-box').style.display='none';
-  document.getElementById('custom-fare-input').style.display='none';
-  document.getElementById('fare-selected-display').style.display='none';
+  const truckEl=document.getElementById('call-truck-type'); if(truckEl) truckEl.value='';
+  const fareBoxEl=document.getElementById('ai-fare-box'); if(fareBoxEl) fareBoxEl.style.display='none';
+  const fareSelEl=document.getElementById('fare-selected-display'); if(fareSelEl) fareSelEl.style.display='none';
+  const fareInputEl=document.getElementById('call-fare-custom'); if(fareInputEl){fareInputEl.value='';fareInputEl.dataset.autoFilled='false';}
+  const fareCompEl=document.getElementById('fare-compare-msg'); if(fareCompEl) fareCompEl.innerHTML='';
   _aiFare=0; _fareMode=''; window._callLinkedInvId=invId||null;
   // 연동 송장 선택 영역 렌더
   const linkEl=document.getElementById('call-inv-link-area');
@@ -8484,38 +8485,13 @@ window.setFareToAI=function(){
 
 let baseFare=0;
 
+// selectFareMode — 구버전 호환용 (현재 UI는 onFareInput으로 직접 처리)
 window.selectFareMode=function(mode){
   _fareMode=mode;
-  const aiBt=document.getElementById('btn-ai-fare');
-  const cuBt=document.getElementById('btn-custom-fare');
-  const custIn=document.getElementById('custom-fare-input');
-  const selDisp=document.getElementById('fare-selected-display');
-  const finalDisp=document.getElementById('fare-final-display');
-  const submitBtn=document.getElementById('btn-call-submit');
-
   if(mode==='ai'){
-    aiBt.style.borderColor='var(--a1)'; aiBt.style.background='rgba(0,232,188,.15)'; aiBt.style.color='var(--a1)';
-    cuBt.style.borderColor='var(--b1)'; cuBt.style.background='var(--s2)'; cuBt.style.color='var(--t2)';
-    custIn.style.display='none';
-    selDisp.style.display='block';
-    finalDisp.textContent='₩'+_aiFare.toLocaleString();
-    if(submitBtn){submitBtn.style.opacity='1';submitBtn.style.pointerEvents='auto';}
-  } else {
-    cuBt.style.borderColor='var(--a4)'; cuBt.style.background='rgba(244,196,48,.08)'; cuBt.style.color='var(--a4)';
-    aiBt.style.borderColor='var(--b1)'; aiBt.style.background='var(--s2)'; aiBt.style.color='var(--t2)';
-    custIn.style.display='block';
-    selDisp.style.display='none';
-    document.getElementById('call-fare-custom').oninput=function(){
-      const v=parseInt(this.value)||0;
-      if(v>0){
-        selDisp.style.display='block';
-        finalDisp.textContent='₩'+v.toLocaleString();
-        if(submitBtn){submitBtn.style.opacity='1';submitBtn.style.pointerEvents='auto';}
-      } else {
-        selDisp.style.display='none';
-        if(submitBtn){submitBtn.style.opacity='.5';submitBtn.style.pointerEvents='none';}
-      }
-    };
+    const el=document.getElementById('call-fare-custom');
+    if(el){ el.value=_aiFare; el.dataset.autoFilled='true'; }
+    window.onFareInput(_aiFare);
   }
 };
 
