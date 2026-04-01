@@ -8160,12 +8160,6 @@ window.openInvoiceDetail=function(id){
         ['연락처', inv.buyer_tel||'—'],
         ['배송지', inv.buyer_addr||'—'],
         ['배송방식', inv.delivery_type==='call'?'🚛 배차요청':'🚗 자차배송'],
-        ...(inv.freight_status==='dispatched'&&inv.freight_fee?[
-          ['확정 운임','₩'+(inv.freight_fee||0).toLocaleString()],
-          ['배차 상태','✅ 배차 완료'],
-        ]:inv.freight_status==='pending'?[
-          ['배차 상태','⏳ 배차 대기중'],
-        ]:[]),
       ].map(r=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--b2);font-size:12px;">
         <span style="color:var(--t2);">${r[0]}</span><span style="font-weight:600;">${r[1]}</span>
       </div>`).join('')}
@@ -8177,6 +8171,46 @@ window.openInvoiceDetail=function(id){
         </button>
       </div>`:''}
     </div>
+
+    <!-- 배차 정보 카드 — 배차 확정 시만 표시 -->
+    ${(()=>{
+      const linkedCall = inv.call_id ? CALLS.find(x=>x.id===inv.call_id) : null;
+      const isDispatched = inv.freight_status==='dispatched' || (linkedCall&&linkedCall.status==='accepted');
+      if(!isDispatched&&inv.delivery_type==='call') return `
+      <div style="background:rgba(255,165,2,.06);border:1.5px solid rgba(255,165,2,.25);border-radius:14px;padding:12px 14px;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:4px;">
+          <span style="font-size:14px;">🚛</span>
+          <span style="font-size:12px;font-weight:700;color:var(--org);">배차 대기중</span>
+          <span class="tag" style="font-size:9px;background:rgba(255,165,2,.12);color:var(--org);margin-left:auto;">⏳ 수락 대기</span>
+        </div>
+        <div style="font-size:10px;color:var(--t2);line-height:1.6;">주변 운송업체에 알림 발송 완료<br>운송업체가 수락하면 차량 정보가 자동으로 표시됩니다</div>
+      </div>`;
+      if(!isDispatched) return '';
+      const call = linkedCall;
+      const rows = [
+        ['🚛 차량 종류', call?.truck_type||inv.truck_type||'—'],
+        ['🔢 차량 번호', call?.truck_num||'—'],
+        ['👤 운전자 이름', call?.driver_name||'—'],
+        ['📞 운전자 연락처', call?.driver_tel||'—'],
+        ['🏢 사업자번호', call?.biz_no||'—'],
+        ['📅 상차 일정', call?.pickup_date?(call.pickup_date+' '+( call.pickup_time||'07:00')):'—'],
+        ['💰 확정 운임', '₩'+(inv.freight_fee||call?.fare||0).toLocaleString()],
+        ...(call?.empty_return?[['💡 공차 매칭','✅ 적용 (운임 할인)']]:[]),
+      ];
+      return `
+      <div style="background:rgba(0,232,188,.05);border:1.5px solid rgba(0,232,188,.3);border-radius:14px;padding:14px;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px;">
+          <span style="font-size:16px;">🚛</span>
+          <span style="font-size:13px;font-weight:800;color:var(--a1);">배차 확정 정보</span>
+          <span class="tag tag-g" style="font-size:9px;margin-left:auto;">✅ 배차완료</span>
+        </div>
+        ${rows.map(r=>`
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(0,232,188,.12);font-size:12px;">
+          <span style="color:var(--t2);">${r[0]}</span>
+          <span style="font-weight:700;color:var(--t1);">${r[1]}</span>
+        </div>`).join('')}
+      </div>`;
+    })()}
 
     <!-- 정산 내역 -->
     <div class="card" style="margin-bottom:12px;">
@@ -8713,6 +8747,66 @@ window.reopenCallWithRevision=function(callId){
     toast('💰 운임을 수정 후 재배차 요청하세요 (기존 대비 +10% 제안)');
   },300);
   renderVehiclePage();
+};
+
+// ── 운송업자: 배차 수락 ──
+window.acceptCall=function(callId){
+  const call=CALLS.find(x=>x.id===callId);
+  if(!call) return;
+  const html=`
+  <div id="accept-call-overlay" onclick="if(event.target===this)document.getElementById('accept-call-overlay').remove()"
+    style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;">
+    <div style="background:var(--s1);border-radius:16px;padding:22px;width:100%;max-width:340px;">
+      <div style="font-size:15px;font-weight:800;margin-bottom:4px;">✅ 배차 수락</div>
+      <div style="font-size:11px;color:var(--t2);margin-bottom:16px;">${call.item} ${call.qty}박스 · ${call.origin||'—'} → ${call.dest||'—'}</div>
+      <div class="fgroup" style="margin-bottom:8px;"><div class="flabel">운전자 이름 *</div><input class="finput" id="ac-driver-name" placeholder="홍길동"></div>
+      <div class="fgroup" style="margin-bottom:8px;"><div class="flabel">운전자 연락처 *</div><input class="finput" id="ac-driver-tel" placeholder="010-0000-0000" type="tel"></div>
+      <div class="fgroup" style="margin-bottom:8px;"><div class="flabel">차량 번호 *</div><input class="finput" id="ac-truck-num" placeholder="12가 3456"></div>
+      <div class="fgroup" style="margin-bottom:14px;"><div class="flabel">사업자번호</div><input class="finput" id="ac-biz-no" placeholder="000-00-00000"></div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="document.getElementById('accept-call-overlay').remove()"
+          style="flex:.4;padding:11px;border-radius:10px;background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-size:13px;font-weight:700;cursor:pointer;">취소</button>
+        <button onclick="window._confirmAcceptCall('${call.id}')"
+          style="flex:1;padding:11px;border-radius:10px;background:var(--a1);color:#080d18;font-size:13px;font-weight:800;border:none;cursor:pointer;">✅ 수락 확정</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+};
+
+window._confirmAcceptCall=function(callId){
+  const driverName=document.getElementById('ac-driver-name')?.value.trim();
+  const driverTel=document.getElementById('ac-driver-tel')?.value.trim();
+  const truckNum=document.getElementById('ac-truck-num')?.value.trim();
+  const bizNo=document.getElementById('ac-biz-no')?.value.trim();
+  if(!driverName||!driverTel||!truckNum){toast('운전자 이름·연락처·차량번호는 필수입니다');return;}
+  document.getElementById('accept-call-overlay')?.remove();
+  const call=CALLS.find(x=>x.id===callId);
+  if(!call) return;
+  call.status='accepted';
+  call.driver_name=driverName;
+  call.driver_tel=driverTel;
+  call.truck_num=truckNum;
+  call.biz_no=bizNo||'—';
+  // 연동 송장에 배차 확정 반영
+  if(call.linked_inv_id){
+    const inv=INVOICES.find(x=>x.id===call.linked_inv_id);
+    if(inv){ inv.freight_status='dispatched'; inv.freight_fee=call.fare; inv.truck_type=call.truck_type; }
+  }
+  toast('✅ 배차 수락! 출하자에게 알림 발송됨');
+  renderVehiclePage(); renderHome(); saveAppData();
+};
+
+window.rejectCall=function(callId){
+  const call=CALLS.find(x=>x.id===callId);
+  if(!call) return;
+  call.status='rejected';
+  if(call.linked_inv_id){
+    const inv=INVOICES.find(x=>x.id===call.linked_inv_id);
+    if(inv) inv.freight_status='pending';
+  }
+  toast('배차를 거절했습니다');
+  renderVehiclePage(); renderHome();
 };
 
 // ── 콜 취소 ──
