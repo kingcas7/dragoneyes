@@ -1336,6 +1336,10 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
       <div class="fgroup" style="margin:0;"><div class="flabel">차량 종류</div>
         <select class="finput" id="call-truck-type" onchange="window.calcAIFare()">
           <option value="">AI 자동추천</option>
+          <optgroup label="── 경형 ──">
+            <option value="다마스">다마스 (0.5톤)</option>
+            <option value="다마스냉장">다마스 냉장</option>
+          </optgroup>
           <optgroup label="── 소형 ──">
             <option value="용달">용달 (0.5톤)</option>
             <option value="용달탑">용달 탑차 (0.5톤)</option>
@@ -1404,31 +1408,28 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
       <div style="font-size:11px;color:var(--a1);font-weight:700;margin-bottom:8px;">🤖 AI 추천 운임</div>
       <div id="ai-fare-detail" style="font-size:12px;color:var(--t1);line-height:1.9;margin-bottom:12px;"></div>
 
-      <!-- 운임 선택 버튼 2개 -->
-      <div style="display:flex;gap:8px;margin-bottom:4px;">
-        <button id="btn-ai-fare" onclick="window.selectFareMode('ai')"
-          style="flex:1;padding:12px 8px;border-radius:12px;border:1.5px solid var(--a1);background:rgba(0,232,188,.1);color:var(--a1);font-size:12px;font-weight:700;cursor:pointer;text-align:center;line-height:1.4;">
-          🤖 AI 추천운임으로<br>콜하기
-        </button>
-        <button id="btn-custom-fare" onclick="window.selectFareMode('custom')"
-          style="flex:1;padding:12px 8px;border-radius:12px;border:1.5px solid var(--b1);background:var(--s2);color:var(--t2);font-size:12px;font-weight:700;cursor:pointer;text-align:center;line-height:1.4;">
-          ✏️ 별도 운임<br>제안하기
-        </button>
+      <!-- 운임 직접 설정 (항상 표시) -->
+      <div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:12px;margin-bottom:8px;">
+        <div style="font-size:11px;color:var(--t2);font-weight:700;margin-bottom:8px;">💰 콜 운임 설정</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <button onclick="window.setFareToAI()"
+            style="flex-shrink:0;padding:7px 12px;border-radius:8px;background:rgba(0,232,188,.12);border:1.5px solid var(--a1);color:var(--a1);font-size:11px;font-weight:700;cursor:pointer;">
+            AI 추천값으로
+          </button>
+          <input class="finput" id="call-fare-custom" type="number" inputmode="decimal"
+            placeholder="운임 직접 입력"
+            oninput="window.onFareInput(this.value)"
+            style="flex:1;font-size:15px;font-weight:800;text-align:right;color:var(--a4);padding:9px 12px;">
+          <span style="font-size:13px;color:var(--t2);flex-shrink:0;">원</span>
+        </div>
+        <div id="fare-compare-msg" style="font-size:10px;color:var(--t3);line-height:1.5;"></div>
       </div>
 
-      <!-- 별도 운임 입력 (숨김) -->
-      <div id="custom-fare-input" style="display:none;margin-top:10px;">
-        <div class="flabel">제안 운임 (원)</div>
-        <input class="finput" id="call-fare-custom" type="number" placeholder="직접 입력하세요" inputmode="decimal"
-          style="margin-bottom:4px;">
-        <div style="font-size:10px;color:var(--t2);">※ AI 추천 운임보다 낮으면 배차가 어려울 수 있어요</div>
-      </div>
-
-      <!-- 선택된 최종 운임 표시 -->
-      <div id="fare-selected-display" style="display:none;margin-top:10px;padding:10px 12px;background:rgba(244,196,48,.08);border:1px solid rgba(244,196,48,.3);border-radius:10px;">
+      <!-- 확정 운임 표시 -->
+      <div id="fare-selected-display" style="display:none;padding:10px 12px;background:rgba(244,196,48,.08);border:1px solid rgba(244,196,48,.3);border-radius:10px;">
         <div style="display:flex;justify-content:space-between;align-items:center;">
-          <span style="font-size:11px;color:var(--t2);">확정 운임</span>
-          <span id="fare-final-display" style="font-size:18px;font-weight:900;color:var(--a4);">₩0</span>
+          <span style="font-size:11px;color:var(--t2);">콜 발송 운임</span>
+          <span id="fare-final-display" style="font-size:20px;font-weight:900;color:var(--a4);">₩0</span>
         </div>
       </div>
     </div>
@@ -1500,6 +1501,7 @@ async function loadFromSupabase(){
 // ── AI 데이터 ──
 const AI_PRICES = {사과:32000,배:28000,감자:11000,배추:8500,마늘:28000,양파:12000,딸기:55000,토마토:22000,고추:45000,포도:38000,복숭아:35000,수박:25000,참외:22000,무:5500,당근:15000,오이:18000};
 const TRUCK_FEES = {
+  '다마스':60000,'다마스냉장':85000,
   '용달':80000,'용달탑':90000,
   '1톤':100000,'1톤탑':115000,'1톤냉장':140000,'1톤냉동':155000,
   '2.5톤':150000,'2.5톤탑':170000,'2.5톤냉장':200000,'2.5톤냉동':220000,
@@ -5417,22 +5419,63 @@ window.addWarehouseToPartner = function(id){
 };
 
 function renderCallCard(call, isTransport){
-  const statusColor={pending:'var(--a4)',accepted:'var(--a1)',done:'var(--t2)'}[call.status]||'var(--t2)';
-  const statusText={pending:'배차대기',accepted:'배차확정',done:'완료'}[call.status]||call.status;
-  return `<div class="card" style="margin-bottom:8px;">
-    <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+  const statusColor={pending:'var(--a4)',accepted:'var(--a1)',done:'var(--t2)',rejected:'var(--red)',failed:'var(--red)',revised:'var(--pur)'}[call.status]||'var(--t2)';
+  const statusText={pending:'⏳ 배차대기',accepted:'✅ 배차확정',done:'완료',rejected:'거절됨',failed:'❌ 배차실패',revised:'🔄 운임재조정'}[call.status]||call.status;
+  const linkedInv = call.linked_inv_id ? INVOICES.find(x=>x.id===call.linked_inv_id) : null;
+  return `<div class="card" style="margin-bottom:10px;border:1.5px solid ${call.status==='accepted'?'rgba(0,232,188,.3)':call.status==='failed'||call.status==='rejected'?'rgba(255,69,84,.25)':call.status==='pending'?'rgba(244,196,48,.3)':'var(--b1)'};">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
       <div style="font-size:14px;font-weight:800;">${call.item} ${call.qty}박스</div>
-      <span class="tag" style="background:${statusColor}18;color:${statusColor};">${statusText}</span>
+      <span class="tag" style="background:${statusColor}20;color:${statusColor};">${statusText}</span>
     </div>
-    <div style="font-size:11px;color:var(--t2);">
+    <div style="font-size:11px;color:var(--t2);margin-bottom:4px;line-height:1.8;">
       📍 ${call.origin||'—'}
-      ${(call.waypoints&&call.waypoints.length>0)?call.waypoints.map(w=>`<span style="color:var(--a1);"> → 경유: ${w}</span>`).join(''):''}
-       → 🏁 ${call.dest||'—'}
+      ${(call.waypoints&&call.waypoints.length>0)?call.waypoints.map(w=>`<br><span style="padding-left:14px;color:var(--a1);">↳ 경유: ${w}</span>`).join(''):''}
+      <br>🏁 ${call.dest||'—'}
     </div>
-    <div style="font-size:11px;color:var(--a4);font-weight:700;margin-top:4px;">₩${(call.fare||0).toLocaleString()}</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <div style="font-size:12px;color:var(--a4);font-weight:800;">₩${(call.fare||0).toLocaleString()}</div>
+      <div style="font-size:10px;color:var(--t3);">${call.truck_type||'차량미정'} · ${new Date(call.created_at).toLocaleDateString('ko-KR')}</div>
+    </div>
+    ${linkedInv?`<div style="font-size:10px;color:var(--a2);padding:5px 8px;background:rgba(79,156,249,.07);border-radius:7px;margin-bottom:8px;">📋 연동 송장: ${linkedInv.id} · ${linkedInv.buyer_name}</div>`:''}
+    ${call.status==='accepted'&&call.driver_name?`
+    <div style="padding:8px 10px;background:rgba(0,232,188,.07);border:1px solid rgba(0,232,188,.2);border-radius:10px;margin-bottom:8px;font-size:11px;line-height:1.8;">
+      <div style="font-weight:700;color:var(--a1);margin-bottom:3px;">🚛 배차 확정 정보</div>
+      <div>기사: <strong>${call.driver_name}</strong></div>
+      <div>차량: <strong>${call.truck_num||'—'}</strong> · ${call.truck_type}</div>
+      <div>연락처: <strong>${call.driver_tel||'—'}</strong></div>
+    </div>`:''}
+    ${isTransport&&call.status==='pending'?`
+    <div style="display:flex;gap:6px;">
+      <button onclick="window.acceptCall('${call.id}')"
+        style="flex:1;padding:10px;border-radius:10px;background:var(--a1);color:#080d18;font-size:12px;font-weight:800;border:none;cursor:pointer;">
+        ✅ 수락
+      </button>
+      <button onclick="window.rejectCall('${call.id}')"
+        style="flex:.4;padding:10px;border-radius:10px;background:rgba(255,69,84,.1);border:1px solid rgba(255,69,84,.3);color:var(--red);font-size:12px;font-weight:700;cursor:pointer;">
+        거절
+      </button>
+    </div>`:''}
+    ${!isTransport&&call.status==='pending'?`
+    <div style="font-size:10px;color:var(--org);padding:6px 9px;background:rgba(255,165,2,.07);border-radius:8px;">
+      ⏳ 주변 운송업체 알림 발송 완료 · 수락 대기 중
+    </div>`:''}
+    ${!isTransport&&(call.status==='failed'||call.status==='rejected')?`
+    <div style="background:rgba(255,69,84,.06);border:1px solid rgba(255,69,84,.2);border-radius:12px;padding:12px;margin-top:4px;">
+      <div style="font-size:11px;color:var(--red);font-weight:700;margin-bottom:6px;">🚫 배차가 이루어지지 않았습니다</div>
+      <div style="font-size:10px;color:var(--t2);margin-bottom:10px;line-height:1.6;">운임을 올리거나 조건을 변경하면 배차 성공률이 높아집니다.</div>
+      <div style="display:flex;gap:6px;">
+        <button onclick="window.reopenCallWithRevision('${call.id}')"
+          style="flex:1;padding:10px;border-radius:10px;background:linear-gradient(135deg,var(--a4),var(--org));color:#080d18;font-size:12px;font-weight:800;border:none;cursor:pointer;">
+          💰 운임 수정 후 재배차 요청
+        </button>
+        <button onclick="window.cancelCall('${call.id}')"
+          style="flex:.4;padding:10px;border-radius:10px;background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-size:11px;font-weight:700;cursor:pointer;">
+          취소
+        </button>
+      </div>
+    </div>`:''}
   </div>`;
 }
-
 // ══════════════
 // ══════════════
 // 장부관리 페이지
@@ -8352,7 +8395,8 @@ window.calcAIFare=function(){
   const coldItems=['딸기','토마토','매생이','냉동매생이'];
   const isCold=coldItems.includes(item);
   let recTruck='';
-  if(totalKg<=500)        recTruck=isCold?'1톤냉장':'용달';
+  if(totalKg<=200)        recTruck=isCold?'다마스냉장':'다마스';
+  else if(totalKg<=500)   recTruck=isCold?'1톤냉장':'용달';
   else if(totalKg<=1000)  recTruck=isCold?'1톤냉장':'1톤';
   else if(totalKg<=2500)  recTruck=isCold?'2.5톤냉장':'2.5톤';
   else if(totalKg<=5000)  recTruck=isCold?'5톤냉장':'5톤';
@@ -8366,6 +8410,7 @@ window.calcAIFare=function(){
 
   // 운임 계산
   const BASE={
+    '다마스':60000,'다마스냉장':85000,
     '용달':80000,'용달탑':90000,
     '1톤':100000,'1톤탑':115000,'1톤냉장':140000,'1톤냉동':155000,
     '2.5톤':150000,'2.5톤탑':170000,'2.5톤냉장':200000,'2.5톤냉동':220000,
@@ -8391,21 +8436,50 @@ window.calcAIFare=function(){
     (wpCount>0?` + 경유지할증(${wpCount}곳): ₩${(wpCount*30000).toLocaleString()}`:'')+'<br>'+
     `<strong style="color:var(--a1);">AI 추천 운임: ₩${_aiFare.toLocaleString()}</strong>`;
 
-  // AI 추천 운임 자동 선택 — 매번 재계산 시 자동 반영
+  // AI 추천 운임 자동 반영 — 입력란에 채우기
   _fareMode='ai';
-  document.getElementById('custom-fare-input').style.display='none';
+  const fareInput=document.getElementById('call-fare-custom');
+  if(fareInput&&(!fareInput.value||fareInput.dataset.autoFilled==='true')){
+    fareInput.value=_aiFare;
+    fareInput.dataset.autoFilled='true';
+  }
+  // 확정 운임 표시 업데이트
+  const currentFare=parseInt(document.getElementById('call-fare-custom')?.value)||_aiFare;
+  window.onFareInput(currentFare);
+};
+
+// 운임 입력 핸들러 — 비교 메시지 + 버튼 활성화
+window.onFareInput=function(val){
+  const v=parseInt(val)||0;
   const selDisp=document.getElementById('fare-selected-display');
   const finalDisp=document.getElementById('fare-final-display');
-  if(selDisp) selDisp.style.display='block';
-  if(finalDisp) finalDisp.textContent='₩'+_aiFare.toLocaleString();
-  // AI 버튼 활성 스타일
-  const aiBt=document.getElementById('btn-ai-fare');
-  const cuBt=document.getElementById('btn-custom-fare');
-  if(aiBt){aiBt.style.borderColor='var(--a1)';aiBt.style.background='rgba(0,232,188,.15)';aiBt.style.color='var(--a1)';}
-  if(cuBt){cuBt.style.borderColor='var(--b1)';cuBt.style.background='var(--s2)';cuBt.style.color='var(--t2)';}
-  // 배차 요청 버튼 활성화
+  const compareMsg=document.getElementById('fare-compare-msg');
   const btn=document.getElementById('btn-call-submit');
-  if(btn){btn.style.opacity='1';btn.style.pointerEvents='auto';}
+  if(v>0){
+    _fareMode='ai'; // 어떤 값이든 설정되면 유효
+    if(selDisp) selDisp.style.display='block';
+    if(finalDisp) finalDisp.textContent='₩'+v.toLocaleString();
+    if(compareMsg){
+      if(_aiFare>0){
+        const diff=v-_aiFare;
+        const pct=Math.round(diff/_aiFare*100);
+        if(diff>0)        compareMsg.innerHTML=`<span style="color:var(--a1);">▲ AI 추천보다 ₩${Math.abs(diff).toLocaleString()} 높음 (+${pct}%) — 배차 성공률 높음</span>`;
+        else if(diff<0)   compareMsg.innerHTML=`<span style="color:var(--red);">▼ AI 추천보다 ₩${Math.abs(diff).toLocaleString()} 낮음 (${pct}%) — 배차가 어려울 수 있어요</span>`;
+        else              compareMsg.innerHTML=`<span style="color:var(--t2);">= AI 추천 운임과 동일</span>`;
+      }
+    }
+    if(btn){btn.style.opacity='1';btn.style.pointerEvents='auto';}
+  } else {
+    if(selDisp) selDisp.style.display='none';
+    if(btn){btn.style.opacity='.5';btn.style.pointerEvents='none';}
+  }
+};
+
+// AI 추천값으로 되돌리기
+window.setFareToAI=function(){
+  const el=document.getElementById('call-fare-custom');
+  if(el){ el.value=_aiFare; el.dataset.autoFilled='true'; }
+  window.onFareInput(_aiFare);
 };
 
 let baseFare=0;
@@ -8485,7 +8559,7 @@ window.submitCall=function(){
   if(!item||!qty||!dest){toast('화물 종류, 수량, 도착지를 입력하세요');return;}
   if(!origin){toast('출발지를 입력하거나 MY 탭에서 주소를 등록하세요');return;}
   if(!_fareMode){toast('운임 방식을 선택해주세요');return;}
-  const fare=_fareMode==='ai'?_aiFare:(parseInt(document.getElementById('call-fare-custom').value)||0);
+  const fare=parseInt(document.getElementById('call-fare-custom')?.value)||_aiFare||0;
   if(!fare){toast('운임을 입력해주세요');return;}
   const now=new Date();
   const id='CALL-'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'-'+String(Math.floor(Math.random()*9999)).padStart(4,'0');
@@ -8505,12 +8579,51 @@ window.submitCall=function(){
   window.closeSheet('sh-call');
   toast('🚛 배차 요청 발송! 주변 운송업체에 알림 발송됨');
   renderHome(); renderInvoicePage();
-  // 연동된 송장이 있으면 송장 탭에서 상세 열기
   if(_returnInvId){
     setTimeout(()=>{ goTab('invoice'); window.openInvoiceDetail(_returnInvId); },400);
   } else {
     renderVehiclePage();
   }
+};
+
+// ── 운임 수정 후 재배차 요청 ──
+window.reopenCallWithRevision=function(callId){
+  const call=CALLS.find(x=>x.id===callId);
+  if(!call) return;
+  // 기존 콜을 revised 상태로 변경
+  call.status='revised';
+  // 시트 열기 — 기존 정보 채우기
+  window._callLinkedInvId=call.linked_inv_id||null;
+  window.openSheet('sh-call');
+  // 기존 정보 자동 입력
+  setTimeout(()=>{
+    const itemEl=document.getElementById('call-item'); if(itemEl) itemEl.value=call.item||'';
+    const qtyEl=document.getElementById('call-qty');  if(qtyEl)  qtyEl.value=call.qty||'';
+    const origEl=document.getElementById('call-origin'); if(origEl) origEl.value=call.origin||window._userAddr||'';
+    const destEl=document.getElementById('call-dest');   if(destEl) destEl.value=call.dest||'';
+    const truckEl=document.getElementById('call-truck-type'); if(truckEl) truckEl.value=call.truck_type||'';
+    const memoEl=document.getElementById('call-memo'); if(memoEl) memoEl.value=call.memo||'';
+    // 경유지 복원
+    if(call.waypoints&&call.waypoints.length>0){
+      _waypoints=call.waypoints.map((a,i)=>({id:Date.now()+i,addr:a}));
+      renderWaypoints();
+    }
+    // 운임은 기존보다 10% 높게 제안
+    const suggestedFare=Math.round((call.fare||0)*1.1/1000)*1000;
+    const fareEl=document.getElementById('call-fare-custom');
+    if(fareEl){ fareEl.value=suggestedFare; fareEl.dataset.autoFilled='false'; }
+    setTimeout(()=>{ if(typeof window.calcAIFare==='function') window.calcAIFare(); window.onFareInput(suggestedFare); },300);
+    toast('💰 운임을 수정 후 재배차 요청하세요 (기존 대비 +10% 제안)');
+  },300);
+  renderVehiclePage();
+};
+
+// ── 콜 취소 ──
+window.cancelCall=function(callId){
+  if(!confirm('이 배차 요청을 취소하시겠습니까?')) return;
+  CALLS=CALLS.filter(x=>x.id!==callId);
+  toast('배차 요청이 취소됐습니다');
+  renderVehiclePage(); renderHome();
 };
 
 // ══════════════
