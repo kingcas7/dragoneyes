@@ -3468,6 +3468,7 @@ function saveAppData(){
       _bankInfo:    window._bankInfo,
       _userEmail:   window._userEmail,
       _userAddr:    window._userAddr,
+      _transportSchedules: window._transportSchedules||[],
       _subUsers:    window._subUsers,
       _partners:    window._partners,
       _contracts:   window._contracts,
@@ -3498,6 +3499,7 @@ function loadAppData(){
       if(d._bankInfo)        window._bankInfo        = d._bankInfo;
       if(d._userEmail)       window._userEmail       = d._userEmail;
       if(d._userAddr)        window._userAddr        = d._userAddr;
+      if(d._transportSchedules) window._transportSchedules = d._transportSchedules;
       if(d._subUsers)        window._subUsers        = d._subUsers;
       if(d._partners)        window._partners        = d._partners;
       if(d._contracts)       window._contracts       = d._contracts;
@@ -3681,6 +3683,7 @@ function renderHome(){
       <div style="font-size:11px;color:var(--t2);">📋 운송 이력</div>
       <div style="font-size:22px;font-weight:800;color:var(--a2);margin-top:4px;">${INVOICES.length}건</div>
     </div>`;
+    homeHTML += window.renderTransportScheduleSection();
   } else {
     homeHTML+=`
     <div onclick="goTab('policy')" style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:12px;cursor:pointer;text-align:center;">
@@ -8976,6 +8979,253 @@ window.rejectCall=function(callId){
   }
   toast('배차를 거절했습니다');
   renderVehiclePage(); renderHome();
+};
+
+// ══════════════════════════════
+// 운송업체 — 스케줄 & 수신 설정
+// ══════════════════════════════
+if(!window._transportSchedules) window._transportSchedules = [];
+// 형식: [{id, date, timeFrom, timeTo, regions:[], note, status:'active'|'done'}]
+
+const REGIONS_ALL = [
+  '서울','경기','인천','강원',
+  '충북','충남','세종','대전',
+  '경북','대구','경남','부산','울산',
+  '전북','전남','광주','제주'
+];
+
+window.renderTransportScheduleSection = function(){
+  const today = new Date().toISOString().slice(0,10);
+  const schedules = (window._transportSchedules||[]).filter(s=>s.date>=today);
+  const myActiveCalls = CALLS.filter(c=>c.status==='accepted'&&c.driver_gkid===curGkid);
+
+  return `
+  <!-- ── 스케줄 관리 ── -->
+  <div style="margin-top:4px;margin-bottom:12px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div style="font-size:14px;font-weight:800;">📅 내 운행 스케줄 & 콜 수신 설정</div>
+      <button onclick="window.openScheduleAddModal()"
+        style="padding:7px 13px;border-radius:9px;background:var(--a1);color:#080d18;font-size:11px;font-weight:800;border:none;cursor:pointer;">
+        + 일정 추가
+      </button>
+    </div>
+
+    <!-- 빈 상태 -->
+    ${schedules.length===0?`
+    <div style="padding:20px;background:var(--s2);border-radius:14px;text-align:center;border:1.5px dashed var(--b1);">
+      <div style="font-size:30px;margin-bottom:8px;">🗓️</div>
+      <div style="font-size:13px;font-weight:700;margin-bottom:4px;">운행 일정을 등록하세요</div>
+      <div style="font-size:11px;color:var(--t2);line-height:1.6;">날짜·시간·출발 지역을 설정하면<br>해당 조건에 맞는 콜을 우선 추천받습니다</div>
+    </div>
+    `:`
+    <!-- 스케줄 카드 목록 -->
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      ${schedules.map(s=>`
+      <div style="background:var(--s1);border:1.5px solid ${s.status==='active'?'rgba(0,232,188,.3)':'var(--b1)'};border-radius:14px;padding:12px 14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div style="font-size:13px;font-weight:800;">${s.date} <span style="color:var(--t2);font-size:11px;font-weight:600;">${s.timeFrom}~${s.timeTo}</span></div>
+          <div style="display:flex;gap:5px;align-items:center;">
+            <span class="tag" style="font-size:9px;background:${s.status==='active'?'rgba(0,232,188,.12)':'var(--s3)'};color:${s.status==='active'?'var(--a1)':'var(--t3)'};">${s.status==='active'?'수신중':'비활성'}</span>
+            <button onclick="window.toggleSchedule('${s.id}')" style="padding:3px 8px;border-radius:6px;background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-size:10px;cursor:pointer;">${s.status==='active'?'OFF':'ON'}</button>
+            <button onclick="window.deleteSchedule('${s.id}')" style="padding:3px 8px;border-radius:6px;background:rgba(255,69,84,.08);border:1px solid rgba(255,69,84,.2);color:var(--red);font-size:10px;cursor:pointer;">삭제</button>
+          </div>
+        </div>
+        <!-- 지역 태그 -->
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
+          ${s.regions.map(r=>`<span style="padding:3px 8px;border-radius:12px;background:rgba(79,156,249,.1);border:1px solid rgba(79,156,249,.25);color:var(--a2);font-size:10px;font-weight:700;">📍${r}</span>`).join('')}
+        </div>
+        ${s.note?`<div style="font-size:10px;color:var(--t2);">📝 ${s.note}</div>`:''}
+        <!-- 이 조건에 맞는 수신 가능 콜 -->
+        ${(()=>{
+          const matchCalls = CALLS.filter(c=>
+            c.status==='pending' &&
+            c.pickup_date===s.date &&
+            s.regions.some(r=>c.origin&&c.origin.includes(r))
+          );
+          if(!matchCalls.length) return '<div style="font-size:10px;color:var(--t3);margin-top:4px;">현재 조건에 맞는 콜 없음</div>';
+          return '<div style="margin-top:8px;"><div style="font-size:10px;color:var(--a1);font-weight:700;margin-bottom:5px;">🔔 매칭 콜 '+matchCalls.length+'건</div>'+
+            matchCalls.slice(0,3).map(c=>`
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:rgba(0,232,188,.06);border-radius:8px;margin-bottom:4px;">
+              <div>
+                <div style="font-size:11px;font-weight:700;">${c.item} ${c.qty}박스 · ${c.truck_type||'차량무관'}</div>
+                <div style="font-size:10px;color:var(--t2);">${c.origin||'—'} → ${c.dest||'—'} · ₩${(c.fare||0).toLocaleString()}</div>
+              </div>
+              <button onclick="window.acceptCall('${c.id}')"
+                style="padding:5px 10px;border-radius:7px;background:var(--a1);color:#080d18;font-size:11px;font-weight:800;border:none;cursor:pointer;flex-shrink:0;margin-left:8px;">
+                수락
+              </button>
+            </div>`).join('')+
+            (matchCalls.length>3?`<div style="font-size:10px;color:var(--t2);text-align:center;padding:4px;">+${matchCalls.length-3}건 더 보기 → <span onclick="goTab('vehicle')" style="color:var(--a1);cursor:pointer;">배차콜 탭</span></div>`:'')
+            +'</div>';
+        })()}
+      </div>`).join('')}
+    </div>
+    `}
+
+    <!-- 확정된 배차 현황 -->
+    ${myActiveCalls.length>0?`
+    <div style="margin-top:10px;">
+      <div style="font-size:12px;font-weight:700;color:var(--a1);margin-bottom:6px;">✅ 확정 배차 ${myActiveCalls.length}건</div>
+      ${myActiveCalls.map(c=>`
+      <div style="padding:9px 12px;background:rgba(0,232,188,.06);border:1px solid rgba(0,232,188,.2);border-radius:11px;margin-bottom:6px;font-size:11px;">
+        <div style="font-weight:700;margin-bottom:2px;">${c.item} ${c.qty}박스 · ${c.truck_type||'—'}</div>
+        <div style="color:var(--t2);">${c.pickup_date||'—'} ${c.pickup_time||''} · ${c.origin||'—'} → ${c.dest||'—'}</div>
+        <div style="color:var(--a4);font-weight:700;margin-top:2px;">₩${(c.fare||0).toLocaleString()}</div>
+      </div>`).join('')}
+    </div>`:''}
+  </div>`;
+};
+
+// ── 일정 추가 모달 ──
+window.openScheduleAddModal = function(editId){
+  const existing = editId ? (window._transportSchedules||[]).find(s=>s.id===editId) : null;
+  const tmr = new Date(); tmr.setDate(tmr.getDate()+1);
+  const defDate = existing?.date || tmr.toISOString().slice(0,10);
+
+  const html=`
+  <div id="sched-overlay" onclick="if(event.target===this)document.getElementById('sched-overlay').remove()"
+    style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:flex-end;justify-content:center;">
+    <div style="background:var(--s1);border-radius:20px 20px 0 0;padding:24px 20px 32px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;">
+      <div style="font-size:16px;font-weight:800;margin-bottom:4px;">📅 운행 일정 추가</div>
+      <div style="font-size:11px;color:var(--t2);margin-bottom:18px;">날짜·시간·지역을 설정하면 해당 조건 콜을 우선 추천받습니다</div>
+
+      <!-- 날짜 -->
+      <div class="frow" style="margin-bottom:12px;">
+        <div style="flex:1;"><div class="flabel">운행 날짜 *</div>
+          <input class="finput" id="sched-date" type="date" value="${defDate}">
+        </div>
+      </div>
+
+      <!-- 시간대 (여러 개 추가 가능) -->
+      <div style="margin-bottom:12px;">
+        <div class="flabel">수신 가능 시간대 (여러 개 추가 가능)</div>
+        <div id="sched-times-wrap">
+          <div class="frow" style="gap:8px;margin-bottom:6px;" id="sched-time-0">
+            <div style="flex:1;"><div style="font-size:10px;color:var(--t3);margin-bottom:3px;">시작</div>
+              <input class="finput" type="time" id="sched-time-from-0" value="${existing?.timeFrom||'06:00'}" style="font-size:13px;"></div>
+            <div style="flex:1;"><div style="font-size:10px;color:var(--t3);margin-bottom:3px;">종료</div>
+              <input class="finput" type="time" id="sched-time-to-0" value="${existing?.timeTo||'12:00'}" style="font-size:13px;"></div>
+            <div style="padding-top:20px;"><button onclick="this.closest('[id^=sched-time]').remove()" style="color:var(--red);font-size:18px;background:none;border:none;cursor:pointer;">✕</button></div>
+          </div>
+        </div>
+        <button onclick="window.addSchedTimeSlot()"
+          style="width:100%;padding:8px;border-radius:9px;border:1.5px dashed rgba(0,232,188,.4);background:rgba(0,232,188,.04);color:var(--a1);font-size:11px;font-weight:700;cursor:pointer;margin-top:4px;">
+          + 시간대 추가
+        </button>
+      </div>
+
+      <!-- 지역 선택 (다중) -->
+      <div style="margin-bottom:12px;">
+        <div class="flabel">출발 가능 지역 * (여러 개 선택)</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:6px;" id="sched-regions-grid">
+          ${REGIONS_ALL.map(r=>`
+          <div onclick="window.toggleSchedRegion(this,'${r}')"
+            data-region="${r}"
+            data-sel="${existing?.regions?.includes(r)?'1':'0'}"
+            style="padding:7px 4px;border-radius:9px;text-align:center;cursor:pointer;font-size:11px;font-weight:700;border:1.5px solid ${existing?.regions?.includes(r)?'var(--a1)':'var(--b1)'};background:${existing?.regions?.includes(r)?'rgba(0,232,188,.1)':'var(--s2)'};color:${existing?.regions?.includes(r)?'var(--a1)':'var(--t2)'};">
+            ${r}
+          </div>`).join('')}
+        </div>
+      </div>
+
+      <!-- 메모 -->
+      <div class="fgroup" style="margin-bottom:16px;">
+        <div class="flabel">메모 (선택)</div>
+        <input class="finput" id="sched-note" placeholder="예: 서울 하차 후 귀로 콜 탐색, 5톤 탑차만 가능 등" value="${existing?.note||''}">
+      </div>
+
+      <div style="display:flex;gap:8px;">
+        <button onclick="document.getElementById('sched-overlay').remove()"
+          style="flex:.4;padding:12px;border-radius:11px;background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-size:13px;font-weight:700;cursor:pointer;">취소</button>
+        <button onclick="window.saveSchedule('${editId||''}')"
+          style="flex:1;padding:12px;border-radius:11px;background:var(--a1);color:#080d18;font-size:14px;font-weight:800;border:none;cursor:pointer;">
+          ✅ 일정 저장
+        </button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+};
+
+window._schedTimeCount = 1;
+window.addSchedTimeSlot = function(){
+  const n = window._schedTimeCount++;
+  const wrap = document.getElementById('sched-times-wrap');
+  if(!wrap) return;
+  const div = document.createElement('div');
+  div.className='frow'; div.style.cssText='gap:8px;margin-bottom:6px;';
+  div.id='sched-time-'+n;
+  div.innerHTML=`
+    <div style="flex:1;"><div style="font-size:10px;color:var(--t3);margin-bottom:3px;">시작</div>
+      <input class="finput" type="time" id="sched-time-from-${n}" value="13:00" style="font-size:13px;"></div>
+    <div style="flex:1;"><div style="font-size:10px;color:var(--t3);margin-bottom:3px;">종료</div>
+      <input class="finput" type="time" id="sched-time-to-${n}" value="18:00" style="font-size:13px;"></div>
+    <div style="padding-top:20px;"><button onclick="this.closest('[id^=sched-time]').remove()" style="color:var(--red);font-size:18px;background:none;border:none;cursor:pointer;">✕</button></div>`;
+  wrap.appendChild(div);
+};
+
+window.toggleSchedRegion = function(el, region){
+  const sel = el.dataset.sel === '1';
+  el.dataset.sel = sel ? '0' : '1';
+  el.style.borderColor = sel ? 'var(--b1)' : 'var(--a1)';
+  el.style.background   = sel ? 'var(--s2)' : 'rgba(0,232,188,.1)';
+  el.style.color        = sel ? 'var(--t2)' : 'var(--a1)';
+};
+
+window.saveSchedule = function(editId){
+  const date = document.getElementById('sched-date')?.value;
+  if(!date){ toast('날짜를 선택하세요'); return; }
+
+  // 시간대 수집
+  const timeSlots = [];
+  document.querySelectorAll('[id^=sched-time-]').forEach(row=>{
+    const n = row.id.replace('sched-time-','');
+    const from = document.getElementById('sched-time-from-'+n)?.value;
+    const to   = document.getElementById('sched-time-to-'+n)?.value;
+    if(from&&to) timeSlots.push({from,to});
+  });
+  if(!timeSlots.length){ toast('시간대를 1개 이상 입력하세요'); return; }
+
+  // 지역 수집
+  const regions = [];
+  document.querySelectorAll('#sched-regions-grid [data-sel="1"]').forEach(el=>{
+    regions.push(el.dataset.region);
+  });
+  if(!regions.length){ toast('지역을 1개 이상 선택하세요'); return; }
+
+  const note = document.getElementById('sched-note')?.value.trim()||'';
+  document.getElementById('sched-overlay')?.remove();
+
+  if(!window._transportSchedules) window._transportSchedules=[];
+
+  // 시간대별로 각각 스케줄 저장
+  timeSlots.forEach(ts=>{
+    const id = editId&&timeSlots.length===1 ? editId : 'SCH-'+Date.now()+'-'+Math.random().toString(36).slice(2,6);
+    const obj = {id, date, timeFrom:ts.from, timeTo:ts.to, regions, note, status:'active', created_at:new Date().toISOString()};
+    if(editId&&timeSlots.length===1){
+      const idx=window._transportSchedules.findIndex(s=>s.id===editId);
+      if(idx>=0) window._transportSchedules[idx]=obj; else window._transportSchedules.push(obj);
+    } else {
+      window._transportSchedules.push(obj);
+    }
+  });
+
+  // 날짜순 정렬
+  window._transportSchedules.sort((a,b)=>a.date.localeCompare(b.date)||(a.timeFrom.localeCompare(b.timeFrom)));
+  toast('✅ 운행 일정 저장됐습니다');
+  renderHome(); saveAppData();
+};
+
+window.toggleSchedule = function(id){
+  const s=window._transportSchedules.find(x=>x.id===id); if(!s) return;
+  s.status=s.status==='active'?'inactive':'active';
+  renderHome(); saveAppData();
+};
+
+window.deleteSchedule = function(id){
+  window._transportSchedules=(window._transportSchedules||[]).filter(x=>x.id!==id);
+  toast('일정이 삭제됐습니다');
+  renderHome(); saveAppData();
 };
 
 // ── 콜 취소 ──
