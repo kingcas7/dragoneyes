@@ -1105,7 +1105,7 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
       </div>
       <div style="display:flex;gap:8px;margin-top:8px;">
         <button class="btn btn-s" style="flex:.4;" onclick="window.invNextStep(2)">← 뒤로</button>
-        <button class="btn btn-p" style="flex:.6;" onclick="window.invNextStep(4)">다음 → 정산 확인</button>
+        <button class="btn btn-p" style="flex:.6;" onclick="window.invStep3Next()">다음 →</button>
       </div>
     </div>
     <div id="inv-step4" style="display:none;">
@@ -1430,6 +1430,44 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <span style="font-size:11px;color:var(--t2);">콜 발송 운임</span>
           <span id="fare-final-display" style="font-size:20px;font-weight:900;color:var(--a4);">₩0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 상차 날짜/시간 -->
+    <div style="background:rgba(79,156,249,.06);border:1.5px solid rgba(79,156,249,.2);border-radius:14px;padding:14px;margin-bottom:12px;">
+      <div style="font-size:12px;font-weight:800;color:var(--a2);margin-bottom:10px;">📅 상차 일정</div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <div style="flex:1;">
+          <div class="flabel">상차 날짜 *</div>
+          <input class="finput" id="call-pickup-date" type="date" style="font-size:13px;">
+        </div>
+        <div style="flex:1;">
+          <div class="flabel">상차 시간 *</div>
+          <input class="finput" id="call-pickup-time" type="time" style="font-size:13px;" value="07:00">
+        </div>
+      </div>
+
+      <!-- 공차 회송 매칭 안내 -->
+      <div style="background:rgba(244,196,48,.08);border:1px solid rgba(244,196,48,.25);border-radius:10px;padding:10px 12px;">
+        <div style="font-size:11px;font-weight:800;color:var(--a4);margin-bottom:5px;">💡 운임 절감 꿀팁 — 공차 회송 매칭</div>
+        <div style="font-size:10px;color:var(--t2);line-height:1.7;">
+          서울→지방 화물을 싣고 내려온 차량이 <strong style="color:var(--t1);">빈 차로 돌아갈 때</strong> 산지 화물을 실으면<br>
+          일반 운임 대비 <strong style="color:var(--a1);">30~50% 저렴</strong>하게 운송할 수 있어요.<br>
+          하루 전 예약 시 공차 매칭 우선 배정됩니다.
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+          <div id="call-empty-return-wrap" style="display:flex;align-items:center;gap:6px;cursor:pointer;" onclick="window.toggleEmptyReturn()">
+            <div id="call-empty-return-toggle" style="width:36px;height:20px;border-radius:10px;background:var(--s3);position:relative;transition:.2s;flex-shrink:0;">
+              <div style="width:16px;height:16px;border-radius:50%;background:#fff;position:absolute;top:2px;left:2px;transition:.2s;" id="call-empty-toggle-ball"></div>
+            </div>
+            <span id="call-empty-return-label" style="font-size:11px;color:var(--t2);font-weight:600;">공차 회송 매칭 요청</span>
+          </div>
+        </div>
+        <div id="call-empty-return-info" style="display:none;margin-top:8px;padding:7px 10px;background:rgba(0,232,188,.08);border-radius:8px;font-size:10px;color:var(--a1);line-height:1.6;">
+          ✅ 공차 매칭 요청 활성화<br>
+          배차 날짜 전날 오후 6시까지 요청 시 우선 매칭됩니다.<br>
+          매칭 시 AI가 운임을 자동 재산정해 드려요.
         </div>
       </div>
     </div>
@@ -5434,7 +5472,7 @@ function renderCallCard(call, isTransport){
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
       <div style="font-size:12px;color:var(--a4);font-weight:800;">₩${(call.fare||0).toLocaleString()}</div>
-      <div style="font-size:10px;color:var(--t3);">${call.truck_type||'차량미정'} · ${new Date(call.created_at).toLocaleDateString('ko-KR')}</div>
+      <div style="font-size:10px;color:var(--t3);">${call.truck_type||'차량미정'} · ${call.pickup_date?call.pickup_date+' '+call.pickup_time:new Date(call.created_at).toLocaleDateString('ko-KR')}${call.empty_return?'<span style="color:var(--a1);"> · 공차매칭</span>':''}</div>
     </div>
     ${linkedInv?`<div style="font-size:10px;color:var(--a2);padding:5px 8px;background:rgba(79,156,249,.07);border-radius:7px;margin-bottom:8px;">📋 연동 송장: ${linkedInv.id} · ${linkedInv.buyer_name}</div>`:''}
     ${call.status==='accepted'&&call.driver_name?`
@@ -7887,6 +7925,22 @@ window.selectAIBuyer=function(name){
   document.getElementById('ai-buyer-suggest').style.display='none';
 };
 
+// Step 3 → 다음: 배차요청이면 배차시트, 자차배송이면 정산 확인
+window.invStep3Next=function(){
+  if(!invDelivery){ toast('배송 방식을 선택하세요'); return; }
+  if(invDelivery==='call'){
+    // 주소 저장
+    window._pendingInvOrigin=(document.getElementById('inv-origin-addr')||{}).value||window._userAddr||'';
+    window._pendingInvDest=(document.getElementById('inv-dest-addr')||{}).value||'서울 송파구 가락로 320';
+    // 배차 시트 열기 — 임시 invId 플래그 전달
+    window._callFromInvoice=true;
+    window.openCallSheet(null);
+    // 배차시트 닫힐 때 Step4로 이동하도록 플래그 처리는 submitCall에서
+  } else {
+    window.invNextStep(4);
+  }
+};
+
 window.invNextStep=function(step){
   [1,2,3,4].forEach(i=>{document.getElementById('inv-step'+i).style.display=i===step?'block':'none';});
   [1,2,3,4].forEach(i=>{
@@ -7996,11 +8050,15 @@ window.submitInvoice=function(){
     price:Math.round(totalAmt/(validProducts.reduce((s,p)=>s+p.qty,0)||1)),
     total_amt:totalAmt,origin_type:mainP.origin,origin_detail:mainP.originDetail,
     delivery_type:invDelivery,req_auction:invReqs.auction,req_consign:invReqs.consign,
-    freight_status: invDelivery==='call'?'pending':'self',
+    freight_status: invDelivery==='call'?'dispatched':'self',
     freight_fee: 0,
-    origin_addr: (document.getElementById('inv-origin-addr')||{}).value||'',
-    dest_addr:   (document.getElementById('inv-dest-addr')||{}).value||'',
+    call_id: invDelivery==='call'?(window._pendingCallId||null):null,
+    origin_addr: (document.getElementById('inv-origin-addr')||{}).value||window._pendingInvOrigin||'',
+    dest_addr:   (document.getElementById('inv-dest-addr')||{}).value||window._pendingInvDest||'',
     created_at:now.toISOString()});
+  window._pendingCallId=null;
+  window._pendingInvOrigin=null;
+  window._pendingInvDest=null;
   window.closeSheet('sh-invoice');
   updateGrade();
   renderHome(); renderInvoicePage();
@@ -8328,9 +8386,31 @@ window.openCallSheet=function(invId){
   ['call-item','call-qty','call-origin','call-dest','call-fare-custom','call-memo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   // 경유지 초기화
   _waypoints=[]; renderWaypoints();
+  // 날짜/시간 초기값 — 내일 오전 7시
+  const tmr=new Date(); tmr.setDate(tmr.getDate()+1);
+  const dateEl=document.getElementById('call-pickup-date');
+  const timeEl=document.getElementById('call-pickup-time');
+  if(dateEl) dateEl.value=tmr.toISOString().slice(0,10);
+  if(timeEl) timeEl.value='07:00';
+  // 공차 회송 초기화
+  window._emptyReturn=false;
+  const toggle=document.getElementById('call-empty-return-toggle');
+  const ball=document.getElementById('call-empty-toggle-ball');
+  const label=document.getElementById('call-empty-return-label');
+  const info=document.getElementById('call-empty-return-info');
+  if(toggle) toggle.style.background='var(--s3)';
+  if(ball)   ball.style.left='2px';
+  if(label)  { label.textContent='공차 회송 매칭 요청'; label.style.color='var(--t2)'; }
+  if(info)   info.style.display='none';
   // 출발지 기본값 — 사용자 등록 주소
   const origDefault=document.getElementById('call-origin');
-  if(origDefault&&window._userAddr) origDefault.value=window._userAddr;
+  if(origDefault){
+    origDefault.value=window._pendingInvOrigin||window._userAddr||'';
+  }
+  const destDefault=document.getElementById('call-dest');
+  if(destDefault&&window._pendingInvDest){
+    destDefault.value=window._pendingInvDest;
+  }
   const truckEl=document.getElementById('call-truck-type'); if(truckEl) truckEl.value='';
   const fareBoxEl=document.getElementById('ai-fare-box'); if(fareBoxEl) fareBoxEl.style.display='none';
   const fareSelEl=document.getElementById('fare-selected-display'); if(fareSelEl) fareSelEl.style.display='none';
@@ -8495,6 +8575,36 @@ window.selectFareMode=function(mode){
   }
 };
 
+// ── 공차 회송 토글 ──
+window._emptyReturn = false;
+window.toggleEmptyReturn = function(){
+  window._emptyReturn = !window._emptyReturn;
+  const toggle=document.getElementById('call-empty-return-toggle');
+  const ball=document.getElementById('call-empty-toggle-ball');
+  const label=document.getElementById('call-empty-return-label');
+  const info=document.getElementById('call-empty-return-info');
+  if(window._emptyReturn){
+    if(toggle) toggle.style.background='var(--a1)';
+    if(ball)   ball.style.left='18px';
+    if(label)  { label.textContent='공차 매칭 요청 중'; label.style.color='var(--a1)'; }
+    if(info)   info.style.display='block';
+    // 공차 매칭 시 운임 20% 할인 제안
+    if(_aiFare>0){
+      const discounted=Math.round(_aiFare*0.8/1000)*1000;
+      const el=document.getElementById('call-fare-custom');
+      if(el){ el.value=discounted; el.dataset.autoFilled='true'; }
+      window.onFareInput(discounted);
+      toast('💡 공차 매칭 적용! 운임 20% 할인 자동 반영됐어요');
+    }
+  } else {
+    if(toggle) toggle.style.background='var(--s3)';
+    if(ball)   ball.style.left='2px';
+    if(label)  { label.textContent='공차 회송 매칭 요청'; label.style.color='var(--t2)'; }
+    if(info)   info.style.display='none';
+    window.setFareToAI();
+  }
+};
+
 // ── 경유지 관리 ──
 let _waypoints = []; // [{id, addr}]
 
@@ -8540,9 +8650,14 @@ window.submitCall=function(){
   const now=new Date();
   const id='CALL-'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'-'+String(Math.floor(Math.random()*9999)).padStart(4,'0');
   const waypoints = _waypoints.map(w=>w.addr).filter(a=>a.trim());
+  const pickupDate=document.getElementById('call-pickup-date')?.value||'';
+  const pickupTime=document.getElementById('call-pickup-time')?.value||'07:00';
   const callObj={id,item,qty,origin,dest,waypoints,fare,memo,
     truck_type:document.getElementById('call-truck-type').value,
-    fare_mode:_fareMode,status:'pending',created_at:now.toISOString(),
+    fare_mode:_fareMode,status:'pending',
+    pickup_date:pickupDate, pickup_time:pickupTime,
+    empty_return:window._emptyReturn||false,
+    created_at:now.toISOString(),
     linked_inv_id: window._callLinkedInvId||null};
   CALLS.unshift(callObj);
   // 연동된 송장 freight_status 업데이트
@@ -8551,14 +8666,20 @@ window.submitCall=function(){
     if(inv){ inv.freight_status='dispatched'; inv.freight_fee=fare; inv.call_id=id; }
   }
   const _returnInvId = window._callLinkedInvId;
+  const _fromInv = window._callFromInvoice;
   window._callLinkedInvId=null;
+  window._callFromInvoice=false;
+  window._pendingCallId=id; // 송장에 연동할 콜 ID 저장
   window.closeSheet('sh-call');
-  toast('🚛 배차 요청 발송! 주변 운송업체에 알림 발송됨');
-  renderHome(); renderInvoicePage();
-  if(_returnInvId){
+  toast('🚛 배차 요청 완료! 운송업체 알림 발송됨');
+  if(_fromInv){
+    // 송장 작성 중 → Step 4(정산 확인)로 이동
+    window.invNextStep(4);
+  } else if(_returnInvId){
+    renderHome(); renderInvoicePage();
     setTimeout(()=>{ goTab('invoice'); window.openInvoiceDetail(_returnInvId); },400);
   } else {
-    renderVehiclePage();
+    renderHome(); renderVehiclePage();
   }
 };
 
