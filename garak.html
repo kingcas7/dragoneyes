@@ -8281,19 +8281,21 @@ window.calcAIFare=function(){
     `기본운임: ₩${baseFee.toLocaleString()} + 거리할증: ₩${distExtra.toLocaleString()}<br>`+
     `<strong style="color:var(--a1);">AI 추천 운임: ₩${_aiFare.toLocaleString()}</strong>`;
 
-  // 모드 초기화
-  _fareMode='';
+  // AI 추천 운임 자동 선택 — 매번 재계산 시 자동 반영
+  _fareMode='ai';
   document.getElementById('custom-fare-input').style.display='none';
-  document.getElementById('fare-selected-display').style.display='none';
-  // 버튼 스타일 초기화
-  document.getElementById('btn-ai-fare').style.borderColor='var(--a1)';
-  document.getElementById('btn-ai-fare').style.background='rgba(0,232,188,.1)';
-  document.getElementById('btn-ai-fare').style.color='var(--a1)';
-  document.getElementById('btn-custom-fare').style.borderColor='var(--b1)';
-  document.getElementById('btn-custom-fare').style.background='var(--s2)';
-  document.getElementById('btn-custom-fare').style.color='var(--t2)';
+  const selDisp=document.getElementById('fare-selected-display');
+  const finalDisp=document.getElementById('fare-final-display');
+  if(selDisp) selDisp.style.display='block';
+  if(finalDisp) finalDisp.textContent='₩'+_aiFare.toLocaleString();
+  // AI 버튼 활성 스타일
+  const aiBt=document.getElementById('btn-ai-fare');
+  const cuBt=document.getElementById('btn-custom-fare');
+  if(aiBt){aiBt.style.borderColor='var(--a1)';aiBt.style.background='rgba(0,232,188,.15)';aiBt.style.color='var(--a1)';}
+  if(cuBt){cuBt.style.borderColor='var(--b1)';cuBt.style.background='var(--s2)';cuBt.style.color='var(--t2)';}
+  // 배차 요청 버튼 활성화
   const btn=document.getElementById('btn-call-submit');
-  if(btn){btn.style.opacity='.5';btn.style.pointerEvents='none';}
+  if(btn){btn.style.opacity='1';btn.style.pointerEvents='auto';}
 };
 
 let baseFare=0;
