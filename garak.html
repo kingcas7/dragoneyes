@@ -1113,7 +1113,7 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
       <div id="inv-settle-preview" class="card" style="margin-bottom:12px;"></div>
       <div style="display:flex;gap:8px;">
         <button class="btn btn-s" style="flex:.4;" onclick="window.invNextStep(3)">← 뒤로</button>
-        <button class="btn btn-p" id="btn-submit-inv" style="flex:.6;" onclick="window.submitInvoice()">✅ 송장 완료</button>
+        <button class="btn btn-p" id="btn-submit-inv" style="flex:.6;" onclick="window.submitInvoice()">📋 저장 (배차 확정 전)</button>
       </div>
     </div>
   </div>
@@ -2201,7 +2201,7 @@ window.viewClientLedger = function(partnerId){
     ${INVOICES.slice(-10).reverse().map(inv=>{
       const amt=inv.confirmed_price?(inv.qty||0)*inv.confirmed_price:(inv.qty||0)*(inv.price||0);
       const d=new Date(inv.created_at);
-      const stl={draft:'작성중',sent:'발송',transit:'배송',confirmed:'수령',reported:'신고',eform:'전표완료'};
+      const stl={draft:'작성중',sent:'발송',awaiting_dispatch:'배차확정전',dispatched:'배차완료',loading:'상차중',transit:'운송중',confirmed:'수령',reported:'신고',eform:'전표완료'};
       return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--b2);font-size:11px;">
         <div>
           <div style="font-weight:700;">${inv.item} ${inv.qty}박스</div>
@@ -8045,7 +8045,7 @@ window.submitInvoice=function(){
   const id='INV-'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'-'+String(Math.floor(Math.random()*9999)).padStart(4,'0');
   const totalAmt=validProducts.reduce((s,p)=>s+(p.price*p.qty),0);
   const mainP=validProducts[0];
-  INVOICES.unshift({id,status:'sent',seller_gkid:curGkid,buyer_name:buyerName,
+  INVOICES.unshift({id,status:invDelivery==='call'?'awaiting_dispatch':'sent',seller_gkid:curGkid,buyer_name:buyerName,
     item:validProducts.map(p=>p.item).join(', '),qty:validProducts.reduce((s,p)=>s+p.qty,0),
     price:Math.round(totalAmt/(validProducts.reduce((s,p)=>s+p.qty,0)||1)),
     total_amt:totalAmt,origin_type:mainP.origin,origin_detail:mainP.originDetail,
@@ -8080,13 +8080,21 @@ window.openInvoiceDetail=function(id){
   if(!inv) return;
 
   const statusColor={
-    draft:'var(--t2)',sent:'var(--a2)',transit:'var(--org)',
+    draft:'var(--t2)',sent:'var(--a2)',
+    awaiting_dispatch:'var(--org)',
+    dispatched:'var(--a1)',
+    loading:'var(--a2)',
+    transit:'var(--org)',
     confirmed:'var(--a1)',reported:'var(--a4)',
     auction_wait:'var(--pur)',eform:'var(--a1)'
   }[inv.status]||'var(--t2)';
 
   const statusText={
-    draft:'작성중',sent:'발송됨',transit:'배송중',
+    draft:'작성중',sent:'발송됨',
+    awaiting_dispatch:'⏳ 배차확정전',
+    dispatched:'🚛 배차완료',
+    loading:'📦 상차중',
+    transit:'🚛 운송중',
     confirmed:'수령확인',reported:'출하신고완료',
     auction_wait:'낙찰가 대기',eform:'전표완료'
   }[inv.status]||inv.status;
@@ -8103,9 +8111,9 @@ window.openInvoiceDetail=function(id){
   const platFee   = Math.round(displayTotal*.005);
   const netAmt    = displayTotal - unloadFee - commFee - platFee;
 
-  const canEdit = ['draft','sent'].includes(inv.status);
-  const steps = ['sent','transit','confirmed','reported','eform'];
-  const stepLabels = ['발송','배송중','수령확인','출하신고','전표완료'];
+  const canEdit = ['draft','sent','awaiting_dispatch'].includes(inv.status);
+  const steps = ['awaiting_dispatch','dispatched','loading','transit','confirmed','reported','eform'];
+  const stepLabels = ['배차확정전','배차완료','상차중','운송중','수령확인','출하신고','전표완료'];
   const curIdx = steps.indexOf(inv.status==='auction_wait'?'reported':inv.status);
 
   document.getElementById('invoice-detail-body').innerHTML=`
@@ -8259,8 +8267,35 @@ window.openInvoiceDetail=function(id){
 
     <!-- 액션 버튼 -->
     <div style="display:flex;flex-direction:column;gap:8px;">
-      ${inv.status==='sent'?`
-        <button class="btn" style="background:var(--a2);color:#fff;" onclick="window.updateInvStatus('${inv.id}','transit')">🚛 배송 시작</button>`:''}
+
+      ${inv.status==='awaiting_dispatch'?`
+      <div style="padding:12px 14px;background:rgba(255,165,2,.07);border:1.5px solid rgba(255,165,2,.3);border-radius:14px;">
+        <div style="font-size:12px;font-weight:700;color:var(--org);margin-bottom:6px;">⏳ 배차 확정 대기중</div>
+        <div style="font-size:10px;color:var(--t2);margin-bottom:10px;line-height:1.6;">운송업체가 배차를 수락하면<br>차량 정보가 표시되고 송장이 진행됩니다.</div>
+      </div>`:''}
+
+      ${inv.status==='dispatched'?`
+      <div style="padding:12px 14px;background:rgba(0,232,188,.06);border:1.5px solid rgba(0,232,188,.25);border-radius:14px;">
+        <div style="font-size:12px;font-weight:700;color:var(--a1);margin-bottom:6px;">🚛 배차 완료 — 상차 준비 중</div>
+        <div style="font-size:10px;color:var(--t2);margin-bottom:10px;line-height:1.6;">차량이 배정됐습니다.<br>화물 적재 후 수량 확인이 완료되면 아래 버튼을 눌러주세요.</div>
+        <button class="btn btn-p" onclick="window.openLoadingConfirm('${inv.id}')">
+          📦 상차 완료 — 수량 확인
+        </button>
+      </div>`:''}
+
+      ${inv.status==='loading'?`
+      <div style="padding:12px 14px;background:rgba(79,156,249,.06);border:1.5px solid rgba(79,156,249,.25);border-radius:14px;">
+        <div style="font-size:12px;font-weight:700;color:var(--a2);margin-bottom:6px;">📦 상차 확인 대기중</div>
+        <div style="font-size:10px;color:var(--t2);margin-bottom:10px;line-height:1.6;">운송업자가 수량 확인 후 차량 출발 버튼을 눌러야<br>송장이 확정됩니다.</div>
+        ${curRole==='transport'?`
+        <button class="btn" style="background:var(--a2);color:#fff;" onclick="window.openDepartureConfirm('${inv.id}')">
+          🚛 수량 확인 완료 · 차량 출발
+        </button>`:`
+        <div style="font-size:10px;color:var(--org);padding:6px 9px;background:rgba(255,165,2,.07);border-radius:8px;">
+          ⏳ 운송업자의 출발 확인을 기다리는 중입니다
+        </div>`}
+      </div>`:''}
+
       ${inv.status==='transit'?`
         <button class="btn btn-p" onclick="window.updateInvStatus('${inv.id}','confirmed')">✅ 수령 확인</button>`:''}
       ${inv.status==='confirmed'?`
@@ -8378,10 +8413,112 @@ window.saveInvoiceEdit=function(id){
   saveAppData();
 };
 
+// ── 상차 완료 — 수량 확인 모달 (생산자/운송업자 공통) ──
+window.openLoadingConfirm=function(invId){
+  const inv=INVOICES.find(x=>x.id===invId); if(!inv) return;
+  const html=`
+  <div id="loading-confirm-overlay" onclick="if(event.target===this)document.getElementById('loading-confirm-overlay').remove()"
+    style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;">
+    <div style="background:var(--s1);border-radius:16px;padding:22px;width:100%;max-width:340px;">
+      <div style="font-size:15px;font-weight:800;margin-bottom:4px;">📦 상차 완료 확인</div>
+      <div style="font-size:11px;color:var(--t2);margin-bottom:16px;">${inv.item} · ${inv.qty}박스 적재 확인</div>
+      <div style="background:var(--s2);border-radius:12px;padding:12px;margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:8px;">
+          <span style="color:var(--t2);">송장 수량</span>
+          <strong>${inv.qty}박스</strong>
+        </div>
+        <div class="fgroup" style="margin-bottom:0;">
+          <div class="flabel">실제 상차 수량 확인 *</div>
+          <input class="finput" id="lc-actual-qty" type="number" inputmode="decimal"
+            value="${inv.qty}" placeholder="${inv.qty}" style="font-size:16px;font-weight:800;text-align:center;">
+        </div>
+        <div style="font-size:10px;color:var(--t2);margin-top:6px;">송장 수량과 다를 경우 실제 수량을 입력하세요</div>
+      </div>
+      <div class="fgroup" style="margin-bottom:14px;">
+        <div class="flabel">특이사항 (선택)</div>
+        <input class="finput" id="lc-note" placeholder="예: 파손 2박스 제외, 규격 상이 등...">
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="document.getElementById('loading-confirm-overlay').remove()"
+          style="flex:.4;padding:11px;border-radius:10px;background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-size:13px;font-weight:700;cursor:pointer;">취소</button>
+        <button onclick="window._confirmLoading('${invId}')"
+          style="flex:1;padding:11px;border-radius:10px;background:var(--a2);color:#fff;font-size:13px;font-weight:800;border:none;cursor:pointer;">📦 상차 완료 확인</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+};
+
+window._confirmLoading=function(invId){
+  const actualQty=parseInt(document.getElementById('lc-actual-qty')?.value)||0;
+  const note=document.getElementById('lc-note')?.value.trim()||'';
+  if(!actualQty){toast('실제 수량을 입력하세요');return;}
+  document.getElementById('loading-confirm-overlay')?.remove();
+  const inv=INVOICES.find(x=>x.id===invId); if(!inv) return;
+  inv.status='loading';
+  inv.actual_qty=actualQty;
+  inv.loading_note=note;
+  if(actualQty!==inv.qty) toast(`⚠️ 수량 불일치: 송장 ${inv.qty}박스 → 실제 ${actualQty}박스`);
+  else toast('📦 상차 완료! 운송업자 출발 확인 대기중');
+  renderInvoicePage(); renderHome();
+  // 연동 콜에도 반영
+  if(inv.call_id){ const call=CALLS.find(x=>x.id===inv.call_id); if(call) call.status='loading'; }
+  saveAppData();
+  // 송장 상세 새로고침
+  setTimeout(()=>window.openInvoiceDetail(invId), 300);
+};
+
+// ── 차량 출발 확인 — 운송업자 전용 ──
+window.openDepartureConfirm=function(invId){
+  const inv=INVOICES.find(x=>x.id===invId); if(!inv) return;
+  const html=`
+  <div id="departure-overlay" onclick="if(event.target===this)document.getElementById('departure-overlay').remove()"
+    style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;">
+    <div style="background:var(--s1);border-radius:16px;padding:22px;width:100%;max-width:340px;">
+      <div style="font-size:15px;font-weight:800;margin-bottom:4px;">🚛 차량 출발 확인</div>
+      <div style="font-size:11px;color:var(--t2);margin-bottom:14px;">${inv.item} ${inv.actual_qty||inv.qty}박스 · ${inv.origin_addr||'—'} → ${inv.dest_addr||'—'}</div>
+      <div style="background:rgba(0,232,188,.06);border:1px solid rgba(0,232,188,.2);border-radius:12px;padding:12px;margin-bottom:14px;font-size:12px;line-height:1.8;">
+        <div>🚛 차량: <strong>${inv.truck_type||'—'}</strong></div>
+        <div>📦 상차 수량: <strong>${inv.actual_qty||inv.qty}박스</strong>${(inv.actual_qty&&inv.actual_qty!==inv.qty)?`<span style="color:var(--org);"> (송장 ${inv.qty}박스 대비 상이)</span>`:''}</div>
+        ${inv.loading_note?`<div>📝 특이사항: <span style="color:var(--org);">${inv.loading_note}</span></div>`:''}
+      </div>
+      <div style="background:rgba(255,165,2,.06);border:1px solid rgba(255,165,2,.2);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:11px;color:var(--t2);line-height:1.6;">
+        ⚠️ 출발 확인 시 송장이 <strong style="color:var(--t1);">운송중</strong> 상태로 확정되며<br>
+        수량·운임 등 주요 정보가 고정됩니다.
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="document.getElementById('departure-overlay').remove()"
+          style="flex:.4;padding:11px;border-radius:10px;background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-size:13px;font-weight:700;cursor:pointer;">취소</button>
+        <button onclick="window._confirmDeparture('${invId}')"
+          style="flex:1;padding:11px;border-radius:10px;background:linear-gradient(135deg,var(--a2),var(--a1));color:#fff;font-size:13px;font-weight:800;border:none;cursor:pointer;">🚛 출발 확인 · 송장 확정</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+};
+
+window._confirmDeparture=function(invId){
+  document.getElementById('departure-overlay')?.remove();
+  const inv=INVOICES.find(x=>x.id===invId); if(!inv) return;
+  inv.status='transit';
+  inv.departed_at=new Date().toISOString();
+  // 실제 수량으로 price 재조정
+  if(inv.actual_qty&&inv.actual_qty!==inv.qty){
+    const oldTotal=inv.total_amt||0;
+    inv.total_amt=Math.round(oldTotal/inv.qty*inv.actual_qty);
+    inv.qty=inv.actual_qty;
+  }
+  // 연동 콜도 transit으로
+  if(inv.call_id){ const call=CALLS.find(x=>x.id===inv.call_id); if(call) call.status='done'; }
+  toast('🚛 출발 확인 완료! 송장이 운송중으로 확정됐습니다');
+  renderInvoicePage(); renderHome(); saveAppData();
+  setTimeout(()=>window.openInvoiceDetail(invId), 300);
+};
+
 window.updateInvStatus=function(id,status){
   const inv=INVOICES.find(x=>x.id===id);
   if(inv) inv.status=status;
-  const msg={transit:'🚛 배송 시작!',confirmed:'✅ 수령 확인 완료!',reported:'📢 출하 신고 완료!',eform:'📄 전표 전환 완료!'}[status]||'상태 업데이트';
+  const msg={awaiting_dispatch:'⏳ 배차 대기중',dispatched:'✅ 배차 완료!',loading:'📦 상차 완료!',transit:'🚛 차량 출발!',confirmed:'✅ 수령 확인 완료!',reported:'📢 출하 신고 완료!',eform:'📄 전표 전환 완료!'}[status]||'상태 업데이트';
   window.closeSheet('sh-invoice-detail');
   toast(msg);
   renderInvoicePage(); renderHome();
@@ -8788,13 +8925,18 @@ window._confirmAcceptCall=function(callId){
   call.driver_tel=driverTel;
   call.truck_num=truckNum;
   call.biz_no=bizNo||'—';
-  // 연동 송장에 배차 확정 반영
+  // 연동 송장 → dispatched 상태로 전환
   if(call.linked_inv_id){
     const inv=INVOICES.find(x=>x.id===call.linked_inv_id);
-    if(inv){ inv.freight_status='dispatched'; inv.freight_fee=call.fare; inv.truck_type=call.truck_type; }
+    if(inv){
+      inv.freight_status='dispatched';
+      inv.freight_fee=call.fare;
+      inv.truck_type=call.truck_type;
+      inv.status='dispatched'; // 송장 상태도 배차완료로
+    }
   }
   toast('✅ 배차 수락! 출하자에게 알림 발송됨');
-  renderVehiclePage(); renderHome(); saveAppData();
+  renderVehiclePage(); renderHome(); renderInvoicePage(); saveAppData();
 };
 
 window.rejectCall=function(callId){
