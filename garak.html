@@ -1328,9 +1328,7 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
 
     <div class="fgroup"><div class="flabel">화물 종류 *</div>
       <select class="finput" id="call-item" onchange="window.calcAIFare()">
-        <option value="">선택하세요</option><option>사과</option><option>배</option><option>감자</option>
-        <option>배추</option><option>마늘</option><option>양파</option><option>딸기</option>
-        <option>토마토</option><option>고추</option><option>기타농산물</option>
+        <option value="">선택하세요</option>
       </select>
     </div>
     <div class="frow">
@@ -8189,6 +8187,19 @@ window.deleteInvoice=function(id){
 let _aiFare=0, _fareMode=''; // 'ai' | 'custom'
 
 window.openCallSheet=function(invId){
+  // call-item 드롭다운을 ITEMS_LIST로 동기화
+  (function(){
+    const sel=document.getElementById('call-item');
+    if(sel&&typeof ITEMS_LIST!=='undefined'&&sel.options.length<=1){
+      ITEMS_LIST.forEach(function(i){
+        const opt=document.createElement('option');
+        if(i.startsWith('──')){opt.disabled=true;opt.style.color='#888';opt.style.fontWeight='700';}
+        opt.value=i.startsWith('──')?'':i;
+        opt.textContent=i;
+        sel.appendChild(opt);
+      });
+    }
+  })();
   ['call-item','call-qty','call-origin','call-dest','call-fare-custom','call-memo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('call-truck-type').value='';
   document.getElementById('ai-fare-box').style.display='none';
@@ -8240,7 +8251,7 @@ window.calcAIFare=function(){
   if(!item||!qty||!origin||!dest){ document.getElementById('ai-fare-box').style.display='none'; return; }
 
   // 중량 추정
-  const KG_PER_BOX={사과:15,배:15,감자:20,배추:20,마늘:10,양파:20,딸기:2,토마토:5,고추:10};
+  const KG_PER_BOX={사과:15,배:15,감자:20,배추:20,마늘:10,양파:20,딸기:2,토마토:5,고추:10,포도:8,복숭아:10,수박:15,참외:10,무:20,당근:15,오이:10,파:10,호박:12,버섯:4,깻잎:3,파래:5,물미역:10,곰피:8,다시마:8,매생이:3,냉동매생이:5,톳:5,청각:5,건청각:3,자반:5,생김:2,모자반:5,마른모자반:3};
   const totalKg=qty*(KG_PER_BOX[item]||15);
 
   // 차량 자동추천
