@@ -7932,7 +7932,11 @@ window.invStep3Next=function(){
     // 주소 저장
     window._pendingInvOrigin=(document.getElementById('inv-origin-addr')||{}).value||window._userAddr||'';
     window._pendingInvDest=(document.getElementById('inv-dest-addr')||{}).value||'서울 송파구 가락로 320';
-    // 배차 시트 열기 — 임시 invId 플래그 전달
+    // 품목·수량 저장 (배차 시트에서 자동 채우기용)
+    const validProds=products.filter(p=>p.item&&p.qty);
+    window._pendingInvItem=validProds.length>0?validProds[0].item:'';
+    window._pendingInvQty=validProds.reduce((s,p)=>s+(p.qty||0),0);
+    // 배차 시트 열기
     window._callFromInvoice=true;
     window.openCallSheet(null);
     // 배차시트 닫힐 때 Step4로 이동하도록 플래그 처리는 submitCall에서
@@ -8557,6 +8561,11 @@ window.openCallSheet=function(invId){
   ['call-item','call-qty','call-origin','call-dest','call-fare-custom','call-memo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   // 경유지 초기화
   _waypoints=[]; renderWaypoints();
+  // 송장에서 넘어온 경우가 아니면 pendingInv 클리어
+  if(!window._callFromInvoice){
+    window._pendingInvItem=null;
+    window._pendingInvQty=null;
+  }
   // 날짜/시간 초기값 — 내일 오전 7시
   const tmr=new Date(); tmr.setDate(tmr.getDate()+1);
   const dateEl=document.getElementById('call-pickup-date');
@@ -8581,6 +8590,15 @@ window.openCallSheet=function(invId){
   const destDefault=document.getElementById('call-dest');
   if(destDefault&&window._pendingInvDest){
     destDefault.value=window._pendingInvDest;
+  }
+  // 품목·수량 자동 채우기 (송장에서 넘어온 경우)
+  if(window._pendingInvItem){
+    const itemEl=document.getElementById('call-item');
+    if(itemEl) itemEl.value=window._pendingInvItem;
+  }
+  if(window._pendingInvQty){
+    const qtyEl=document.getElementById('call-qty');
+    if(qtyEl) qtyEl.value=window._pendingInvQty;
   }
   const truckEl=document.getElementById('call-truck-type'); if(truckEl) truckEl.value='';
   const fareBoxEl=document.getElementById('ai-fare-box'); if(fareBoxEl) fareBoxEl.style.display='none';
@@ -8623,6 +8641,15 @@ window.openCallSheet=function(invId){
   const btn=document.getElementById('btn-call-submit');
   if(btn){btn.style.opacity='.5';btn.style.pointerEvents='none';}
   window.openSheet('sh-call');
+  // 품목·수량·주소가 모두 채워진 경우 AI 운임 자동 계산
+  if(window._pendingInvItem&&window._pendingInvQty){
+    setTimeout(()=>{
+      if(typeof window.calcAIFare==='function') window.calcAIFare();
+      // pending 클리어
+      window._pendingInvItem=null;
+      window._pendingInvQty=null;
+    }, 400);
+  }
 };
 
 window.calcAIFare=function(){
