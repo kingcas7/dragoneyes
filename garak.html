@@ -1335,10 +1335,44 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
       <div class="fgroup" style="margin:0;"><div class="flabel">수량 (박스)</div><input class="finput" id="call-qty" type="number" placeholder="100" inputmode="decimal" oninput="window.calcAIFare()"></div>
       <div class="fgroup" style="margin:0;"><div class="flabel">차량 종류</div>
         <select class="finput" id="call-truck-type" onchange="window.calcAIFare()">
-          <option value="">AI 자동추천</option><option value="용달">용달 (0.5톤)</option>
-          <option value="1톤">1톤 트럭</option><option value="1톤냉장">1톤 냉장</option>
-          <option value="2.5톤">2.5톤 트럭</option><option value="5톤">5톤 트럭</option>
-          <option value="5톤냉장">5톤 냉장</option><option value="11톤">11톤 트럭</option>
+          <option value="">AI 자동추천</option>
+          <optgroup label="── 소형 ──">
+            <option value="용달">용달 (0.5톤)</option>
+            <option value="용달탑">용달 탑차 (0.5톤)</option>
+            <option value="1톤">1톤 트럭</option>
+            <option value="1톤탑">1톤 탑차</option>
+            <option value="1톤냉장">1톤 냉장</option>
+            <option value="1톤냉동">1톤 냉동</option>
+          </optgroup>
+          <optgroup label="── 중형 ──">
+            <option value="2.5톤">2.5톤 트럭</option>
+            <option value="2.5톤탑">2.5톤 탑차</option>
+            <option value="2.5톤냉장">2.5톤 냉장</option>
+            <option value="2.5톤냉동">2.5톤 냉동</option>
+          </optgroup>
+          <optgroup label="── 대형 ──">
+            <option value="5톤">5톤 트럭</option>
+            <option value="5톤탑">5톤 탑차</option>
+            <option value="5톤냉장">5톤 냉장</option>
+            <option value="5톤냉동">5톤 냉동</option>
+            <option value="5톤장축">5톤 장축 (8톤 적재)</option>
+            <option value="5톤장축탑">5톤 장축 탑차</option>
+            <option value="5톤장축냉장">5톤 장축 냉장</option>
+            <option value="5톤장축냉동">5톤 장축 냉동</option>
+            <option value="8톤">8톤 트럭</option>
+            <option value="8톤탑">8톤 탑차</option>
+            <option value="8톤냉장">8톤 냉장</option>
+            <option value="8톤냉동">8톤 냉동</option>
+            <option value="11톤">11톤 트럭</option>
+            <option value="11톤탑">11톤 탑차</option>
+            <option value="11톤냉장">11톤 냉장</option>
+            <option value="11톤냉동">11톤 냉동</option>
+          </optgroup>
+          <optgroup label="── 특수 ──">
+            <option value="25톤">25톤 트럭 (카고)</option>
+            <option value="25톤냉장">25톤 냉장</option>
+            <option value="리프트">리프트 차량</option>
+          </optgroup>
         </select>
       </div>
     </div>
@@ -1465,7 +1499,16 @@ async function loadFromSupabase(){
 
 // ── AI 데이터 ──
 const AI_PRICES = {사과:32000,배:28000,감자:11000,배추:8500,마늘:28000,양파:12000,딸기:55000,토마토:22000,고추:45000,포도:38000,복숭아:35000,수박:25000,참외:22000,무:5500,당근:15000,오이:18000};
-const TRUCK_FEES = {용달:80000,'1톤':100000,'1톤냉장':140000,'2.5톤':150000,'2.5톤냉장':200000,'5톤':220000,'5톤냉장':290000,'5톤냉동':330000,'11톤':400000};
+const TRUCK_FEES = {
+  '용달':80000,'용달탑':90000,
+  '1톤':100000,'1톤탑':115000,'1톤냉장':140000,'1톤냉동':155000,
+  '2.5톤':150000,'2.5톤탑':170000,'2.5톤냉장':200000,'2.5톤냉동':220000,
+  '5톤':220000,'5톤탑':245000,'5톤냉장':290000,'5톤냉동':320000,
+  '5톤장축':260000,'5톤장축탑':285000,'5톤장축냉장':330000,'5톤장축냉동':360000,
+  '8톤':300000,'8톤탑':330000,'8톤냉장':380000,'8톤냉동':420000,
+  '11톤':400000,'11톤탑':430000,'11톤냉장':490000,'11톤냉동':530000,
+  '25톤':600000,'25톤냉장':700000,'리프트':350000
+};
 const CROP_YIELD = {사과:{perUnit:1.2,days:150},배:{perUnit:1.0,days:160},감자:{perUnit:3.0,days:90},배추:{perUnit:2.5,days:80},마늘:{perUnit:0.8,days:200},양파:{perUnit:2.0,days:180},딸기:{perUnit:0.3,days:120},토마토:{perUnit:0.8,days:90},고추:{perUnit:0.5,days:150},포도:{perUnit:0.8,days:130}};
 const AI_BUYERS = ['한국청과','서울청과','중앙청과','농협청과','동화청과','서울중도매','강남청과상회'];
 const COLD_ITEMS = ['딸기','포도','복숭아','토마토','수박','참외'];
@@ -8306,20 +8349,32 @@ window.calcAIFare=function(){
   const totalKg=qty*(KG_PER_BOX[item]||15);
 
   // 차량 자동추천
-  const isCold=['딸기','토마토'].includes(item);
+  const coldItems=['딸기','토마토','매생이','냉동매생이'];
+  const isCold=coldItems.includes(item);
   let recTruck='';
-  if(totalKg<=500)       recTruck=isCold?'1톤냉장':'용달';
-  else if(totalKg<=1000) recTruck=isCold?'1톤냉장':'1톤';
-  else if(totalKg<=2500) recTruck='2.5톤';
-  else if(totalKg<=5000) recTruck=isCold?'5톤냉장':'5톤';
-  else                   recTruck='11톤';
+  if(totalKg<=500)        recTruck=isCold?'1톤냉장':'용달';
+  else if(totalKg<=1000)  recTruck=isCold?'1톤냉장':'1톤';
+  else if(totalKg<=2500)  recTruck=isCold?'2.5톤냉장':'2.5톤';
+  else if(totalKg<=5000)  recTruck=isCold?'5톤냉장':'5톤';
+  else if(totalKg<=8000)  recTruck=isCold?'5톤장축냉장':'5톤장축';
+  else if(totalKg<=11000) recTruck=isCold?'11톤냉장':'11톤';
+  else                    recTruck=isCold?'25톤냉장':'25톤';
   const selTruck=document.getElementById('call-truck-type').value||recTruck;
   if(!document.getElementById('call-truck-type').value){
     document.getElementById('call-truck-type').value=selTruck;
   }
 
   // 운임 계산
-  const BASE={용달:80000,'1톤':100000,'1톤냉장':140000,'2.5톤':150000,'5톤':220000,'5톤냉장':290000,'11톤':400000};
+  const BASE={
+    '용달':80000,'용달탑':90000,
+    '1톤':100000,'1톤탑':115000,'1톤냉장':140000,'1톤냉동':155000,
+    '2.5톤':150000,'2.5톤탑':170000,'2.5톤냉장':200000,'2.5톤냉동':220000,
+    '5톤':220000,'5톤탑':245000,'5톤냉장':290000,'5톤냉동':320000,
+    '5톤장축':260000,'5톤장축탑':285000,'5톤장축냉장':330000,'5톤장축냉동':360000,
+    '8톤':300000,'8톤탑':330000,'8톤냉장':380000,'8톤냉동':420000,
+    '11톤':400000,'11톤탑':430000,'11톤냉장':490000,'11톤냉동':530000,
+    '25톤':600000,'25톤냉장':700000,'리프트':350000
+  };
   const baseFee=BASE[selTruck]||150000;
   const distExtra=origin.includes('경북')||origin.includes('경남')||origin.includes('전남')||origin.includes('전북')?80000:
                   origin.includes('강원')||origin.includes('충')?50000:20000;
