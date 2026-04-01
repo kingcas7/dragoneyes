@@ -1342,9 +1342,22 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
         </select>
       </div>
     </div>
-    <div class="fgroup"><div class="flabel">출발지 *</div><input class="finput" id="call-origin" placeholder="경북 의성군 단촌면" oninput="window.calcAIFare()"></div>
+    <!-- 출발지 -->
     <div class="fgroup">
-      <div class="flabel">도착지 (하차지) *</div>
+      <div class="flabel">📍 출발지 (상차지) *</div>
+      <input class="finput" id="call-origin" placeholder="경북 의성군 단촌면 000번지" oninput="window.calcAIFare()">
+    </div>
+
+    <!-- 경유지 목록 (동적 추가) -->
+    <div id="call-waypoints-wrap"></div>
+    <button onclick="window.addWaypoint()"
+      style="width:100%;padding:9px;border-radius:10px;border:1.5px dashed rgba(0,232,188,.4);background:rgba(0,232,188,.04);color:var(--a1);font-size:12px;font-weight:700;cursor:pointer;margin-bottom:10px;">
+      + 경유지 추가
+    </button>
+
+    <!-- 도착지 -->
+    <div class="fgroup">
+      <div class="flabel">🏁 최종 도착지 (하차지) *</div>
       <input class="finput" id="call-dest" placeholder="서울 송파구 가락로 320 (가락시장)" oninput="window.calcAIFare()">
       <button onclick="window.closeSheet('sh-call');window._vehicleTab='warehouse';goTab('vehicle');"
         style="margin-top:6px;width:100%;padding:9px;border-radius:10px;border:1.5px dashed rgba(79,156,249,.5);background:rgba(79,156,249,.05);color:var(--a2);font-size:12px;font-weight:700;cursor:pointer;">
@@ -5368,7 +5381,11 @@ function renderCallCard(call, isTransport){
       <div style="font-size:14px;font-weight:800;">${call.item} ${call.qty}박스</div>
       <span class="tag" style="background:${statusColor}18;color:${statusColor};">${statusText}</span>
     </div>
-    <div style="font-size:11px;color:var(--t2);">${call.origin} → ${call.dest}</div>
+    <div style="font-size:11px;color:var(--t2);">
+      📍 ${call.origin||'—'}
+      ${(call.waypoints&&call.waypoints.length>0)?call.waypoints.map(w=>`<span style="color:var(--a1);"> → 경유: ${w}</span>`).join(''):''}
+       → 🏁 ${call.dest||'—'}
+    </div>
     <div style="font-size:11px;color:var(--a4);font-weight:700;margin-top:4px;">₩${(call.fare||0).toLocaleString()}</div>
   </div>`;
 }
@@ -8223,6 +8240,11 @@ window.openCallSheet=function(invId){
     }
   })();
   ['call-item','call-qty','call-origin','call-dest','call-fare-custom','call-memo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  // 경유지 초기화
+  _waypoints=[]; renderWaypoints();
+  // 출발지 기본값 — 사용자 등록 주소
+  const origDefault=document.getElementById('call-origin');
+  if(origDefault&&window._userAddr) origDefault.value=window._userAddr;
   document.getElementById('call-truck-type').value='';
   document.getElementById('ai-fare-box').style.display='none';
   document.getElementById('custom-fare-input').style.display='none';
@@ -8241,7 +8263,7 @@ window.openCallSheet=function(invId){
       if(linked){
         const itemEl=document.getElementById('call-item'); if(itemEl) itemEl.value=linked.item.split(',')[0].trim();
         const qtyEl=document.getElementById('call-qty');  if(qtyEl)  qtyEl.value=linked.qty;
-        const origEl=document.getElementById('call-origin'); if(origEl) origEl.value=linked.origin_addr||'';
+        const origEl=document.getElementById('call-origin'); if(origEl) origEl.value=linked.origin_addr||window._userAddr||'';
         const destEl=document.getElementById('call-dest');   if(destEl) destEl.value=linked.dest_addr||'서울 송파구 가락로 320';
         setTimeout(()=>{if(typeof window.calcAIFare==='function')window.calcAIFare();},300);
       }
@@ -8252,7 +8274,7 @@ window.openCallSheet=function(invId){
         window._callLinkedInvId=inv.id;
         const itemEl=document.getElementById('call-item'); if(itemEl) itemEl.value=inv.item.split(',')[0].trim();
         const qtyEl=document.getElementById('call-qty');  if(qtyEl)  qtyEl.value=inv.qty;
-        const origEl=document.getElementById('call-origin'); if(origEl) origEl.value=inv.origin_addr||'';
+        const origEl=document.getElementById('call-origin'); if(origEl) origEl.value=inv.origin_addr||window._userAddr||'';
         const destEl=document.getElementById('call-dest');   if(destEl) destEl.value=inv.dest_addr||'서울 송파구 가락로 320';
         setTimeout(()=>{if(typeof window.calcAIFare==='function')window.calcAIFare();},300);
       };
@@ -8270,7 +8292,14 @@ window.calcAIFare=function(){
   const qty=parseInt(document.getElementById('call-qty').value)||0;
   const origin=document.getElementById('call-origin').value.trim();
   const dest=document.getElementById('call-dest').value.trim();
-  if(!item||!qty||!origin||!dest){ document.getElementById('ai-fare-box').style.display='none'; return; }
+  // 출발지 없으면 사용자 등록 주소 자동 사용
+  if(!origin && window._userAddr){
+    origin = window._userAddr;
+    const origEl=document.getElementById('call-origin');
+    if(origEl) origEl.value=origin;
+  }
+  if(!item||!qty||!dest){ document.getElementById('ai-fare-box').style.display='none'; return; }
+  if(!origin){ document.getElementById('ai-fare-box').style.display='none'; return; }
 
   // 중량 추정
   const KG_PER_BOX={사과:15,배:15,감자:20,배추:20,마늘:10,양파:20,딸기:2,토마토:5,고추:10,포도:8,복숭아:10,수박:15,참외:10,무:20,당근:15,오이:10,파:10,호박:12,버섯:4,깻잎:3,파래:5,물미역:10,곰피:8,다시마:8,매생이:3,냉동매생이:5,톳:5,청각:5,건청각:3,자반:5,생김:2,모자반:5,마른모자반:3};
@@ -8294,13 +8323,17 @@ window.calcAIFare=function(){
   const baseFee=BASE[selTruck]||150000;
   const distExtra=origin.includes('경북')||origin.includes('경남')||origin.includes('전남')||origin.includes('전북')?80000:
                   origin.includes('강원')||origin.includes('충')?50000:20000;
-  _aiFare=baseFare=baseFee+distExtra;
+  // 경유지 할증: 경유지 1곳당 3만원 추가
+  const waypointExtra = (_waypoints||[]).filter(w=>w.addr.trim()).length * 30000;
+  _aiFare=baseFare=baseFee+distExtra+waypointExtra;
 
   document.getElementById('ai-fare-box').style.display='block';
+  const wpCount = (_waypoints||[]).filter(w=>w.addr.trim()).length;
   document.getElementById('ai-fare-detail').innerHTML=
     `차량: <strong style="color:var(--a4);">${selTruck}</strong>${selTruck!==recTruck?' (AI추천: '+recTruck+')':''}<br>`+
     `적재중량: 약 ${totalKg.toLocaleString()}kg<br>`+
-    `기본운임: ₩${baseFee.toLocaleString()} + 거리할증: ₩${distExtra.toLocaleString()}<br>`+
+    `기본운임: ₩${baseFee.toLocaleString()} + 거리할증: ₩${distExtra.toLocaleString()}`+
+    (wpCount>0?` + 경유지할증(${wpCount}곳): ₩${(wpCount*30000).toLocaleString()}`:'')+'<br>'+
     `<strong style="color:var(--a1);">AI 추천 운임: ₩${_aiFare.toLocaleString()}</strong>`;
 
   // AI 추천 운임 자동 선택 — 매번 재계산 시 자동 반영
@@ -8357,19 +8390,52 @@ window.selectFareMode=function(mode){
   }
 };
 
+// ── 경유지 관리 ──
+let _waypoints = []; // [{id, addr}]
+
+window.addWaypoint = function(){
+  const id = Date.now();
+  _waypoints.push({id, addr:''});
+  renderWaypoints();
+};
+
+window.removeWaypoint = function(id){
+  _waypoints = _waypoints.filter(w=>w.id!==id);
+  renderWaypoints();
+  window.calcAIFare();
+};
+
+function renderWaypoints(){
+  const wrap = document.getElementById('call-waypoints-wrap');
+  if(!wrap) return;
+  wrap.innerHTML = _waypoints.map((w,i)=>`
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+      <div style="flex-shrink:0;width:20px;height:20px;border-radius:50%;background:rgba(0,232,188,.15);border:1.5px solid var(--a1);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:var(--a1);">${i+1}</div>
+      <input class="finput" id="call-wp-${w.id}" value="${w.addr}"
+        placeholder="경유지 ${i+1} 주소 입력"
+        oninput="_waypoints[${i}].addr=this.value;window.calcAIFare();"
+        style="flex:1;font-size:12px;">
+      <button onclick="window.removeWaypoint(${w.id})"
+        style="flex-shrink:0;padding:6px 9px;border-radius:8px;background:rgba(255,69,84,.08);border:1px solid rgba(255,69,84,.2);color:var(--red);font-size:13px;cursor:pointer;">✕</button>
+    </div>`).join('');
+}
+
 window.submitCall=function(){
   const item=document.getElementById('call-item').value;
   const qty=parseInt(document.getElementById('call-qty').value)||0;
   const origin=document.getElementById('call-origin').value.trim();
   const dest=document.getElementById('call-dest').value.trim();
   const memo=document.getElementById('call-memo').value.trim();
-  if(!item||!qty||!origin||!dest){toast('필수 항목을 모두 입력하세요');return;}
+  if(!origin) origin = window._userAddr||'';
+  if(!item||!qty||!dest){toast('화물 종류, 수량, 도착지를 입력하세요');return;}
+  if(!origin){toast('출발지를 입력하거나 MY 탭에서 주소를 등록하세요');return;}
   if(!_fareMode){toast('운임 방식을 선택해주세요');return;}
   const fare=_fareMode==='ai'?_aiFare:(parseInt(document.getElementById('call-fare-custom').value)||0);
   if(!fare){toast('운임을 입력해주세요');return;}
   const now=new Date();
   const id='CALL-'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'-'+String(Math.floor(Math.random()*9999)).padStart(4,'0');
-  const callObj={id,item,qty,origin,dest,fare,memo,
+  const waypoints = _waypoints.map(w=>w.addr).filter(a=>a.trim());
+  const callObj={id,item,qty,origin,dest,waypoints,fare,memo,
     truck_type:document.getElementById('call-truck-type').value,
     fare_mode:_fareMode,status:'pending',created_at:now.toISOString(),
     linked_inv_id: window._callLinkedInvId||null};
