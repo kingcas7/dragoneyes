@@ -1664,7 +1664,20 @@ const POLICY_FUNDS = [
 // ── 상태 ──
 let curRole='', curGkid='', curUserName='', curGrade='seed';
 let invReqs={auction:false,consign:false}, invDelivery='';
-let INVOICES=[], CALLS=[], CROPS=[];
+let INVOICES=[], CROPS=[];
+
+// 샘플 배차 콜 (운송업체 UI 시연용 — 실 서비스 시 Supabase 연동으로 대체)
+const _tmr = new Date(); _tmr.setDate(_tmr.getDate()+1);
+const _dat = new Date(); _dat.setDate(_dat.getDate()+2);
+const _fd  = d => d.toISOString().slice(0,10);
+let CALLS = [
+  {id:'CALL-DEMO-001',item:'사과',qty:400,origin:'경북 의성군 단촌면',dest:'서울 송파구 가락로 320',truck_type:'5톤',fare:320000,status:'pending',pickup_date:_fd(_tmr),pickup_time:'06:00',empty_return:false,waypoints:[],memo:'오전 6시 이전 상차 요청',created_at:new Date().toISOString()},
+  {id:'CALL-DEMO-002',item:'파래',qty:1500,origin:'전남 완도군 완도읍',dest:'서울 송파구 가락로 320',truck_type:'5톤장축',fare:390000,status:'pending',pickup_date:_fd(_tmr),pickup_time:'05:00',empty_return:true,waypoints:['광주 서구 농산물시장'],memo:'냉장 필수',created_at:new Date().toISOString()},
+  {id:'CALL-DEMO-003',item:'배추',qty:300,origin:'강원 평창군 대관령면',dest:'서울 가락동 농수산물시장',truck_type:'2.5톤',fare:180000,status:'pending',pickup_date:_fd(_tmr),pickup_time:'07:00',empty_return:false,waypoints:[],memo:'',created_at:new Date().toISOString()},
+  {id:'CALL-DEMO-004',item:'감자',qty:500,origin:'경남 고성군 마암면',dest:'부산 엄궁동 농산물시장',truck_type:'5톤',fare:150000,status:'pending',pickup_date:_fd(_dat),pickup_time:'08:00',empty_return:true,waypoints:[],memo:'당일 오전 출발 필수',created_at:new Date().toISOString()},
+  {id:'CALL-DEMO-005',item:'양파',qty:800,origin:'전남 무안군 청계면',dest:'인천 남동구 농산물도매시장',truck_type:'11톤',fare:520000,status:'pending',pickup_date:_fd(_dat),pickup_time:'04:00',empty_return:false,waypoints:['광주 북구 유통센터'],memo:'파손 주의',created_at:new Date().toISOString()},
+  {id:'CALL-DEMO-006',item:'딸기',qty:200,origin:'경남 진주시 수곡면',dest:'서울 송파구 가락로 320',truck_type:'1톤냉장',fare:220000,status:'pending',pickup_date:_fd(_tmr),pickup_time:'04:30',empty_return:false,waypoints:[],memo:'냉장 4도 유지 필수',created_at:new Date().toISOString()},
+];
 let products=[], productIdCounter=0;
 let callLoadType='solo';
 
@@ -5316,20 +5329,161 @@ function renderVehicleMain(){
 }
 
 // ── 차량 배차 페이지 ──
+if(!window._callFilter) window._callFilter = 'all'; // 'all'|'pending'|'matched'
+if(!window._callRegionFilter) window._callRegionFilter = '전체';
+
 function renderVehicleCall(){
   const isTransport = curRole==='transport';
+
+  // 생산자/일반 역할은 기존 UI
+  if(!isTransport){
+    document.getElementById('vehicle-content').innerHTML=`
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+        <button onclick="window._vehicleTab='main';renderVehiclePage();" style="color:var(--t2);font-size:20px;padding:0 4px;">←</button>
+        <div style="font-size:16px;font-weight:800;">🚛 차량 배차 신청</div>
+        <button class="btn btn-p" style="width:auto;padding:7px 12px;font-size:12px;margin-left:auto;" onclick="window.openCallSheet()">+ 배차요청</button>
+      </div>
+      ${CALLS.length===0?`
+      <div style="text-align:center;padding:40px 20px;color:var(--t2);">
+        <div style="font-size:44px;margin-bottom:12px;">🚛</div>
+        <div style="margin-bottom:16px;">배차 요청이 없습니다</div>
+        <button class="btn btn-p" style="max-width:200px;margin:0 auto;" onclick="window.openCallSheet()">+ 배차요청 하기</button>
+      </div>`:CALLS.map(c=>renderCallCard(c,false)).join('')}`;
+    return;
+  }
+
+  // ── 운송업체 전용 배차콜 탭 ──
+  // 내 스케줄 지역 추출 (오늘 이후)
+  const today = new Date().toISOString().slice(0,10);
+  const myRegions = [...new Set(
+    (window._transportSchedules||[])
+      .filter(s=>s.date>=today&&s.status==='active')
+      .flatMap(s=>s.regions)
+  )];
+
+  // 콜 필터링
+  const pendingCalls = CALLS.filter(c=>c.status==='pending');
+  const allRegions = ['전체',...new Set(pendingCalls.map(c=>c.origin).filter(Boolean).map(o=>{
+    const found = REGIONS_ALL.find(r=>o.includes(r)); return found||'기타';
+  }))];
+
+  // AI 매칭 콜 (내 스케줄 지역과 매칭)
+  const matchedCalls = pendingCalls.filter(c=>
+    myRegions.some(r=>c.origin&&c.origin.includes(r))
+  );
+
+  let filtered = pendingCalls;
+  if(window._callFilter==='matched') filtered = matchedCalls;
+  if(window._callRegionFilter!=='전체') filtered = filtered.filter(c=>c.origin&&c.origin.includes(window._callRegionFilter));
+
+  // 내가 수락한 콜
+  const myCalls = CALLS.filter(c=>c.status==='accepted'&&(c.driver_gkid===curGkid||!c.driver_gkid));
+
   document.getElementById('vehicle-content').innerHTML=`
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-      ${!isTransport?`<button onclick="window._vehicleTab='main';renderVehiclePage();" style="color:var(--t2);font-size:20px;padding:0 4px;">←</button>`:''}
-      <div style="font-size:16px;font-weight:800;">🚛 ${isTransport?'배차 콜':'차량 배차 신청'}</div>
-      ${!isTransport?`<button class="btn btn-p" style="width:auto;padding:7px 12px;font-size:12px;margin-left:auto;" onclick="window.openCallSheet()">+ 배차요청</button>`:''}
+    <div style="font-size:16px;font-weight:800;margin-bottom:12px;">🚛 배차 콜</div>
+
+    <!-- 탭 필터 -->
+    <div style="display:flex;gap:5px;background:var(--s2);border-radius:10px;padding:3px;margin-bottom:12px;">
+      ${[
+        ['all','전체 콜 ('+pendingCalls.length+')'],
+        ['matched','🎯 AI 추천 ('+matchedCalls.length+')'],
+        ['mine','✅ 수락한 콜 ('+myCalls.length+')'],
+      ].map(([k,lb])=>`
+      <div onclick="window._callFilter='${k}';renderVehicleCall();"
+        style="flex:1;padding:7px 4px;border-radius:8px;text-align:center;cursor:pointer;font-size:11px;font-weight:700;
+          background:${window._callFilter===k?'var(--s1)':'transparent'};
+          color:${window._callFilter===k?'var(--a1)':'var(--t3)'};">${lb}</div>`).join('')}
     </div>
-    ${CALLS.length===0?`
-    <div style="text-align:center;padding:40px 20px;color:var(--t2);">
-      <div style="font-size:44px;margin-bottom:12px;">🚛</div>
-      <div style="margin-bottom:16px;">${isTransport?'수신된 배차 콜이 없습니다':'배차 요청이 없습니다'}</div>
-      ${!isTransport?`<button class="btn btn-p" style="max-width:200px;margin:0 auto;" onclick="window.openCallSheet()">+ 배차요청 하기</button>`:''}
-    </div>`:CALLS.map(c=>renderCallCard(c,isTransport)).join('')}`;
+
+    <!-- AI 추천 배너 (matched 탭) -->
+    ${window._callFilter==='matched'?`
+    <div style="padding:10px 13px;background:rgba(0,232,188,.07);border:1.5px solid rgba(0,232,188,.25);border-radius:12px;margin-bottom:12px;font-size:11px;color:var(--t2);line-height:1.7;">
+      🤖 <strong style="color:var(--a1);">AI 추천</strong> — 내 스케줄 지역(${myRegions.length>0?myRegions.slice(0,3).join('·')+'등':'설정 없음'})과 날짜가 매칭된 콜입니다.<br>
+      ${myRegions.length===0?'<span style="color:var(--org);">홈 화면에서 운행 일정을 등록하면 AI 추천 콜을 받을 수 있어요</span>':''}
+    </div>`:''}
+
+    <!-- 지역 필터 (전체/AI추천 탭에서만) -->
+    ${window._callFilter!=='mine'?`
+    <div style="display:flex;gap:5px;overflow-x:auto;margin-bottom:10px;padding-bottom:3px;scrollbar-width:none;">
+      ${['전체',...REGIONS_ALL.filter(r=>pendingCalls.some(c=>c.origin&&c.origin.includes(r)))].map(r=>`
+      <div onclick="window._callRegionFilter='${r}';renderVehicleCall();"
+        style="flex-shrink:0;padding:5px 12px;border-radius:16px;cursor:pointer;font-size:11px;font-weight:700;
+          border:1px solid ${window._callRegionFilter===r?'var(--a1)':'var(--b1)'};
+          background:${window._callRegionFilter===r?'rgba(0,232,188,.1)':'var(--s2)'};
+          color:${window._callRegionFilter===r?'var(--a1)':'var(--t2)'};">${r}</div>`).join('')}
+    </div>`:''}
+
+    <!-- 콜 목록 -->
+    ${window._callFilter==='mine'?
+      (myCalls.length===0?`
+      <div style="text-align:center;padding:40px 20px;color:var(--t2);">
+        <div style="font-size:40px;margin-bottom:10px;">📋</div>
+        <div>수락한 콜이 없습니다</div>
+      </div>`:myCalls.map(c=>renderCallCard(c,true)).join(''))
+    :
+      (filtered.length===0?`
+      <div style="text-align:center;padding:40px 20px;color:var(--t2);">
+        <div style="font-size:40px;margin-bottom:10px;">${window._callFilter==='matched'?'🎯':'🚛'}</div>
+        <div style="margin-bottom:6px;font-weight:700;">${window._callFilter==='matched'?'AI 추천 콜이 없습니다':'수신된 배차 콜이 없습니다'}</div>
+        <div style="font-size:11px;">${window._callFilter==='matched'&&myRegions.length===0?'홈 화면에서 운행 일정을 먼저 등록해주세요':'다른 지역 필터를 선택해보세요'}</div>
+        ${window._callFilter==='matched'&&myRegions.length===0?`
+        <button onclick="goTab('home')" class="btn btn-p" style="margin:12px auto 0;max-width:180px;font-size:12px;">
+          📅 홈에서 일정 등록
+        </button>`:''}
+      </div>`
+      :
+      `<div style="font-size:11px;color:var(--t2);margin-bottom:8px;">${filtered.length}건의 콜 · 수락하면 출하자에게 즉시 알림 발송</div>`+
+      filtered.map(c=>renderCallCardTransport(c)).join(''))
+    }`;
+}
+
+// ── 운송업체 전용 콜 카드 (수락 버튼 크게) ──
+function renderCallCardTransport(call){
+  const mySchedMatch = (window._transportSchedules||[]).filter(s=>
+    s.status==='active' &&
+    s.date===call.pickup_date &&
+    s.regions.some(r=>call.origin&&call.origin.includes(r))
+  );
+  const isMatch = mySchedMatch.length>0;
+
+  return `
+  <div style="background:var(--s1);border:1.5px solid ${isMatch?'rgba(0,232,188,.35)':'var(--b1)'};border-radius:16px;padding:14px;margin-bottom:10px;">
+    ${isMatch?`<div style="font-size:10px;font-weight:800;color:var(--a1);margin-bottom:8px;display:flex;align-items:center;gap:5px;">
+      <span style="background:rgba(0,232,188,.15);padding:2px 8px;border-radius:10px;">🎯 내 스케줄 매칭 · ${mySchedMatch[0].date} ${mySchedMatch[0].timeFrom}~${mySchedMatch[0].timeTo}</span>
+    </div>`:''}
+
+    <!-- 헤더 -->
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+      <div>
+        <div style="font-size:15px;font-weight:800;">${call.item} ${call.qty}박스</div>
+        <div style="font-size:10px;color:var(--t3);margin-top:2px;">${call.id}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:16px;font-weight:900;color:var(--a4);">₩${(call.fare||0).toLocaleString()}</div>
+        ${call.empty_return?'<div style="font-size:9px;color:var(--a1);font-weight:700;">💡 공차매칭 할인</div>':''}
+      </div>
+    </div>
+
+    <!-- 루트 -->
+    <div style="background:var(--s2);border-radius:10px;padding:9px 11px;margin-bottom:8px;font-size:11px;line-height:1.9;">
+      <div>📍 <strong>${call.origin||'—'}</strong></div>
+      ${(call.waypoints&&call.waypoints.length>0)?call.waypoints.map(w=>`<div style="padding-left:14px;color:var(--a1);">↳ 경유: ${w}</div>`).join(''):''}
+      <div>🏁 <strong>${call.dest||'—'}</strong></div>
+    </div>
+
+    <!-- 상세 정보 -->
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+      <span style="padding:4px 9px;border-radius:10px;background:var(--s2);font-size:10px;font-weight:700;color:var(--t2);">🚛 ${call.truck_type||'차량무관'}</span>
+      <span style="padding:4px 9px;border-radius:10px;background:var(--s2);font-size:10px;font-weight:700;color:var(--t2);">📅 ${call.pickup_date||'날짜미정'} ${call.pickup_time||''}</span>
+      ${call.memo?`<span style="padding:4px 9px;border-radius:10px;background:var(--s2);font-size:10px;color:var(--t2);">📝 ${call.memo.slice(0,20)}${call.memo.length>20?'...':''}</span>`:''}
+    </div>
+
+    <!-- 수락 버튼 -->
+    <button onclick="window.acceptCall('${call.id}')"
+      style="width:100%;padding:13px;border-radius:12px;background:${isMatch?'var(--a1)':'linear-gradient(135deg,rgba(0,232,188,.8),rgba(79,156,249,.8))'};color:#080d18;font-size:14px;font-weight:900;border:none;cursor:pointer;letter-spacing:.3px;">
+      ✅ 배차 수락하기
+    </button>
+  </div>`;
 }
 
 // ── 물류창고 페이지 ──
