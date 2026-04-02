@@ -8955,6 +8955,8 @@ window._confirmAcceptCall=function(callId){
   call.driver_tel=driverTel;
   call.truck_num=truckNum;
   call.biz_no=bizNo||'—';
+  call.driver_gkid=curGkid;  // 수락한 운송업자 GKID 저장
+  call.accepted_at=new Date().toISOString();
   // 연동 송장 → dispatched 상태로 전환
   if(call.linked_inv_id){
     const inv=INVOICES.find(x=>x.id===call.linked_inv_id);
@@ -8997,7 +8999,7 @@ const REGIONS_ALL = [
 window.renderTransportScheduleSection = function(){
   const today = new Date().toISOString().slice(0,10);
   const schedules = (window._transportSchedules||[]).filter(s=>s.date>=today);
-  const myActiveCalls = CALLS.filter(c=>c.status==='accepted'&&c.driver_gkid===curGkid);
+  const myActiveCalls = CALLS.filter(c=>c.status==='accepted'&&(c.driver_gkid===curGkid||!c.driver_gkid));
 
   return `
   <!-- ── 스케줄 관리 ── -->
@@ -9064,14 +9066,34 @@ window.renderTransportScheduleSection = function(){
 
     <!-- 확정된 배차 현황 -->
     ${myActiveCalls.length>0?`
-    <div style="margin-top:10px;">
-      <div style="font-size:12px;font-weight:700;color:var(--a1);margin-bottom:6px;">✅ 확정 배차 ${myActiveCalls.length}건</div>
-      ${myActiveCalls.map(c=>`
-      <div style="padding:9px 12px;background:rgba(0,232,188,.06);border:1px solid rgba(0,232,188,.2);border-radius:11px;margin-bottom:6px;font-size:11px;">
-        <div style="font-weight:700;margin-bottom:2px;">${c.item} ${c.qty}박스 · ${c.truck_type||'—'}</div>
-        <div style="color:var(--t2);">${c.pickup_date||'—'} ${c.pickup_time||''} · ${c.origin||'—'} → ${c.dest||'—'}</div>
-        <div style="color:var(--a4);font-weight:700;margin-top:2px;">₩${(c.fare||0).toLocaleString()}</div>
-      </div>`).join('')}
+    <div style="margin-top:12px;">
+      <div style="font-size:13px;font-weight:800;margin-bottom:8px;">✅ 수락한 예약 콜 <span style="color:var(--a1);">${myActiveCalls.length}건</span></div>
+      ${myActiveCalls.map(c=>{
+        const isPast = c.pickup_date && c.pickup_date < new Date().toISOString().slice(0,10);
+        const isToday = c.pickup_date === new Date().toISOString().slice(0,10);
+        const badge = isPast?'<span style="font-size:9px;padding:2px 6px;border-radius:10px;background:rgba(255,69,84,.1);color:var(--red);margin-left:6px;">완료</span>':
+                      isToday?'<span style="font-size:9px;padding:2px 6px;border-radius:10px;background:rgba(0,232,188,.15);color:var(--a1);margin-left:6px;">오늘</span>':
+                      '<span style="font-size:9px;padding:2px 6px;border-radius:10px;background:rgba(244,196,48,.15);color:var(--a4);margin-left:6px;">예정</span>';
+        return `
+        <div style="background:var(--s1);border:1.5px solid rgba(0,232,188,.25);border-radius:14px;padding:12px 14px;margin-bottom:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <div style="font-size:13px;font-weight:800;">${c.item||'—'} ${c.qty}박스${badge}</div>
+            <div style="font-size:12px;font-weight:800;color:var(--a4);">₩${(c.fare||0).toLocaleString()}</div>
+          </div>
+          <div style="font-size:11px;color:var(--t2);margin-bottom:5px;line-height:1.7;">
+            📅 ${c.pickup_date||'날짜미정'} ${c.pickup_time||''}<br>
+            📍 ${c.origin||'—'}${(c.waypoints&&c.waypoints.length>0)?' → 경유 '+c.waypoints.length+'곳':''} → 🏁 ${c.dest||'—'}
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-size:10px;color:var(--t3);">🚛 ${c.truck_type||'차량미정'} · ${c.empty_return?'공차매칭':'일반'}</div>
+            ${c.linked_inv_id?`
+            <button onclick="goTab('invoice');setTimeout(()=>window.openInvoiceDetail('${c.linked_inv_id}'),300)"
+              style="padding:4px 10px;border-radius:7px;background:rgba(79,156,249,.1);border:1px solid rgba(79,156,249,.25);color:var(--a2);font-size:10px;font-weight:700;cursor:pointer;">
+              📋 송장 보기
+            </button>`:''}
+          </div>
+        </div>`;
+      }).join('')}
     </div>`:''}
   </div>`;
 };
