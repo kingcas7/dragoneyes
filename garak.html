@@ -29,6 +29,7 @@
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js" integrity="sha384-TiCUE00h649CAMonG018J2ujOgDKW/kVWlChEuu4jK2vxfAAD0eZxzCKakxg55G4" crossorigin="anonymous"></script>
 <style>
 :root{
   --bg:#080d18;--s1:#0e1626;--s2:#152033;--s3:#1c2d45;
@@ -1957,16 +1958,18 @@ window.selectNationality = function(type){
 // 개인 인증 (휴대폰/카카오/네이버)
 window.doKoreanAuth = function(){ window.doAuth('phone'); }; // 하위 호환
 
+// ── Kakao SDK 초기화 ──
+const KAKAO_JS_KEY = 'f1983346b7fa315b2c3fc19ac9a97555';
+(function initKakao(){
+  if(typeof Kakao !== 'undefined' && !Kakao.isInitialized()){
+    Kakao.init(KAKAO_JS_KEY);
+    console.log('✅ Kakao SDK 초기화 완료');
+  }
+})();
+
 window.doAuth = function(method){
   const tel = document.getElementById('reg-tel')?.value.trim();
   if(!tel || tel.length < 10){ toast('휴대폰 번호를 먼저 입력하세요'); return; }
-
-  const cfg = {
-    phone: { icon:'📱', title:'휴대폰 본인인증', sub:'PASS 앱으로 인증 요청을 보냈습니다', doneMsg:'휴대폰 본인인증 완료', doneSub:'PASS 인증 완료 · '+tel },
-    kakao: { icon:'💬', title:'카카오 인증 중', sub:'카카오톡 알림을 확인해 주세요', doneMsg:'카카오 인증 완료', doneSub:'카카오톡 본인확인 완료 · '+tel },
-    naver: { icon:'🟢', title:'네이버 인증 중', sub:'네이버 앱 알림을 확인해 주세요', doneMsg:'네이버 인증 완료', doneSub:'네이버 본인확인 완료 · '+tel },
-  }[method];
-  if(!cfg) return;
 
   // 버튼 비활성화
   ['phone','kakao','naver'].forEach(m=>{
@@ -1974,35 +1977,95 @@ window.doAuth = function(method){
     if(b){ b.disabled=true; b.style.opacity='.4'; }
   });
 
-  // 진행 중 표시
-  const progress = document.getElementById('reg-auth-progress');
-  const pIcon = document.getElementById('reg-auth-progress-icon');
-  const pMsg  = document.getElementById('reg-auth-progress-msg');
-  const pSub  = document.getElementById('reg-auth-progress-sub');
-  const bar   = document.getElementById('reg-auth-bar');
-  if(progress){ progress.style.display='block'; }
-  if(pIcon) pIcon.textContent = cfg.icon;
-  if(pMsg)  pMsg.textContent  = cfg.title;
-  if(pSub)  pSub.textContent  = cfg.sub;
+  // 진행 중 UI 표시
+  const showProgress = (icon, title, sub) => {
+    const progress=document.getElementById('reg-auth-progress');
+    const pIcon=document.getElementById('reg-auth-progress-icon');
+    const pMsg=document.getElementById('reg-auth-progress-msg');
+    const pSub=document.getElementById('reg-auth-progress-sub');
+    const bar=document.getElementById('reg-auth-bar');
+    if(progress) progress.style.display='block';
+    if(pIcon) pIcon.textContent=icon;
+    if(pMsg)  pMsg.textContent=title;
+    if(pSub)  pSub.textContent=sub;
+    setTimeout(()=>{ if(bar) bar.style.width='100%'; }, 50);
+  };
 
-  // 프로그레스 바 애니메이션
-  setTimeout(()=>{ if(bar) bar.style.width='100%'; }, 50);
-
-  // 인증 완료 시뮬레이션 (실 서비스: OAuth redirect)
-  setTimeout(()=>{
-    window._koreanAuthDone = true;
-    window._authMethod = method;
+  const showDone = (doneMsg, doneSub) => {
+    window._koreanAuthDone=true;
+    window._authMethod=method;
+    const progress=document.getElementById('reg-auth-progress');
+    const status=document.getElementById('reg-auth-status');
+    const dMsg=document.getElementById('reg-auth-done-msg');
+    const dSub=document.getElementById('reg-auth-done-sub');
     if(progress) progress.style.display='none';
+    if(status)   status.style.display='block';
+    if(dMsg) dMsg.textContent=doneMsg;
+    if(dSub) dSub.textContent=doneSub;
+    toast('✅ '+doneMsg);
+  };
 
-    const status  = document.getElementById('reg-auth-status');
-    const doneMsg = document.getElementById('reg-auth-done-msg');
-    const doneSub = document.getElementById('reg-auth-done-sub');
-    if(status)  status.style.display='block';
-    if(doneMsg) doneMsg.textContent = cfg.doneMsg;
-    if(doneSub) doneSub.textContent = cfg.doneSub;
+  const resetBtns = () => {
+    ['phone','kakao','naver'].forEach(m=>{
+      const b=document.getElementById('auth-btn-'+m);
+      if(b){ b.disabled=false; b.style.opacity='1'; }
+    });
+    const bar=document.getElementById('reg-auth-bar');
+    if(bar) bar.style.width='0%';
+  };
 
-    toast('✅ ' + cfg.doneMsg);
-  }, 2200);
+  if(method === 'kakao'){
+    // ── 실제 카카오 로그인 ──
+    if(typeof Kakao === 'undefined' || !Kakao.isInitialized()){
+      Kakao.init(KAKAO_JS_KEY);
+    }
+    showProgress('💬','카카오 로그인 중...','카카오톡 또는 카카오계정으로 로그인합니다');
+    setTimeout(()=>{
+      Kakao.Auth.login({
+        success: function(authObj){
+          // 사용자 정보 가져오기
+          Kakao.API.request({
+            url: '/v2/user/me',
+            success: function(res){
+              const kakaoName = res.kakao_account?.profile?.nickname || res.properties?.nickname || '';
+              const kakaoEmail = res.kakao_account?.email || '';
+              // 이름 자동 채우기
+              const nameEl = document.getElementById('reg-name');
+              if(nameEl && !nameEl.value && kakaoName) nameEl.value = kakaoName;
+              const emailEl = document.getElementById('reg-email');
+              if(emailEl && !emailEl.value && kakaoEmail) emailEl.value = kakaoEmail;
+              window._kakaoUserId = res.id;
+              window._kakaoProfile = {name: kakaoName, email: kakaoEmail};
+              showDone('카카오 인증 완료', '카카오 계정으로 본인 확인됨 · ' + (kakaoEmail||kakaoName));
+            },
+            fail: function(err){
+              console.error('카카오 사용자 정보 오류:', err);
+              showDone('카카오 로그인 완료', '카카오 계정으로 로그인됨');
+            }
+          });
+        },
+        fail: function(err){
+          console.error('카카오 로그인 실패:', err);
+          resetBtns();
+          const progress=document.getElementById('reg-auth-progress');
+          if(progress) progress.style.display='none';
+          toast('카카오 로그인이 취소됐습니다');
+        }
+      });
+    }, 300);
+
+  } else if(method === 'naver'){
+    // 네이버는 OAuth 서버 사이드 필요 — 시뮬레이션
+    showProgress('🟢','네이버 인증 중...','네이버 앱 알림을 확인해 주세요');
+    setTimeout(()=>{ if(document.getElementById('reg-auth-bar')) document.getElementById('reg-auth-bar').style.width='100%'; },50);
+    setTimeout(()=>{ showDone('네이버 인증 완료','네이버 본인확인 완료 · '+tel); }, 2200);
+
+  } else {
+    // 휴대폰 — PASS 시뮬레이션
+    showProgress('📱','휴대폰 본인인증 중...','PASS 앱으로 인증 요청을 보냈습니다');
+    setTimeout(()=>{ if(document.getElementById('reg-auth-bar')) document.getElementById('reg-auth-bar').style.width='100%'; },50);
+    setTimeout(()=>{ showDone('휴대폰 본인인증 완료','PASS 인증 완료 · '+tel); }, 2200);
+  }
 };
 
 // 비자 타입 기타 선택 시 직접 입력 표시
