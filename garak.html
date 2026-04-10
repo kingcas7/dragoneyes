@@ -1931,15 +1931,20 @@ window.selectNationality = function(type){
   const foreign = document.getElementById('nat-foreign');
   const koreanFields  = document.getElementById('reg-korean-fields');
   const foreignFields = document.getElementById('reg-foreign-fields');
+  const rrnSection    = document.getElementById('reg-rrn-section');
   if(!korean || !foreign) return;
   if(type === 'korean'){
     korean.style.border='1.5px solid var(--a1)'; korean.style.background='rgba(0,232,188,.08)';
     korean.querySelectorAll('div')[1].style.color='var(--a1)';
+    // 내국인 선택 시 주민등록번호 앞 6자리 표시
+    if(rrnSection) rrnSection.style.display = 'block';
     foreign.style.border='1.5px solid var(--b1)'; foreign.style.background='var(--s2)';
     foreign.querySelectorAll('div')[1].style.color='var(--t2)';
     if(koreanFields)  koreanFields.style.display='block';
     if(foreignFields) foreignFields.style.display='none';
   } else {
+    // 외국인 선택 시 주민등록번호 섹션 숨김
+    if(rrnSection) rrnSection.style.display = 'none';
     foreign.style.border='1.5px solid var(--a2)'; foreign.style.background='rgba(79,156,249,.1)';
     foreign.querySelectorAll('div')[1].style.color='var(--a2)';
     korean.style.border='1.5px solid var(--b1)'; korean.style.background='var(--s2)';
@@ -3039,30 +3044,39 @@ window.onRoleCardClick = function(role, containerId){
   if(card) card.classList.add('sel');
   curRole = role;
 
-  // ── 국적 섹션: 생산자(개인)만 표시 ──
+  // 개인 역할 목록 (사업자번호 불필요 + 국적 선택 표시)
+  const PERSONAL_ROLES = ['producer_ind','individual'];
+  const isPersonal = PERSONAL_ROLES.includes(role);
+
+  // ── 국적 섹션: 개인 역할만 표시 ──
   const natSection = document.getElementById('reg-nationality-section');
+  const rrnSection = document.getElementById('reg-rrn-section');
   if(natSection){
-    if(role === 'producer_ind'){
+    if(isPersonal){
       natSection.style.display = 'block';
       // 기본 내국인으로 초기화
       window._nationality = 'korean';
       const kEl=document.getElementById('nat-korean'), fEl=document.getElementById('nat-foreign');
       const kf=document.getElementById('reg-korean-fields'), ff=document.getElementById('reg-foreign-fields');
-      if(kEl){ kEl.style.border='1.5px solid var(--a1)'; kEl.style.background='rgba(0,232,188,.08)'; }
-      if(fEl){ fEl.style.border='1.5px solid var(--b1)'; fEl.style.background='var(--s2)'; }
+      if(kEl){ kEl.style.border='1.5px solid var(--a1)'; kEl.style.background='rgba(0,232,188,.08)';
+               kEl.querySelectorAll('div')[1].style.color='var(--a1)'; }
+      if(fEl){ fEl.style.border='1.5px solid var(--b1)'; fEl.style.background='var(--s2)';
+               fEl.querySelectorAll('div')[1].style.color='var(--t2)'; }
       if(kf) kf.style.display='block';
       if(ff) ff.style.display='none';
     } else {
       natSection.style.display = 'none';
-      window._nationality = 'korean'; // 생산자(개인) 외 → 기본 내국인
+      window._nationality = null;
     }
   }
+  // 주민등록번호 앞 6자리 섹션 (개인 내국인만 — 처음엔 국적 선택 후 표시)
+  if(rrnSection) rrnSection.style.display = 'none'; // 국적 선택 후 표시
 
   // ── 사업자번호 섹션 ──
   const biznumSection = document.getElementById('reg-biznum-section');
   if(!biznumSection) return;
-  const needBiznum = role !== 'producer_ind';
-  biznumSection.style.display = needBiznum ? 'block' : 'none';
+  // 개인 역할은 사업자번호 섹션 완전 숨김
+  biznumSection.style.display = isPersonal ? 'none' : 'block';
 
   // 법인 역할이면 법인번호 섹션 추가 표시
   const isCorpRole = ['producer_corp','wholesale'].includes(role);
