@@ -3829,7 +3829,83 @@ function startApp(r){
   renderHome();
   const isGovOnly=['gov_garaksa','gov_seoul','gov_nts','gov_public'].includes(curRole);
   document.getElementById('ai-float').style.display=isGovOnly?'none':'block';
+
+  // QR 스캔으로 접속한 경우 거래처 자동 등록 팝업
+  if(window._pendingAddPartner){
+    const targetGkid = window._pendingAddPartner;
+    window._pendingAddPartner = null;
+    setTimeout(()=>window._showQRAddPartnerPopup(targetGkid), 800);
+  }
 }
+
+// QR 스캔 거래처 등록 팝업
+window._showQRAddPartnerPopup = function(targetGkid){
+  // 이미 내 GKID면 무시
+  if(targetGkid === curGkid){
+    toast('내 QR 코드입니다');
+    return;
+  }
+
+  const panel = document.createElement('div');
+  panel.id = 'qr-add-panel';
+  panel.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;padding:20px;';
+  panel.innerHTML = `
+    <div style="width:100%;max-width:340px;background:var(--s1);border:1px solid var(--b1);border-radius:20px;padding:24px;text-align:center;">
+      <div style="font-size:32px;margin-bottom:10px;">🤝</div>
+      <div style="font-size:17px;font-weight:800;margin-bottom:6px;">거래처 추가</div>
+      <div style="font-size:12px;color:var(--t2);margin-bottom:16px;line-height:1.6;">
+        QR 코드를 통해 연결 요청이 왔습니다
+      </div>
+
+      <div style="background:var(--s2);border-radius:12px;padding:14px;margin-bottom:16px;">
+        <div style="font-size:13px;font-weight:800;color:var(--a1);">${targetGkid}</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:4px;">GARAK ID</div>
+      </div>
+
+      <div style="display:flex;gap:8px;">
+        <button onclick="document.getElementById('qr-add-panel').remove()"
+          style="flex:1;padding:13px;border-radius:12px;background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-size:13px;font-weight:700;cursor:pointer;">
+          취소
+        </button>
+        <button onclick="window._confirmQRAddPartner('${targetGkid}')"
+          style="flex:2;padding:13px;border-radius:12px;background:linear-gradient(135deg,var(--a1),var(--a2));color:#080d18;font-size:13px;font-weight:800;border:none;cursor:pointer;">
+          ✅ 거래처 등록
+        </button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(panel);
+};
+
+// QR 거래처 등록 확정
+window._confirmQRAddPartner = function(targetGkid){
+  document.getElementById('qr-add-panel')?.remove();
+
+  if(!window._partners) window._partners = [];
+
+  // 중복 체크
+  if(window._partners.find(p=>p.id===targetGkid)){
+    toast('이미 등록된 거래처입니다');
+    return;
+  }
+
+  // 거래처 추가
+  window._partners.push({
+    id: targetGkid,
+    gkid: targetGkid,
+    name: targetGkid,
+    type: 'QR등록',
+    status: 'active',
+    addedAt: new Date().toISOString(),
+    addedBy: 'qr'
+  });
+
+  saveAppData();
+  toast('✅ 거래처가 등록됐습니다! [거래처] 탭에서 확인하세요');
+
+  // 거래처 탭으로 이동
+  setTimeout(()=>window.showPage('partner'), 1500);
+};
 
 // 앱 데이터 저장 (localStorage + Supabase)
 
@@ -3980,7 +4056,7 @@ window.openMyQR = async function(){
 
   await loadScript('https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js');
 
-  const qrData = curGkid; // GARAK ID만 QR에 담기 (짧게)
+  const qrData = 'https://kingcas7.github.io/dragoneyes/garak.html?add=' + curGkid;
 
   const tmp = document.createElement('div');
   tmp.style.cssText = 'position:fixed;left:-9999px;top:-9999px;';
@@ -4253,6 +4329,19 @@ function loadSavedLogin(){
   if(r) startApp(r);
 }
 loadSavedLogin();
+
+// QR 스캔으로 접속 시 거래처 자동 등록 처리
+(function handleQRScan(){
+  const params = new URLSearchParams(window.location.search);
+  const addGkid = params.get('add');
+  if(!addGkid) return;
+
+  // URL 파라미터 제거 (히스토리 정리)
+  window.history.replaceState({}, '', window.location.pathname);
+
+  // 앱이 로드된 후 처리
+  window._pendingAddPartner = addGkid;
+})();
 
 // ══════════════
 // 신뢰등급
