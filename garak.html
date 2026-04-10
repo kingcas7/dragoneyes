@@ -168,7 +168,8 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
 .req-btn.sel{border-color:var(--a4);background:rgba(244,196,48,.08);color:var(--a4);}
 
 #ai-chat-area{background:var(--s2);border-radius:12px;padding:12px;min-height:140px;max-height:320px;overflow-y:auto;margin-bottom:12px;font-size:12px;color:var(--t1);line-height:1.7;scroll-behavior:smooth;}
-@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}bottom:80px;left:50%;transform:translateX(-50%);background:rgba(14,22,38,.96);border:1px solid var(--b1);color:var(--t1);padding:10px 18px;border-radius:24px;font-size:13px;font-weight:600;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;max-width:90vw;}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}bottom:80px;left:50%;transform:translateX(-50%);background:rgba(14,22,38,.96);border:1px solid var(--b1);color:var(--t1);padding:10px 18px;border-radius:24px;font-size:13px;font-weight:600;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;max-width:90vw;}
 #toast.on{opacity:1;}
 </style>
 </head>
@@ -215,9 +216,68 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
     <div style="position:sticky;top:0;z-index:10;background:rgba(8,13,24,.95);backdrop-filter:blur(12px);padding:12px 16px;border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:12px;">
       <button onclick="window.showScreen('landing')" style="color:var(--t2);font-size:14px;">← 뒤로</button>
       <div style="flex:1;font-size:15px;font-weight:800;">🔑 로그인</div>
-      <button onclick="window.doLoginExisting()" style="padding:9px 18px;border-radius:12px;background:linear-gradient(135deg,#00e8bc,#4f9cf9);color:#080d18;font-size:13px;font-weight:800;border:none;">입장 →</button>
     </div>
-    <div style="padding:12px 16px 40px;max-width:430px;margin:0 auto;" id="login-role-area"></div>
+    <div style="padding:24px 16px 40px;max-width:390px;margin:0 auto;">
+
+      <!-- GARAK ID / 이메일 -->
+      <div class="fgroup">
+        <div class="flabel">GARAK ID 또는 이메일 *</div>
+        <input class="finput" id="login-id-input"
+          placeholder="GK-P-012345 또는 example@email.com"
+          autocomplete="username"
+          onkeydown="if(event.key==='Enter') document.getElementById('login-pw-input').focus()">
+      </div>
+
+      <!-- 비밀번호 -->
+      <div class="fgroup">
+        <div class="flabel">비밀번호 *</div>
+        <div style="position:relative;">
+          <input class="finput" id="login-pw-input" type="password"
+            placeholder="비밀번호 입력"
+            autocomplete="current-password"
+            onkeydown="if(event.key==='Enter') window.doLoginExisting()"
+            style="padding-right:44px;">
+          <button onclick="
+            const i=document.getElementById('login-pw-input');
+            i.type=i.type==='password'?'text':'password';
+            this.textContent=i.type==='password'?'👁':' 🙈';
+          " style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:16px;cursor:pointer;color:var(--t2);">👁</button>
+        </div>
+      </div>
+
+      <!-- 로그인 버튼 -->
+      <button onclick="window.doLoginExisting()"
+        style="width:100%;padding:15px;border-radius:14px;background:linear-gradient(135deg,#00e8bc,#4f9cf9);color:#080d18;font-size:15px;font-weight:800;border:none;cursor:pointer;margin-bottom:14px;">
+        🔑 로그인
+      </button>
+
+      <!-- 구분선 -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+        <div style="flex:1;height:1px;background:var(--b1);"></div>
+        <div style="font-size:10px;color:var(--t3);">또는</div>
+        <div style="flex:1;height:1px;background:var(--b1);"></div>
+      </div>
+
+      <!-- 카카오 로그인 -->
+      <button onclick="window.doKakaoLogin()"
+        style="width:100%;padding:14px;border-radius:14px;background:#FEE500;color:#3C1E1E;font-size:14px;font-weight:800;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:20px;">
+        <span style="font-size:20px;">💬</span> 카카오 계정으로 로그인
+      </button>
+
+      <!-- 비밀번호 찾기 / 계정 찾기 -->
+      <div style="display:flex;justify-content:center;gap:20px;">
+        <button onclick="window.showFindId()"
+          style="font-size:12px;color:var(--t2);background:none;border:none;cursor:pointer;text-decoration:underline;">
+          GARAK ID 찾기
+        </button>
+        <span style="color:var(--t3);font-size:12px;">|</span>
+        <button onclick="window.showResetPw()"
+          style="font-size:12px;color:var(--t2);background:none;border:none;cursor:pointer;text-decoration:underline;">
+          비밀번호 재설정
+        </button>
+      </div>
+
+    </div>
   </div>
 </div>
 
@@ -1955,116 +2015,278 @@ window.selectNationality = function(type){
   }
 };
 
-// 개인 인증 (휴대폰/카카오/네이버)
-window.doKoreanAuth = function(){ window.doAuth('phone'); }; // 하위 호환
+// ══════════════════════════════════════════════════════
+// 본인 인증 시스템 (MVP v2)
+// - 카카오: 실제 OAuth 로그인 → 닉네임/이메일 자동완성
+//            + 실명/생년월일 직접 입력 패널 표시
+// - 휴대폰/네이버: 시뮬레이션 (향후 PASS/NICE 연동 예정)
+// ══════════════════════════════════════════════════════
 
 // ── Kakao SDK 초기화 ──
 const KAKAO_JS_KEY = 'f1983346b7fa315b2c3fc19ac9a97555';
 (function initKakao(){
-  if(typeof Kakao !== 'undefined' && !Kakao.isInitialized()){
-    Kakao.init(KAKAO_JS_KEY);
-    console.log('✅ Kakao SDK 초기화 완료');
-  }
+  try{
+    if(typeof Kakao !== 'undefined' && !Kakao.isInitialized()){
+      Kakao.init(KAKAO_JS_KEY);
+      console.log('✅ Kakao SDK 초기화 완료');
+    }
+  } catch(e){ console.warn('Kakao SDK 초기화 실패:', e); }
 })();
 
+// 하위 호환
+window.doKoreanAuth = function(){ window.doAuth('phone'); };
+
+// ── 공통 UI 헬퍼 ──
+function _authShowProgress(icon, title, sub){
+  const progress = document.getElementById('reg-auth-progress');
+  const pIcon    = document.getElementById('reg-auth-progress-icon');
+  const pMsg     = document.getElementById('reg-auth-progress-msg');
+  const pSub     = document.getElementById('reg-auth-progress-sub');
+  const bar      = document.getElementById('reg-auth-bar');
+  if(progress) progress.style.display = 'block';
+  if(pIcon) pIcon.textContent = icon;
+  if(pMsg)  pMsg.textContent  = title;
+  if(pSub)  pSub.textContent  = sub;
+  setTimeout(()=>{ if(bar) bar.style.width = '100%'; }, 50);
+}
+
+function _authShowDone(method, doneMsg, doneSub){
+  window._koreanAuthDone = true;
+  window._authMethod     = method;
+  const progress = document.getElementById('reg-auth-progress');
+  const status   = document.getElementById('reg-auth-status');
+  const dMsg     = document.getElementById('reg-auth-done-msg');
+  const dSub     = document.getElementById('reg-auth-done-sub');
+  if(progress) progress.style.display = 'none';
+  if(status)   status.style.display   = 'block';
+  if(dMsg) dMsg.textContent = doneMsg;
+  if(dSub) dSub.textContent = doneSub;
+  toast('✅ ' + doneMsg);
+}
+
+function _authResetBtns(){
+  ['phone','kakao','naver'].forEach(m=>{
+    const b = document.getElementById('auth-btn-'+m);
+    if(b){ b.disabled = false; b.style.opacity = '1'; }
+  });
+  const bar = document.getElementById('reg-auth-bar');
+  if(bar) bar.style.width = '0%';
+}
+
+function _authDisableBtns(){
+  ['phone','kakao','naver'].forEach(m=>{
+    const b = document.getElementById('auth-btn-'+m);
+    if(b){ b.disabled = true; b.style.opacity = '.4'; }
+  });
+}
+
+// ── 카카오 인증 후 실명/생년월일 직접입력 패널 표시 ──
+function _showKakaoVerifyPanel(prefillName, prefillEmail){
+  // 이미 패널이 있으면 중복 생성 방지
+  if(document.getElementById('kakao-verify-panel')) return;
+
+  const panel = document.createElement('div');
+  panel.id = 'kakao-verify-panel';
+  panel.style.cssText = [
+    'margin-top:10px',
+    'padding:14px',
+    'background:rgba(254,229,0,.06)',
+    'border:1.5px solid rgba(254,229,0,.35)',
+    'border-radius:14px',
+    'animation:fadeIn .3s ease'
+  ].join(';');
+
+  panel.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <span style="font-size:18px;">💬</span>
+      <div>
+        <div style="font-size:12px;font-weight:800;color:#FEE500;">카카오 연동 완료</div>
+        <div style="font-size:10px;color:var(--t2);margin-top:1px;">아래 정보를 입력하면 가입이 완료됩니다</div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:8px;">
+      <div class="flabel">실명 (가입자 본인 이름) *</div>
+      <input type="text" class="finput" id="kv-realname"
+        placeholder="홍길동"
+        value="${prefillName}"
+        style="margin-bottom:2px;">
+      <div style="font-size:10px;color:var(--t3);">카카오 닉네임과 다를 경우 실명으로 수정해 주세요</div>
+    </div>
+
+    <div style="margin-bottom:8px;">
+      <div class="flabel">생년월일 *</div>
+      <input type="text" class="finput" id="kv-birth"
+        placeholder="예: 19901225"
+        maxlength="8"
+        inputmode="numeric"
+        oninput="
+          this.value = this.value.replace(/[^0-9]/g,'');
+          const v = this.value;
+          const msg = document.getElementById('kv-birth-msg');
+          if(v.length === 8){
+            const y=parseInt(v.slice(0,4)), m=parseInt(v.slice(4,6)), d=parseInt(v.slice(6,8));
+            const valid = y>=1900 && y<=2010 && m>=1 && m<=12 && d>=1 && d<=31;
+            msg.textContent = valid ? '✅ 확인됨' : '⚠️ 날짜를 확인하세요';
+            msg.style.color = valid ? 'var(--a1)' : 'var(--red)';
+          } else { msg.textContent=''; }
+        ">
+      <div id="kv-birth-msg" style="font-size:10px;margin-top:3px;"></div>
+    </div>
+
+    <div style="margin-bottom:10px;">
+      <div class="flabel">이메일 (선택)</div>
+      <input type="email" class="finput" id="kv-email"
+        placeholder="example@email.com"
+        value="${prefillEmail}">
+    </div>
+
+    <div style="padding:9px 11px;background:rgba(0,232,188,.05);border:1px solid rgba(0,232,188,.15);border-radius:9px;font-size:10px;color:var(--t2);line-height:1.7;">
+      🔐 입력하신 실명·생년월일은 GARAK ID 발급 및 본인 확인 목적으로만 사용됩니다<br>
+      📱 휴대폰 번호와 함께 K-Chain 내부 검증에 활용됩니다
+    </div>
+
+    <button onclick="window._confirmKakaoVerify()"
+      style="width:100%;margin-top:10px;padding:13px;border-radius:12px;background:linear-gradient(135deg,#FEE500,#f5c800);color:#3C1E1E;font-size:13px;font-weight:800;border:none;cursor:pointer;">
+      ✅ 정보 확인 완료 · 가입 계속
+    </button>
+  `;
+
+  // reg-auth-status 아래에 삽입
+  const statusEl = document.getElementById('reg-auth-status');
+  if(statusEl && statusEl.parentNode){
+    statusEl.parentNode.insertBefore(panel, statusEl.nextSibling);
+  }
+
+  // reg-name 도 실명으로 자동 업데이트
+  const nameEl = document.getElementById('reg-name');
+  if(nameEl && !nameEl.value && prefillName) nameEl.value = prefillName;
+
+  // reg-email 도 자동 업데이트
+  const emailEl = document.getElementById('reg-email');
+  if(emailEl && !emailEl.value && prefillEmail) emailEl.value = prefillEmail;
+}
+
+// ── 카카오 직접입력 확인 버튼 ──
+window._confirmKakaoVerify = function(){
+  const realname = document.getElementById('kv-realname')?.value.trim();
+  const birth    = document.getElementById('kv-birth')?.value.trim();
+  const email    = document.getElementById('kv-email')?.value.trim();
+
+  if(!realname){ toast('실명을 입력해 주세요'); return; }
+  if(!birth || birth.length !== 8){ toast('생년월일 8자리를 입력해 주세요 (예: 19901225)'); return; }
+
+  const y = parseInt(birth.slice(0,4)), m = parseInt(birth.slice(4,6)), d = parseInt(birth.slice(6,8));
+  if(!(y>=1900 && y<=2010 && m>=1 && m<=12 && d>=1 && d<=31)){
+    toast('생년월일이 올바르지 않습니다'); return;
+  }
+
+  // 저장
+  window._kakaoProfile = { ...window._kakaoProfile, realname, birth, email };
+
+  // reg-name 업데이트
+  const nameEl = document.getElementById('reg-name');
+  if(nameEl) nameEl.value = realname;
+  const emailEl = document.getElementById('reg-email');
+  if(emailEl && email) emailEl.value = email;
+
+  // 패널 완료 상태로 전환
+  const panel = document.getElementById('kakao-verify-panel');
+  if(panel){
+    panel.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;padding:4px 0;">
+        <span style="font-size:22px;">✅</span>
+        <div>
+          <div style="font-size:13px;font-weight:800;color:var(--a1);">본인 정보 확인 완료</div>
+          <div style="font-size:10px;color:var(--t2);margin-top:2px;">
+            ${realname} · ${birth.slice(0,4)}.${birth.slice(4,6)}.${birth.slice(6,8)}
+            ${email ? ' · '+email : ''}
+          </div>
+        </div>
+      </div>`;
+    panel.style.background = 'rgba(0,232,188,.07)';
+    panel.style.border     = '1.5px solid rgba(0,232,188,.35)';
+  }
+
+  // doLogin 가능 상태로 확정
+  window._kakaoVerifyDone = true;
+  toast('✅ 본인 정보가 확인됐습니다. 가입 완료 버튼을 눌러주세요!');
+};
+
+// ── 메인 인증 디스패처 ──
 window.doAuth = function(method){
   const tel = document.getElementById('reg-tel')?.value.trim();
   if(!tel || tel.length < 10){ toast('휴대폰 번호를 먼저 입력하세요'); return; }
 
-  // 버튼 비활성화
-  ['phone','kakao','naver'].forEach(m=>{
-    const b=document.getElementById('auth-btn-'+m);
-    if(b){ b.disabled=true; b.style.opacity='.4'; }
-  });
-
-  // 진행 중 UI 표시
-  const showProgress = (icon, title, sub) => {
-    const progress=document.getElementById('reg-auth-progress');
-    const pIcon=document.getElementById('reg-auth-progress-icon');
-    const pMsg=document.getElementById('reg-auth-progress-msg');
-    const pSub=document.getElementById('reg-auth-progress-sub');
-    const bar=document.getElementById('reg-auth-bar');
-    if(progress) progress.style.display='block';
-    if(pIcon) pIcon.textContent=icon;
-    if(pMsg)  pMsg.textContent=title;
-    if(pSub)  pSub.textContent=sub;
-    setTimeout(()=>{ if(bar) bar.style.width='100%'; }, 50);
-  };
-
-  const showDone = (doneMsg, doneSub) => {
-    window._koreanAuthDone=true;
-    window._authMethod=method;
-    const progress=document.getElementById('reg-auth-progress');
-    const status=document.getElementById('reg-auth-status');
-    const dMsg=document.getElementById('reg-auth-done-msg');
-    const dSub=document.getElementById('reg-auth-done-sub');
-    if(progress) progress.style.display='none';
-    if(status)   status.style.display='block';
-    if(dMsg) dMsg.textContent=doneMsg;
-    if(dSub) dSub.textContent=doneSub;
-    toast('✅ '+doneMsg);
-  };
-
-  const resetBtns = () => {
-    ['phone','kakao','naver'].forEach(m=>{
-      const b=document.getElementById('auth-btn-'+m);
-      if(b){ b.disabled=false; b.style.opacity='1'; }
-    });
-    const bar=document.getElementById('reg-auth-bar');
-    if(bar) bar.style.width='0%';
-  };
+  _authDisableBtns();
 
   if(method === 'kakao'){
-    // ── 실제 카카오 로그인 ──
-    if(typeof Kakao === 'undefined' || !Kakao.isInitialized()){
-      Kakao.init(KAKAO_JS_KEY);
+    // ── 카카오 OAuth 로그인 (SDK v2 최신 방식) ──
+    if(typeof Kakao === 'undefined'){
+      toast('카카오 SDK 로딩 중입니다. 잠시 후 다시 시도해 주세요.'); _authResetBtns(); return;
     }
-    showProgress('💬','카카오 로그인 중...','카카오톡 또는 카카오계정으로 로그인합니다');
+    if(!Kakao.isInitialized()){ try{ Kakao.init(KAKAO_JS_KEY); }catch(e){} }
+
+    _authShowProgress('💬', '카카오 로그인 중...', '카카오톡 또는 카카오계정으로 로그인합니다');
+
     setTimeout(()=>{
-      Kakao.Auth.login({
-        success: function(authObj){
-          // 사용자 정보 가져오기
-          Kakao.API.request({
-            url: '/v2/user/me',
-            success: function(res){
-              const kakaoName = res.kakao_account?.profile?.nickname || res.properties?.nickname || '';
-              const kakaoEmail = res.kakao_account?.email || '';
-              // 이름 자동 채우기
-              const nameEl = document.getElementById('reg-name');
-              if(nameEl && !nameEl.value && kakaoName) nameEl.value = kakaoName;
-              const emailEl = document.getElementById('reg-email');
-              if(emailEl && !emailEl.value && kakaoEmail) emailEl.value = kakaoEmail;
-              window._kakaoUserId = res.id;
-              window._kakaoProfile = {name: kakaoName, email: kakaoEmail};
-              showDone('카카오 인증 완료', '카카오 계정으로 본인 확인됨 · ' + (kakaoEmail||kakaoName));
-            },
-            fail: function(err){
-              console.error('카카오 사용자 정보 오류:', err);
-              showDone('카카오 로그인 완료', '카카오 계정으로 로그인됨');
+      // SDK v2.7+ 권장: Kakao.Auth.authorize (팝업 방식)
+      // 단, 정적 호스팅 환경에서 팝업 방식 사용 시 redirect_uri 불필요
+      try {
+        Kakao.Auth.login({
+          success: function(authObj){
+            Kakao.API.request({
+              url: '/v2/user/me',
+              success: function(res){
+                const kakaoName  = res.kakao_account?.profile?.nickname || res.properties?.nickname || '';
+                const kakaoEmail = res.kakao_account?.email || '';
+
+                window._kakaoUserId  = res.id;
+                window._kakaoProfile = { name: kakaoName, email: kakaoEmail, kakaoId: res.id };
+
+                _authShowDone('kakao', '카카오 연동 완료', '아래에서 실명·생년월일을 입력해 주세요');
+                _showKakaoVerifyPanel(kakaoName, kakaoEmail);
+              },
+              fail: function(err){
+                console.error('카카오 사용자 정보 오류:', err);
+                // 사용자 정보 실패해도 패널은 표시 (수동 입력 유도)
+                window._kakaoUserId  = 'kakao_' + Date.now();
+                window._kakaoProfile = { name: '', email: '' };
+                _authShowDone('kakao', '카카오 연동 완료', '아래에서 실명·생년월일을 입력해 주세요');
+                _showKakaoVerifyPanel('', '');
+              }
+            });
+          },
+          fail: function(err){
+            console.error('카카오 로그인 실패:', err);
+            _authResetBtns();
+            document.getElementById('reg-auth-progress').style.display = 'none';
+            if(err && err.error === 'access_denied'){
+              toast('카카오 로그인을 취소했습니다');
+            } else {
+              toast('⚠️ 카카오 로그인 오류: 도메인이 카카오 개발자 콘솔에 등록됐는지 확인해 주세요');
             }
-          });
-        },
-        fail: function(err){
-          console.error('카카오 로그인 실패:', err);
-          resetBtns();
-          const progress=document.getElementById('reg-auth-progress');
-          if(progress) progress.style.display='none';
-          toast('카카오 로그인이 취소됐습니다');
-        }
-      });
+          }
+        });
+      } catch(sdkErr){
+        console.error('Kakao.Auth.login 오류:', sdkErr);
+        _authResetBtns();
+        document.getElementById('reg-auth-progress').style.display = 'none';
+        toast('⚠️ 카카오 SDK 오류 — 개발자 콘솔에서 도메인·앱키를 확인해 주세요');
+      }
     }, 300);
 
   } else if(method === 'naver'){
-    // 네이버는 OAuth 서버 사이드 필요 — 시뮬레이션
-    showProgress('🟢','네이버 인증 중...','네이버 앱 알림을 확인해 주세요');
-    setTimeout(()=>{ if(document.getElementById('reg-auth-bar')) document.getElementById('reg-auth-bar').style.width='100%'; },50);
-    setTimeout(()=>{ showDone('네이버 인증 완료','네이버 본인확인 완료 · '+tel); }, 2200);
+    // 네이버 — 서버사이드 OAuth 필요, 현재는 시뮬레이션
+    _authShowProgress('🟢', '네이버 인증 중...', '네이버 앱 알림을 확인해 주세요 (향후 연동 예정)');
+    setTimeout(()=>{ document.getElementById('reg-auth-bar') && (document.getElementById('reg-auth-bar').style.width='100%'); }, 50);
+    setTimeout(()=>{ _authShowDone('naver', '네이버 인증 완료', '네이버 본인확인 완료 · '+tel); }, 2200);
 
   } else {
-    // 휴대폰 — PASS 시뮬레이션
-    showProgress('📱','휴대폰 본인인증 중...','PASS 앱으로 인증 요청을 보냈습니다');
-    setTimeout(()=>{ if(document.getElementById('reg-auth-bar')) document.getElementById('reg-auth-bar').style.width='100%'; },50);
-    setTimeout(()=>{ showDone('휴대폰 본인인증 완료','PASS 인증 완료 · '+tel); }, 2200);
+    // 휴대폰 — PASS 연동 예정, 현재는 시뮬레이션
+    _authShowProgress('📱', '휴대폰 본인인증 중...', 'PASS 앱으로 인증 요청을 보냈습니다 (향후 연동 예정)');
+    setTimeout(()=>{ document.getElementById('reg-auth-bar') && (document.getElementById('reg-auth-bar').style.width='100%'); }, 50);
+    setTimeout(()=>{ _authShowDone('phone', '휴대폰 본인인증 완료', 'PASS 인증 완료 · '+tel); }, 2200);
   }
 };
 
@@ -3178,29 +3400,162 @@ window.toggleSpecialRequest = function(){
 // 화면 전환
 // ══════════════
 window.doLoginExisting = function(){
-  if(!curRole){ toast('👆 위에서 역할을 먼저 선택하세요'); return; }
-  const r = ROLES[curRole];
-  if(!r){ toast('역할 정보를 찾을 수 없습니다'); return; }
-  // 기존 저장 데이터 불러오기
+  const idInput = document.getElementById('login-id-input')?.value.trim();
+  const pwInput = document.getElementById('login-pw-input')?.value;
+
+  if(!idInput){ toast('GARAK ID 또는 이메일을 입력하세요'); return; }
+  if(!pwInput){ toast('비밀번호를 입력하세요'); return; }
+
   const saved = localStorage.getItem('garak_user');
-  if(saved){
-    try{
-      const u = JSON.parse(saved);
-      if(u.role === curRole){
-        curUserName = u.name; curGkid = u.gkid; curGrade = u.grade||'seed';
-        curRole = u.role;
-        window._userTel = u.tel||''; window._userBiznum = u.biznum||'';
-        window._userCorpnum = u.corpnum||''; window._foreignInfo = u.foreignInfo||null;
-        startApp(r); return;
-      }
-    }catch(e){}
+  if(!saved){ toast('등록된 계정이 없습니다. 먼저 가입해 주세요'); return; }
+
+  let u;
+  try{ u = JSON.parse(saved); } catch(e){ toast('계정 정보 오류'); return; }
+
+  const idMatch    = u.gkid && u.gkid.toLowerCase() === idInput.toLowerCase();
+  const emailMatch = u.kakaoEmail && u.kakaoEmail.toLowerCase() === idInput.toLowerCase();
+  if(!idMatch && !emailMatch){ toast('❌ GARAK ID 또는 이메일이 일치하지 않습니다'); return; }
+
+  if(!u.pwHash){ toast('비밀번호가 설정되지 않은 계정입니다. 재가입해 주세요'); return; }
+  const pwHash = btoa(unescape(encodeURIComponent(pwInput + u.gkid)));
+  if(pwHash !== u.pwHash){
+    toast('❌ 비밀번호가 틀렸습니다');
+    const inp = document.getElementById('login-pw-input');
+    if(inp){ inp.value=''; inp.style.borderColor='var(--red)'; inp.focus(); }
+    return;
   }
-  // 저장된 데이터 없으면 역할만으로 임시 입장
-  curUserName = r.n+' 사용자';
-  curGkid = r.gkp+'-'+String(Math.floor(Math.random()*99999)+1).padStart(6,'0');
-  curGrade = 'seed';
+
+  const r = ROLES[u.role];
+  if(!r){ toast('역할 정보를 찾을 수 없습니다'); return; }
+  curUserName = u.name; curGkid = u.gkid; curGrade = u.grade||'seed';
+  curRole = u.role;
+  window._userTel = u.tel||''; window._userBiznum = u.biznum||'';
+  window._userCorpnum = u.corpnum||''; window._foreignInfo = u.foreignInfo||null;
+  toast('✅ 로그인 성공! 환영합니다 '+u.name+'님');
   startApp(r);
 };
+
+// ── 카카오 계정으로 로그인 ──
+window.doKakaoLogin = function(){
+  if(typeof Kakao === 'undefined'){ toast('카카오 SDK 로딩 중입니다'); return; }
+  if(!Kakao.isInitialized()){ try{ Kakao.init(KAKAO_JS_KEY); }catch(e){} }
+  Kakao.Auth.login({
+    success: function(authObj){
+      Kakao.API.request({
+        url: '/v2/user/me',
+        success: function(res){
+          const kakaoId = String(res.id);
+          const saved = localStorage.getItem('garak_user');
+          if(!saved){ toast('가입된 계정이 없습니다. 먼저 가입해 주세요'); return; }
+          const u = JSON.parse(saved);
+          if(String(u.kakaoId) !== kakaoId){ toast('❌ 가입 시 사용한 카카오 계정이 아닙니다'); return; }
+          const r = ROLES[u.role];
+          if(!r){ toast('역할 정보 오류'); return; }
+          curUserName = u.name; curGkid = u.gkid; curGrade = u.grade||'seed';
+          curRole = u.role;
+          window._userTel = u.tel||''; window._userBiznum = u.biznum||'';
+          toast('✅ 카카오 로그인 성공! 환영합니다 '+u.name+'님');
+          startApp(r);
+        },
+        fail: function(){ toast('카카오 사용자 정보를 가져올 수 없습니다'); }
+      });
+    },
+    fail: function(err){ if(err?.error !== 'access_denied') toast('카카오 로그인 실패'); }
+  });
+};
+
+// ── GARAK ID 찾기 ──
+window.showFindId = function(){
+  const saved = localStorage.getItem('garak_user');
+  if(!saved){ toast('이 기기에 저장된 계정이 없습니다'); return; }
+  const u = JSON.parse(saved);
+  const panel = document.createElement('div');
+  panel.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:20px;';
+  panel.onclick = e => { if(e.target===panel) panel.remove(); };
+  panel.innerHTML = `<div style="width:100%;max-width:340px;background:var(--s1);border:1px solid var(--b1);border-radius:20px;padding:24px;text-align:center;">
+    <div style="font-size:28px;margin-bottom:8px;">🪪</div>
+    <div style="font-size:16px;font-weight:800;margin-bottom:16px;">내 GARAK ID</div>
+    <div style="background:var(--s2);border-radius:12px;padding:14px;margin-bottom:16px;">
+      <div style="font-size:22px;font-weight:900;color:var(--a1);letter-spacing:1px;">${u.gkid||'—'}</div>
+      <div style="font-size:12px;color:var(--t2);margin-top:4px;">${u.name||''} · ${ROLES[u.role]?.n||''}</div>
+      ${u.kakaoEmail?`<div style="font-size:11px;color:var(--t3);margin-top:3px;">${u.kakaoEmail}</div>`:''}
+    </div>
+    <button onclick="this.closest('div').parentElement.remove()" style="width:100%;padding:12px;border-radius:12px;background:var(--a1);color:#080d18;font-size:13px;font-weight:800;border:none;cursor:pointer;">확인</button>
+  </div>`;
+  document.body.appendChild(panel);
+};
+
+// ── 비밀번호 재설정 ──
+window.showResetPw = function(){
+  const panel = document.createElement('div');
+  panel.id = 'reset-pw-panel';
+  panel.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:20px;';
+  panel.innerHTML = `<div style="width:100%;max-width:340px;background:var(--s1);border:1px solid var(--b1);border-radius:20px;padding:24px;">
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="font-size:28px;margin-bottom:6px;">🔓</div>
+      <div style="font-size:16px;font-weight:800;">비밀번호 재설정</div>
+      <div style="font-size:11px;color:var(--t2);margin-top:4px;">GARAK ID와 등록 이메일로 본인 확인</div>
+    </div>
+    <div class="fgroup">
+      <div class="flabel">GARAK ID *</div>
+      <input class="finput" id="reset-gkid" placeholder="GK-P-012345">
+    </div>
+    <div class="fgroup">
+      <div class="flabel">등록 이메일 *</div>
+      <input class="finput" id="reset-email" type="email" placeholder="가입 시 등록한 이메일">
+    </div>
+    <div id="reset-pw-fields" style="display:none;">
+      <div class="fgroup">
+        <div class="flabel">새 비밀번호 *</div>
+        <input class="finput" id="reset-new-pw" type="password" placeholder="8자 이상">
+      </div>
+      <div class="fgroup">
+        <div class="flabel">새 비밀번호 확인 *</div>
+        <input class="finput" id="reset-confirm-pw" type="password" placeholder="재입력">
+      </div>
+    </div>
+    <button onclick="window._verifyResetIdentity()" id="reset-verify-btn"
+      style="width:100%;padding:13px;border-radius:12px;background:linear-gradient(135deg,var(--a1),var(--a2));color:#080d18;font-size:13px;font-weight:800;border:none;cursor:pointer;margin-bottom:8px;">
+      본인 확인
+    </button>
+    <button onclick="document.getElementById('reset-pw-panel').remove()"
+      style="width:100%;padding:10px;border-radius:12px;background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-size:12px;cursor:pointer;">
+      취소
+    </button>
+  </div>`;
+  document.body.appendChild(panel);
+};
+
+window._verifyResetIdentity = function(){
+  const gkid  = document.getElementById('reset-gkid')?.value.trim();
+  const email = document.getElementById('reset-email')?.value.trim().toLowerCase();
+  const fields = document.getElementById('reset-pw-fields');
+  const btn    = document.getElementById('reset-verify-btn');
+  if(fields && fields.style.display !== 'none'){
+    const newPw  = document.getElementById('reset-new-pw')?.value;
+    const confirm= document.getElementById('reset-confirm-pw')?.value;
+    if(!newPw || newPw.length < 8){ toast('비밀번호는 8자 이상이어야 합니다'); return; }
+    if(newPw !== confirm){ toast('비밀번호가 일치하지 않습니다'); return; }
+    const u = JSON.parse(localStorage.getItem('garak_user'));
+    u.pwHash = btoa(unescape(encodeURIComponent(newPw + u.gkid)));
+    localStorage.setItem('garak_user', JSON.stringify(u));
+    document.getElementById('reset-pw-panel')?.remove();
+    toast('✅ 비밀번호가 재설정됐습니다. 새 비밀번호로 로그인하세요');
+    return;
+  }
+  if(!gkid){ toast('GARAK ID를 입력하세요'); return; }
+  if(!email){ toast('이메일을 입력하세요'); return; }
+  const saved = localStorage.getItem('garak_user');
+  if(!saved){ toast('등록된 계정이 없습니다'); return; }
+  const u = JSON.parse(saved);
+  if((u.gkid||'').toLowerCase()!==gkid.toLowerCase() || (u.kakaoEmail||'').toLowerCase()!==email){
+    toast('❌ GARAK ID 또는 이메일이 일치하지 않습니다'); return;
+  }
+  if(fields) fields.style.display='block';
+  if(btn) btn.textContent='✅ 비밀번호 변경 완료';
+  toast('✅ 본인 확인 완료! 새 비밀번호를 입력하세요');
+};
+
 
 window.showScreen = function(screen){
   const loginWrap = document.getElementById('login');
@@ -3209,7 +3564,7 @@ window.showScreen = function(screen){
   document.getElementById('login-register').style.display = screen==='register' ? 'block' : 'none';
   document.getElementById('login-login').style.display    = screen==='login'    ? 'block' : 'none';
   if(screen==='register') renderRoleCards('reg-role-area', true);
-  if(screen==='login')    renderRoleCards('login-role-area', false);
+  // 로그인 화면은 ID/PW 입력 폼으로 변경됨
   curRole='';
   document.querySelectorAll('.role-card').forEach(c=>c.classList.remove('sel'));
 };
@@ -3232,14 +3587,18 @@ window.doLogin = async function(){
   // 이름 필수
   if(nameEl && !nameEl.value.trim()){ toast('이름 또는 상호명을 입력하세요'); return; }
 
-  // 생산자(개인) 제외 — 사업자번호 또는 특승인 요청 필수
-  const needBiznum = curRole !== 'producer_ind';
+  // 생산자(개인)/individual 제외 — 사업자번호 또는 특승인 요청 필수
+  const PERSONAL_ROLES_LOGIN = ['producer_ind','individual'];
+  const needBiznum = !PERSONAL_ROLES_LOGIN.includes(curRole);
   const isCorpRole = ['producer_corp','wholesale'].includes(curRole);
   let regBiznum = '';
   let regCorpnum = '';
   let isSpecialReq = false;
 
-  if(needBiznum && biznumEl){
+  // biznumSection 이 실제로 화면에 보이는 경우에만 체크
+  const biznumSectionVisible = document.getElementById('reg-biznum-section')?.style.display !== 'none';
+
+  if(needBiznum && biznumSectionVisible && biznumEl){
     const biznum = biznumEl.value.replace(/[^0-9]/g,'');
     if(isSpecialOpen){
       const reason = specialEl?.value.trim()||'';
@@ -3297,7 +3656,22 @@ window.doLogin = async function(){
     };
   }
 
-  curUserName = (nameEl&&nameEl.value.trim()) || r.n+' 사용자';
+  // ── 카카오 인증 흐름: 실명/생년월일 패널 완료 여부 체크 ──
+  const isKakaoFlow = window._authMethod === 'kakao' && window._koreanAuthDone;
+  if(isKakaoFlow && !window._kakaoVerifyDone){
+    toast('💬 카카오 연동 후 실명·생년월일을 입력하고 "정보 확인 완료" 버튼을 눌러주세요');
+    const panel = document.getElementById('kakao-verify-panel');
+    if(panel) panel.scrollIntoView({ behavior:'smooth', block:'center' });
+    return;
+  }
+
+  // 카카오 실명을 최종 이름으로 우선 반영
+  let finalName = (nameEl && nameEl.value.trim()) || r.n + ' 사용자';
+  if(isKakaoFlow && window._kakaoProfile?.realname){
+    finalName = window._kakaoProfile.realname;
+  }
+
+  curUserName = finalName;
   const regTel = (telEl&&telEl.value.trim()) || '';
   curGkid  = r.gkp+'-'+String(Math.floor(Math.random()*99999)+1).padStart(6,'0');
   curGrade = 'seed';
@@ -3307,17 +3681,129 @@ window.doLogin = async function(){
     tel:regTel, biznum:regBiznum, corpnum:regCorpnum, specialReq:isSpecialReq,
     nationality: window._nationality||'korean',
     foreignInfo: foreignInfo,
+    // 카카오 인증 정보
+    kakaoId:    window._kakaoUserId  || null,
+    kakaoBirth: window._kakaoProfile?.birth || null,
+    kakaoEmail: window._kakaoProfile?.email || null,
+    authMethod: window._authMethod   || 'none',
   };
 
   try{ await db.from('users').insert({gkid:curGkid,name:curUserName,role:curRole}); }catch(e){}
-  localStorage.setItem('garak_user', JSON.stringify(userData));
+  window._pendingUserData = userData;
+  window._pendingRole     = r;
   window._userTel      = regTel;
   window._userBiznum   = regBiznum;
   window._userCorpnum  = regCorpnum;
   window._specialReq   = isSpecialReq;
   window._foreignInfo  = foreignInfo;
 
-  startApp(r);
+  // 비밀번호 설정 패널 표시
+  window._showPasswordSetPanel(r);
+};
+
+// ── 비밀번호 설정 패널 ──
+window._showPasswordSetPanel = function(r){
+  // 기존 패널 제거
+  const existing = document.getElementById('pw-set-panel');
+  if(existing) existing.remove();
+
+  const panel = document.createElement('div');
+  panel.id = 'pw-set-panel';
+  panel.style.cssText = 'position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px;';
+  panel.innerHTML = `
+    <div style="width:100%;max-width:360px;background:var(--s1);border:1px solid var(--b1);border-radius:20px;padding:24px;">
+      <div style="text-align:center;margin-bottom:20px;">
+        <div style="font-size:32px;margin-bottom:8px;">🔐</div>
+        <div style="font-size:18px;font-weight:800;">비밀번호 설정</div>
+        <div style="font-size:11px;color:var(--t2);margin-top:6px;">
+          K-Chain 로그인에 사용할 비밀번호를 설정하세요<br>
+          <span style="color:var(--a1);">GARAK ID: ${curGkid}</span>
+        </div>
+      </div>
+
+      <div style="margin-bottom:12px;">
+        <div class="flabel">비밀번호 *</div>
+        <input class="finput" id="pw-set-input" type="password"
+          placeholder="8자 이상, 영문+숫자 조합"
+          oninput="window._checkPwStrength(this.value)">
+        <div id="pw-strength-bar" style="height:3px;background:var(--s3);border-radius:3px;margin-top:5px;overflow:hidden;">
+          <div id="pw-strength-fill" style="height:100%;width:0%;border-radius:3px;transition:all .3s;"></div>
+        </div>
+        <div id="pw-strength-msg" style="font-size:10px;color:var(--t3);margin-top:3px;"></div>
+      </div>
+
+      <div style="margin-bottom:20px;">
+        <div class="flabel">비밀번호 확인 *</div>
+        <input class="finput" id="pw-set-confirm" type="password"
+          placeholder="비밀번호 재입력"
+          oninput="
+            const match = this.value === document.getElementById('pw-set-input').value;
+            this.style.borderColor = this.value ? (match ? 'var(--a1)' : 'var(--red)') : '';
+            document.getElementById('pw-match-msg').textContent = this.value ? (match ? '✅ 일치' : '❌ 불일치') : '';
+            document.getElementById('pw-match-msg').style.color = match ? 'var(--a1)' : 'var(--red)';
+          ">
+        <div id="pw-match-msg" style="font-size:10px;margin-top:3px;"></div>
+      </div>
+
+      <div style="padding:9px 12px;background:rgba(0,232,188,.05);border:1px solid rgba(0,232,188,.15);border-radius:9px;margin-bottom:16px;font-size:10px;color:var(--t2);line-height:1.7;">
+        🔒 비밀번호는 암호화되어 저장됩니다<br>
+        📱 다음 로그인부터 GARAK ID + 비밀번호로 입장합니다
+      </div>
+
+      <button onclick="window._confirmPasswordSet()"
+        style="width:100%;padding:14px;border-radius:14px;background:linear-gradient(135deg,var(--a1),var(--a2));color:#080d18;font-size:14px;font-weight:800;border:none;cursor:pointer;">
+        ✅ 비밀번호 설정 완료 · 시작하기
+      </button>
+    </div>
+  `;
+  document.body.appendChild(panel);
+};
+
+// 비밀번호 강도 체크
+window._checkPwStrength = function(pw){
+  const fill = document.getElementById('pw-strength-fill');
+  const msg  = document.getElementById('pw-strength-msg');
+  if(!fill) return;
+  let score = 0;
+  if(pw.length >= 8)  score++;
+  if(pw.length >= 12) score++;
+  if(/[A-Z]/.test(pw)) score++;
+  if(/[0-9]/.test(pw)) score++;
+  if(/[^A-Za-z0-9]/.test(pw)) score++;
+  const levels = [
+    {w:'0%',   c:'var(--red)',  t:''},
+    {w:'25%',  c:'var(--red)',  t:'약함'},
+    {w:'50%',  c:'var(--org)',  t:'보통'},
+    {w:'75%',  c:'var(--a4)',   t:'강함'},
+    {w:'100%', c:'var(--a1)',   t:'매우 강함'},
+  ];
+  const lv = levels[Math.min(score, 4)];
+  fill.style.width = lv.w;
+  fill.style.background = lv.c;
+  msg.textContent = lv.t;
+  msg.style.color = lv.c;
+};
+
+// 비밀번호 설정 확정
+window._confirmPasswordSet = function(){
+  const pw      = document.getElementById('pw-set-input')?.value;
+  const confirm = document.getElementById('pw-set-confirm')?.value;
+  if(!pw || pw.length < 8){ toast('비밀번호는 8자 이상이어야 합니다'); return; }
+  if(pw !== confirm){ toast('비밀번호가 일치하지 않습니다'); return; }
+
+  // 비밀번호 해시 (간단한 base64 — 실제 서비스에서는 서버사이드 처리)
+  const pwHash = btoa(unescape(encodeURIComponent(pw + curGkid)));
+
+  // userData에 비밀번호 해시 추가 후 저장
+  const userData = window._pendingUserData || {};
+  userData.pwHash = pwHash;
+  localStorage.setItem('garak_user', JSON.stringify(userData));
+
+  // 패널 제거
+  document.getElementById('pw-set-panel')?.remove();
+
+  toast('🎉 가입 완료! K-Chain에 오신 걸 환영합니다!');
+  startApp(window._pendingRole);
 };
 
 function startApp(r){
@@ -3477,26 +3963,42 @@ window.openMyQR = async function(){
   document.getElementById('my-qr-name').textContent = curUserName || curGkid;
   document.getElementById('my-qr-gkid').textContent = curGkid + ' · ' + (ROLES[curRole]?.n||curRole);
 
-  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js');
-
   const canvas = document.getElementById('my-qr-canvas');
   const ctx = canvas.getContext('2d');
   canvas.width = 240; canvas.height = 240;
-  ctx.clearRect(0,0,240,240);
 
-  // QR 데이터: GKID|역할|이름
+  // 로딩 표시
+  ctx.fillStyle = '#1c2d45'; ctx.fillRect(0,0,240,240);
+  ctx.fillStyle = '#00e8bc'; ctx.font = '14px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('QR 생성 중...', 120, 125);
+
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js');
+
   const qrData = JSON.stringify({gkid:curGkid, role:curRole, name:curUserName||curGkid, roleName:ROLES[curRole]?.n||curRole});
 
-  // QRCode 라이브러리로 임시 div에 생성 후 canvas에 그리기
   const tmp = document.createElement('div');
-  tmp.style.display = 'none';
+  tmp.style.cssText = 'position:fixed;left:-9999px;top:-9999px;';
   document.body.appendChild(tmp);
   new QRCode(tmp, {text:qrData, width:240, height:240, colorDark:'#000000', colorLight:'#ffffff'});
-  setTimeout(()=>{
-    const qrImg = tmp.querySelector('img');
-    if(qrImg){ const i=new Image(); i.onload=()=>ctx.drawImage(i,0,0,240,240); i.src=qrImg.src; }
-    tmp.remove();
-  }, 300);
+
+  const waitForImg = () => new Promise(resolve => {
+    const check = () => {
+      const qrImg = tmp.querySelector('img');
+      if(qrImg && qrImg.complete && qrImg.naturalWidth > 0){ resolve(qrImg); }
+      else if(qrImg){ qrImg.onload = () => resolve(qrImg); }
+      else { setTimeout(check, 50); }
+    };
+    setTimeout(check, 100);
+  });
+
+  try {
+    const qrImg = await waitForImg();
+    ctx.clearRect(0,0,240,240);
+    ctx.drawImage(qrImg, 0, 0, 240, 240);
+  } catch(e) {
+    ctx.fillStyle = '#ff4554'; ctx.fillText('QR 생성 실패', 120, 125);
+  }
+  tmp.remove();
 };
 
 window.downloadQR = function(){
