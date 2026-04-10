@@ -3980,7 +3980,7 @@ window.openMyQR = async function(){
 
   await loadScript('https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js');
 
-  const qrData = JSON.stringify({gkid:curGkid, role:curRole, name:curUserName||curGkid, roleName:ROLES[curRole]?.n||curRole});
+  const qrData = curGkid; // GARAK ID만 QR에 담기 (짧게)
 
   const tmp = document.createElement('div');
   tmp.style.cssText = 'position:fixed;left:-9999px;top:-9999px;';
