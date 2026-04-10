@@ -1689,7 +1689,7 @@ function renderRoleCards(containerId, withInput=true){
   if(!el) return;
 
   // 사업자등록번호 불필요 역할 = 생산자(개인) 만
-  const NO_BIZNUM_ROLES = ['producer_ind'];
+  const NO_BIZNUM_ROLES = ['producer_ind','individual'];
 
   el.innerHTML = ROLE_GROUPS.map(g=>`
     <div class="role-label" style="color:${g.color};">${g.label}</div>
@@ -1722,17 +1722,90 @@ function renderRoleCards(containerId, withInput=true){
         <div id="reg-korean-fields">
           <div class="flabel">이메일 (선택)</div>
           <input type="email" class="finput" id="reg-email" placeholder="example@email.com" style="margin-bottom:8px;">
-          <div style="background:rgba(0,232,188,.05);border:1px solid rgba(0,232,188,.2);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
-            <div style="font-size:11px;font-weight:700;color:var(--a1);margin-bottom:6px;">🔐 개인 인증</div>
-            <div style="font-size:10px;color:var(--t2);margin-bottom:8px;line-height:1.6;">
-              본인 명의 휴대폰으로 인증을 진행합니다<br>
-              (실제 서비스에서 PASS·카카오·네이버 인증 연동)
+
+          <!-- 주민등록번호 앞 6자리 (개인 역할만 표시) -->
+          <div id="reg-rrn-section" style="display:none;margin-bottom:8px;">
+            <div style="background:rgba(0,232,188,.05);border:1px solid rgba(0,232,188,.2);border-radius:10px;padding:10px 12px;">
+              <div style="font-size:11px;font-weight:700;color:var(--a1);margin-bottom:6px;">🪪 본인 확인</div>
+              <div class="flabel">주민등록번호 앞 6자리 *</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                <input type="text" class="finput" id="reg-rrn-front"
+                  placeholder="예: 901225"
+                  maxlength="6"
+                  inputmode="numeric"
+                  oninput="this.value=this.value.replace(/[^0-9]/g,'');window.onRrnInput(this.value)"
+                  style="flex:1;font-size:16px;font-weight:700;letter-spacing:3px;text-align:center;">
+                <span style="font-size:18px;color:var(--t3);">-</span>
+                <div style="flex:1;padding:10px;border-radius:10px;background:var(--s2);border:1px solid var(--b1);text-align:center;font-size:16px;font-weight:700;letter-spacing:3px;color:var(--t3);">●●●●●●●</div>
+              </div>
+              <div id="reg-rrn-msg" style="font-size:10px;color:var(--t3);margin-top:4px;">생년월일(6자리)을 입력하세요 · 뒷자리는 저장되지 않습니다</div>
             </div>
-            <button onclick="window.doKoreanAuth()"
-              style="width:100%;padding:9px;border-radius:9px;background:rgba(0,232,188,.1);border:1.5px solid rgba(0,232,188,.3);color:var(--a1);font-size:12px;font-weight:700;cursor:pointer;" id="reg-auth-btn">
-              📱 휴대폰 본인인증 하기
-            </button>
-            <div id="reg-auth-status" style="display:none;margin-top:6px;text-align:center;font-size:11px;color:var(--a1);font-weight:700;">✅ 인증 완료</div>
+          </div>
+
+          <!-- 개인 인증 선택 -->
+          <div style="background:rgba(0,232,188,.05);border:1px solid rgba(0,232,188,.2);border-radius:14px;padding:12px 14px;margin-bottom:10px;">
+            <div style="font-size:12px;font-weight:800;color:var(--a1);margin-bottom:4px;">🔐 본인 인증</div>
+            <div style="font-size:10px;color:var(--t2);margin-bottom:12px;line-height:1.6;">
+              아래 인증 방법 중 하나를 선택하세요<br>
+              본인 명의로 가입된 서비스로만 인증 가능합니다
+            </div>
+
+            <!-- 인증 방법 3가지 -->
+            <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;">
+
+              <!-- 휴대폰 인증 -->
+              <button onclick="window.doAuth('phone')"
+                style="width:100%;padding:13px 14px;border-radius:12px;background:var(--s2);border:1.5px solid var(--b1);color:var(--t1);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;text-align:left;"
+                id="auth-btn-phone">
+                <span style="font-size:24px;flex-shrink:0;">📱</span>
+                <div>
+                  <div style="font-size:13px;font-weight:800;">휴대폰 본인인증</div>
+                  <div style="font-size:10px;color:var(--t2);margin-top:2px;">PASS (통신사 인증)</div>
+                </div>
+                <span style="margin-left:auto;font-size:11px;color:var(--t3);">→</span>
+              </button>
+
+              <!-- 카카오 인증 -->
+              <button onclick="window.doAuth('kakao')"
+                style="width:100%;padding:13px 14px;border-radius:12px;background:#FEE500;border:none;color:#3C1E1E;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;text-align:left;"
+                id="auth-btn-kakao">
+                <span style="font-size:22px;flex-shrink:0;">💬</span>
+                <div>
+                  <div style="font-size:13px;font-weight:800;color:#3C1E1E;">카카오 인증</div>
+                  <div style="font-size:10px;color:#7A5C00;margin-top:2px;">카카오톡으로 간편 인증</div>
+                </div>
+                <span style="margin-left:auto;font-size:11px;color:#7A5C00;">→</span>
+              </button>
+
+              <!-- 네이버 인증 -->
+              <button onclick="window.doAuth('naver')"
+                style="width:100%;padding:13px 14px;border-radius:12px;background:#03C75A;border:none;color:#fff;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;text-align:left;"
+                id="auth-btn-naver">
+                <span style="font-size:22px;flex-shrink:0; background:#fff;border-radius:4px;padding:1px 3px;color:#03C75A;font-weight:900;font-size:14px;line-height:1.5;">N</span>
+                <div>
+                  <div style="font-size:13px;font-weight:800;">네이버 인증</div>
+                  <div style="font-size:10px;color:rgba(255,255,255,.75);margin-top:2px;">네이버 앱으로 간편 인증</div>
+                </div>
+                <span style="margin-left:auto;font-size:11px;color:rgba(255,255,255,.7);">→</span>
+              </button>
+            </div>
+
+            <!-- 인증 진행 중 표시 -->
+            <div id="reg-auth-progress" style="display:none;padding:12px;background:var(--s2);border-radius:10px;text-align:center;margin-bottom:8px;">
+              <div id="reg-auth-progress-icon" style="font-size:28px;margin-bottom:6px;">📱</div>
+              <div id="reg-auth-progress-msg" style="font-size:12px;font-weight:700;color:var(--a1);">인증 요청 발송 중...</div>
+              <div style="font-size:10px;color:var(--t2);margin-top:4px;" id="reg-auth-progress-sub"></div>
+              <div style="margin-top:10px;height:3px;background:var(--b1);border-radius:3px;overflow:hidden;">
+                <div id="reg-auth-bar" style="height:100%;background:var(--a1);width:0%;transition:width 1.5s ease;border-radius:3px;"></div>
+              </div>
+            </div>
+
+            <!-- 완료 표시 -->
+            <div id="reg-auth-status" style="display:none;padding:10px 14px;background:rgba(0,232,188,.1);border:1.5px solid rgba(0,232,188,.35);border-radius:10px;text-align:center;">
+              <div style="font-size:20px;margin-bottom:4px;">✅</div>
+              <div style="font-size:13px;font-weight:800;color:var(--a1);" id="reg-auth-done-msg">본인인증 완료</div>
+              <div style="font-size:10px;color:var(--t2);margin-top:3px;" id="reg-auth-done-sub"></div>
+            </div>
           </div>
         </div>
 
@@ -1794,7 +1867,8 @@ function renderRoleCards(containerId, withInput=true){
 
             <div style="margin-top:8px;padding:8px 10px;background:rgba(244,196,48,.06);border:1px solid rgba(244,196,48,.2);border-radius:8px;font-size:10px;color:var(--t2);line-height:1.7;">
               ⚠️ 입력하신 외국인 정보는 관계법령에 따라 안전하게 관리되며,
-              출입국관리법 준수 확인 목적으로만 사용됩니다.
+              출입국관리법 준수 확인 목적으로만 사용됩니다.<br>
+              <strong style="color:var(--a4);">외국인 특별승인</strong>은 정보 입력 후 관리자 검토를 거쳐 24시간 내 승인됩니다.
             </div>
           </div>
         </div>
@@ -1839,18 +1913,11 @@ function renderRoleCards(containerId, withInput=true){
             중도매인, 청과법인, 공공기관, 전문가 등 사업자등록번호가 있는 모든 사업체는 필수 입력입니다.
           </div>
 
-          <!-- 사업자번호 없는 경우 특승인 요청 -->
+          <!-- 사업자번호 없는 경우 안내 -->
           <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--b1);">
-            <div style="font-size:11px;color:var(--t2);margin-bottom:6px;">사업자등록번호가 없으신가요?</div>
-            <div id="reg-special-section" style="display:none;background:rgba(244,196,48,.05);border:1px solid rgba(244,196,48,.2);border-radius:9px;padding:10px 12px;margin-bottom:6px;">
-              <div style="font-size:11px;font-weight:700;color:var(--a4);margin-bottom:4px;">📋 특승인 요청 사유</div>
-              <textarea class="finput" id="reg-special-reason" rows="2" placeholder="예: 사업자 신청 중 / 개인 활동 / 시범 사용 요청 등..." style="resize:none;font-size:11px;margin-bottom:4px;"></textarea>
-              <div style="font-size:10px;color:var(--t2);">관리자가 확인 후 24시간 내 연락드립니다</div>
+            <div style="padding:9px 11px;background:rgba(255,165,2,.06);border-radius:9px;font-size:10px;color:var(--t2);line-height:1.7;">
+              📞 사업자등록번호가 없으시면 <strong style="color:var(--a4);">관리자 문의(02-3435-1000)</strong>를 통해 개별 승인 절차를 안내해 드립니다.
             </div>
-            <button onclick="window.toggleSpecialRequest()"
-              style="width:100%;padding:8px;border-radius:9px;background:rgba(244,196,48,.08);border:1.5px solid rgba(244,196,48,.3);color:var(--a4);font-size:11px;font-weight:700;cursor:pointer;" id="reg-special-btn">
-              📋 특승인 요청하기
-            </button>
           </div>
         </div>
       </div>
@@ -1882,19 +1949,55 @@ window.selectNationality = function(type){
   }
 };
 
-// 내국인 휴대폰 본인인증 (프로토타입)
-window.doKoreanAuth = function(){
+// 개인 인증 (휴대폰/카카오/네이버)
+window.doKoreanAuth = function(){ window.doAuth('phone'); }; // 하위 호환
+
+window.doAuth = function(method){
   const tel = document.getElementById('reg-tel')?.value.trim();
   if(!tel || tel.length < 10){ toast('휴대폰 번호를 먼저 입력하세요'); return; }
-  const btn = document.getElementById('reg-auth-btn');
-  const status = document.getElementById('reg-auth-status');
-  if(btn) btn.textContent = '📱 인증 중...';
+
+  const cfg = {
+    phone: { icon:'📱', title:'휴대폰 본인인증', sub:'PASS 앱으로 인증 요청을 보냈습니다', doneMsg:'휴대폰 본인인증 완료', doneSub:'PASS 인증 완료 · '+tel },
+    kakao: { icon:'💬', title:'카카오 인증 중', sub:'카카오톡 알림을 확인해 주세요', doneMsg:'카카오 인증 완료', doneSub:'카카오톡 본인확인 완료 · '+tel },
+    naver: { icon:'🟢', title:'네이버 인증 중', sub:'네이버 앱 알림을 확인해 주세요', doneMsg:'네이버 인증 완료', doneSub:'네이버 본인확인 완료 · '+tel },
+  }[method];
+  if(!cfg) return;
+
+  // 버튼 비활성화
+  ['phone','kakao','naver'].forEach(m=>{
+    const b=document.getElementById('auth-btn-'+m);
+    if(b){ b.disabled=true; b.style.opacity='.4'; }
+  });
+
+  // 진행 중 표시
+  const progress = document.getElementById('reg-auth-progress');
+  const pIcon = document.getElementById('reg-auth-progress-icon');
+  const pMsg  = document.getElementById('reg-auth-progress-msg');
+  const pSub  = document.getElementById('reg-auth-progress-sub');
+  const bar   = document.getElementById('reg-auth-bar');
+  if(progress){ progress.style.display='block'; }
+  if(pIcon) pIcon.textContent = cfg.icon;
+  if(pMsg)  pMsg.textContent  = cfg.title;
+  if(pSub)  pSub.textContent  = cfg.sub;
+
+  // 프로그레스 바 애니메이션
+  setTimeout(()=>{ if(bar) bar.style.width='100%'; }, 50);
+
+  // 인증 완료 시뮬레이션 (실 서비스: OAuth redirect)
   setTimeout(()=>{
     window._koreanAuthDone = true;
-    if(btn) btn.style.display='none';
-    if(status) status.style.display='block';
-    toast('✅ 본인인증이 완료됐습니다');
-  }, 1500);
+    window._authMethod = method;
+    if(progress) progress.style.display='none';
+
+    const status  = document.getElementById('reg-auth-status');
+    const doneMsg = document.getElementById('reg-auth-done-msg');
+    const doneSub = document.getElementById('reg-auth-done-sub');
+    if(status)  status.style.display='block';
+    if(doneMsg) doneMsg.textContent = cfg.doneMsg;
+    if(doneSub) doneSub.textContent = cfg.doneSub;
+
+    toast('✅ ' + cfg.doneMsg);
+  }, 2200);
 };
 
 // 비자 타입 기타 선택 시 직접 입력 표시
