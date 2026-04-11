@@ -3850,7 +3850,7 @@ window._checkPwStrength = function(pw){
 };
 
 // 비밀번호 설정 확정
-window._confirmPasswordSet = function(){
+window._confirmPasswordSet = async function(){
   const pw      = document.getElementById('pw-set-input')?.value;
   const confirm = document.getElementById('pw-set-confirm')?.value;
   if(!pw || pw.length < 8){ toast('비밀번호는 8자 이상이어야 합니다'); return; }
@@ -4392,7 +4392,12 @@ function loadSavedLogin(){
   const r=ROLES[curRole];
   if(r) startApp(r);
 }
-loadSavedLogin();
+// loadSavedLogin은 DOMContentLoaded 후 실행
+if(document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', loadSavedLogin);
+} else {
+  setTimeout(loadSavedLogin, 100);
+}
 
 // QR 스캔으로 접속 시 거래처 자동 등록 처리
 (function handleQRScan(){
