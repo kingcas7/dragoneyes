@@ -7708,14 +7708,13 @@ function renderMyNotifications(){
   notifs.forEach(n => n.read = true);
   window._updateNotifyBadge();
 
-  if(notifs.length === 0){
-    return `
-    <div style="text-align:center;padding:40px 20px;">
-      <div style="font-size:40px;margin-bottom:12px;">🔔</div>
-      <div style="font-size:14px;font-weight:700;color:var(--t2);">새로운 알림이 없어요</div>
-      <div style="font-size:11px;color:var(--t3);margin-top:6px;">공지사항, 세금 알림, 거래 알림이 여기 표시됩니다</div>
-    </div>`;
-  }
+  const emptyNotif = notifs.length === 0 ? `
+    <div style="text-align:center;padding:24px 20px;background:var(--s2);border-radius:12px;margin-bottom:12px;">
+      <div style="font-size:32px;margin-bottom:8px;">🔔</div>
+      <div style="font-size:13px;font-weight:700;color:var(--t2);">새로운 알림이 없어요</div>
+      <div style="font-size:10px;color:var(--t3);margin-top:4px;">공지사항, 세금 알림, 거래 알림이 여기 표시됩니다</div>
+    </div>` : '';
+  if(false){ return ''; } // 항상 계속 진행
 
   const typeIcon = {
     'notice':'📢', 'tax':'💰', 'trade':'🤝',
@@ -7726,9 +7725,9 @@ function renderMyNotifications(){
     'system':'var(--t2)', 'penalty':'var(--org)', 'policy':'var(--pur)'
   };
 
-  return `
+  return emptyNotif + `
   <div style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
-    <div style="font-size:13px;font-weight:800;">알림 ${notifs.length}건</div>
+    <div style="font-size:13px;font-weight:800;">${notifs.length > 0 ? '알림 '+notifs.length+'건' : ''}</div>
     <button onclick="window._notifications=[];renderMyPage();"
       style="font-size:11px;color:var(--t3);background:none;border:none;cursor:pointer;">전체 삭제</button>
   </div>
