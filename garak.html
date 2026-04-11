@@ -3400,15 +3400,61 @@ window.toggleSpecialRequest = function(){
 // ══════════════
 // 화면 전환
 // ══════════════
-window.doLoginExisting = function(){
+window.doLoginExisting = async function(){
   const idInput = document.getElementById('login-id-input')?.value.trim();
   const pwInput = document.getElementById('login-pw-input')?.value;
 
   if(!idInput){ toast('GARAK ID 또는 이메일을 입력하세요'); return; }
   if(!pwInput){ toast('비밀번호를 입력하세요'); return; }
 
+  // 로그인 버튼 로딩 표시
+  const btn = document.querySelector('#login-login button[onclick*="doLoginExisting"]');
+  if(btn){ btn.textContent='🔄 로그인 중...'; btn.disabled=true; }
+  const resetBtn = ()=>{ if(btn){ btn.textContent='🔑 로그인'; btn.disabled=false; } };
+
+  // 1단계: Supabase DB에서 먼저 조회 (멀티 기기 지원)
+  let dbUser = null;
+  try{
+    const isEmail = idInput.includes('@');
+    const col = isEmail ? 'email' : 'gkid';
+    const { data } = await db.from('users').select('*').eq(col, idInput).single();
+    dbUser = data;
+  }catch(e){}
+
+  // 2단계: DB에 있으면 DB 기준으로 로그인
+  if(dbUser && dbUser.pw_hash){
+    const pwHash = btoa(unescape(encodeURIComponent(pwInput + dbUser.gkid)));
+    if(pwHash !== dbUser.pw_hash){
+      toast('❌ 비밀번호가 틀렸습니다');
+      resetBtn();
+      const inp = document.getElementById('login-pw-input');
+      if(inp){ inp.value=''; inp.style.borderColor='var(--red)'; inp.focus(); }
+      return;
+    }
+    // DB 로그인 성공 → localStorage 동기화
+    const r = ROLES[dbUser.role];
+    if(!r){ toast('역할 정보를 찾을 수 없습니다'); resetBtn(); return; }
+    curUserName = dbUser.name; curGkid = dbUser.gkid; curGrade = dbUser.grade||'seed';
+    curRole = dbUser.role;
+    window._userTel = dbUser.tel||''; window._userBiznum = dbUser.biznum||'';
+    window._userEmail = dbUser.email||''; window._userAddr = dbUser.addr||'';
+    // localStorage 동기화
+    const syncData = {
+      role:curRole, gkid:curGkid, name:curUserName, grade:curGrade,
+      tel:dbUser.tel||'', email:dbUser.email||'', addr:dbUser.addr||'',
+      kakaoEmail:dbUser.email||'', pwHash:dbUser.pw_hash,
+      _loggedIn:true
+    };
+    localStorage.setItem('garak_user', JSON.stringify(syncData));
+    resetBtn();
+    toast('✅ 로그인 성공! 환영합니다 '+curUserName+'님');
+    startApp(r);
+    return;
+  }
+
+  // 3단계: DB에 없으면 localStorage 폴백
   const saved = localStorage.getItem('garak_user');
-  if(!saved){ toast('등록된 계정이 없습니다. 먼저 가입해 주세요'); return; }
+  if(!saved){ toast('등록된 계정이 없습니다. 먼저 가입해 주세요'); resetBtn(); return; }
   // 로그인 상태 표시
   try{
     const u2=JSON.parse(saved); u2._loggedIn=true;
@@ -3432,11 +3478,17 @@ window.doLoginExisting = function(){
   }
 
   const r = ROLES[u.role];
-  if(!r){ toast('역할 정보를 찾을 수 없습니다'); return; }
+  if(!r){ toast('역할 정보를 찾을 수 없습니다'); resetBtn(); return; }
   curUserName = u.name; curGkid = u.gkid; curGrade = u.grade||'seed';
   curRole = u.role;
   window._userTel = u.tel||''; window._userBiznum = u.biznum||'';
   window._userCorpnum = u.corpnum||''; window._foreignInfo = u.foreignInfo||null;
+  try{
+    const u2=JSON.parse(localStorage.getItem('garak_user')||'{}');
+    u2._loggedIn=true;
+    localStorage.setItem('garak_user',JSON.stringify(u2));
+  }catch(e){}
+  resetBtn();
   toast('✅ 로그인 성공! 환영합니다 '+u.name+'님');
   startApp(r);
 };
@@ -3694,7 +3746,14 @@ window.doLogin = async function(){
     authMethod: window._authMethod   || 'none',
   };
 
-  try{ await db.from('users').insert({gkid:curGkid,name:curUserName,role:curRole}); }catch(e){}
+  try{
+    await db.from('users').upsert({
+      gkid: curGkid, name: curUserName, role: curRole,
+      tel: regTel, email: userData.kakaoEmail||'',
+      kakao_id: userData.kakaoId ? String(userData.kakaoId) : null,
+      addr: ''
+    }, {onConflict:'gkid'});
+  }catch(e){ console.warn('Supabase 저장 오류:', e); }
   window._pendingUserData = userData;
   window._pendingRole     = r;
   window._userTel      = regTel;
@@ -3804,6 +3863,11 @@ window._confirmPasswordSet = function(){
   const userData = window._pendingUserData || {};
   userData.pwHash = pwHash;
   localStorage.setItem('garak_user', JSON.stringify(userData));
+
+  // Supabase에 pw_hash 업데이트
+  try{
+    await db.from('users').update({ pw_hash: pwHash }).eq('gkid', curGkid);
+  }catch(e){ console.warn('pw_hash 저장 오류:', e); }
 
   // 패널 제거
   document.getElementById('pw-set-panel')?.remove();
