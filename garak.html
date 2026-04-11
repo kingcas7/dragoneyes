@@ -7745,79 +7745,130 @@ function renderMyNotifications(){
     </div>
   </div>`).join('')}
 
-  <!-- AI 세금 가산세 계산기 -->
-  <div style="background:rgba(255,69,84,.05);border:1.5px solid rgba(255,69,84,.2);border-radius:16px;padding:14px;margin-top:8px;">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-      <span style="font-size:20px;">🤖</span>
-      <div>
-        <div style="font-size:13px;font-weight:800;color:var(--red);">AI 세금 가산세 계산기</div>
-        <div style="font-size:10px;color:var(--t2);">납부기한 경과 시 자동 계산</div>
+  <!-- 세금 납부 바로가기 -->
+  <div style="margin-top:12px;">
+    <div style="font-size:12px;font-weight:800;color:var(--t2);margin-bottom:8px;">💰 세금 납부 바로가기</div>
+
+    <!-- 홈택스 -->
+    <div onclick="window.open('https://www.hometax.go.kr','_blank')"
+      style="display:flex;align-items:center;gap:12px;background:var(--s2);border:1px solid var(--b1);border-radius:14px;padding:14px;margin-bottom:8px;cursor:pointer;transition:all .15s;"
+      onmouseover="this.style.borderColor='var(--a1)'" onmouseout="this.style.borderColor='var(--b1)'">
+      <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#0066cc,#0099ff);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🏛</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:800;">홈택스</div>
+        <div style="font-size:10px;color:var(--t2);margin-top:2px;">종합소득세 · 부가가치세 · 원천세 · 법인세</div>
+        <div style="font-size:10px;color:var(--t3);margin-top:1px;">www.hometax.go.kr</div>
       </div>
+      <div style="font-size:18px;color:var(--t3);">→</div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
-      <div>
-        <div style="font-size:10px;color:var(--t2);margin-bottom:4px;">원세액 (원)</div>
-        <input id="tax-calc-amount" type="number" inputmode="decimal"
-          class="finput" placeholder="1000000"
-          style="font-size:13px;">
+
+    <!-- 위택스 -->
+    <div onclick="window.open('https://www.wetax.go.kr','_blank')"
+      style="display:flex;align-items:center;gap:12px;background:var(--s2);border:1px solid var(--b1);border-radius:14px;padding:14px;margin-bottom:8px;cursor:pointer;transition:all .15s;"
+      onmouseover="this.style.borderColor='var(--a2)'" onmouseout="this.style.borderColor='var(--b1)'">
+      <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#00a651,#00cc66);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🏙</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:800;">위택스</div>
+        <div style="font-size:10px;color:var(--t2);margin-top:2px;">지방세 · 재산세 · 자동차세 · 취득세</div>
+        <div style="font-size:10px;color:var(--t3);margin-top:1px;">www.wetax.go.kr</div>
       </div>
-      <div>
-        <div style="font-size:10px;color:var(--t2);margin-bottom:4px;">납부기한</div>
-        <input id="tax-calc-due" type="date" class="finput" style="font-size:13px;">
+      <div style="font-size:18px;color:var(--t3);">→</div>
+    </div>
+
+    <!-- 인터넷지로 -->
+    <div onclick="window.open('https://www.giro.or.kr','_blank')"
+      style="display:flex;align-items:center;gap:12px;background:var(--s2);border:1px solid var(--b1);border-radius:14px;padding:14px;margin-bottom:12px;cursor:pointer;transition:all .15s;"
+      onmouseover="this.style.borderColor='var(--org)'" onmouseout="this.style.borderColor='var(--b1)'">
+      <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#ff6600,#ff9900);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">💳</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:800;">인터넷지로</div>
+        <div style="font-size:10px;color:var(--t2);margin-top:2px;">각종 공과금 · 과태료 · 범칙금</div>
+        <div style="font-size:10px;color:var(--t3);margin-top:1px;">www.giro.or.kr</div>
       </div>
+      <div style="font-size:18px;color:var(--t3);">→</div>
     </div>
-    <div style="margin-bottom:10px;">
-      <div style="font-size:10px;color:var(--t2);margin-bottom:4px;">세목</div>
-      <select id="tax-calc-type" class="finput" style="font-size:12px;">
-        <option value="income">종합소득세 (연 1회)</option>
-        <option value="vat">부가가치세 (연 2회)</option>
-        <option value="withholding">원천세 (월)</option>
-        <option value="corporate">법인세 (연 1회)</option>
-        <option value="local">지방세</option>
-      </select>
-    </div>
-    <button onclick="window._calcTaxPenalty()"
-      style="width:100%;padding:12px;border-radius:12px;background:linear-gradient(135deg,var(--red),rgba(255,69,84,.7));color:#fff;font-size:13px;font-weight:800;border:none;cursor:pointer;margin-bottom:10px;">
-      🤖 AI 가산세 계산
-    </button>
-    <div id="tax-calc-result" style="display:none;"></div>
   </div>
 
-  <!-- 가상계좌 발급 UI (PT용) -->
-  <div style="background:rgba(79,156,249,.05);border:1.5px solid rgba(79,156,249,.2);border-radius:16px;padding:14px;margin-top:10px;">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-      <span style="font-size:20px;">🏦</span>
-      <div>
-        <div style="font-size:13px;font-weight:800;color:var(--a2);">가상계좌 세금 납부</div>
-        <div style="font-size:10px;color:var(--t2);">AI가 납부 전용 가상계좌를 발급합니다</div>
+  <!-- AI 가산세 계산기 (접이식) -->
+  <div style="background:rgba(255,69,84,.05);border:1.5px solid rgba(255,69,84,.2);border-radius:16px;padding:14px;margin-bottom:10px;">
+    <div style="display:flex;align-items:center;gap:8px;cursor:pointer;" onclick="
+      const b=document.getElementById('tax-calc-body');
+      const ic=document.getElementById('tax-calc-ic');
+      if(b.style.display==='none'){b.style.display='block';ic.textContent='▲';}
+      else{b.style.display='none';ic.textContent='▼';}">
+      <span style="font-size:20px;">🤖</span>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:800;color:var(--red);">AI 가산세 계산기</div>
+        <div style="font-size:10px;color:var(--t2);">납부기한 경과 시 가산세 자동 계산</div>
       </div>
-      <span style="margin-left:auto;font-size:9px;padding:2px 8px;border-radius:6px;background:rgba(244,196,48,.15);color:var(--a4);font-weight:700;">준비 중</span>
+      <span id="tax-calc-ic" style="color:var(--t3);font-size:12px;">▼</span>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
-      <div>
-        <div style="font-size:10px;color:var(--t2);margin-bottom:4px;">납부 세목</div>
-        <select id="vacct-tax-type" class="finput" style="font-size:12px;">
-          <option>종합소득세</option>
-          <option>부가가치세</option>
-          <option>원천세</option>
-          <option>법인세</option>
-          <option>지방세</option>
+    <div id="tax-calc-body" style="display:none;margin-top:12px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+        <div>
+          <div style="font-size:10px;color:var(--t2);margin-bottom:4px;">원세액 (원)</div>
+          <input id="tax-calc-amount" type="number" inputmode="decimal" class="finput" placeholder="1000000">
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--t2);margin-bottom:4px;">납부기한</div>
+          <input id="tax-calc-due" type="date" class="finput">
+        </div>
+      </div>
+      <div style="margin-bottom:8px;">
+        <div style="font-size:10px;color:var(--t2);margin-bottom:4px;">세목</div>
+        <select id="tax-calc-type" class="finput" style="font-size:12px;">
+          <option value="income">종합소득세</option>
+          <option value="vat">부가가치세</option>
+          <option value="withholding">원천세</option>
+          <option value="corporate">법인세</option>
+          <option value="local">지방세</option>
         </select>
       </div>
-      <div>
-        <div style="font-size:10px;color:var(--t2);margin-bottom:4px;">납부 금액 (원)</div>
-        <input id="vacct-amount" type="number" inputmode="decimal"
-          class="finput" placeholder="납부금액">
-      </div>
+      <button onclick="window._calcTaxPenalty()"
+        style="width:100%;padding:12px;border-radius:12px;background:linear-gradient(135deg,var(--red),rgba(255,69,84,.7));color:#fff;font-size:13px;font-weight:800;border:none;cursor:pointer;margin-bottom:8px;">
+        🤖 AI 가산세 계산
+      </button>
+      <div id="tax-calc-result" style="display:none;"></div>
     </div>
-    <button onclick="window._issueVirtualAccount()"
-      style="width:100%;padding:12px;border-radius:12px;background:linear-gradient(135deg,var(--a2),rgba(79,156,249,.7));color:#fff;font-size:13px;font-weight:800;border:none;cursor:pointer;">
-      🏦 가상계좌 발급
-    </button>
-    <div id="vacct-result" style="display:none;margin-top:10px;"></div>
-    <div style="font-size:10px;color:var(--t3);margin-top:8px;line-height:1.7;">
-      ※ 실제 납부는 PG사·국세청 협의 완료 후 연동됩니다<br>
-      ※ 현재는 시연용 UI입니다
+  </div>
+
+  <!-- 가상계좌 발급 (접이식, PT용) -->
+  <div style="background:rgba(79,156,249,.05);border:1.5px solid rgba(79,156,249,.2);border-radius:16px;padding:14px;margin-bottom:10px;">
+    <div style="display:flex;align-items:center;gap:8px;cursor:pointer;" onclick="
+      const b=document.getElementById('vacct-body');
+      const ic=document.getElementById('vacct-ic');
+      if(b.style.display==='none'){b.style.display='block';ic.textContent='▲';}
+      else{b.style.display='none';ic.textContent='▼';}">
+      <span style="font-size:20px;">🏦</span>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:800;color:var(--a2);">가상계좌 세금 납부</div>
+        <div style="font-size:10px;color:var(--t2);">납부 전용 가상계좌 발급 (시연용)</div>
+      </div>
+      <span style="font-size:9px;padding:2px 7px;border-radius:6px;background:rgba(244,196,48,.15);color:var(--a4);font-weight:700;margin-right:6px;">준비중</span>
+      <span id="vacct-ic" style="color:var(--t3);font-size:12px;">▼</span>
+    </div>
+    <div id="vacct-body" style="display:none;margin-top:12px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+        <div>
+          <div style="font-size:10px;color:var(--t2);margin-bottom:4px;">납부 세목</div>
+          <select id="vacct-tax-type" class="finput" style="font-size:12px;">
+            <option>종합소득세</option><option>부가가치세</option>
+            <option>원천세</option><option>법인세</option><option>지방세</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--t2);margin-bottom:4px;">납부 금액 (원)</div>
+          <input id="vacct-amount" type="number" inputmode="decimal" class="finput" placeholder="납부금액">
+        </div>
+      </div>
+      <button onclick="window._issueVirtualAccount()"
+        style="width:100%;padding:12px;border-radius:12px;background:linear-gradient(135deg,var(--a2),rgba(79,156,249,.7));color:#fff;font-size:13px;font-weight:800;border:none;cursor:pointer;">
+        🏦 가상계좌 발급
+      </button>
+      <div id="vacct-result" style="display:none;margin-top:10px;"></div>
+      <div style="font-size:10px;color:var(--t3);margin-top:8px;line-height:1.7;">
+        ※ 실제 납부는 PG사·국세청 협의 완료 후 연동됩니다
+      </div>
     </div>
   </div>`;
 }
