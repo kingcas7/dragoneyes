@@ -3431,7 +3431,7 @@ window.doLoginExisting = async function(){
 
   // 2단계: DB에 있으면 DB 기준으로 로그인
   if(dbUser && dbUser.pw_hash){
-    const pwHash = btoa(unescape(encodeURIComponent(pwInput + dbUser.gkid)));
+    const pwHash = await hashPassword(pwInput, dbUser.gkid);
     if(pwHash !== dbUser.pw_hash){
       toast('❌ 비밀번호가 틀렸습니다');
       resetBtn();
@@ -3488,7 +3488,7 @@ window.doLoginExisting = async function(){
   if(!idMatch && !emailMatch){ toast('❌ GARAK ID 또는 이메일이 일치하지 않습니다'); return; }
 
   if(!u.pwHash){ toast('비밀번호가 설정되지 않은 계정입니다. 재가입해 주세요'); return; }
-  const pwHash = btoa(unescape(encodeURIComponent(pwInput + u.gkid)));
+  const pwHash = await hashPassword(pwInput, u.gkid);
   if(pwHash !== u.pwHash){
     toast('❌ 비밀번호가 틀렸습니다');
     const inp = document.getElementById('login-pw-input');
