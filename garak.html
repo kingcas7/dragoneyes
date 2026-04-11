@@ -221,9 +221,9 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
 
       <!-- GARAK ID / 이메일 -->
       <div class="fgroup">
-        <div class="flabel">GARAK ID 또는 이메일 *</div>
+        <div class="flabel">이메일 *</div>
         <input class="finput" id="login-id-input"
-          placeholder="GK-P-012345 또는 example@email.com"
+          placeholder="이메일 주소를 입력하세요"
           autocomplete="username"
           onkeydown="if(event.key==='Enter') document.getElementById('login-pw-input').focus()">
       </div>
@@ -1781,7 +1781,7 @@ function renderRoleCards(containerId, withInput=true){
 
         <!-- 내국인 추가 필드 (기본 표시) -->
         <div id="reg-korean-fields">
-          <div class="flabel">이메일 (선택)</div>
+          <div class="flabel">이메일 * <span style="font-size:10px;color:var(--t3);">(로그인에 사용됩니다)</span></div>
           <input type="email" class="finput" id="reg-email" placeholder="example@email.com" style="margin-bottom:8px;">
 
           <!-- 주민등록번호 앞 6자리 (개인 역할만 표시) -->
@@ -2135,7 +2135,7 @@ function _showKakaoVerifyPanel(prefillName, prefillEmail){
     </div>
 
     <div style="margin-bottom:10px;">
-      <div class="flabel">이메일 (선택)</div>
+      <div class="flabel">이메일 * <span style="font-size:10px;color:var(--t3);">(로그인에 사용됩니다)</span></div>
       <input type="email" class="finput" id="kv-email"
         placeholder="example@email.com"
         value="${prefillEmail}">
@@ -3415,14 +3415,19 @@ window.doLoginExisting = async function(){
   if(btn){ btn.textContent='🔄 로그인 중...'; btn.disabled=true; }
   const resetBtn = ()=>{ if(btn){ btn.textContent='🔑 로그인'; btn.disabled=false; } };
 
-  // 1단계: Supabase DB에서 먼저 조회 (멀티 기기 지원)
+  // 1단계: Supabase DB에서 먼저 조회 (이메일 우선, GARAK ID 폴백)
   let dbUser = null;
   try{
-    const isEmail = idInput.includes('@');
-    const col = isEmail ? 'email' : 'gkid';
-    const { data } = await db.from('users').select('*').eq(col, idInput).maybeSingle();
-    dbUser = data;
-  }catch(e){}
+    // 이메일로 먼저 조회
+    const { data: emailData } = await db.from('users').select('*').eq('email', idInput).maybeSingle();
+    if(emailData){
+      dbUser = emailData;
+    } else {
+      // GARAK ID로 폴백 조회
+      const { data: gkidData } = await db.from('users').select('*').eq('gkid', idInput).maybeSingle();
+      dbUser = gkidData;
+    }
+  }catch(e){ console.warn('DB 조회 오류:', e); }
 
   // 2단계: DB에 있으면 DB 기준으로 로그인
   if(dbUser && dbUser.pw_hash){
@@ -3759,6 +3764,11 @@ window.doLogin = async function(){
   // 이름 필수
   if(nameEl && !nameEl.value.trim()){ toast('이름 또는 상호명을 입력하세요'); return; }
 
+  // 이메일 필수 (로그인 ID로 사용)
+  const emailVal = document.getElementById('reg-email')?.value.trim();
+  if(!emailVal){ toast('이메일을 입력하세요 (로그인에 사용됩니다)'); return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)){ toast('올바른 이메일 형식이 아닙니다'); return; }
+
   // 생산자(개인)/individual 제외 — 사업자번호 또는 특승인 요청 필수
   const PERSONAL_ROLES_LOGIN = ['producer_ind','individual'];
   const needBiznum = !PERSONAL_ROLES_LOGIN.includes(curRole);
@@ -3853,6 +3863,8 @@ window.doLogin = async function(){
     tel:regTel, biznum:regBiznum, corpnum:regCorpnum, specialReq:isSpecialReq,
     nationality: window._nationality||'korean',
     foreignInfo: foreignInfo,
+    email: emailVal || '',
+    kakaoEmail: emailVal || '',
     // 카카오 인증 정보
     kakaoId:    window._kakaoUserId  || null,
     kakaoBirth: window._kakaoProfile?.birth || null,
@@ -3863,7 +3875,7 @@ window.doLogin = async function(){
   try{
     await db.from('users').upsert({
       gkid: curGkid, name: curUserName, role: curRole,
-      tel: regTel, email: userData.kakaoEmail||'',
+      tel: regTel, email: emailVal||userData.kakaoEmail||'',
       kakao_id: userData.kakaoId ? String(userData.kakaoId) : null,
       addr: ''
     }, {onConflict:'gkid'});
