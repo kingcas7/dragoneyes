@@ -3996,6 +3996,9 @@ function startApp(r){
   const isGovOnly=['gov_garaksa','gov_seoul','gov_nts','gov_public'].includes(curRole);
   document.getElementById('ai-float').style.display=isGovOnly?'none':'block';
 
+  // 알림 뱃지 업데이트
+  setTimeout(()=>window._updateNotifyBadge(), 500);
+
   // QR 스캔으로 접속한 경우 거래처 자동 등록 팝업
   if(window._pendingAddPartner){
     const targetGkid = window._pendingAddPartner;
@@ -7590,19 +7593,23 @@ window.openCardRegister=function(){ toast('💳 카드 등록 기능 준비 중 
 // ── 일반 MY (기타 역할) ──
 function renderMyPageGeneral(r){
   if(!window._myTab) window._myTab='profile';
+  // 읽지 않은 알림 수 계산
+  const unreadCount = (window._notifications||[]).filter(n=>!n.read).length;
   const tabs=[
     {id:'profile', ic:'👤', lb:'내정보'},
+    {id:'notify',  ic:'🔔', lb:'알림'+(unreadCount>0?` (${unreadCount})`:'')},
     {id:'payment', ic:'💳', lb:'결제·토큰'},
     {id:'users',   ic:'👥', lb:'사용자관리'},
   ];
   let html=`<div class="sec-title" style="margin-bottom:10px;">👤 MY 페이지</div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px;">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px;">
       ${tabs.map(t=>`<div onclick="window.switchMyTab('${t.id}')" style="padding:10px 4px;border-radius:12px;text-align:center;cursor:pointer;background:${window._myTab===t.id?'var(--s3)':'var(--s2)'};border:1.5px solid ${window._myTab===t.id?'var(--a1)':'transparent'};">
         <div style="font-size:20px;margin-bottom:4px;">${t.ic}</div>
         <div style="font-size:9px;font-weight:700;color:${window._myTab===t.id?'var(--a1)':'var(--t3)'};">${t.lb}</div>
       </div>`).join('')}
     </div><div id="my-sub-content">`;
   if(window._myTab==='profile') html+=renderMyProfile(r, null, 0);
+  else if(window._myTab==='notify') html+=renderMyNotifications();
   else if(window._myTab==='payment'){
     html+=renderMyPaymentSection();
     const isProfessional=['tax_agent','accounting','labor_agent','lawyer'].includes(curRole);
@@ -7655,6 +7662,327 @@ function renderMyPageGeneral(r){
 }
 
 // ── 중도매인·청과법인 MY ──
+// ══════════════════════════════════════
+// 알림 시스템
+// ══════════════════════════════════════
+if(!window._notifications) window._notifications = [];
+
+// 알림 추가 헬퍼 (관리자 공지, 세금 알림 등)
+window._addNotification = function(type, title, body, data){
+  window._notifications.unshift({
+    id: 'n_'+Date.now(),
+    type, title, body, data,
+    read: false,
+    createdAt: new Date().toISOString()
+  });
+  // 탭바 알림 뱃지 업데이트
+  window._updateNotifyBadge();
+};
+
+window._updateNotifyBadge = function(){
+  const count = (window._notifications||[]).filter(n=>!n.read).length;
+  // MY 탭 아이콘에 뱃지 표시
+  document.querySelectorAll('.tab').forEach(tab=>{
+    if(tab.dataset.pg==='mypage'){
+      let badge = tab.querySelector('.notify-badge');
+      if(count > 0){
+        if(!badge){
+          badge = document.createElement('div');
+          badge.className = 'notify-badge';
+          badge.style.cssText = 'position:absolute;top:4px;right:6px;background:var(--red);color:#fff;border-radius:50%;width:16px;height:16px;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;';
+          tab.style.position = 'relative';
+          tab.appendChild(badge);
+        }
+        badge.textContent = count > 9 ? '9+' : count;
+      } else if(badge){
+        badge.remove();
+      }
+    }
+  });
+};
+
+function renderMyNotifications(){
+  const notifs = window._notifications || [];
+
+  // 읽지 않은 알림 모두 읽음 처리
+  notifs.forEach(n => n.read = true);
+  window._updateNotifyBadge();
+
+  if(notifs.length === 0){
+    return `
+    <div style="text-align:center;padding:40px 20px;">
+      <div style="font-size:40px;margin-bottom:12px;">🔔</div>
+      <div style="font-size:14px;font-weight:700;color:var(--t2);">새로운 알림이 없어요</div>
+      <div style="font-size:11px;color:var(--t3);margin-top:6px;">공지사항, 세금 알림, 거래 알림이 여기 표시됩니다</div>
+    </div>`;
+  }
+
+  const typeIcon = {
+    'notice':'📢', 'tax':'💰', 'trade':'🤝',
+    'system':'⚙️', 'penalty':'⚠️', 'policy':'🏛'
+  };
+  const typeColor = {
+    'notice':'var(--a2)', 'tax':'var(--red)', 'trade':'var(--a1)',
+    'system':'var(--t2)', 'penalty':'var(--org)', 'policy':'var(--pur)'
+  };
+
+  return `
+  <div style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+    <div style="font-size:13px;font-weight:800;">알림 ${notifs.length}건</div>
+    <button onclick="window._notifications=[];renderMyPage();"
+      style="font-size:11px;color:var(--t3);background:none;border:none;cursor:pointer;">전체 삭제</button>
+  </div>
+  ${notifs.map(n=>`
+  <div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;"
+    onclick="window._handleNotifClick('${n.id}')">
+    <div style="display:flex;align-items:flex-start;gap:10px;">
+      <div style="font-size:22px;flex-shrink:0;">${typeIcon[n.type]||'🔔'}</div>
+      <div style="flex:1;">
+        <div style="font-size:12px;font-weight:800;color:${typeColor[n.type]||'var(--t1)'};">${n.title}</div>
+        <div style="font-size:11px;color:var(--t2);margin-top:3px;line-height:1.6;">${n.body}</div>
+        <div style="font-size:10px;color:var(--t3);margin-top:4px;">${new Date(n.createdAt).toLocaleString('ko-KR')}</div>
+      </div>
+      ${n.type==='tax'?`<button onclick="event.stopPropagation();window._openTaxCalc()" style="flex-shrink:0;padding:5px 10px;border-radius:8px;background:rgba(255,69,84,.1);border:1px solid rgba(255,69,84,.3);color:var(--red);font-size:10px;font-weight:700;cursor:pointer;">계산</button>`:''}
+    </div>
+  </div>`).join('')}
+
+  <!-- AI 세금 가산세 계산기 -->
+  <div style="background:rgba(255,69,84,.05);border:1.5px solid rgba(255,69,84,.2);border-radius:16px;padding:14px;margin-top:8px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+      <span style="font-size:20px;">🤖</span>
+      <div>
+        <div style="font-size:13px;font-weight:800;color:var(--red);">AI 세금 가산세 계산기</div>
+        <div style="font-size:10px;color:var(--t2);">납부기한 경과 시 자동 계산</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+      <div>
+        <div style="font-size:10px;color:var(--t2);margin-bottom:4px;">원세액 (원)</div>
+        <input id="tax-calc-amount" type="number" inputmode="decimal"
+          class="finput" placeholder="1000000"
+          style="font-size:13px;">
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--t2);margin-bottom:4px;">납부기한</div>
+        <input id="tax-calc-due" type="date" class="finput" style="font-size:13px;">
+      </div>
+    </div>
+    <div style="margin-bottom:10px;">
+      <div style="font-size:10px;color:var(--t2);margin-bottom:4px;">세목</div>
+      <select id="tax-calc-type" class="finput" style="font-size:12px;">
+        <option value="income">종합소득세 (연 1회)</option>
+        <option value="vat">부가가치세 (연 2회)</option>
+        <option value="withholding">원천세 (월)</option>
+        <option value="corporate">법인세 (연 1회)</option>
+        <option value="local">지방세</option>
+      </select>
+    </div>
+    <button onclick="window._calcTaxPenalty()"
+      style="width:100%;padding:12px;border-radius:12px;background:linear-gradient(135deg,var(--red),rgba(255,69,84,.7));color:#fff;font-size:13px;font-weight:800;border:none;cursor:pointer;margin-bottom:10px;">
+      🤖 AI 가산세 계산
+    </button>
+    <div id="tax-calc-result" style="display:none;"></div>
+  </div>
+
+  <!-- 가상계좌 발급 UI (PT용) -->
+  <div style="background:rgba(79,156,249,.05);border:1.5px solid rgba(79,156,249,.2);border-radius:16px;padding:14px;margin-top:10px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+      <span style="font-size:20px;">🏦</span>
+      <div>
+        <div style="font-size:13px;font-weight:800;color:var(--a2);">가상계좌 세금 납부</div>
+        <div style="font-size:10px;color:var(--t2);">AI가 납부 전용 가상계좌를 발급합니다</div>
+      </div>
+      <span style="margin-left:auto;font-size:9px;padding:2px 8px;border-radius:6px;background:rgba(244,196,48,.15);color:var(--a4);font-weight:700;">준비 중</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+      <div>
+        <div style="font-size:10px;color:var(--t2);margin-bottom:4px;">납부 세목</div>
+        <select id="vacct-tax-type" class="finput" style="font-size:12px;">
+          <option>종합소득세</option>
+          <option>부가가치세</option>
+          <option>원천세</option>
+          <option>법인세</option>
+          <option>지방세</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--t2);margin-bottom:4px;">납부 금액 (원)</div>
+        <input id="vacct-amount" type="number" inputmode="decimal"
+          class="finput" placeholder="납부금액">
+      </div>
+    </div>
+    <button onclick="window._issueVirtualAccount()"
+      style="width:100%;padding:12px;border-radius:12px;background:linear-gradient(135deg,var(--a2),rgba(79,156,249,.7));color:#fff;font-size:13px;font-weight:800;border:none;cursor:pointer;">
+      🏦 가상계좌 발급
+    </button>
+    <div id="vacct-result" style="display:none;margin-top:10px;"></div>
+    <div style="font-size:10px;color:var(--t3);margin-top:8px;line-height:1.7;">
+      ※ 실제 납부는 PG사·국세청 협의 완료 후 연동됩니다<br>
+      ※ 현재는 시연용 UI입니다
+    </div>
+  </div>`;
+}
+
+// 알림 클릭 핸들러
+window._handleNotifClick = function(id){
+  const n = (window._notifications||[]).find(x=>x.id===id);
+  if(!n) return;
+  if(n.type==='tax') window._openTaxCalc();
+};
+
+// AI 가산세 계산
+window._calcTaxPenalty = async function(){
+  const amount  = parseInt(document.getElementById('tax-calc-amount')?.value || 0);
+  const dueDate = document.getElementById('tax-calc-due')?.value;
+  const taxType = document.getElementById('tax-calc-type')?.value;
+  const result  = document.getElementById('tax-calc-result');
+
+  if(!amount || amount <= 0){ toast('원세액을 입력하세요'); return; }
+  if(!dueDate){ toast('납부기한을 입력하세요'); return; }
+
+  const due     = new Date(dueDate);
+  const today   = new Date();
+  const overDays = Math.max(0, Math.floor((today - due) / (1000*60*60*24)));
+
+  if(!result) return;
+  result.style.display = 'block';
+  result.innerHTML = `<div style="text-align:center;padding:10px;color:var(--t2);font-size:12px;">🤖 AI 계산 중...</div>`;
+
+  // 가산세율: 납부불성실 0.025%/일, 무신고 20%, 과소신고 10%
+  const dailyRate   = 0.00025;
+  const penaltyAmt  = Math.floor(amount * dailyRate * overDays);
+  const totalAmt    = amount + penaltyAmt;
+
+  // 7일 후, 30일 후 예상
+  const p7  = Math.floor(amount * dailyRate * (overDays + 7));
+  const p30 = Math.floor(amount * dailyRate * (overDays + 30));
+
+  // Claude API로 상세 안내
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 400,
+        system: '당신은 한국 세무 전문가입니다. 간결하게 한국어로 답변하세요.',
+        messages: [{role: 'user', content:
+          `원세액 ${amount.toLocaleString()}원, 납부기한 ${dueDate}, 연체 ${overDays}일, 세목: ${taxType}. 가산세 계산 결과와 주의사항을 2-3문장으로 안내해주세요.`
+        }]
+      })
+    });
+    const data = await res.json();
+    const aiComment = data.content?.[0]?.text || '';
+
+    result.innerHTML = `
+    <div style="background:var(--s2);border-radius:12px;padding:12px;">
+      <div style="font-size:11px;font-weight:800;color:var(--red);margin-bottom:8px;">📊 가산세 계산 결과</div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--b2);font-size:11px;">
+        <span style="color:var(--t2);">원세액</span>
+        <span style="font-weight:700;">₩${amount.toLocaleString()}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--b2);font-size:11px;">
+        <span style="color:var(--t2);">연체일수</span>
+        <span style="font-weight:700;color:var(--red);">${overDays}일 경과</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--b2);font-size:11px;">
+        <span style="color:var(--t2);">납부불성실 가산세 (0.025%/일)</span>
+        <span style="font-weight:700;color:var(--red);">+₩${penaltyAmt.toLocaleString()}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;">
+        <span style="font-weight:800;">오늘 납부 시 총액</span>
+        <span style="font-size:18px;font-weight:900;color:var(--red);">₩${totalAmt.toLocaleString()}</span>
+      </div>
+      <div style="background:rgba(244,196,48,.08);border-radius:8px;padding:8px;margin-top:6px;font-size:10px;color:var(--t2);line-height:1.8;">
+        📅 7일 후 납부 시: ₩${(amount+p7).toLocaleString()} (+₩${p7.toLocaleString()})<br>
+        📅 30일 후 납부 시: ₩${(amount+p30).toLocaleString()} (+₩${p30.toLocaleString()})
+      </div>
+      ${aiComment ? `<div style="margin-top:8px;padding:8px 10px;background:rgba(0,232,188,.06);border:1px solid rgba(0,232,188,.2);border-radius:8px;font-size:11px;color:var(--t1);line-height:1.7;">🤖 ${aiComment}</div>` : ''}
+    </div>`;
+  } catch(e) {
+    result.innerHTML = `
+    <div style="background:var(--s2);border-radius:12px;padding:12px;">
+      <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;">
+        <span style="color:var(--t2);">원세액</span><span>₩${amount.toLocaleString()}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;">
+        <span style="color:var(--t2);">가산세 (${overDays}일)</span>
+        <span style="color:var(--red);">+₩${penaltyAmt.toLocaleString()}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;font-weight:800;">
+        <span>총 납부액</span>
+        <span style="color:var(--red);">₩${totalAmt.toLocaleString()}</span>
+      </div>
+    </div>`;
+  }
+};
+
+// 가상계좌 발급 (PT 시연용)
+window._issueVirtualAccount = function(){
+  const taxType = document.getElementById('vacct-tax-type')?.value;
+  const amount  = parseInt(document.getElementById('vacct-amount')?.value || 0);
+  const result  = document.getElementById('vacct-result');
+
+  if(!amount || amount <= 0){ toast('납부 금액을 입력하세요'); return; }
+  if(!result) return;
+
+  // 시연용 가상계좌 생성
+  const bankList = ['국민은행','신한은행','하나은행','우리은행','농협'];
+  const bank = bankList[Math.floor(Math.random()*bankList.length)];
+  const acctNum = '3' + String(Math.floor(Math.random()*1000000000)).padStart(9,'0');
+  const expiry = new Date(Date.now() + 24*60*60*1000).toLocaleString('ko-KR');
+
+  result.style.display = 'block';
+  result.innerHTML = `
+  <div style="background:linear-gradient(135deg,rgba(79,156,249,.1),rgba(0,232,188,.06));border:1.5px solid rgba(79,156,249,.3);border-radius:14px;padding:14px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+      <span style="font-size:20px;">✅</span>
+      <div style="font-size:13px;font-weight:800;color:var(--a2);">가상계좌 발급 완료</div>
+    </div>
+    <div style="background:var(--s1);border-radius:10px;padding:12px;margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:11px;">
+        <span style="color:var(--t2);">은행</span>
+        <span style="font-weight:700;">${bank}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:11px;">
+        <span style="color:var(--t2);">계좌번호</span>
+        <span style="font-weight:800;color:var(--a1);font-size:14px;">${acctNum}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:11px;">
+        <span style="color:var(--t2);">예금주</span>
+        <span style="font-weight:700;">국세청 K-Chain</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:11px;">
+        <span style="color:var(--t2);">납부 세목</span>
+        <span style="font-weight:700;">${taxType}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:11px;">
+        <span style="color:var(--t2);">납부 금액</span>
+        <span style="font-weight:800;color:var(--red);font-size:14px;">₩${amount.toLocaleString()}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:11px;">
+        <span style="color:var(--t2);">입금 기한</span>
+        <span style="font-weight:700;color:var(--org);">${expiry}까지</span>
+      </div>
+    </div>
+    <div style="font-size:10px;color:var(--t3);line-height:1.7;">
+      ⚠️ 위 계좌는 시연용 가상계좌입니다<br>
+      ✅ 실제 서비스에서는 PG사 연동 후 유효한 계좌가 발급됩니다<br>
+      📱 입금 완료 시 K-Chain 앱으로 자동 알림 발송
+    </div>
+  </div>`;
+
+  toast('🏦 가상계좌가 발급됐습니다!');
+};
+
+window._openTaxCalc = function(){
+  window._myTab = 'notify';
+  goTab('mypage');
+  setTimeout(()=>{
+    document.getElementById('tax-calc-amount')?.scrollIntoView({behavior:'smooth'});
+  }, 300);
+};
+
 function renderMyPageMerchant(r){
   const gi=GRADE_INFO[curGrade]||GRADE_INFO.seed;
   const score=calcGradeScore();
