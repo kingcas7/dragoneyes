@@ -2233,23 +2233,22 @@ window.doAuth = function(method){
       // SDK v2.7+ 권장: Kakao.Auth.authorize (팝업 방식)
       // 단, 정적 호스팅 환경에서 팝업 방식 사용 시 redirect_uri 불필요
       try {
+        // SDK v2.7+ 최신 방식: popup 방식으로 사용자 정보 직접 획득
         Kakao.Auth.login({
+          throughTalk: true,
           success: function(authObj){
             Kakao.API.request({
               url: '/v2/user/me',
               success: function(res){
                 const kakaoName  = res.kakao_account?.profile?.nickname || res.properties?.nickname || '';
                 const kakaoEmail = res.kakao_account?.email || '';
-
                 window._kakaoUserId  = res.id;
                 window._kakaoProfile = { name: kakaoName, email: kakaoEmail, kakaoId: res.id };
-
                 _authShowDone('kakao', '카카오 연동 완료', '아래에서 실명·생년월일을 입력해 주세요');
                 _showKakaoVerifyPanel(kakaoName, kakaoEmail);
               },
               fail: function(err){
                 console.error('카카오 사용자 정보 오류:', err);
-                // 사용자 정보 실패해도 패널은 표시 (수동 입력 유도)
                 window._kakaoUserId  = 'kakao_' + Date.now();
                 window._kakaoProfile = { name: '', email: '' };
                 _authShowDone('kakao', '카카오 연동 완료', '아래에서 실명·생년월일을 입력해 주세요');
@@ -2260,19 +2259,23 @@ window.doAuth = function(method){
           fail: function(err){
             console.error('카카오 로그인 실패:', err);
             _authResetBtns();
-            document.getElementById('reg-auth-progress').style.display = 'none';
+            const pg = document.getElementById('reg-auth-progress');
+            if(pg) pg.style.display='none';
             if(err && err.error === 'access_denied'){
               toast('카카오 로그인을 취소했습니다');
+            } else if(err && err.error === 'KOE101'){
+              toast('⚠️ 카카오 앱 설정 오류 — 개발자 콘솔에서 도메인을 확인해 주세요');
             } else {
-              toast('⚠️ 카카오 로그인 오류: 도메인이 카카오 개발자 콘솔에 등록됐는지 확인해 주세요');
+              toast('⚠️ 카카오 로그인 실패: ' + (err?.error_description||err?.error||'알 수 없는 오류'));
             }
           }
         });
       } catch(sdkErr){
         console.error('Kakao.Auth.login 오류:', sdkErr);
         _authResetBtns();
-        document.getElementById('reg-auth-progress').style.display = 'none';
-        toast('⚠️ 카카오 SDK 오류 — 개발자 콘솔에서 도메인·앱키를 확인해 주세요');
+        const pg = document.getElementById('reg-auth-progress');
+        if(pg) pg.style.display='none';
+        toast('⚠️ 카카오 SDK 오류 — 잠시 후 다시 시도해 주세요');
       }
     }, 300);
 
@@ -3505,6 +3508,15 @@ window.doLoginExisting = async function(){
   startApp(r);
 };
 
+// ── SHA-256 비밀번호 해싱 ──
+async function hashPassword(pw, salt){
+  const encoder = new TextEncoder();
+  const data = encoder.encode(pw + salt);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray  = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
 // ── 관리자 역할 선택 팝업 ──
 window._showAdminRoleSelector = function(dbUser){
   const existing = document.getElementById('admin-role-panel');
@@ -3959,7 +3971,7 @@ window._confirmPasswordSet = async function(){
   if(pw !== confirm){ toast('비밀번호가 일치하지 않습니다'); return; }
 
   // 비밀번호 해시 (간단한 base64 — 실제 서비스에서는 서버사이드 처리)
-  const pwHash = btoa(unescape(encodeURIComponent(pw + curGkid)));
+  const pwHash = await hashPassword(pw, curGkid);
 
   // userData에 비밀번호 해시 추가 후 저장
   const userData = window._pendingUserData || {};
@@ -3998,6 +4010,8 @@ function startApp(r){
 
   // 알림 뱃지 업데이트
   setTimeout(()=>window._updateNotifyBadge(), 500);
+  // 새 공지 확인
+  setTimeout(()=>window._checkNewNotices(), 1500);
 
   // QR 스캔으로 접속한 경우 거래처 자동 등록 팝업
   if(window._pendingAddPartner){
@@ -7595,14 +7609,17 @@ function renderMyPageGeneral(r){
   if(!window._myTab) window._myTab='profile';
   // 읽지 않은 알림 수 계산
   const unreadCount = (window._notifications||[]).filter(n=>!n.read).length;
+  const isAdmin = (window._adminLevel||0) >= 1;
   const tabs=[
     {id:'profile', ic:'👤', lb:'내정보'},
     {id:'notify',  ic:'🔔', lb:'알림'+(unreadCount>0?` (${unreadCount})`:'')},
     {id:'payment', ic:'💳', lb:'결제·토큰'},
     {id:'users',   ic:'👥', lb:'사용자관리'},
+    ...(isAdmin ? [{id:'admin', ic:'⚙️', lb:'관리자'}] : []),
   ];
+  const colCount = isAdmin ? 5 : 4;
   let html=`<div class="sec-title" style="margin-bottom:10px;">👤 MY 페이지</div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px;">
+    <div style="display:grid;grid-template-columns:repeat(${colCount},1fr);gap:6px;margin-bottom:14px;">
       ${tabs.map(t=>`<div onclick="window.switchMyTab('${t.id}')" style="padding:10px 4px;border-radius:12px;text-align:center;cursor:pointer;background:${window._myTab===t.id?'var(--s3)':'var(--s2)'};border:1.5px solid ${window._myTab===t.id?'var(--a1)':'transparent'};">
         <div style="font-size:20px;margin-bottom:4px;">${t.ic}</div>
         <div style="font-size:9px;font-weight:700;color:${window._myTab===t.id?'var(--a1)':'var(--t3)'};">${t.lb}</div>
@@ -7610,6 +7627,7 @@ function renderMyPageGeneral(r){
     </div><div id="my-sub-content">`;
   if(window._myTab==='profile') html+=renderMyProfile(r, null, 0);
   else if(window._myTab==='notify') html+=renderMyNotifications();
+  else if(window._myTab==='admin')  html+=renderAdminDashboard();
   else if(window._myTab==='payment'){
     html+=renderMyPaymentSection();
     const isProfessional=['tax_agent','accounting','labor_agent','lawyer'].includes(curRole);
@@ -8031,6 +8049,212 @@ window._openTaxCalc = function(){
   setTimeout(()=>{
     document.getElementById('tax-calc-amount')?.scrollIntoView({behavior:'smooth'});
   }, 300);
+};
+
+// ══════════════════════════════════════
+// 관리자 대시보드
+// ══════════════════════════════════════
+function renderAdminDashboard(){
+  const adminLevel = window._adminLevel || 0;
+  const levelLabel = adminLevel===3?'⚡ 슈퍼관리자 Lv.3':adminLevel===2?'🛡 운영관리자 Lv.2':'👁 뷰어관리자 Lv.1';
+  const levelColor = adminLevel===3?'var(--red)':adminLevel===2?'var(--pur)':'var(--a2)';
+
+  return `
+  <!-- 관리자 헤더 -->
+  <div style="background:rgba(255,69,84,.06);border:1.5px solid rgba(255,69,84,.2);border-radius:14px;padding:14px;margin-bottom:12px;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span style="font-size:28px;">⚙️</span>
+      <div>
+        <div style="font-size:15px;font-weight:900;">관리자 대시보드</div>
+        <div style="font-size:11px;padding:2px 8px;border-radius:6px;display:inline-block;background:rgba(255,69,84,.1);color:${levelColor};font-weight:700;margin-top:4px;">${levelLabel}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 전체 공지 발송 -->
+  ${adminLevel >= 2 ? `
+  <div style="background:var(--s2);border:1px solid var(--b1);border-radius:14px;padding:14px;margin-bottom:10px;">
+    <div style="font-size:13px;font-weight:800;margin-bottom:10px;">📢 공지/알림 발송</div>
+    <div style="margin-bottom:8px;">
+      <div style="font-size:10px;color:var(--t2);margin-bottom:4px;">발송 대상</div>
+      <select id="notice-target" class="finput" style="font-size:12px;">
+        <option value="all">전체 사용자</option>
+        <option value="producer_ind">생산자 (개인)</option>
+        <option value="producer_corp">생산자 (법인)</option>
+        <option value="merchant_ind">중도매인</option>
+        <option value="wholesale">청과법인</option>
+        <option value="transport">운송업자</option>
+        <option value="tax_agent">세무사</option>
+        <option value="gov_garaksa">가락시장관리공단</option>
+      </select>
+    </div>
+    <div style="margin-bottom:8px;">
+      <div style="font-size:10px;color:var(--t2);margin-bottom:4px;">알림 유형</div>
+      <select id="notice-type" class="finput" style="font-size:12px;">
+        <option value="notice">📢 공지사항</option>
+        <option value="tax">💰 세금 안내</option>
+        <option value="penalty">⚠️ 규제/페널티</option>
+        <option value="policy">🏛 정책 안내</option>
+        <option value="system">⚙️ 시스템 안내</option>
+      </select>
+    </div>
+    <div style="margin-bottom:8px;">
+      <div style="font-size:10px;color:var(--t2);margin-bottom:4px;">제목 *</div>
+      <input id="notice-title" class="finput" placeholder="공지 제목을 입력하세요">
+    </div>
+    <div style="margin-bottom:10px;">
+      <div style="font-size:10px;color:var(--t2);margin-bottom:4px;">내용 *</div>
+      <textarea id="notice-body" class="finput" rows="3" placeholder="공지 내용을 입력하세요" style="resize:none;"></textarea>
+    </div>
+    <button onclick="window._sendAdminNotice()"
+      style="width:100%;padding:12px;border-radius:12px;background:linear-gradient(135deg,var(--a1),var(--a2));color:#080d18;font-size:13px;font-weight:800;border:none;cursor:pointer;">
+      📢 공지 발송
+    </button>
+  </div>` : '<div style="padding:12px;background:var(--s2);border-radius:12px;font-size:12px;color:var(--t2);text-align:center;margin-bottom:10px;">👁 뷰어 권한 — 공지 발송은 운영관리자 이상만 가능합니다</div>'}
+
+  <!-- 사용자 현황 -->
+  <div style="background:var(--s2);border:1px solid var(--b1);border-radius:14px;padding:14px;margin-bottom:10px;">
+    <div style="font-size:13px;font-weight:800;margin-bottom:10px;">👥 사용자 현황</div>
+    <div id="admin-user-stats">
+      <div style="text-align:center;padding:10px;color:var(--t2);font-size:12px;">로딩 중...</div>
+    </div>
+    <button onclick="window._loadAdminStats()"
+      style="width:100%;padding:10px;border-radius:10px;background:var(--s3);border:1px solid var(--b1);color:var(--t1);font-size:12px;font-weight:700;cursor:pointer;margin-top:8px;">
+      🔄 새로고침
+    </button>
+  </div>
+
+  <!-- 관리자 권한 부여 (슈퍼관리자만) -->
+  ${adminLevel >= 3 ? `
+  <div style="background:var(--s2);border:1px solid var(--b1);border-radius:14px;padding:14px;margin-bottom:10px;">
+    <div style="font-size:13px;font-weight:800;margin-bottom:10px;">👑 관리자 권한 관리</div>
+    <div style="margin-bottom:8px;">
+      <div style="font-size:10px;color:var(--t2);margin-bottom:4px;">GARAK ID</div>
+      <input id="admin-target-gkid" class="finput" placeholder="GK-IV-000000">
+    </div>
+    <div style="margin-bottom:10px;">
+      <div style="font-size:10px;color:var(--t2);margin-bottom:4px;">권한 레벨</div>
+      <select id="admin-target-level" class="finput" style="font-size:12px;">
+        <option value="0">0 — 일반 사용자</option>
+        <option value="1">1 — 뷰어관리자</option>
+        <option value="2">2 — 운영관리자</option>
+        <option value="3">3 — 슈퍼관리자</option>
+      </select>
+    </div>
+    <button onclick="window._setAdminLevel()"
+      style="width:100%;padding:10px;border-radius:10px;background:rgba(255,69,84,.1);border:1.5px solid rgba(255,69,84,.3);color:var(--red);font-size:12px;font-weight:800;cursor:pointer;">
+      👑 권한 변경
+    </button>
+  </div>` : ''}
+  `;
+}
+
+// 관리자 공지 발송
+window._sendAdminNotice = async function(){
+  const title  = document.getElementById('notice-title')?.value.trim();
+  const body   = document.getElementById('notice-body')?.value.trim();
+  const target = document.getElementById('notice-target')?.value;
+  const type   = document.getElementById('notice-type')?.value;
+
+  if(!title){ toast('제목을 입력하세요'); return; }
+  if(!body){  toast('내용을 입력하세요'); return; }
+
+  try{
+    await db.from('notices').insert({
+      title, body, type,
+      target_role: target,
+      admin_gkid: curGkid,
+      admin_name: curUserName,
+      is_active: true
+    });
+    toast('✅ 공지가 발송됐습니다!');
+    document.getElementById('notice-title').value = '';
+    document.getElementById('notice-body').value  = '';
+  } catch(e){
+    console.error('공지 발송 오류:', e);
+    toast('⚠️ 발송 실패: ' + e.message);
+  }
+};
+
+// 사용자 현황 로드
+window._loadAdminStats = async function(){
+  const el = document.getElementById('admin-user-stats');
+  if(!el) return;
+  try{
+    const { data } = await db.from('users').select('role, admin_level');
+    if(!data){ el.innerHTML='<div style="color:var(--t2);font-size:12px;text-align:center;">데이터 없음</div>'; return; }
+
+    const total = data.length;
+    const admins = data.filter(u=>u.admin_level>0).length;
+    const roleCounts = {};
+    data.forEach(u=>{ roleCounts[u.role] = (roleCounts[u.role]||0)+1; });
+    const topRoles = Object.entries(roleCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+    el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+      <div style="background:var(--s3);border-radius:10px;padding:10px;text-align:center;">
+        <div style="font-size:22px;font-weight:900;color:var(--a1);">${total}</div>
+        <div style="font-size:10px;color:var(--t2);">전체 사용자</div>
+      </div>
+      <div style="background:var(--s3);border-radius:10px;padding:10px;text-align:center;">
+        <div style="font-size:22px;font-weight:900;color:var(--red);">${admins}</div>
+        <div style="font-size:10px;color:var(--t2);">관리자</div>
+      </div>
+    </div>
+    <div style="font-size:11px;font-weight:700;margin-bottom:6px;">역할별 현황</div>
+    ${topRoles.map(([role,cnt])=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--b2);font-size:11px;">
+      <span style="color:var(--t2);">${ROLES[role]?.n||role}</span>
+      <span style="font-weight:700;color:var(--a1);">${cnt}명</span>
+    </div>`).join('')}`;
+  } catch(e){
+    el.innerHTML='<div style="color:var(--red);font-size:11px;text-align:center;">로드 실패</div>';
+  }
+};
+
+// 관리자 권한 변경 (슈퍼관리자만)
+window._setAdminLevel = async function(){
+  const targetGkid  = document.getElementById('admin-target-gkid')?.value.trim();
+  const targetLevel = parseInt(document.getElementById('admin-target-level')?.value||0);
+
+  if(!targetGkid){ toast('GARAK ID를 입력하세요'); return; }
+  if(targetGkid === curGkid && targetLevel < 3){ toast('자신의 슈퍼관리자 권한은 낮출 수 없습니다'); return; }
+
+  try{
+    const { data, error } = await db.from('users').update({ admin_level: targetLevel }).eq('gkid', targetGkid).select();
+    if(error || !data?.length){ toast('❌ 해당 GARAK ID를 찾을 수 없습니다'); return; }
+    toast(`✅ ${targetGkid} 권한이 Lv.${targetLevel}로 변경됐습니다`);
+    document.getElementById('admin-target-gkid').value = '';
+  } catch(e){
+    toast('⚠️ 변경 실패: ' + e.message);
+  }
+};
+
+// 앱 진입 시 공지 확인
+window._checkNewNotices = async function(){
+  try{
+    const { data } = await db.from('notices')
+      .select('*')
+      .eq('is_active', true)
+      .or(`target_role.eq.all,target_role.eq.${curRole}`)
+      .order('created_at', {ascending: false})
+      .limit(10);
+
+    if(!data || data.length === 0) return;
+
+    // 읽지 않은 공지만 알림으로 추가
+    const readIds = JSON.parse(localStorage.getItem('read_notices_'+curGkid)||'[]');
+    const unread  = data.filter(n=>!readIds.includes(n.id));
+
+    unread.forEach(n=>{
+      window._addNotification(n.type||'notice', n.title, n.body, {noticeId: n.id});
+    });
+
+    // 읽음 처리
+    const newReadIds = [...new Set([...readIds, ...data.map(n=>n.id)])];
+    localStorage.setItem('read_notices_'+curGkid, JSON.stringify(newReadIds));
+
+  } catch(e){ console.warn('공지 확인 실패:', e); }
 };
 
 function renderMyPageMerchant(r){
