@@ -3417,7 +3417,7 @@ window.doLoginExisting = async function(){
   try{
     const isEmail = idInput.includes('@');
     const col = isEmail ? 'email' : 'gkid';
-    const { data } = await db.from('users').select('*').eq(col, idInput).single();
+    const { data } = await db.from('users').select('*').eq(col, idInput).maybeSingle();
     dbUser = data;
   }catch(e){}
 
