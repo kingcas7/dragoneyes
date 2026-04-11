@@ -3438,15 +3438,25 @@ window.doLoginExisting = async function(){
     curRole = dbUser.role;
     window._userTel = dbUser.tel||''; window._userBiznum = dbUser.biznum||'';
     window._userEmail = dbUser.email||''; window._userAddr = dbUser.addr||'';
+    window._adminLevel = dbUser.admin_level || 0;
     // localStorage 동기화
     const syncData = {
       role:curRole, gkid:curGkid, name:curUserName, grade:curGrade,
       tel:dbUser.tel||'', email:dbUser.email||'', addr:dbUser.addr||'',
       kakaoEmail:dbUser.email||'', pwHash:dbUser.pw_hash,
+      adminLevel: dbUser.admin_level||0,
       _loggedIn:true
     };
     localStorage.setItem('garak_user', JSON.stringify(syncData));
     resetBtn();
+
+    // 관리자(레벨1 이상)면 역할 선택 화면 표시
+    if(dbUser.admin_level >= 1){
+      toast('👑 관리자 로그인 성공! 환영합니다 '+curUserName+'님');
+      window._showAdminRoleSelector(dbUser);
+      return;
+    }
+
     toast('✅ 로그인 성공! 환영합니다 '+curUserName+'님');
     startApp(r);
     return;
@@ -3490,6 +3500,96 @@ window.doLoginExisting = async function(){
   }catch(e){}
   resetBtn();
   toast('✅ 로그인 성공! 환영합니다 '+u.name+'님');
+  startApp(r);
+};
+
+// ── 관리자 역할 선택 팝업 ──
+window._showAdminRoleSelector = function(dbUser){
+  const existing = document.getElementById('admin-role-panel');
+  if(existing) existing.remove();
+
+  const adminLevel = dbUser.admin_level || 0;
+  const levelLabel = adminLevel===3 ? '⚡ 슈퍼관리자 Lv.3' : adminLevel===2 ? '🛡 운영관리자 Lv.2' : '👁 뷰어관리자 Lv.1';
+  const levelColor = adminLevel===3 ? 'var(--red)' : adminLevel===2 ? 'var(--pur)' : 'var(--a2)';
+
+  // 모든 역할 목록 생성
+  const allRoles = Object.entries(ROLES).map(([key, val])=>({key, ...val}));
+
+  const panel = document.createElement('div');
+  panel.id = 'admin-role-panel';
+  panel.style.cssText = 'position:fixed;inset:0;z-index:9999;background:var(--bg);overflow-y:auto;';
+  panel.innerHTML = `
+    <div style="max-width:430px;margin:0 auto;padding:20px 16px 40px;">
+      <!-- 헤더 -->
+      <div style="text-align:center;padding:24px 0 20px;">
+        <div style="font-size:36px;margin-bottom:8px;">👑</div>
+        <div style="font-size:20px;font-weight:900;margin-bottom:4px;">${dbUser.name}</div>
+        <div style="display:inline-block;padding:4px 14px;border-radius:20px;background:rgba(255,69,84,.1);border:1px solid rgba(255,69,84,.3);color:${levelColor};font-size:12px;font-weight:800;">${levelLabel}</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:6px;">${dbUser.gkid}</div>
+      </div>
+
+      <!-- 안내 -->
+      <div style="background:rgba(0,232,188,.06);border:1px solid rgba(0,232,188,.2);border-radius:14px;padding:12px 14px;margin-bottom:20px;font-size:11px;color:var(--t2);line-height:1.8;">
+        👁 어떤 역할의 화면으로 접속할지 선택하세요<br>
+        🔄 앱 내에서 언제든 역할을 변경할 수 있어요<br>
+        📊 관리자 대시보드는 MY 탭에서 접근 가능해요
+      </div>
+
+      <!-- 역할 그룹 -->
+      ${ROLE_GROUPS.map(g=>`
+        <div style="margin-bottom:16px;">
+          <div style="font-size:11px;font-weight:800;color:${g.color};margin-bottom:8px;padding-left:2px;">${g.label}</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
+            ${g.roles.map(rKey=>{
+              const ri=ROLE_INFO[rKey]||ROLES[rKey];
+              if(!ri) return '';
+              return `<div onclick="window._adminSelectRole('${rKey}')"
+                style="padding:10px 4px;border-radius:12px;border:1.5px solid var(--b1);background:var(--s1);cursor:pointer;text-align:center;transition:all .15s;"
+                onmouseover="this.style.borderColor='var(--a1)';this.style.background='rgba(0,232,188,.05)'"
+                onmouseout="this.style.borderColor='var(--b1)';this.style.background='var(--s1)'">
+                <div style="font-size:20px;margin-bottom:4px;">${ri.ic||'👤'}</div>
+                <div style="font-size:9px;font-weight:700;line-height:1.3;">${ri.name||ri.n||rKey}</div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+      `).join('')}
+
+      <!-- 관리자 대시보드 바로가기 (레벨2 이상) -->
+      ${adminLevel >= 2 ? `
+      <div style="margin-top:8px;padding:14px;background:rgba(255,69,84,.06);border:1.5px solid rgba(255,69,84,.2);border-radius:14px;text-align:center;cursor:pointer;"
+        onclick="window._adminSelectRole('__admin__')">
+        <div style="font-size:24px;margin-bottom:4px;">⚙️</div>
+        <div style="font-size:13px;font-weight:800;color:var(--red);">관리자 대시보드로 입장</div>
+        <div style="font-size:10px;color:var(--t3);margin-top:2px;">사용자 관리 · 승인 처리 · 모니터링</div>
+      </div>` : ''}
+    </div>
+  `;
+  document.body.appendChild(panel);
+};
+
+// 관리자 역할 선택 확정
+window._adminSelectRole = function(roleKey){
+  document.getElementById('admin-role-panel')?.remove();
+
+  if(roleKey === '__admin__'){
+    // 관리자 대시보드 — 원래 역할로 진입 후 관리자 탭 활성화
+    const saved = JSON.parse(localStorage.getItem('garak_user')||'{}');
+    const r = ROLES[saved.role] || ROLES['individual'];
+    curRole = saved.role || 'individual';
+    window._adminDashboardMode = true;
+    startApp(r);
+    setTimeout(()=>window.showPage('mypage'), 500);
+    return;
+  }
+
+  const r = ROLES[roleKey];
+  if(!r){ toast('역할 정보를 찾을 수 없습니다'); return; }
+
+  // 관리자가 선택한 역할로 진입
+  curRole = roleKey;
+  window._adminViewRole = roleKey; // 원래 계정은 유지, 보기 역할만 변경
+  toast('👁 '+r.n+' 역할로 접속합니다');
   startApp(r);
 };
 
