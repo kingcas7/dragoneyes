@@ -1586,6 +1586,28 @@ async function syncToSupabase(){
 
 async function loadFromSupabase(){
   if(!SUPABASE_READY || !curGkid) return;
+
+  // 거래처 불러오기
+  try{
+    const { data: partnerData } = await db.from('partners')
+      .select('*').eq('owner_gkid', curGkid);
+    if(partnerData && partnerData.length > 0){
+      window._partners = partnerData.map(p=>({
+        id: p.id, name: p.name, biznum: p.biznum,
+        type: p.type, region: p.region, status: p.status
+      }));
+    }
+  }catch(e){ console.warn('거래처 로드 오류:', e); }
+
+  // 송장 불러오기
+  try{
+    const { data: invoiceData } = await db.from('invoices')
+      .select('*').eq('producer_gkid', curGkid)
+      .order('created_at', {ascending: false});
+    if(invoiceData && invoiceData.length > 0){
+      window.INVOICES = invoiceData;
+    }
+  }catch(e){ console.warn('송장 로드 오류:', e); }
   try {
     // 송장 로드
     const {data: invData} = await db.from('invoices').select('*').eq('producer_gkid', curGkid).order('created_at', {ascending:false});
@@ -4430,7 +4452,35 @@ window.processQRResult = function(data){
   }
 };
 
-function saveAppData(){
+async function saveAppData(){
+  if(SUPABASE_READY && curGkid){
+    // 거래처 Supabase 동기화
+    try{
+      if(window._partners?.length > 0){
+        const rows = window._partners.map(p=>({
+          id: p.id||('p_'+curGkid+'_'+Math.random().toString(36).slice(2)),
+          owner_gkid: curGkid,
+          name: p.name||'', biznum: p.biznum||'',
+          type: p.type||'', region: p.region||'', status: p.status||'active'
+        }));
+        await db.from('partners').upsert(rows, {onConflict:'id'});
+      }
+    }catch(e){ console.warn('거래처 저장 오류:', e); }
+    // 송장 Supabase 동기화
+    try{
+      if(window.INVOICES?.length > 0){
+        const rows = window.INVOICES.map(inv=>({
+          id: inv.id, producer_gkid: curGkid,
+          buyer_name: inv.buyer_name||'', buyer_gkid: inv.buyer_gkid||'',
+          item: inv.item||'', qty: inv.qty||0, price: inv.price||0,
+          confirmed_price: inv.confirmed_price||0, status: inv.status||'draft',
+          origin_addr: inv.origin_addr||'', delivery_type: inv.delivery_type||'',
+          memo: inv.memo||'', created_at: inv.created_at||new Date().toISOString()
+        }));
+        await db.from('invoices').upsert(rows, {onConflict:'id'});
+      }
+    }catch(e){ console.warn('송장 저장 오류:', e); }
+  }
   try {
     localStorage.setItem('garak_data_'+curGkid, JSON.stringify({
       INVOICES, CALLS, CROPS,
