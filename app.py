@@ -7,6 +7,7 @@ from supabase import create_client
 from datetime import date, datetime, timedelta
 import pandas as pd
 import requests
+import resend
 # v2026.03.15 — 보고서↔탐색URL 양방향 연결, YouTube 메타데이터 30일 보관 정책, 모바일 PWA 최적화
 load_dotenv()
 
@@ -222,6 +223,7 @@ p { margin-bottom: 0.2rem !important; }
 </style>
 """, unsafe_allow_html=True)
 
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 TERMS_VERSION = "v1.0"
 TERMS_CONTENT = {
     "title": "DragonEyes 최종사용자 이용약관 동의서",
@@ -1116,8 +1118,45 @@ def get_all_agencies():
         return []
 
 def send_notification(sent_by_id, target_type, target_id, channel, subject, body):
-    """알림 발송 기록 저장"""
+    """알림 발송 + 실제 이메일 발송 (Resend)"""
+    email_sent = False
+    recipient_email = None
+
     try:
+        # 수신자 이메일 조회
+        if target_id and target_type == "individual":
+            user_res = supabase.table("users").select("email,name").eq("id", str(target_id)).execute()
+            if user_res.data:
+                recipient_email = user_res.data[0].get("email", "")
+
+        # Resend로 실제 이메일 발송
+        if recipient_email and RESEND_API_KEY and channel in ("email", "both"):
+            try:
+                resend.api_key = RESEND_API_KEY
+                resend.Emails.send({
+                    "from": "DragonEyes <onboarding@resend.dev>",
+                    "to": [recipient_email],
+                    "subject": subject,
+                    "html": f"""
+                    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+                        <div style="background:linear-gradient(135deg,#0f3460,#16213e);padding:20px;border-radius:8px;margin-bottom:20px;">
+                            <h2 style="color:white;margin:0;">🐉 DragonEyes 모니터링</h2>
+                        </div>
+                        <div style="background:#f8fafc;padding:20px;border-radius:8px;border:1px solid #e2e8f0;">
+                            <h3 style="color:#1e293b;">{subject}</h3>
+                            <div style="color:#475569;line-height:1.8;white-space:pre-wrap;">{body}</div>
+                        </div>
+                        <p style="color:#94a3b8;font-size:0.8rem;margin-top:16px;text-align:center;">
+                            본 메일은 DragonEyes 모니터링 시스템에서 자동 발송되었습니다.
+                        </p>
+                    </div>
+                    """,
+                })
+                email_sent = True
+            except Exception as e:
+                email_sent = False
+
+        # DB에 발송 기록 저장
         supabase.table("notifications").insert({
             "sent_by": sent_by_id,
             "target_type": target_type,
@@ -1125,7 +1164,7 @@ def send_notification(sent_by_id, target_type, target_id, channel, subject, body
             "channel": channel,
             "subject": subject,
             "body": body,
-            "status": "pending",
+            "status": "sent" if email_sent else "pending",
         }).execute()
         return True
     except:
@@ -3660,6 +3699,18 @@ else:
             if st.button("📩 시스템관리자에게 전송", type="primary", use_container_width=True):
                 if contact_subject and contact_body:
                     try:
+                        # Resend로 실제 이메일 발송
+                        if RESEND_API_KEY:
+                            try:
+                                resend.api_key = RESEND_API_KEY
+                                resend.Emails.send({
+                                    "from": "DragonEyes <onboarding@resend.dev>",
+                                    "to": ["kingcas7@gmail.com"],
+                                    "subject": f"[DragonEyes 문의] {contact_subject}",
+                                    "html": f"<p><b>발신:</b> {user.get('name','')} ({user.get('email','')})</p><p><b>내용:</b></p><pre>{contact_body}</pre>",
+                                })
+                            except:
+                                pass
                         supabase.table("hq_messages").insert({
                             "from_user_id": user["id"],
                             "from_name": user["name"],
