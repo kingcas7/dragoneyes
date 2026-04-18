@@ -7,7 +7,7 @@ from supabase import create_client
 from datetime import date, datetime, timedelta
 import pandas as pd
 import requests
-# v2026.03.17 — 전체 사용자 현황 팀명 표시, 역할 정렬 (그룹장→디렉터→팀장→팀원)
+# v2026.03.15 — 보고서↔탐색URL 양방향 연결, YouTube 메타데이터 30일 보관 정책, 모바일 PWA 최적화
 load_dotenv()
 
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
@@ -235,6 +235,9 @@ CHAT_MONTHLY_LIMIT = 400
 # ══════════════════════════════
 ROLE_LABELS = {
     "superadmin":     "👑 전체 관리자",
+    # 위탁/업체 관리자
+    "agency_admin":   "🤝 위탁관리자",
+    "tenant_admin":   "🏢 업체관리자",
     # 1그룹
     "group_leader":   "🔱 제1 그룹장",
     "director":       "🎯 1그룹 디렉터",
@@ -255,6 +258,8 @@ ROLE_LABELS = {
 
 ROLE_ICONS = {
     "superadmin":     "👑",
+    "agency_admin":   "🤝",
+    "tenant_admin":   "🏢",
     "group_leader":   "🔱",
     "group_leader_2": "🔱",
     "group_leader_3": "🔱",
@@ -266,14 +271,6 @@ ROLE_ICONS = {
     "team_leader":    "👔",
     "user":           "👤",
     "admin":          "⚙️",
-}
-
-ROLE_ORDER = {
-    "superadmin": 0,
-    "group_leader": 1, "group_leader_2": 1, "group_leader_3": 1, "group_leader_4": 1,
-    "director": 2, "director_2": 2, "director_3": 2, "director_4": 2,
-    "team_leader": 3,
-    "user": 4, "admin": 5,
 }
 
 def role_label(role_v2):
@@ -425,7 +422,7 @@ LANG = {
         "dragon_monitoring":"🐉 드래곤파더",
         "monthly_limit_warn":"monthly_limit_warn",
         "unit_items":"건",
-        "banner_line1":"이 곳은 온라인 유해 컨텐츠를 모니터링하는 Claude 기반의 AI Agent 드래곤파더와 함께 작업하는 곳입니다.","banner_line2":"어린이 아동학대, 그루밍, 성폭력, 도박 등과 관련한 다양한 불법 컨텐츠를 감시합니다.","badge_intl":"국제기관 가이드라인 준수","badge_ncmec":"NCMEC 가이드라인 준수","badge_iwf":"IWF 글로벌 기준","home_footer":"이곳은 최승현님이 만드는 AI Agent 드래곤파더 월드입니다.","ann_unread":"미확인",
+        "banner_line1":"이 곳은 온라인 유해 컨텐츠를 모니터링하는 Claude 기반의 Agent AI 드래곤파더와 함께 작업하는 곳입니다.","banner_line2":"어린이 아동학대, 그루밍, 성폭력, 도박 등과 관련한 다양한 불법 컨텐츠를 감시합니다.","badge_intl":"국제기관 가이드라인 준수","badge_ncmec":"NCMEC 가이드라인 준수","badge_iwf":"IWF 글로벌 기준","home_footer":"이곳은 최승현님이 만드는 Agent AI 드래곤파더 월드입니다.","ann_unread":"미확인",
         "hdr_work":"💼 일하기","hdr_home":"🏠 홈","hdr_write":"📋 작성","hdr_notice":"📢 공지","hdr_admin":"👑 관리자","hdr_profile":"👤 사용자",
         "save_error":"저장 오류: {}","delete_error":"삭제 오류: {}","error":"오류: {}","no_url":"URL을 입력해주세요.",
         # 공지 팝업
@@ -630,7 +627,7 @@ LANG = {
         "dragon_monitoring":"🐉 DragonFather",
         "monthly_limit_warn":"📌 Monthly limit reached. Ask admin for more tokens.",
         "unit_items":"",
-        "banner_line1":"This is a place to work with Claude-based AI Agent DragonFather to monitor harmful online content.","banner_line2":"We monitor illegal content related to child abuse, grooming, sexual violence, and gambling.","badge_intl":"International Guidelines Compliant","badge_ncmec":"NCMEC Guidelines","badge_iwf":"IWF Global Standards","home_footer":"This is the AI Agent DragonFather World created by SeungHyun Choi.","ann_unread":"Unread",
+        "banner_line1":"This is a place to work with Claude-based Agent AI DragonFather to monitor harmful online content.","banner_line2":"We monitor illegal content related to child abuse, grooming, sexual violence, and gambling.","badge_intl":"International Guidelines Compliant","badge_ncmec":"NCMEC Guidelines","badge_iwf":"IWF Global Standards","home_footer":"This is the Agent AI DragonFather World created by SeungHyun Choi.","ann_unread":"Unread",
         "hdr_work":"💼 Work","hdr_home":"🏠 Home","hdr_write":"📋 Write","hdr_notice":"📢 Notice","hdr_admin":"👑 Admin","hdr_profile":"👤 Profile",
         "save_error":"Save error: {}","delete_error":"Delete error: {}","error":"Error: {}","no_url":"Please enter a URL.",
         # announcement popup
@@ -862,7 +859,7 @@ LANG = {
         "dragon_monitoring":"🐉 ドラゴンファーザー",
         "monthly_limit_warn":"📌 今月の上限に達しました。管理者に追加を申請してください。",
         "unit_items":"件",
-        "banner_line1":"ここはClaude基盤のAI Agent ドラゴンファーザーと共にオンライン有害コンテンツをモニタリングする場所です。","banner_line2":"子どもへの性的虐待、グルーミング、性暴力、ギャンブル等の違法コンテンツを監視します。","badge_intl":"国際機関ガイドライン準拠","badge_ncmec":"NCMECガイドライン","badge_iwf":"IWFグローバル基準","home_footer":"ここはChoi SeungHyunが作るAI Agent ドラゴンファーザーワールドです。","ann_unread":"未確認",
+        "banner_line1":"ここはClaude基盤のAgent AI ドラゴンファーザーと共にオンライン有害コンテンツをモニタリングする場所です。","banner_line2":"子どもへの性的虐待、グルーミング、性暴力、ギャンブル等の違法コンテンツを監視します。","badge_intl":"国際機関ガイドライン準拠","badge_ncmec":"NCMECガイドライン","badge_iwf":"IWFグローバル基準","home_footer":"ここはChoi SeungHyunが作るAgent AI ドラゴンファーザーワールドです。","ann_unread":"未確認",
         "hdr_work":"💼 作業","hdr_home":"🏠 ホーム","hdr_write":"📋 作成","hdr_notice":"📢 公知","hdr_admin":"👑 管理者","hdr_profile":"👤 ユーザー",
         "save_error":"保存エラー: {}","delete_error":"削除エラー: {}","error":"エラー: {}","no_url":"URLを入力してください。",
         # 公知ポップアップ
@@ -1015,26 +1012,88 @@ if "token" in params and st.session_state.user is None:
 # ══════════════════════════════
 
 def get_user_role(user):
-    """역할 반환: superadmin > group_leader > director > team_leader > user"""
+    """역할 반환: superadmin > agency_admin > tenant_admin > group_leader > director > team_leader > user"""
     return user.get("role_v2") or ("admin" if user.get("role") == "admin" else "user")
 
 def is_superadmin(user):
     return get_user_role(user) == "superadmin"
 
+def is_agency_admin(user):
+    """위탁관리자 여부"""
+    return get_user_role(user) == "agency_admin"
+
+def is_tenant_admin(user):
+    """업체관리자 여부"""
+    return get_user_role(user) in ("tenant_admin", "agency_admin", "superadmin")
+
 def is_director(user):
     return get_user_role(user) in (
-        "superadmin",
+        "superadmin", "agency_admin",
         "group_leader", "group_leader_2", "group_leader_3", "group_leader_4",
         "director", "director_2", "director_3", "director_4",
     )
 
 def is_team_leader(user):
     return get_user_role(user) in (
-        "superadmin",
+        "superadmin", "agency_admin", "tenant_admin",
         "group_leader", "group_leader_2", "group_leader_3", "group_leader_4",
         "director", "director_2", "director_3", "director_4",
         "team_leader",
     )
+
+# ── 위탁관리자 헬퍼 함수 ──
+def get_agency_tenants(agency_user_id):
+    """위탁관리자가 담당하는 업체 목록"""
+    try:
+        agency = supabase.table("agencies").select("id").eq("user_id", agency_user_id).execute()
+        if not agency.data:
+            return []
+        agency_id = agency.data[0]["id"]
+        at = supabase.table("agency_tenants").select("tenant_id").eq("agency_id", agency_id).execute()
+        if not at.data:
+            return []
+        tenant_ids = [x["tenant_id"] for x in at.data]
+        tenants = supabase.table("tenants").select("*").in_("id", tenant_ids).execute()
+        return tenants.data or []
+    except:
+        return []
+
+def get_tenant_users(tenant_id):
+    """특정 업체의 사용자 목록"""
+    try:
+        return supabase.table("users").select("*").eq("tenant_id", tenant_id).execute().data or []
+    except:
+        return []
+
+def get_all_tenants():
+    """전체 업체 목록"""
+    try:
+        return supabase.table("tenants").select("*").order("name").execute().data or []
+    except:
+        return []
+
+def get_all_agencies():
+    """전체 위탁관리자 목록"""
+    try:
+        return supabase.table("agencies").select("*").execute().data or []
+    except:
+        return []
+
+def send_notification(sent_by_id, target_type, target_id, channel, subject, body):
+    """알림 발송 기록 저장"""
+    try:
+        supabase.table("notifications").insert({
+            "sent_by": sent_by_id,
+            "target_type": target_type,
+            "target_id": str(target_id) if target_id else "all",
+            "channel": channel,
+            "subject": subject,
+            "body": body,
+            "status": "pending",
+        }).execute()
+        return True
+    except:
+        return False
 
 def can_approve(user, target_user=None):
     role = get_user_role(user)
@@ -1981,6 +2040,10 @@ else:
         with bc_work:
             if st.button(t("hdr_work"), use_container_width=True, key="hdr_work_btn"):
                 go_to("work_page"); st.rerun()
+            # 위탁관리자 or 슈퍼관리자만 보이는 버튼
+            if is_agency_admin(user) or is_superadmin(user):
+                if st.button("🤝 위탁대시보드", use_container_width=True, key="hdr_agency_btn"):
+                    go_to("agency_dashboard"); st.rerun()
         with bc_home:
             if st.button("🏠 홈", use_container_width=True):
                 go_home(); st.rerun()
@@ -2255,6 +2318,132 @@ else:
     # ══════════════════════════════
     # 💼 일하기 페이지
     # ══════════════════════════════
+    elif page == "agency_dashboard":
+        # ══════════════════════════════
+        # 🤝 위탁관리자 전용 모니터링 대시보드
+        # ══════════════════════════════
+        col_back, col_title = st.columns([1, 5])
+        with col_back:
+            if st.button("🏠 홈"):
+                go_home(); st.rerun()
+        with col_title:
+            st.subheader("🤝 위탁관리자 모니터링 대시보드")
+
+        this_month = date.today().strftime("%Y-%m")
+
+        # 담당 업체 목록 가져오기
+        if is_superadmin(user):
+            my_tenants = get_all_tenants()
+        else:
+            my_tenants = get_agency_tenants(user["id"])
+
+        if not my_tenants:
+            st.info("담당 업체가 없습니다. 관리자에게 업체 배정을 요청해주세요.")
+        else:
+            # 전체 요약
+            all_tenant_users = []
+            for t in my_tenants:
+                all_tenant_users.extend(get_tenant_users(t["id"]))
+
+            all_reps_ag = supabase.table("reports").select("user_id,created_at,severity").execute().data or []
+
+            ds1, ds2, ds3, ds4 = st.columns(4)
+            ds1.metric("담당 업체", f"{len(my_tenants)}개")
+            ds2.metric("총 사용자", f"{len(all_tenant_users)}명")
+            total_month = len([r for r in all_reps_ag
+                if r["user_id"] in [u["id"] for u in all_tenant_users]
+                and str(r.get("created_at",""))[:7] == this_month])
+            ds3.metric("이번달 총 보고서", f"{total_month}건")
+            risky = len([r for r in all_reps_ag
+                if r["user_id"] in [u["id"] for u in all_tenant_users]
+                and r.get("severity",0) >= 4])
+            ds4.metric("고위험 콘텐츠", f"{risky}건", delta_color="inverse")
+            st.divider()
+
+            # 업체별 현황
+            for tenant in my_tenants:
+                tenant_users = get_tenant_users(tenant["id"])
+                if not tenant_users:
+                    continue
+
+                with st.expander(f"🏢 **{tenant['name']}** | 사용자 {len(tenant_users)}명", expanded=True):
+                    # 헤더
+                    th1, th2, th3, th4, th5, th6 = st.columns([2, 1, 1, 1, 1, 2])
+                    th1.markdown("**이름**")
+                    th2.markdown("**이번달**")
+                    th3.markdown("**목표**")
+                    th4.markdown("**달성률**")
+                    th5.markdown("**누적**")
+                    th6.markdown("**알림**")
+                    st.divider()
+
+                    for u in tenant_users:
+                        ur = [r for r in all_reps_ag if r["user_id"] == u["id"]]
+                        mr = [r for r in ur if str(r.get("created_at",""))[:7] == this_month]
+                        tgt = u.get("monthly_target", 10)
+                        rt = min(int(len(mr)/tgt*100), 100) if tgt > 0 else 0
+                        rate_color = "#22c55e" if rt >= 100 else "#f59e0b" if rt >= 50 else "#ef4444"
+
+                        uc1, uc2, uc3, uc4, uc5, uc6 = st.columns([2, 1, 1, 1, 1, 2])
+                        uc1.write(f"👤 **{u['name']}**")
+                        uc2.write(f"{len(mr)}건")
+                        uc3.write(f"{tgt}건")
+                        uc4.markdown(f"<span style='color:{rate_color};font-weight:700'>{rt}%</span>", unsafe_allow_html=True)
+                        uc5.write(f"{len(ur)}건")
+                        with uc6:
+                            # 개인 알림 버튼
+                            if st.button(f"📧 알림", key=f"agency_notif_{u['id']}"):
+                                st.session_state[f"quick_notif_user"] = u
+                                st.session_state[f"quick_notif_show"] = True
+                                st.rerun()
+
+                    # 빠른 알림 발송
+                    if st.session_state.get("quick_notif_show") and st.session_state.get("quick_notif_user"):
+                        qnu = st.session_state.quick_notif_user
+                        with st.container(border=True):
+                            st.markdown(f"**📧 {qnu['name']}님에게 빠른 알림 발송**")
+                            qn_subj = st.text_input("제목", key="qn_subj", value=f"[DragonEyes] {qnu['name']}님 업무 현황 안내")
+                            qn_body = st.text_area("내용", key="qn_body", height=80)
+                            qn_ch = st.selectbox("채널", ["email","sms","both"],
+                                format_func=lambda x: {"email":"📧 이메일","sms":"📱 SMS","both":"📧📱 둘다"}[x],
+                                key="qn_channel")
+                            qnc1, qnc2 = st.columns(2)
+                            with qnc1:
+                                if st.button("📤 발송", type="primary", key="qn_send"):
+                                    send_notification(user["id"], "individual", qnu["id"], qn_ch, qn_subj, qn_body)
+                                    st.success(f"✅ {qnu['name']}님에게 발송 저장됨!")
+                                    st.session_state.quick_notif_show = False
+                                    st.rerun()
+                            with qnc2:
+                                if st.button("✖ 닫기", key="qn_close"):
+                                    st.session_state.quick_notif_show = False
+                                    st.rerun()
+
+        # 하단 일괄 알림
+        st.divider()
+        st.markdown("### 📣 일괄 알림 발송")
+        ba1, ba2 = st.columns(2)
+        with ba1:
+            bulk_target = st.selectbox("대상",
+                ["all_my_tenants", "below_50", "below_80"],
+                format_func=lambda x: {
+                    "all_my_tenants": "📢 담당 업체 전체",
+                    "below_50": "⚠️ 달성률 50% 미만",
+                    "below_80": "📊 달성률 80% 미만"
+                }[x], key="bulk_target")
+        with ba2:
+            bulk_channel = st.selectbox("채널", ["email","sms","both"],
+                format_func=lambda x: {"email":"📧 이메일","sms":"📱 SMS","both":"📧📱 둘다"}[x],
+                key="bulk_channel")
+        bulk_subj = st.text_input("제목", key="bulk_subj", value="[DragonEyes] 업무 현황 안내")
+        bulk_body = st.text_area("내용", key="bulk_body", height=100)
+        if st.button("📤 일괄 발송", type="primary", use_container_width=True, key="bulk_send"):
+            if bulk_subj and bulk_body:
+                send_notification(user["id"], bulk_target, None, bulk_channel, bulk_subj, bulk_body)
+                st.success("✅ 일괄 발송 요청이 저장됐습니다!")
+            else:
+                st.warning("제목과 내용을 입력해주세요.")
+
     elif page == "work_page":
         lang = st.session_state.get("lang", "ko")
         token_info = can_use_dragon(user["id"])
@@ -4270,8 +4459,9 @@ else:
         if (is_admin or is_super) and tab8:
             with tab8:
                 st.subheader(t("admin_title"))
-                admin_tab1, admin_tab2, admin_tab3, admin_tab4, admin_tab5, admin_tab6, admin_tab7, admin_tab8 = st.tabs([
-                    t("admin_team"), t("admin_assign"), t("admin_token"), t("admin_email"), t("admin_log"), "💬 채팅 토큰", "📡 채널 모니터링", "🧠 키워드 학습"
+                admin_tab1, admin_tab2, admin_tab3, admin_tab4, admin_tab5, admin_tab6, admin_tab7, admin_tab8, admin_tab9, admin_tab10, admin_tab11 = st.tabs([
+                    t("admin_team"), t("admin_assign"), t("admin_token"), t("admin_email"), t("admin_log"), "💬 채팅 토큰", "📡 채널 모니터링", "🧠 키워드 학습",
+                    "🏢 업체(Tenant) 관리", "🤝 위탁관리자 관리", "📣 알림 발송 센터"
                 ])
 
                 # 팀 현황
@@ -4288,9 +4478,6 @@ else:
                             df_r["created_at"] = pd.to_datetime(df_r["created_at"])
                             this_month = date.today().strftime("%Y-%m")
                             df_r["month"] = df_r["created_at"].dt.strftime("%Y-%m")
-                            # 팀명 매핑
-                            _all_teams_map = supabase.table("teams").select("id,name").execute().data or []
-                            team_map = {t["id"]: t["name"] for t in _all_teams_map}
                             summary = []
                             for u in all_users_data.data:
                                 ur = df_r[df_r["user_id"]==u["id"]]
@@ -4298,33 +4485,16 @@ else:
                                 tgt = u.get("monthly_target",10)
                                 rt = min(int(len(mr)/tgt*100),100) if tgt>0 else 0
                                 ti = get_token_info(u["id"])
-                                _role_v2 = u.get("role_v2","user")
-                                _role_label_str = role_label(_role_v2)
-                                team_name = team_map.get(u.get("team_id",""), "")
-                                # 팀원이고 팀이 있으면 "{팀명} 팀원" 으로 role 표시
-                                if _role_v2 == "user" and team_name:
-                                    # 같은 팀 팀원 중 몇 번째인지 계산
-                                    _same_team = [x for x in summary if x.get("_team_id") == u.get("team_id","")]
-                                    _member_no = len(_same_team) + 1
-                                    _role_label_str = f"👤 {team_name} 팀원{_member_no}"
-                                elif _role_v2 == "user" and not team_name:
-                                    _role_label_str = "👤 팀미지정"
-                                team_badge = f" [{team_name}]" if team_name else ""
+                                _role_label_str = role_label(u.get("role_v2","user"))
                                 summary.append({
                                     t("profile_role"): _role_label_str,
-                                    t("profile_name"): u["name"] + f" ({u.get('email','')})" + team_badge,
+                                    t("profile_name"): u["name"] + "  (" + u.get("email","") + ")",
                                     "이번달": len(mr),
                                     "목표": tgt,
                                     "달성률": f"{rt}%",
                                     "누적": len(ur),
-                                    "드래곤토큰": f"{ti['used_count']}/{MONTHLY_DRAGON_LIMIT+ti.get('extra_tokens',0)}회",
-                                    "_role_v2": u.get("role_v2","user"),
-                                    "_team_id": u.get("team_id",""),
+                                    "드래곤토큰": f"{ti['used_count']}/{MONTHLY_DRAGON_LIMIT+ti.get('extra_tokens',0)}회"
                                 })
-                            summary.sort(key=lambda x: ROLE_ORDER.get(x.get("_role_v2","user"), 99))
-                            for s in summary:
-                                s.pop("_role_v2", None)
-                                s.pop("_team_id", None)
                             st.caption(f"전체 사용자 {len(summary)}명")
                             df_summary = pd.DataFrame(summary)
                             st.dataframe(df_summary, use_container_width=True)
@@ -4758,3 +4928,380 @@ else:
                                 st.rerun()
                     except Exception as e:
                         st.error(f"키워드 학습 데이터 불러오기 오류: {str(e)}")
+
+                # ══════════════════════════════
+                # 🏢 업체(Tenant) 관리 탭
+                # ══════════════════════════════
+                with admin_tab9:
+                    st.subheader("🏢 업체(Tenant) 관리")
+                    st.caption("라이선스 업체를 등록하고 관리합니다. 업체당 관리자 1명 + 사용자 3~5명 허용.")
+
+                    # 신규 업체 등록
+                    with st.expander("➕ 신규 업체 등록", expanded=False):
+                        tc1, tc2 = st.columns(2)
+                        with tc1:
+                            new_tenant_name = st.text_input("업체명 *", key="new_tenant_name")
+                            new_tenant_email = st.text_input("담당자 이메일", key="new_tenant_email")
+                            new_tenant_phone = st.text_input("담당자 연락처", key="new_tenant_phone")
+                        with tc2:
+                            new_tenant_plan = st.selectbox("라이선스 플랜", ["basic", "standard", "premium"],
+                                format_func=lambda x: {"basic":"🥉 Basic (3명)", "standard":"🥈 Standard (5명)", "premium":"🥇 Premium (무제한)"}[x],
+                                key="new_tenant_plan")
+                            new_tenant_max = st.number_input("최대 사용자 수", min_value=1, max_value=100, value=5, key="new_tenant_max")
+                            new_tenant_start = st.date_input("라이선스 시작일", key="new_tenant_start")
+                            new_tenant_end = st.date_input("라이선스 종료일", key="new_tenant_end")
+                        if st.button("✅ 업체 등록", type="primary", key="create_tenant_btn"):
+                            if new_tenant_name:
+                                try:
+                                    supabase.table("tenants").insert({
+                                        "name": new_tenant_name,
+                                        "license_plan": new_tenant_plan,
+                                        "max_users": new_tenant_max,
+                                        "license_start": str(new_tenant_start),
+                                        "license_end": str(new_tenant_end),
+                                        "contact_email": new_tenant_email,
+                                        "contact_phone": new_tenant_phone,
+                                        "is_active": True,
+                                    }).execute()
+                                    st.success(f"✅ '{new_tenant_name}' 업체 등록 완료!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"오류: {str(e)}")
+                            else:
+                                st.warning("업체명을 입력해주세요.")
+
+                    # 업체 목록
+                    all_tenants = get_all_tenants()
+                    st.caption(f"전체 등록 업체: {len(all_tenants)}개")
+
+                    if not all_tenants:
+                        st.info("등록된 업체가 없습니다.")
+                    else:
+                        # 요약 통계
+                        active_cnt = len([t for t in all_tenants if t.get("is_active")])
+                        ts1, ts2, ts3 = st.columns(3)
+                        ts1.metric("전체 업체", f"{len(all_tenants)}개")
+                        ts2.metric("활성 업체", f"{active_cnt}개")
+                        ts3.metric("비활성", f"{len(all_tenants)-active_cnt}개")
+                        st.divider()
+
+                        for tenant in all_tenants:
+                            tenant_users = get_tenant_users(tenant["id"])
+                            admin_users = [u for u in tenant_users if u.get("is_tenant_admin")]
+                            status_badge = "✅ 활성" if tenant.get("is_active") else "❌ 비활성"
+                            plan_badge = {"basic":"🥉","standard":"🥈","premium":"🥇"}.get(tenant.get("license_plan","basic"),"🥉")
+
+                            with st.expander(f"{plan_badge} **{tenant['name']}** | {status_badge} | 사용자 {len(tenant_users)}/{tenant.get('max_users',5)}명"):
+                                ec1, ec2, ec3 = st.columns(3)
+                                ec1.write(f"**플랜:** {tenant.get('license_plan','basic')}")
+                                ec2.write(f"**이메일:** {tenant.get('contact_email','-')}")
+                                ec3.write(f"**연락처:** {tenant.get('contact_phone','-')}")
+                                st.caption(f"라이선스: {tenant.get('license_start','-')} ~ {tenant.get('license_end','-')}")
+
+                                # 업체 관리자 지정
+                                st.divider()
+                                st.markdown("**👤 업체 관리자 지정**")
+                                all_users_t = supabase.table("users").select("*").execute().data or []
+                                unassigned = [u for u in all_users_t if not u.get("tenant_id")]
+                                current_admin = admin_users[0]["name"] if admin_users else "미지정"
+                                st.caption(f"현재 관리자: {current_admin}")
+
+                                if unassigned:
+                                    sel_admin = st.selectbox("관리자로 지정할 사용자",
+                                        [None] + unassigned,
+                                        format_func=lambda x: "선택..." if x is None else f'{x["name"]} ({x.get("email","")})',
+                                        key=f"tenant_admin_{tenant['id']}")
+                                    if st.button("👤 관리자 지정", key=f"set_admin_{tenant['id']}"):
+                                        if sel_admin:
+                                            supabase.table("users").update({
+                                                "tenant_id": tenant["id"],
+                                                "is_tenant_admin": True,
+                                                "role_v2": "tenant_admin"
+                                            }).eq("id", sel_admin["id"]).execute()
+                                            st.success(f"✅ {sel_admin['name']}님이 {tenant['name']} 관리자로 지정됐습니다!")
+                                            st.rerun()
+
+                                # 업체 사용자 목록
+                                if tenant_users:
+                                    st.divider()
+                                    st.markdown("**👥 소속 사용자**")
+                                    for u in tenant_users:
+                                        uc1, uc2, uc3 = st.columns([3, 2, 1])
+                                        uc1.write(f"{'👑' if u.get('is_tenant_admin') else '👤'} {u['name']} ({u.get('email','')})")
+                                        uc2.caption(role_label(u.get("role_v2","user")))
+                                        with uc3:
+                                            if st.button("제거", key=f"remove_tenant_user_{u['id']}"):
+                                                supabase.table("users").update({"tenant_id": None, "is_tenant_admin": False}).eq("id", u["id"]).execute()
+                                                st.rerun()
+
+                                # 활성/비활성 토글
+                                st.divider()
+                                ta1, ta2 = st.columns(2)
+                                with ta1:
+                                    toggle_label = "❌ 비활성화" if tenant.get("is_active") else "✅ 활성화"
+                                    if st.button(toggle_label, key=f"toggle_tenant_{tenant['id']}"):
+                                        supabase.table("tenants").update({"is_active": not tenant.get("is_active")}).eq("id", tenant["id"]).execute()
+                                        st.rerun()
+
+                # ══════════════════════════════
+                # 🤝 위탁관리자 관리 탭
+                # ══════════════════════════════
+                with admin_tab10:
+                    st.subheader("🤝 위탁관리자(Agency) 관리")
+                    st.caption("컨설팅 업체 또는 에이전시를 위탁관리자로 등록하고 담당 업체를 배정합니다.")
+
+                    # 신규 위탁관리자 등록
+                    with st.expander("➕ 위탁관리자 등록", expanded=False):
+                        ag1, ag2 = st.columns(2)
+                        with ag1:
+                            new_agency_name = st.text_input("에이전시명 *", key="new_agency_name")
+                            new_agency_email = st.text_input("이메일", key="new_agency_email")
+                            new_agency_phone = st.text_input("연락처", key="new_agency_phone")
+                        with ag2:
+                            all_users_ag = supabase.table("users").select("*").execute().data or []
+                            sel_agency_user = st.selectbox("담당 사용자 계정 연결",
+                                [None] + all_users_ag,
+                                format_func=lambda x: "선택..." if x is None else f'{x["name"]} ({x.get("email","")})',
+                                key="new_agency_user")
+                        if st.button("✅ 위탁관리자 등록", type="primary", key="create_agency_btn"):
+                            if new_agency_name:
+                                try:
+                                    result = supabase.table("agencies").insert({
+                                        "name": new_agency_name,
+                                        "user_id": sel_agency_user["id"] if sel_agency_user else None,
+                                        "contact_email": new_agency_email,
+                                        "contact_phone": new_agency_phone,
+                                        "is_active": True,
+                                    }).execute()
+                                    # 연결된 사용자 role을 agency_admin으로 변경
+                                    if sel_agency_user:
+                                        supabase.table("users").update({"role_v2": "agency_admin"}).eq("id", sel_agency_user["id"]).execute()
+                                    st.success(f"✅ '{new_agency_name}' 위탁관리자 등록 완료!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"오류: {str(e)}")
+                            else:
+                                st.warning("에이전시명을 입력해주세요.")
+
+                    # 위탁관리자 목록
+                    all_agencies = get_all_agencies()
+                    st.caption(f"전체 위탁관리자: {len(all_agencies)}개")
+                    all_tenants_ag = get_all_tenants()
+                    tenant_map_ag = {t["id"]: t["name"] for t in all_tenants_ag}
+                    umap_ag = {u["id"]: u["name"] for u in (supabase.table("users").select("id,name").execute().data or [])}
+
+                    if not all_agencies:
+                        st.info("등록된 위탁관리자가 없습니다.")
+                    else:
+                        for agency in all_agencies:
+                            # 담당 업체 목록 조회
+                            at_data = supabase.table("agency_tenants").select("tenant_id").eq("agency_id", agency["id"]).execute().data or []
+                            assigned_tenant_ids = [x["tenant_id"] for x in at_data]
+                            assigned_tenants = [t for t in all_tenants_ag if t["id"] in assigned_tenant_ids]
+                            manager_name = umap_ag.get(agency.get("user_id",""), "미연결")
+
+                            with st.expander(f"🤝 **{agency['name']}** | 담당자: {manager_name} | 담당 업체: {len(assigned_tenants)}개"):
+                                ac1, ac2 = st.columns(2)
+                                ac1.write(f"**이메일:** {agency.get('contact_email','-')}")
+                                ac2.write(f"**연락처:** {agency.get('contact_phone','-')}")
+
+                                # 담당 업체 배정
+                                st.divider()
+                                st.markdown("**🏢 담당 업체 배정**")
+                                unassigned_tenants = [t for t in all_tenants_ag if t["id"] not in assigned_tenant_ids]
+                                if unassigned_tenants:
+                                    sel_tenant = st.selectbox("업체 선택",
+                                        [None] + unassigned_tenants,
+                                        format_func=lambda x: "선택..." if x is None else x["name"],
+                                        key=f"assign_tenant_{agency['id']}")
+                                    if st.button("➕ 업체 배정", key=f"assign_btn_{agency['id']}"):
+                                        if sel_tenant:
+                                            try:
+                                                supabase.table("agency_tenants").insert({
+                                                    "agency_id": agency["id"],
+                                                    "tenant_id": sel_tenant["id"]
+                                                }).execute()
+                                                st.success(f"✅ {sel_tenant['name']} 배정 완료!")
+                                                st.rerun()
+                                            except Exception as e:
+                                                st.error(f"오류: {str(e)}")
+
+                                # 배정된 업체 목록
+                                if assigned_tenants:
+                                    st.markdown("**현재 담당 업체:**")
+                                    for at in assigned_tenants:
+                                        atc1, atc2 = st.columns([4, 1])
+                                        atc1.write(f"🏢 {at['name']} | {at.get('contact_email','-')}")
+                                        with atc2:
+                                            if st.button("제거", key=f"remove_at_{agency['id']}_{at['id']}"):
+                                                supabase.table("agency_tenants").delete().eq("agency_id", agency["id"]).eq("tenant_id", at["id"]).execute()
+                                                st.rerun()
+
+                # ══════════════════════════════
+                # 📣 알림 발송 센터 탭
+                # ══════════════════════════════
+                with admin_tab11:
+                    st.subheader("📣 알림 발송 센터")
+                    st.caption("이메일 및 SMS로 사용자에게 알림을 발송합니다. 대상을 개인/업체/달성률/전체로 선택할 수 있습니다.")
+
+                    # 발송 대상 선택
+                    nc1, nc2 = st.columns([2, 3])
+                    with nc1:
+                        notif_target_type = st.selectbox("📋 발송 대상",
+                            ["individual", "tenant", "achievement", "all"],
+                            format_func=lambda x: {
+                                "individual": "👤 개인별",
+                                "tenant": "🏢 업체별",
+                                "achievement": "📊 달성률별",
+                                "all": "📢 전체"
+                            }[x],
+                            key="notif_target_type")
+
+                        notif_channel = st.selectbox("📡 발송 채널",
+                            ["email", "sms", "both"],
+                            format_func=lambda x: {"email":"📧 이메일만", "sms":"📱 SMS만", "both":"📧📱 이메일+SMS"}[x],
+                            key="notif_channel")
+
+                    with nc2:
+                        # 대상별 추가 옵션
+                        notif_target_id = None
+                        all_users_notif = supabase.table("users").select("*").execute().data or []
+                        all_tenants_notif = get_all_tenants()
+
+                        if notif_target_type == "individual":
+                            sel_notif_user = st.selectbox("사용자 선택",
+                                [None] + all_users_notif,
+                                format_func=lambda x: "선택..." if x is None else f'{x["name"]} ({x.get("email","")})',
+                                key="notif_sel_user")
+                            notif_target_id = sel_notif_user["id"] if sel_notif_user else None
+                            if sel_notif_user:
+                                # 해당 사용자 현황 미리보기
+                                ur = supabase.table("reports").select("id,created_at").eq("user_id", sel_notif_user["id"]).execute().data or []
+                                this_m = date.today().strftime("%Y-%m")
+                                m_cnt = len([r for r in ur if str(r.get("created_at",""))[:7] == this_m])
+                                tgt = sel_notif_user.get("monthly_target", 10)
+                                rt = min(int(m_cnt/tgt*100), 100) if tgt > 0 else 0
+                                st.info(f"📊 {sel_notif_user['name']} | 이번달 {m_cnt}/{tgt}건 | 달성률 {rt}%")
+
+                        elif notif_target_type == "tenant":
+                            sel_notif_tenant = st.selectbox("업체 선택",
+                                [None] + all_tenants_notif,
+                                format_func=lambda x: "선택..." if x is None else x["name"],
+                                key="notif_sel_tenant")
+                            notif_target_id = sel_notif_tenant["id"] if sel_notif_tenant else None
+                            if sel_notif_tenant:
+                                t_users = get_tenant_users(sel_notif_tenant["id"])
+                                st.info(f"🏢 {sel_notif_tenant['name']} | 소속 사용자 {len(t_users)}명에게 발송")
+
+                        elif notif_target_type == "achievement":
+                            ach_op = st.selectbox("달성률 조건",
+                                ["below_50", "below_80", "below_100", "above_100"],
+                                format_func=lambda x: {
+                                    "below_50": "50% 미만",
+                                    "below_80": "80% 미만",
+                                    "below_100": "100% 미만",
+                                    "above_100": "100% 달성"
+                                }[x],
+                                key="notif_ach_op")
+                            notif_target_id = ach_op
+                            # 해당하는 사용자 미리보기
+                            this_m = date.today().strftime("%Y-%m")
+                            all_reps_n = supabase.table("reports").select("user_id,created_at").execute().data or []
+                            target_users_preview = []
+                            for u in all_users_notif:
+                                ur = [r for r in all_reps_n if r["user_id"] == u["id"] and str(r.get("created_at",""))[:7] == this_m]
+                                tgt = u.get("monthly_target", 10)
+                                rt = min(int(len(ur)/tgt*100), 100) if tgt > 0 else 0
+                                threshold = {"below_50": rt < 50, "below_80": rt < 80, "below_100": rt < 100, "above_100": rt >= 100}
+                                if threshold.get(ach_op, False):
+                                    target_users_preview.append(f"{u['name']} ({rt}%)")
+                            st.info(f"📊 해당 사용자 {len(target_users_preview)}명: {', '.join(target_users_preview[:5])}{'...' if len(target_users_preview) > 5 else ''}")
+
+                        elif notif_target_type == "all":
+                            st.info(f"📢 전체 사용자 {len(all_users_notif)}명에게 발송됩니다.")
+
+                    st.divider()
+
+                    # 메시지 작성
+                    notif_subject = st.text_input("📌 제목 *", key="notif_subject", placeholder="예: [DragonEyes] 이번달 업무 현황 안내")
+                    notif_body = st.text_area("📝 내용 *", height=150, key="notif_body",
+                        placeholder="예: 안녕하세요. 이번달 업무 달성률을 확인해주세요.\n\n[DragonEyes 모니터링 시스템]")
+
+                    # 템플릿 빠른 선택
+                    st.caption("💡 빠른 템플릿:")
+                    tpl1, tpl2, tpl3 = st.columns(3)
+                    with tpl1:
+                        if st.button("📊 달성률 독려", key="tpl1"):
+                            st.session_state["notif_subject"] = "[DragonEyes] 이번달 업무 목표 달성 독려"
+                            st.session_state["notif_body"] = "안녕하세요.\n\n이번달 업무 목표 달성을 위해 꾸준한 모니터링 활동 부탁드립니다.\n드래곤아이즈 시스템에 접속하여 배정된 콘텐츠를 확인해 주세요.\n\n감사합니다.\n[DragonEyes 관리팀]"
+                            st.rerun()
+                    with tpl2:
+                        if st.button("📋 보고서 제출 요청", key="tpl2"):
+                            st.session_state["notif_subject"] = "[DragonEyes] 보고서 미제출 안내"
+                            st.session_state["notif_body"] = "안녕하세요.\n\n배정된 콘텐츠에 대한 보고서가 아직 제출되지 않았습니다.\n빠른 시일 내에 DragonEyes 시스템에 접속하여 보고서를 제출해 주시기 바랍니다.\n\n감사합니다.\n[DragonEyes 관리팀]"
+                            st.rerun()
+                    with tpl3:
+                        if st.button("🔔 시스템 공지", key="tpl3"):
+                            st.session_state["notif_subject"] = "[DragonEyes] 시스템 공지사항"
+                            st.session_state["notif_body"] = "안녕하세요.\n\nDragonEyes 모니터링 시스템 관련 공지사항을 안내드립니다.\n\n[내용을 입력해주세요]\n\n감사합니다.\n[DragonEyes 관리팀]"
+                            st.rerun()
+
+                    st.divider()
+
+                    # 발송 미리보기 및 실행
+                    if notif_subject and notif_body:
+                        with st.expander("📄 발송 미리보기"):
+                            target_label = {
+                                "individual": f"👤 개인: {umap_ag.get(str(notif_target_id), '선택 안됨') if notif_target_type == 'individual' else '-'}",
+                                "tenant": f"🏢 업체: {next((t['name'] for t in all_tenants_notif if t['id'] == notif_target_id), '선택 안됨') if notif_target_type == 'tenant' else '-'}",
+                                "achievement": f"📊 달성률 조건: {notif_target_id}",
+                                "all": "📢 전체 사용자"
+                            }.get(notif_target_type, "-")
+                            st.markdown(f"**발송 대상:** {target_label}")
+                            st.markdown(f"**채널:** {'📧 이메일' if notif_channel == 'email' else '📱 SMS' if notif_channel == 'sms' else '📧📱 이메일+SMS'}")
+                            st.markdown(f"**제목:** {notif_subject}")
+                            st.markdown(f"**내용:**\n{notif_body}")
+
+                        send_col1, send_col2 = st.columns(2)
+                        with send_col1:
+                            if st.button("📧 발송 실행", type="primary", use_container_width=True, key="send_notif_btn"):
+                                if notif_target_type == "individual" and not notif_target_id:
+                                    st.warning("발송 대상을 선택해주세요.")
+                                elif notif_target_type == "tenant" and not notif_target_id:
+                                    st.warning("업체를 선택해주세요.")
+                                else:
+                                    ok = send_notification(
+                                        sent_by_id=user["id"],
+                                        target_type=notif_target_type,
+                                        target_id=notif_target_id,
+                                        channel=notif_channel,
+                                        subject=notif_subject,
+                                        body=notif_body
+                                    )
+                                    if ok:
+                                        st.success("✅ 발송 요청이 저장됐습니다! (실제 발송은 이메일/SMS 연동 설정 후 자동 처리)")
+                                    else:
+                                        st.error("발송 저장 중 오류가 발생했습니다.")
+                        with send_col2:
+                            if st.button("🗑️ 초기화", use_container_width=True, key="clear_notif_btn"):
+                                for k in ["notif_subject", "notif_body"]:
+                                    if k in st.session_state:
+                                        del st.session_state[k]
+                                st.rerun()
+
+                    # 발송 이력
+                    st.divider()
+                    st.markdown("### 📜 최근 발송 이력")
+                    try:
+                        notif_logs = supabase.table("notifications").select("*").order("sent_at", desc=True).limit(30).execute().data or []
+                        if notif_logs:
+                            for nl in notif_logs:
+                                nl_sent_by = umap_ag.get(nl.get("sent_by",""), "알 수 없음")
+                                nl_date = str(nl.get("sent_at",""))[:16]
+                                ch_icon = {"email":"📧","sms":"📱","both":"📧📱"}.get(nl.get("channel","email"),"📧")
+                                ttype = {"individual":"👤","tenant":"🏢","achievement":"📊","all":"📢"}.get(nl.get("target_type","all"),"📢")
+                                st.markdown(f"{ch_icon} **{nl.get('subject','')}** | {ttype} | {nl_sent_by} | {nl_date} | `{nl.get('status','pending')}`")
+                        else:
+                            st.info("발송 이력이 없습니다.")
+                    except Exception as e:
+                        st.error(f"이력 조회 오류: {str(e)}")
