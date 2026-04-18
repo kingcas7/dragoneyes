@@ -7,7 +7,11 @@ from supabase import create_client
 from datetime import date, datetime, timedelta
 import pandas as pd
 import requests
-import resend
+try:
+    import resend
+    RESEND_AVAILABLE = True
+except ImportError:
+    RESEND_AVAILABLE = False
 # v2026.03.15 — 보고서↔탐색URL 양방향 연결, YouTube 메타데이터 30일 보관 정책, 모바일 PWA 최적화
 load_dotenv()
 
