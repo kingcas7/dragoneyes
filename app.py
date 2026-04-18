@@ -2720,40 +2720,124 @@ else:
                     "monthly_rate": monthly_rate, "daily_rate": daily_rate,
                 }
 
-            def render_user_table(users_list, tab_key):
-                """사용자 현황 테이블 렌더링"""
+            PAGE_SIZE_AGENCY = 50  # 페이지당 사용자 수
+
+            def render_user_table(users_list, tab_key, show_bulk=True):
+                """사용자 현황 테이블 렌더링 — 페이지네이션 + 정렬 + 선택 발송"""
                 if not users_list:
                     st.info("해당하는 사용자가 없습니다.")
                     return
 
-                # 테이블 헤더
-                st.markdown("""
-                <div style="display:grid;grid-template-columns:1.8fr 0.7fr 0.7fr 0.7fr 0.7fr 0.8fr 0.8fr 0.5fr;
+                total_cnt = len(users_list)
+
+                # ── 정렬 + 검색 컨트롤 ──
+                ctrl1, ctrl2, ctrl3, ctrl4 = st.columns([2, 2, 2, 2])
+                with ctrl1:
+                    sort_key = st.selectbox("정렬 기준",
+                        ["월달성률 낮은순", "월달성률 높은순", "일일달성률 낮은순", "이번달 많은순", "이름순"],
+                        key=f"sort_{tab_key}")
+                with ctrl2:
+                    search_name = st.text_input("이름 검색", key=f"search_{tab_key}", placeholder="이름 입력...")
+                with ctrl3:
+                    page_key = f"page_{tab_key}"
+                    if page_key not in st.session_state:
+                        st.session_state[page_key] = 0
+                    total_pages = max(1, (total_cnt + PAGE_SIZE_AGENCY - 1) // PAGE_SIZE_AGENCY)
+                    st.markdown(f"<div style='padding-top:28px;color:#64748b;font-size:0.85rem;'>총 {total_cnt}명 | {st.session_state[page_key]+1}/{total_pages}p</div>", unsafe_allow_html=True)
+                with ctrl4:
+                    # 전체 선택 체크박스
+                    sel_all_key = f"sel_all_{tab_key}"
+                    sel_all = st.checkbox("전체 선택", key=sel_all_key)
+
+                # 검색 필터
+                if search_name:
+                    users_list = [u for u in users_list if search_name in u.get("name","")]
+
+                # 통계 계산 후 정렬
+                users_with_stats = []
+                for u in users_list:
+                    stats = calc_user_stats(u, all_reps_ag)
+                    users_with_stats.append((u, stats))
+
+                sort_map = {
+                    "월달성률 낮은순": lambda x: x[1]["monthly_rate"],
+                    "월달성률 높은순": lambda x: -x[1]["monthly_rate"],
+                    "일일달성률 낮은순": lambda x: x[1]["daily_rate"],
+                    "이번달 많은순": lambda x: -x[1]["month"],
+                    "이름순": lambda x: x[0].get("name",""),
+                }
+                users_with_stats.sort(key=sort_map.get(sort_key, sort_map["월달성률 낮은순"]))
+
+                # 페이지네이션
+                page_num = st.session_state[page_key]
+                paged = users_with_stats[page_num*PAGE_SIZE_AGENCY:(page_num+1)*PAGE_SIZE_AGENCY]
+
+                # 헤더
+                st.markdown("""<div style="display:grid;grid-template-columns:0.3fr 1.8fr 0.7fr 0.7fr 0.7fr 0.7fr 0.8fr 0.8fr 0.5fr;
                     gap:4px;background:#1e3a5f;color:white;padding:6px 8px;border-radius:6px;
                     font-size:0.75rem;font-weight:700;margin-bottom:4px;">
-                    <div>이름</div><div>오늘</div><div>이번주</div><div>이번달</div>
+                    <div>선택</div><div>이름</div><div>오늘</div><div>이번주</div><div>이번달</div>
                     <div>목표</div><div>일일달성률</div><div>월달성률</div><div>알림</div>
                 </div>""", unsafe_allow_html=True)
 
-                for u in users_list:
-                    stats = calc_user_stats(u, all_reps_ag)
+                selected_users = []
+                for u, stats in paged:
                     d_color = "#22c55e" if stats["daily_rate"] >= 50 else "#ef4444"
                     m_color = "#22c55e" if stats["monthly_rate"] >= 100 else "#f59e0b" if stats["monthly_rate"] >= 50 else "#ef4444"
                     d_icon = "✅" if stats["daily_rate"] >= 50 else "⚠️"
-
-                    rc = st.columns([1.8, 0.7, 0.7, 0.7, 0.7, 0.8, 0.8, 0.5])
-                    rc[0].write(f"👤 **{u['name']}**")
-                    rc[1].write(f"{stats['today']}건")
-                    rc[2].write(f"{stats['week']}건")
-                    rc[3].write(f"{stats['month']}건")
-                    rc[4].write(f"{stats['tgt']}건")
-                    rc[5].markdown(f"<span style='color:{d_color};font-weight:700'>{d_icon} {stats['daily_rate']}%</span>", unsafe_allow_html=True)
-                    rc[6].markdown(f"<span style='color:{m_color};font-weight:700'>{stats['monthly_rate']}%</span>", unsafe_allow_html=True)
-                    with rc[7]:
-                        if st.button("📧", key=f"notif_{tab_key}_{u['id']}", help="개인 이메일 발송"):
+                    rc = st.columns([0.3, 1.8, 0.7, 0.7, 0.7, 0.7, 0.8, 0.8, 0.5])
+                    sel = rc[0].checkbox("", key=f"sel_{tab_key}_{u['id']}", value=sel_all, label_visibility="collapsed")
+                    if sel:
+                        selected_users.append(u)
+                    rc[1].write(f"👤 **{u['name']}**")
+                    rc[2].write(f"{stats['today']}건")
+                    rc[3].write(f"{stats['week']}건")
+                    rc[4].write(f"{stats['month']}건")
+                    rc[5].write(f"{stats['tgt']}건")
+                    rc[6].markdown(f"<span style='color:{d_color};font-weight:700'>{d_icon} {stats['daily_rate']}%</span>", unsafe_allow_html=True)
+                    rc[7].markdown(f"<span style='color:{m_color};font-weight:700'>{stats['monthly_rate']}%</span>", unsafe_allow_html=True)
+                    with rc[8]:
+                        if st.button("📧", key=f"notif_{tab_key}_{u['id']}", help="개인 이메일"):
                             st.session_state["quick_notif_user"] = u
                             st.session_state["quick_notif_show"] = True
                             st.rerun()
+
+                # 페이지 이동 버튼
+                pp1, pp2, pp3, pp4 = st.columns([1, 1, 4, 2])
+                with pp1:
+                    if st.button("◀ 이전", key=f"prev_{tab_key}", disabled=page_num==0):
+                        st.session_state[page_key] -= 1; st.rerun()
+                with pp2:
+                    if st.button("다음 ▶", key=f"next_{tab_key}", disabled=page_num>=total_pages-1):
+                        st.session_state[page_key] += 1; st.rerun()
+                with pp4:
+                    st.markdown(f"<div style='text-align:right;color:#94a3b8;font-size:0.8rem;padding-top:8px;'>{page_num+1} / {total_pages} 페이지</div>", unsafe_allow_html=True)
+
+                # ── 선택된 사용자에게 일괄 이메일 ──
+                if show_bulk and (selected_users or sel_all):
+                    target_users = [u for u, _ in users_with_stats] if sel_all else selected_users
+                    with st.container(border=True):
+                        st.markdown(f"**📧 선택된 {len(target_users)}명에게 일괄 이메일 발송**")
+                        bc1, bc2 = st.columns([3, 1])
+                        with bc1:
+                            bulk_s = st.text_input("제목", key=f"bulk_s_{tab_key}",
+                                value="[DragonEyes] 업무 현황 안내")
+                            bulk_b = st.text_area("내용", key=f"bulk_b_{tab_key}", height=80,
+                                value="안녕하세요.\n\n업무 목표 달성을 위해 꾸준한 모니터링 활동 부탁드립니다.\n\n감사합니다.\n[DragonEyes 관리팀]")
+                        with bc2:
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            if st.button(f"📧 {len(target_users)}명 발송",
+                                key=f"bulk_send_{tab_key}", type="primary", use_container_width=True):
+                                subj = st.session_state.get(f"bulk_s_{tab_key}", "")
+                                body = st.session_state.get(f"bulk_b_{tab_key}", "")
+                                if subj and body:
+                                    for tu in target_users:
+                                        send_notification(user["id"], "individual", tu["id"], "email", subj, body)
+                                    st.success(f"✅ {len(target_users)}명에게 발송 완료!")
+                                else:
+                                    st.warning("제목과 내용을 입력해주세요.")
+
+                return [u for u, _ in users_with_stats]  # 정렬된 전체 목록 반환
 
             # ── 탭1: 전체 현황 ──
             with filter_tab1:
