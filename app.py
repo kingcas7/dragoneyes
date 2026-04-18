@@ -1116,6 +1116,28 @@ def get_all_users():
     except:
         return []
 
+def check_user_terms(user):
+    """사용자 동의 여부 확인"""
+    return user.get("terms_agreed", False) and user.get("terms_version") == TERMS_VERSION
+
+def save_user_consent(user_id, name, email):
+    """사용자 동의 저장"""
+    try:
+        supabase.table("user_consents").insert({
+            "user_id": user_id,
+            "consent_version": TERMS_VERSION,
+            "name": name,
+            "email": email,
+        }).execute()
+        supabase.table("users").update({
+            "terms_agreed": True,
+            "terms_agreed_at": datetime.now().isoformat(),
+            "terms_version": TERMS_VERSION,
+        }).eq("id", user_id).execute()
+        return True
+    except Exception as e:
+        return False
+
 def get_all_teams():
     try:
         return supabase.table("teams").select("*").execute().data or []
@@ -1947,6 +1969,53 @@ if st.session_state.user is None:
 # ══════════════════════════════
 else:
     user = st.session_state.user
+
+    # ── 최종사용자 동의 체크 (미동의 시 강제 표시) ──
+    if not check_user_terms(user) and st.session_state.get("current_page") not in ("terms_agree",):
+        st.session_state.current_page = "terms_agree"
+
+    if st.session_state.get("current_page") == "terms_agree":
+        st.markdown('<div style="font-size:1.4rem;font-weight:700;padding:8px 0;">🐉 드래곤아이즈 모니터링</div>', unsafe_allow_html=True)
+        st.divider()
+        st.markdown(f"""
+        <div style="background:linear-gradient(135deg,#0f3460,#16213e);border-radius:12px;padding:20px 24px;margin-bottom:16px;">
+            <h2 style="color:white;margin:0 0 8px 0;">📋 최종사용자 이용약관 동의</h2>
+            <p style="color:#94a3b8;margin:0;">DragonEyes 시스템을 사용하기 위해 아래 이용약관에 동의하셔야 합니다.</p>
+            <p style="color:#f59e0b;margin:4px 0 0 0;font-size:0.85rem;">⚠️ 모든 필수 항목에 동의하지 않으면 시스템을 사용할 수 없습니다.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        for section in TERMS_CONTENT["sections"]:
+            st.markdown(f"### {section['num']}. {section['title']}")
+            with st.container(border=True):
+                for item in section["items"]:
+                    st.markdown(f"<p style='margin:6px 0;font-size:0.92rem;'>{item}</p>", unsafe_allow_html=True)
+        st.divider()
+        st.markdown("### ✍️ 동의 확인")
+        a1 = st.checkbox("**[필수]** 시스템 소개 및 운영 방침을 확인하였으며 이에 동의합니다.", key="ta1")
+        a2 = st.checkbox("**[필수]** 시스템 사용조건(라이선스, 데이터 권리 등) 모든 항목에 동의합니다.", key="ta2")
+        a3 = st.checkbox("**[필수]** 모니터링 결과 보고서에 대한 권리가 드래곤아이즈 시스템 관리자에게 귀속됨에 동의합니다.", key="ta3")
+        a4 = st.checkbox("**[필수]** 사용자 정보가 라이선스 마케팅 목적으로 활용될 수 있음에 동의합니다.", key="ta4")
+        all_agreed = a1 and a2 and a3 and a4
+        st.markdown(f"<p style='color:#64748b;font-size:0.8rem;'>동의자: {user.get('name','')} ({user.get('email','')}) | 버전: {TERMS_VERSION} | 일시: {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>", unsafe_allow_html=True)
+        tc1, tc2 = st.columns(2)
+        with tc1:
+            if st.button("✅ 모든 항목 동의 후 시작", type="primary", use_container_width=True, disabled=not all_agreed, key="terms_submit"):
+                if save_user_consent(user["id"], user.get("name",""), user.get("email","")):
+                    st.session_state.user["terms_agreed"] = True
+                    st.session_state.user["terms_version"] = TERMS_VERSION
+                    st.session_state.current_page = "home_landing"
+                    st.success("✅ 동의 완료! 시스템을 시작합니다.")
+                    st.rerun()
+                else:
+                    st.error("동의 처리 중 오류가 발생했습니다.")
+        with tc2:
+            if st.button("🚪 동의 거부 후 로그아웃", use_container_width=True, key="terms_logout"):
+                st.query_params.clear()
+                for k in list(st.session_state.keys()):
+                    del st.session_state[k]
+                st.rerun()
+        st.stop()
+
     is_admin = user.get("role") == "admin" or user.get("role_v2") in (
         "superadmin",
         "group_leader", "group_leader_2", "group_leader_3", "group_leader_4",
@@ -4829,9 +4898,9 @@ else:
         if (is_admin or is_super) and tab8:
             with tab8:
                 st.subheader(t("admin_title"))
-                admin_tab1, admin_tab2, admin_tab3, admin_tab4, admin_tab5, admin_tab6, admin_tab7, admin_tab8, admin_tab9, admin_tab10, admin_tab11, admin_tab12 = st.tabs([
+                admin_tab1, admin_tab2, admin_tab3, admin_tab4, admin_tab5, admin_tab6, admin_tab7, admin_tab8, admin_tab9, admin_tab10, admin_tab11, admin_tab12, admin_tab13 = st.tabs([
                     t("admin_team"), t("admin_assign"), t("admin_token"), t("admin_email"), t("admin_log"), "💬 채팅 토큰", "📡 채널 모니터링", "🧠 키워드 학습",
-                    "🏢 업체(Tenant) 관리", "🤝 위탁관리자 관리", "📣 알림 발송 센터", "📋 라이선스 신청 관리"
+                    "🏢 업체(Tenant) 관리", "🤝 위탁관리자 관리", "📣 알림 발송 센터", "📋 라이선스 신청 관리", "🗂️ 동의서 보관함"
                 ])
 
                 # 팀 현황
@@ -5870,6 +5939,127 @@ DragonEyes 시스템 관리팀"""
 
                     except Exception as e:
                         st.error(f"신청 목록 조회 오류: {str(e)}")
+
+                # ══════════════════════════════
+                # 🗂️ 동의서 보관함 탭
+                # ══════════════════════════════
+                with admin_tab13:
+                    st.subheader("🗂️ 동의서 보관함")
+                    st.caption("모든 사용자의 최종사용자 이용약관 동의 기록이 자동으로 보관됩니다.")
+
+                    try:
+                        # 통계
+                        all_users_consent = supabase.table("users").select("id,name,email,role_v2,terms_agreed,terms_agreed_at,terms_version").execute().data or []
+                        agreed_users = [u for u in all_users_consent if u.get("terms_agreed")]
+                        not_agreed = [u for u in all_users_consent if not u.get("terms_agreed")]
+
+                        cs1, cs2, cs3, cs4 = st.columns(4)
+                        cs1.metric("전체 사용자", f"{len(all_users_consent)}명")
+                        cs2.metric("✅ 동의 완료", f"{len(agreed_users)}명")
+                        cs3.metric("⏳ 미동의", f"{len(not_agreed)}명")
+                        cs4.metric("현재 약관 버전", TERMS_VERSION)
+                        st.divider()
+
+                        # 필터
+                        cf1, cf2, cf3 = st.columns(3)
+                        with cf1:
+                            consent_filter = st.selectbox("동의 상태",
+                                ["전체", "동의완료", "미동의"],
+                                key="consent_filter")
+                        with cf2:
+                            consent_search = st.text_input("이름/이메일 검색", key="consent_search")
+                        with cf3:
+                            # CSV 다운로드
+                            import pandas as pd
+                            consent_records = supabase.table("user_consents").select("*").order("consented_at", desc=True).execute().data or []
+                            umap_c = {u["id"]: u for u in all_users_consent}
+                            df_consent = pd.DataFrame([{
+                                "이름": umap_c.get(r.get("user_id",""),{}).get("name",""),
+                                "이메일": r.get("email",""),
+                                "역할": role_label(umap_c.get(r.get("user_id",""),{}).get("role_v2","user")),
+                                "동의버전": r.get("consent_version",""),
+                                "동의일시": str(r.get("consented_at",""))[:16],
+                            } for r in consent_records])
+                            if not df_consent.empty:
+                                csv_c = df_consent.to_csv(index=False, encoding="utf-8-sig")
+                                st.download_button(
+                                    "📥 동의서 목록 CSV",
+                                    data=csv_c.encode("utf-8-sig"),
+                                    file_name=f"동의서보관함_{date.today().strftime('%Y%m%d')}.csv",
+                                    mime="text/csv",
+                                    use_container_width=True
+                                )
+
+                        # 동의 완료 목록
+                        st.markdown("#### ✅ 동의 완료 사용자")
+                        display_agreed = agreed_users
+                        if consent_filter == "미동의":
+                            display_agreed = []
+                        if consent_search:
+                            display_agreed = [u for u in display_agreed if consent_search in u.get("name","") or consent_search in u.get("email","")]
+
+                        if display_agreed:
+                            ch1, ch2, ch3, ch4, ch5 = st.columns([2, 2.5, 1.5, 1.5, 1])
+                            ch1.markdown("**이름**")
+                            ch2.markdown("**이메일**")
+                            ch3.markdown("**역할**")
+                            ch4.markdown("**동의일시**")
+                            ch5.markdown("**버전**")
+                            st.divider()
+                            for u in display_agreed:
+                                uc1, uc2, uc3, uc4, uc5 = st.columns([2, 2.5, 1.5, 1.5, 1])
+                                uc1.write(f"✅ {u.get('name','')}")
+                                uc2.caption(u.get("email",""))
+                                uc3.caption(role_label(u.get("role_v2","user")))
+                                uc4.caption(str(u.get("terms_agreed_at",""))[:16])
+                                uc5.caption(u.get("terms_version","-"))
+                        elif consent_filter != "미동의":
+                            st.info("동의 완료 사용자가 없습니다.")
+
+                        # 미동의 목록
+                        if consent_filter != "동의완료":
+                            st.divider()
+                            st.markdown("#### ⏳ 미동의 사용자")
+                            display_not = not_agreed
+                            if consent_search:
+                                display_not = [u for u in display_not if consent_search in u.get("name","") or consent_search in u.get("email","")]
+                            if display_not:
+                                for u in display_not:
+                                    nc1, nc2, nc3, nc4 = st.columns([2, 2.5, 2, 1.5])
+                                    nc1.write(f"⏳ {u.get('name','')}")
+                                    nc2.caption(u.get("email",""))
+                                    nc3.caption(role_label(u.get("role_v2","user")))
+                                    with nc4:
+                                        # 동의 독려 버튼
+                                        if st.button("📧 동의 독려", key=f"nudge_{u['id']}"):
+                                            nudge_body = "안녕하세요 " + u.get("name","") + "님.\n\nDragonEyes 시스템 이용을 위해 로그인 후 이용약관에 동의해 주시기 바랍니다.\n\n감사합니다."
+                                            send_notification(user["id"], "individual", u["id"], "email",
+                                                "[DragonEyes] 이용약관 동의 요청",
+                                                nudge_body)
+                                            st.success("✅ " + u.get("name","") + "님에게 독려 메일 발송!")
+                            else:
+                                st.success("🎉 모든 사용자가 동의를 완료했습니다!")
+
+                        # 상세 동의 기록
+                        st.divider()
+                        with st.expander("📜 전체 동의 기록 (상세)", expanded=False):
+                            if consent_records:
+                                st.caption(f"총 {len(consent_records)}건")
+                                for r in consent_records[:50]:
+                                    u_info = umap_c.get(r.get("user_id",""), {})
+                                    st.markdown(f"✅ **{u_info.get('name',r.get('name','?'))}** `{r.get('email','')}` | 버전 {r.get('consent_version','')} | {str(r.get('consented_at',''))[:16]}")
+                            else:
+                                st.info("동의 기록이 없습니다.")
+
+                        # 약관 버전 관리
+                        st.divider()
+                        with st.expander("⚙️ 약관 버전 관리 (전체 재동의 요청)", expanded=False):
+                            st.warning(f"현재 버전: **{TERMS_VERSION}** | 새 버전으로 업데이트하면 모든 사용자가 다음 로그인 시 재동의해야 합니다.")
+                            st.code(f'TERMS_VERSION = "{TERMS_VERSION}"', language="python")
+                            st.caption("버전 변경은 app.py의 TERMS_VERSION 상수를 수정 후 배포하세요.")
+
+                    except Exception as e:
+                        st.error(f"동의서 조회 오류: {str(e)}")
 
                 # 동의 항목 관리
                 with st.expander("⚙️ 동의 항목 관리 (시스템관리자 전용)", expanded=False):
