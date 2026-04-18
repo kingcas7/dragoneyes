@@ -2841,19 +2841,130 @@ else:
 
             # ── 탭1: 전체 현황 ──
             with filter_tab1:
-                for tn in my_tenants:
-                    t_users = get_tenant_users(tn["id"])
-                    if not t_users:
-                        continue
-                    # 업체 요약
-                    tn_month = len([r for r in all_reps_ag if r["user_id"] in {u["id"] for u in t_users} and str(r.get("created_at",""))[:7] == this_month])
-                    tn_avg = int(sum(calc_user_stats(u, all_reps_ag)["monthly_rate"] for u in t_users) / len(t_users)) if t_users else 0
-                    avg_color = "#22c55e" if tn_avg >= 100 else "#f59e0b" if tn_avg >= 50 else "#ef4444"
-                    with st.expander(
-                        f"🏢 **{tn['name']}** | 사용자 {len(t_users)}명 | 이번달 {tn_month}건 | 평균달성률 {tn_avg}%",
-                        expanded=True
-                    ):
-                        render_user_table(t_users, f"all_{tn['id'][:8]}")
+                # 보기 모드 선택
+                view_mode = st.radio("보기 모드",
+                    ["🏢 업체별 보기", "👥 전체 통합 보기", "📊 업체 요약 비교"],
+                    horizontal=True, key="tab1_view_mode")
+                st.divider()
+
+                if view_mode == "🏢 업체별 보기":
+                    # 업체 필터
+                    tenant_names = ["전체 업체"] + [tn["name"] for tn in my_tenants]
+                    sel_tenant_filter = st.selectbox("업체 선택", tenant_names, key="tenant_filter_sel")
+
+                    show_tenants = my_tenants if sel_tenant_filter == "전체 업체" else [tn for tn in my_tenants if tn["name"] == sel_tenant_filter]
+
+                    for tn in show_tenants:
+                        t_users = get_tenant_users(tn["id"])
+                        if not t_users:
+                            st.info(f"🏢 **{tn['name']}** — 소속 사용자 없음")
+                            continue
+                        tn_today = len([r for r in all_reps_ag if r["user_id"] in {u["id"] for u in t_users} and str(r.get("created_at",""))[:10] == today_str])
+                        tn_month = len([r for r in all_reps_ag if r["user_id"] in {u["id"] for u in t_users} and str(r.get("created_at",""))[:7] == this_month])
+                        tn_avg = int(sum(calc_user_stats(u, all_reps_ag)["monthly_rate"] for u in t_users) / len(t_users)) if t_users else 0
+                        avg_color = "#22c55e" if tn_avg >= 100 else "#f59e0b" if tn_avg >= 50 else "#ef4444"
+                        below_50_cnt = sum(1 for u in t_users if calc_user_stats(u, all_reps_ag)["monthly_rate"] < 50)
+
+                        with st.expander(
+                            f"🏢 **{tn['name']}** | 👥 {len(t_users)}명 | 📅 오늘 {tn_today}건 | 🗓️ 이번달 {tn_month}건 | 📊 평균달성률 {tn_avg}% | ⚠️ 50%미만 {below_50_cnt}명",
+                            expanded=(sel_tenant_filter != "전체 업체")
+                        ):
+                            # 업체 요약 카드
+                            tc1, tc2, tc3, tc4 = st.columns(4)
+                            tc1.metric("총 사용자", f"{len(t_users)}명")
+                            tc2.metric("오늘 보고서", f"{tn_today}건")
+                            tc3.metric("이번달 보고서", f"{tn_month}건")
+                            tc4.metric("평균 달성률", f"{tn_avg}%")
+                            render_user_table(t_users, f"all_{tn['id'][:8]}")
+
+                elif view_mode == "👥 전체 통합 보기":
+                    # 모든 업체 사용자 합쳐서 표시
+                    all_users_flat = []
+                    for tn in my_tenants:
+                        for u in get_tenant_users(tn["id"]):
+                            u["_tenant_name"] = tn["name"]
+                            all_users_flat.append(u)
+                    st.caption(f"담당 전체 사용자 {len(all_users_flat)}명")
+                    render_user_table(all_users_flat, "all_flat")
+
+                elif view_mode == "📊 업체 요약 비교":
+                    # 업체별 요약 테이블
+                    st.markdown("### 📊 업체별 성과 비교")
+                    st.markdown("""<div style="display:grid;grid-template-columns:2fr 0.8fr 0.8fr 0.8fr 0.8fr 0.8fr 1fr;
+                        gap:4px;background:#1e3a5f;color:white;padding:6px 8px;border-radius:6px;
+                        font-size:0.75rem;font-weight:700;margin-bottom:4px;">
+                        <div>업체명</div><div>사용자</div><div>오늘</div><div>이번달</div>
+                        <div>평균달성률</div><div>50%미만</div><div>상태</div>
+                    </div>""", unsafe_allow_html=True)
+
+                    tenant_summary = []
+                    for tn in my_tenants:
+                        t_users = get_tenant_users(tn["id"])
+                        if not t_users:
+                            continue
+                        tn_today = len([r for r in all_reps_ag if r["user_id"] in {u["id"] for u in t_users} and str(r.get("created_at",""))[:10] == today_str])
+                        tn_month = len([r for r in all_reps_ag if r["user_id"] in {u["id"] for u in t_users} and str(r.get("created_at",""))[:7] == this_month])
+                        rates = [calc_user_stats(u, all_reps_ag)["monthly_rate"] for u in t_users]
+                        tn_avg = int(sum(rates)/len(rates)) if rates else 0
+                        below50 = sum(1 for r in rates if r < 50)
+                        tenant_summary.append((tn, t_users, tn_today, tn_month, tn_avg, below50))
+
+                    # 평균달성률 낮은 순 정렬
+                    tenant_summary.sort(key=lambda x: x[4])
+
+                    for tn, t_users, tn_today, tn_month, tn_avg, below50 in tenant_summary:
+                        avg_color = "#22c55e" if tn_avg >= 100 else "#f59e0b" if tn_avg >= 50 else "#ef4444"
+                        status = "🟢 양호" if tn_avg >= 80 else "🟡 주의" if tn_avg >= 50 else "🔴 위험"
+                        rc = st.columns([2, 0.8, 0.8, 0.8, 0.8, 0.8, 1])
+                        rc[0].write(f"🏢 **{tn['name']}**")
+                        rc[1].write(f"{len(t_users)}명")
+                        rc[2].write(f"{tn_today}건")
+                        rc[3].write(f"{tn_month}건")
+                        rc[4].markdown(f"<span style='color:{avg_color};font-weight:700'>{tn_avg}%</span>", unsafe_allow_html=True)
+                        rc[5].write(f"⚠️ {below50}명" if below50 > 0 else "✅ 0명")
+                        rc[6].write(status)
+
+                    # 전체 합계
+                    st.divider()
+                    all_flat2 = []
+                    for tn in my_tenants:
+                        all_flat2.extend(get_tenant_users(tn["id"]))
+                    if all_flat2:
+                        total_rates = [calc_user_stats(u, all_reps_ag)["monthly_rate"] for u in all_flat2]
+                        total_avg = int(sum(total_rates)/len(total_rates)) if total_rates else 0
+                        total_today2 = len([r for r in all_reps_ag if r["user_id"] in {u["id"] for u in all_flat2} and str(r.get("created_at",""))[:10] == today_str])
+                        total_month2 = len([r for r in all_reps_ag if r["user_id"] in {u["id"] for u in all_flat2} and str(r.get("created_at",""))[:7] == this_month])
+                        total_below = sum(1 for r in total_rates if r < 50)
+                        rc = st.columns([2, 0.8, 0.8, 0.8, 0.8, 0.8, 1])
+                        rc[0].markdown("**📊 전체 합계**")
+                        rc[1].markdown(f"**{len(all_flat2)}명**")
+                        rc[2].markdown(f"**{total_today2}건**")
+                        rc[3].markdown(f"**{total_month2}건**")
+                        rc[4].markdown(f"**{total_avg}%**")
+                        rc[5].markdown(f"**{total_below}명**")
+                        rc[6].markdown("**—**")
+
+                    # 업체별 일괄 이메일 발송
+                    st.divider()
+                    with st.container(border=True):
+                        st.markdown("**📧 성과 미달 업체 일괄 이메일 발송**")
+                        danger_tenants = [(tn, t_users) for tn, t_users, _, _, tn_avg, _ in tenant_summary if tn_avg < 50]
+                        if danger_tenants:
+                            st.warning(f"⚠️ 달성률 50% 미만 업체: {len(danger_tenants)}개")
+                            ds1 = st.text_input("제목", key="danger_subj", value="[DragonEyes] 업무 목표 달성 독려")
+                            ds2 = st.text_area("내용", key="danger_body", height=80,
+                                value="안녕하세요.\n\n이번달 업무 목표 달성률이 저조합니다.\n배정된 콘텐츠 확인 및 보고서 작성을 부탁드립니다.\n\n감사합니다.\n[DragonEyes 관리팀]")
+                            if st.button("📧 50% 미만 업체 전원 발송", type="primary", key="send_danger"):
+                                cnt = 0
+                                for _, t_users in danger_tenants:
+                                    for u in t_users:
+                                        send_notification(user["id"], "individual", u["id"], "email",
+                                            st.session_state.get("danger_subj",""),
+                                            st.session_state.get("danger_body",""))
+                                        cnt += 1
+                                st.success(f"✅ {cnt}명에게 발송 완료!")
+                        else:
+                            st.success("🎉 모든 업체가 50% 이상 달성 중입니다!")
 
             # ── 탭2: 일일 50% 미만 ──
             with filter_tab2:
