@@ -2022,11 +2022,15 @@ else:
         st.markdown(f'<div style="font-size:1.6rem; font-weight:700; display:flex; align-items:center; gap:6px; margin:0; padding:4px 0">🐉 {title_text}</div>', unsafe_allow_html=True)
 
     with h_right:
-        # 버튼들을 오른쪽 정렬 — 빈 공간 왼쪽에, 버튼들 오른쪽에
-        if _show_admin_btn:
+        _show_agency_btn = is_agency_admin(user) or is_superadmin(user)
+        if _show_admin_btn and _show_agency_btn:
+            spacer, bc_ko, bc_en, bc_jp, bc_agency, bc_work, bc_home, bc_write, bc_notice, bc_admin, bc_profile, bc_logout = st.columns([0.5, 0.28, 0.28, 0.28, 0.65, 0.5, 0.42, 0.42, 0.52, 0.52, 0.5, 0.25])
+        elif _show_admin_btn:
             spacer, bc_ko, bc_en, bc_jp, bc_work, bc_home, bc_write, bc_notice, bc_admin, bc_profile, bc_logout = st.columns([1.2, 0.28, 0.28, 0.28, 0.5, 0.42, 0.42, 0.52, 0.52, 0.5, 0.25])
+            bc_agency = None
         else:
             spacer, bc_ko, bc_en, bc_jp, bc_work, bc_home, bc_write, bc_notice, bc_profile, bc_logout = st.columns([1.5, 0.28, 0.28, 0.28, 0.5, 0.42, 0.42, 0.52, 0.5, 0.25])
+            bc_agency = None
 
         with bc_ko:
             if st.button("🇰🇷", use_container_width=True, key="flag_ko", help="한국어"):
@@ -2037,13 +2041,13 @@ else:
         with bc_jp:
             if st.button("🇯🇵", use_container_width=True, key="flag_ja", help="日本語"):
                 st.session_state.lang = "ja"; st.rerun()
+        if bc_agency:
+            with bc_agency:
+                if st.button("🤝 위탁대시보드", use_container_width=True, key="hdr_agency_btn"):
+                    go_to("agency_dashboard"); st.rerun()
         with bc_work:
             if st.button(t("hdr_work"), use_container_width=True, key="hdr_work_btn"):
                 go_to("work_page"); st.rerun()
-            # 위탁관리자 or 슈퍼관리자만 보이는 버튼
-            if is_agency_admin(user) or is_superadmin(user):
-                if st.button("🤝 위탁대시보드", use_container_width=True, key="hdr_agency_btn"):
-                    go_to("agency_dashboard"); st.rerun()
         with bc_home:
             if st.button("🏠 홈", use_container_width=True):
                 go_home(); st.rerun()
