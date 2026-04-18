@@ -2699,8 +2699,8 @@ else:
             st.divider()
 
             # ── 현황 필터 탭 ──
-            filter_tab1, filter_tab2, filter_tab3, filter_tab4 = st.tabs([
-                "📋 전체 현황", "⚠️ 일일 50% 미만", "✅ 일일 50% 이상", "📊 달성률별 그룹"
+            filter_tab1, filter_tab2, filter_tab3, filter_tab4, filter_tab5 = st.tabs([
+                "📋 전체 현황", "⚠️ 일일 50% 미만", "✅ 일일 50% 이상", "📊 달성률별 그룹", "📅 캘린더 현황"
             ])
 
             def calc_user_stats(u, all_reps):
@@ -3086,6 +3086,247 @@ else:
                                     st.success(f"✅ {len(grp_users)}명에게 발송 완료!")
                                 else:
                                     st.warning("제목과 내용을 입력해주세요.")
+
+            # ── 탭5: 캘린더 현황 ──
+            with filter_tab5:
+                import calendar as cal_mod
+
+                st.markdown("### 📅 업체별 일별 근무자 현황 캘린더")
+
+                # 컨트롤
+                cc1, cc2, cc3 = st.columns([2, 2, 4])
+                with cc1:
+                    # 업체 선택
+                    cal_tenant_names = ["전체 업체"] + [tn["name"] for tn in my_tenants]
+                    cal_sel_tenant = st.selectbox("업체 선택", cal_tenant_names, key="cal_tenant_sel")
+                with cc2:
+                    # 연월 선택
+                    cal_year = st.selectbox("연도", list(range(2025, 2028)), index=1, key="cal_year")
+                    cal_month = st.selectbox("월", list(range(1, 13)), index=today.month-1, key="cal_month")
+                with cc3:
+                    cal_view = st.radio("보기 방식",
+                        ["📅 월간 캘린더", "📊 일별 막대그래프", "📋 일별 상세 테이블"],
+                        horizontal=True, key="cal_view_mode")
+
+                # 해당 업체 사용자 목록
+                if cal_sel_tenant == "전체 업체":
+                    cal_users = []
+                    for tn in my_tenants:
+                        cal_users.extend(get_tenant_users(tn["id"]))
+                else:
+                    cal_tenant_obj = next((tn for tn in my_tenants if tn["name"] == cal_sel_tenant), None)
+                    cal_users = get_tenant_users(cal_tenant_obj["id"]) if cal_tenant_obj else []
+
+                if not cal_users:
+                    st.info("사용자가 없습니다.")
+                else:
+                    cal_uid_set = {u["id"] for u in cal_users}
+
+                    # 해당 월 보고서 데이터 로드
+                    cal_month_str = f"{cal_year}-{str(cal_month).zfill(2)}"
+                    cal_reps = [r for r in all_reps_ag
+                        if r["user_id"] in cal_uid_set
+                        and str(r.get("created_at",""))[:7] == cal_month_str]
+
+                    # 일별 집계
+                    days_in_month = cal_mod.monthrange(cal_year, cal_month)[1]
+                    daily_counts = {}  # {day: {user_id: count}}
+                    for r in cal_reps:
+                        day = int(str(r.get("created_at",""))[:10].split("-")[2])
+                        uid = r["user_id"]
+                        if day not in daily_counts:
+                            daily_counts[day] = {}
+                        daily_counts[day][uid] = daily_counts[day].get(uid, 0) + 1
+
+                    # ── 보기 방식 1: 월간 캘린더 ──
+                    if cal_view == "📅 월간 캘린더":
+                        st.markdown(f"#### {cal_year}년 {cal_month}월 — {cal_sel_tenant}")
+
+                        # 요일 헤더
+                        week_days = ["월", "화", "수", "목", "금", "토", "일"]
+                        cols = st.columns(7)
+                        for i, wd in enumerate(week_days):
+                            color = "#ef4444" if wd == "일" else "#3b82f6" if wd == "토" else "#1e293b"
+                            cols[i].markdown(f"<div style='text-align:center;font-weight:700;color:{color};padding:4px;'>{wd}</div>", unsafe_allow_html=True)
+
+                        # 달력 그리기
+                        first_weekday = cal_mod.monthrange(cal_year, cal_month)[0]  # 0=월요일
+                        day_num = 1
+                        week_cells = []
+
+                        # 첫 주 빈칸
+                        for _ in range(first_weekday):
+                            week_cells.append(None)
+
+                        for d in range(1, days_in_month + 1):
+                            week_cells.append(d)
+
+                        # 7개씩 나눠서 주 단위 출력
+                        for week_start in range(0, len(week_cells), 7):
+                            week = week_cells[week_start:week_start+7]
+                            # 7개 미만이면 None으로 채움
+                            while len(week) < 7:
+                                week.append(None)
+
+                            cols = st.columns(7)
+                            for i, day in enumerate(week):
+                                with cols[i]:
+                                    if day is None:
+                                        st.markdown("<div style='height:70px;'></div>", unsafe_allow_html=True)
+                                    else:
+                                        day_data = daily_counts.get(day, {})
+                                        total_reports = sum(day_data.values())
+                                        active_users = len(day_data)
+                                        total_users = len(cal_users)
+
+                                        # 오늘 표시
+                                        is_today = (day == today.day and cal_month == today.month and cal_year == today.year)
+                                        # 주말
+                                        is_weekend = (week_start // 7 * 7 + i) % 7 >= 5
+
+                                        # 달성률 색상
+                                        if total_reports == 0:
+                                            bg = "#f8fafc" if not is_today else "#fef9c3"
+                                            text_color = "#94a3b8"
+                                        elif active_users >= total_users:
+                                            bg = "#dcfce7"
+                                            text_color = "#16a34a"
+                                        elif active_users >= total_users * 0.5:
+                                            bg = "#fef9c3"
+                                            text_color = "#d97706"
+                                        else:
+                                            bg = "#fee2e2"
+                                            text_color = "#dc2626"
+
+                                        border = "3px solid #3b82f6" if is_today else "1px solid #e2e8f0"
+                                        day_color = "#ef4444" if i == 6 else "#3b82f6" if i == 5 else "#1e293b"
+
+                                        st.markdown(f"""
+                                        <div style="background:{bg};border:{border};border-radius:8px;
+                                            padding:6px;min-height:70px;cursor:pointer;">
+                                            <div style="font-weight:700;color:{day_color};font-size:0.9rem;">{day}</div>
+                                            <div style="font-size:0.75rem;color:{text_color};font-weight:600;margin-top:4px;">
+                                                {total_reports}건
+                                            </div>
+                                            <div style="font-size:0.65rem;color:#64748b;">
+                                                {active_users}/{total_users}명
+                                            </div>
+                                        </div>
+                                        """, unsafe_allow_html=True)
+
+                        # 범례
+                        st.markdown("""
+                        <div style="display:flex;gap:12px;margin-top:8px;font-size:0.78rem;">
+                            <span>🟢 전원 활동</span>
+                            <span>🟡 50% 이상</span>
+                            <span>🔴 50% 미만</span>
+                            <span>⬜ 활동 없음</span>
+                            <span>🔵 테두리=오늘</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                        # 날짜 클릭 → 해당 날 상세
+                        st.divider()
+                        sel_day = st.selectbox("날짜 선택 (상세 보기)",
+                            list(range(1, days_in_month+1)),
+                            index=min(today.day, days_in_month)-1,
+                            format_func=lambda x: f"{cal_year}년 {cal_month}월 {x}일",
+                            key="cal_detail_day")
+
+                        sel_day_str = f"{cal_year}-{str(cal_month).zfill(2)}-{str(sel_day).zfill(2)}"
+                        st.markdown(f"#### 📋 {cal_year}년 {cal_month}월 {sel_day}일 상세")
+
+                        day_detail = daily_counts.get(sel_day, {})
+                        dh1, dh2, dh3 = st.columns(3)
+                        dh1.metric("보고서 합계", f"{sum(day_detail.values())}건")
+                        dh2.metric("활동 사용자", f"{len(day_detail)}명")
+                        dh3.metric("미활동", f"{len(cal_users)-len(day_detail)}명")
+
+                        # 사용자별 상세
+                        umap_cal = {u["id"]: u for u in cal_users}
+                        for u in cal_users:
+                            cnt = day_detail.get(u["id"], 0)
+                            icon = "✅" if cnt > 0 else "❌"
+                            color = "#22c55e" if cnt > 0 else "#ef4444"
+                            dc1, dc2, dc3 = st.columns([3, 1, 1])
+                            dc1.write(f"{icon} **{u['name']}**")
+                            dc2.markdown(f"<span style='color:{color};font-weight:700'>{cnt}건</span>", unsafe_allow_html=True)
+                            with dc3:
+                                if cnt == 0:
+                                    if st.button("📧", key=f"cal_notif_{u['id']}_{sel_day}", help="업무 독려"):
+                                        body = f"안녕하세요 {u.get('name','')}님.\n\n{sel_day_str} 업무 보고서가 아직 없습니다.\n확인 부탁드립니다.\n\n[DragonEyes 관리팀]"
+                                        send_notification(user["id"], "individual", u["id"], "email",
+                                            f"[DragonEyes] {sel_day_str} 업무 현황 확인 요청", body)
+                                        st.success("발송!")
+
+                        # 미활동자 일괄 독려
+                        inactive = [u for u in cal_users if u["id"] not in day_detail]
+                        if inactive:
+                            st.divider()
+                            if st.button(f"📧 {sel_day}일 미활동 {len(inactive)}명 일괄 독려", type="primary", key="cal_bulk_inactive"):
+                                for u in inactive:
+                                    body = f"안녕하세요 {u.get('name','')}님.\n\n{sel_day_str} 업무 보고서가 없습니다.\n확인 부탁드립니다.\n\n[DragonEyes 관리팀]"
+                                    send_notification(user["id"], "individual", u["id"], "email",
+                                        f"[DragonEyes] {sel_day_str} 업무 현황 확인 요청", body)
+                                st.success(f"✅ {len(inactive)}명에게 독려 발송 완료!")
+
+                    # ── 보기 방식 2: 막대그래프 ──
+                    elif cal_view == "📊 일별 막대그래프":
+                        import pandas as pd
+                        st.markdown(f"#### {cal_year}년 {cal_month}월 일별 보고서 현황 — {cal_sel_tenant}")
+
+                        chart_data = []
+                        for d in range(1, days_in_month+1):
+                            day_data = daily_counts.get(d, {})
+                            chart_data.append({
+                                "날짜": f"{d}일",
+                                "보고서수": sum(day_data.values()),
+                                "활동인원": len(day_data),
+                            })
+                        df_chart = pd.DataFrame(chart_data)
+                        st.bar_chart(df_chart.set_index("날짜")["보고서수"])
+
+                        st.divider()
+                        # 주간 합계
+                        st.markdown("**📊 주간 합계**")
+                        for week_num in range(0, days_in_month, 7):
+                            week_days_range = list(range(week_num+1, min(week_num+8, days_in_month+1)))
+                            week_total = sum(sum(daily_counts.get(d, {}).values()) for d in week_days_range)
+                            week_active = sum(len(daily_counts.get(d, {})) for d in week_days_range)
+                            st.markdown(f"**{week_days_range[0]}~{week_days_range[-1]}일**: 보고서 {week_total}건 | 활동 연인원 {week_active}명")
+
+                    # ── 보기 방식 3: 일별 상세 테이블 ──
+                    elif cal_view == "📋 일별 상세 테이블":
+                        import pandas as pd
+                        st.markdown(f"#### {cal_year}년 {cal_month}월 일별 사용자 현황 — {cal_sel_tenant}")
+
+                        # 사용자 × 날짜 매트릭스
+                        matrix_data = {}
+                        for u in cal_users:
+                            row = {"이름": u["name"]}
+                            monthly_total = 0
+                            for d in range(1, days_in_month+1):
+                                cnt = daily_counts.get(d, {}).get(u["id"], 0)
+                                row[f"{d}일"] = cnt if cnt > 0 else ""
+                                monthly_total += cnt
+                            row["합계"] = monthly_total
+                            row["달성률"] = f"{min(int(monthly_total/u.get('monthly_target',10)*100),100)}%"
+                            matrix_data[u["name"]] = row
+
+                        df_matrix = pd.DataFrame(list(matrix_data.values()))
+
+                        # 스타일링
+                        st.dataframe(df_matrix.set_index("이름"), use_container_width=True, height=400)
+
+                        # CSV 다운로드
+                        csv_cal = df_matrix.to_csv(index=False, encoding="utf-8-sig")
+                        st.download_button(
+                            f"📥 {cal_year}년 {cal_month}월 현황 CSV 다운로드",
+                            data=csv_cal.encode("utf-8-sig"),
+                            file_name=f"업무현황_{cal_sel_tenant}_{cal_year}{str(cal_month).zfill(2)}.csv",
+                            mime="text/csv",
+                            use_container_width=True
+                        )
 
             # ── 빠른 개인 알림 팝업 ──
             if st.session_state.get("quick_notif_show") and st.session_state.get("quick_notif_user"):
