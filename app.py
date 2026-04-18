@@ -2333,9 +2333,13 @@ else:
         with col_title:
             st.subheader("🤝 위탁관리자 모니터링 대시보드")
 
-        this_month = date.today().strftime("%Y-%m")
+        today = date.today()
+        this_month = today.strftime("%Y-%m")
+        this_week_start = today - timedelta(days=today.weekday())  # 월요일
+        today_str = today.isoformat()
+        week_str = this_week_start.isoformat()
 
-        # 담당 업체 목록 가져오기
+        # 담당 업체 목록
         if is_superadmin(user):
             my_tenants = get_all_tenants()
         else:
@@ -2344,109 +2348,244 @@ else:
         if not my_tenants:
             st.info("담당 업체가 없습니다. 관리자에게 업체 배정을 요청해주세요.")
         else:
-            # 전체 요약
-            all_tenant_users = []
-            for t in my_tenants:
-                all_tenant_users.extend(get_tenant_users(t["id"]))
-
+            # 전체 보고서 데이터 한 번만 로드
             all_reps_ag = supabase.table("reports").select("user_id,created_at,severity").execute().data or []
 
-            ds1, ds2, ds3, ds4 = st.columns(4)
-            ds1.metric("담당 업체", f"{len(my_tenants)}개")
-            ds2.metric("총 사용자", f"{len(all_tenant_users)}명")
-            total_month = len([r for r in all_reps_ag
-                if r["user_id"] in [u["id"] for u in all_tenant_users]
-                and str(r.get("created_at",""))[:7] == this_month])
-            ds3.metric("이번달 총 보고서", f"{total_month}건")
-            risky = len([r for r in all_reps_ag
-                if r["user_id"] in [u["id"] for u in all_tenant_users]
-                and r.get("severity",0) >= 4])
-            ds4.metric("고위험 콘텐츠", f"{risky}건", delta_color="inverse")
+            # 전체 사용자 목록
+            all_tenant_users = []
+            for tn in my_tenants:
+                all_tenant_users.extend(get_tenant_users(tn["id"]))
+            all_uid_set = {u["id"] for u in all_tenant_users}
+
+            # ── 전체 요약 카드 ──
+            total_today = len([r for r in all_reps_ag if r["user_id"] in all_uid_set and str(r.get("created_at",""))[:10] == today_str])
+            total_week  = len([r for r in all_reps_ag if r["user_id"] in all_uid_set and str(r.get("created_at",""))[:10] >= week_str])
+            total_month = len([r for r in all_reps_ag if r["user_id"] in all_uid_set and str(r.get("created_at",""))[:7] == this_month])
+            risky_cnt   = len([r for r in all_reps_ag if r["user_id"] in all_uid_set and r.get("severity",0) >= 4])
+
+            sc1, sc2, sc3, sc4, sc5 = st.columns(5)
+            sc1.metric("담당 업체", f"{len(my_tenants)}개")
+            sc2.metric("총 사용자", f"{len(all_tenant_users)}명")
+            sc3.metric("📅 오늘 보고서", f"{total_today}건")
+            sc4.metric("📆 이번주 보고서", f"{total_week}건")
+            sc5.metric("🗓️ 이번달 보고서", f"{total_month}건")
             st.divider()
 
-            # 업체별 현황
-            for tenant in my_tenants:
-                tenant_users = get_tenant_users(tenant["id"])
-                if not tenant_users:
-                    continue
+            # ── 현황 필터 탭 ──
+            filter_tab1, filter_tab2, filter_tab3, filter_tab4 = st.tabs([
+                "📋 전체 현황", "⚠️ 일일 50% 미만", "✅ 일일 50% 이상", "📊 달성률별 그룹"
+            ])
 
-                with st.expander(f"🏢 **{tenant['name']}** | 사용자 {len(tenant_users)}명", expanded=True):
-                    # 헤더
-                    th1, th2, th3, th4, th5, th6 = st.columns([2, 1, 1, 1, 1, 2])
-                    th1.markdown("**이름**")
-                    th2.markdown("**이번달**")
-                    th3.markdown("**목표**")
-                    th4.markdown("**달성률**")
-                    th5.markdown("**누적**")
-                    th6.markdown("**알림**")
+            def calc_user_stats(u, all_reps):
+                """사용자 일일/주간/월별 통계 계산"""
+                ur_all  = [r for r in all_reps if r["user_id"] == u["id"]]
+                ur_today = [r for r in ur_all if str(r.get("created_at",""))[:10] == today_str]
+                ur_week  = [r for r in ur_all if str(r.get("created_at",""))[:10] >= week_str]
+                ur_month = [r for r in ur_all if str(r.get("created_at",""))[:7] == this_month]
+                tgt = u.get("monthly_target", 10)
+                monthly_rate = min(int(len(ur_month)/tgt*100), 100) if tgt > 0 else 0
+                # 일일 목표 = 월목표 / 22영업일 (근사)
+                daily_tgt = max(1, round(tgt / 22))
+                daily_rate = min(int(len(ur_today)/daily_tgt*100), 100) if daily_tgt > 0 else 0
+                return {
+                    "today": len(ur_today), "week": len(ur_week), "month": len(ur_month),
+                    "total": len(ur_all), "tgt": tgt, "daily_tgt": daily_tgt,
+                    "monthly_rate": monthly_rate, "daily_rate": daily_rate,
+                }
+
+            def render_user_table(users_list, tab_key):
+                """사용자 현황 테이블 렌더링"""
+                if not users_list:
+                    st.info("해당하는 사용자가 없습니다.")
+                    return
+
+                # 테이블 헤더
+                st.markdown("""
+                <div style="display:grid;grid-template-columns:1.8fr 0.7fr 0.7fr 0.7fr 0.7fr 0.8fr 0.8fr 0.5fr;
+                    gap:4px;background:#1e3a5f;color:white;padding:6px 8px;border-radius:6px;
+                    font-size:0.75rem;font-weight:700;margin-bottom:4px;">
+                    <div>이름</div><div>오늘</div><div>이번주</div><div>이번달</div>
+                    <div>목표</div><div>일일달성률</div><div>월달성률</div><div>알림</div>
+                </div>""", unsafe_allow_html=True)
+
+                for u in users_list:
+                    stats = calc_user_stats(u, all_reps_ag)
+                    d_color = "#22c55e" if stats["daily_rate"] >= 50 else "#ef4444"
+                    m_color = "#22c55e" if stats["monthly_rate"] >= 100 else "#f59e0b" if stats["monthly_rate"] >= 50 else "#ef4444"
+                    d_icon = "✅" if stats["daily_rate"] >= 50 else "⚠️"
+
+                    rc = st.columns([1.8, 0.7, 0.7, 0.7, 0.7, 0.8, 0.8, 0.5])
+                    rc[0].write(f"👤 **{u['name']}**")
+                    rc[1].write(f"{stats['today']}건")
+                    rc[2].write(f"{stats['week']}건")
+                    rc[3].write(f"{stats['month']}건")
+                    rc[4].write(f"{stats['tgt']}건")
+                    rc[5].markdown(f"<span style='color:{d_color};font-weight:700'>{d_icon} {stats['daily_rate']}%</span>", unsafe_allow_html=True)
+                    rc[6].markdown(f"<span style='color:{m_color};font-weight:700'>{stats['monthly_rate']}%</span>", unsafe_allow_html=True)
+                    with rc[7]:
+                        if st.button("📧", key=f"notif_{tab_key}_{u['id']}", help="개인 이메일 발송"):
+                            st.session_state["quick_notif_user"] = u
+                            st.session_state["quick_notif_show"] = True
+                            st.rerun()
+
+            # ── 탭1: 전체 현황 ──
+            with filter_tab1:
+                for tn in my_tenants:
+                    t_users = get_tenant_users(tn["id"])
+                    if not t_users:
+                        continue
+                    # 업체 요약
+                    tn_month = len([r for r in all_reps_ag if r["user_id"] in {u["id"] for u in t_users} and str(r.get("created_at",""))[:7] == this_month])
+                    tn_avg = int(sum(calc_user_stats(u, all_reps_ag)["monthly_rate"] for u in t_users) / len(t_users)) if t_users else 0
+                    avg_color = "#22c55e" if tn_avg >= 100 else "#f59e0b" if tn_avg >= 50 else "#ef4444"
+                    with st.expander(
+                        f"🏢 **{tn['name']}** | 사용자 {len(t_users)}명 | 이번달 {tn_month}건 | 평균달성률 {tn_avg}%",
+                        expanded=True
+                    ):
+                        render_user_table(t_users, f"all_{tn['id'][:8]}")
+
+            # ── 탭2: 일일 50% 미만 ──
+            with filter_tab2:
+                st.caption(f"📅 오늘({today_str}) 일일 목표 대비 달성률 50% 미만 사용자")
+                below50_users = []
+                for tn in my_tenants:
+                    for u in get_tenant_users(tn["id"]):
+                        stats = calc_user_stats(u, all_reps_ag)
+                        if stats["daily_rate"] < 50:
+                            u["_tenant_name"] = tn["name"]
+                            below50_users.append(u)
+
+                if below50_users:
+                    st.warning(f"⚠️ 총 {len(below50_users)}명이 오늘 일일 목표 50% 미만입니다.")
+                    render_user_table(below50_users, "below50")
+
+                    # 그룹 이메일 발송
                     st.divider()
+                    with st.container(border=True):
+                        st.markdown("**📧 이 그룹에 일괄 이메일 발송**")
+                        b50_subj = st.text_input("제목", key="b50_subj", value=f"[DragonEyes] {today_str} 업무 독려 안내")
+                        b50_body = st.text_area("내용", key="b50_body", height=100,
+                            value=f"안녕하세요.\n\n오늘({today_str}) 업무 달성률이 목표의 50%에 미달하고 있습니다.\n배정된 콘텐츠를 확인하고 보고서를 작성해 주시기 바랍니다.\n\n감사합니다.\n[DragonEyes 관리팀]")
+                        if st.button("📧 50% 미만 그룹 일괄 발송", type="primary", key="send_b50"):
+                            for bu in below50_users:
+                                send_notification(user["id"], "individual", bu["id"], "email", b50_subj, b50_body)
+                            st.success(f"✅ {len(below50_users)}명에게 이메일 발송 저장 완료!")
+                else:
+                    st.success("🎉 오늘 모든 사용자가 일일 목표 50% 이상 달성 중입니다!")
 
-                    for u in tenant_users:
-                        ur = [r for r in all_reps_ag if r["user_id"] == u["id"]]
-                        mr = [r for r in ur if str(r.get("created_at",""))[:7] == this_month]
-                        tgt = u.get("monthly_target", 10)
-                        rt = min(int(len(mr)/tgt*100), 100) if tgt > 0 else 0
-                        rate_color = "#22c55e" if rt >= 100 else "#f59e0b" if rt >= 50 else "#ef4444"
+            # ── 탭3: 일일 50% 이상 ──
+            with filter_tab3:
+                st.caption(f"📅 오늘({today_str}) 일일 목표 대비 달성률 50% 이상 사용자")
+                above50_users = []
+                for tn in my_tenants:
+                    for u in get_tenant_users(tn["id"]):
+                        stats = calc_user_stats(u, all_reps_ag)
+                        if stats["daily_rate"] >= 50:
+                            u["_tenant_name"] = tn["name"]
+                            above50_users.append(u)
 
-                        uc1, uc2, uc3, uc4, uc5, uc6 = st.columns([2, 1, 1, 1, 1, 2])
-                        uc1.write(f"👤 **{u['name']}**")
-                        uc2.write(f"{len(mr)}건")
-                        uc3.write(f"{tgt}건")
-                        uc4.markdown(f"<span style='color:{rate_color};font-weight:700'>{rt}%</span>", unsafe_allow_html=True)
-                        uc5.write(f"{len(ur)}건")
-                        with uc6:
-                            # 개인 알림 버튼
-                            if st.button(f"📧 알림", key=f"agency_notif_{u['id']}"):
-                                st.session_state[f"quick_notif_user"] = u
-                                st.session_state[f"quick_notif_show"] = True
-                                st.rerun()
+                if above50_users:
+                    st.success(f"✅ 총 {len(above50_users)}명이 오늘 일일 목표 50% 이상 달성 중입니다!")
+                    render_user_table(above50_users, "above50")
 
-                    # 빠른 알림 발송
-                    if st.session_state.get("quick_notif_show") and st.session_state.get("quick_notif_user"):
-                        qnu = st.session_state.quick_notif_user
-                        with st.container(border=True):
-                            st.markdown(f"**📧 {qnu['name']}님에게 빠른 알림 발송**")
-                            qn_subj = st.text_input("제목", key="qn_subj", value=f"[DragonEyes] {qnu['name']}님 업무 현황 안내")
-                            qn_body = st.text_area("내용", key="qn_body", height=80)
-                            qn_ch = st.selectbox("채널", ["email","sms","both"],
-                                format_func=lambda x: {"email":"📧 이메일","sms":"📱 SMS","both":"📧📱 둘다"}[x],
-                                key="qn_channel")
-                            qnc1, qnc2 = st.columns(2)
-                            with qnc1:
-                                if st.button("📤 발송", type="primary", key="qn_send"):
-                                    send_notification(user["id"], "individual", qnu["id"], qn_ch, qn_subj, qn_body)
-                                    st.success(f"✅ {qnu['name']}님에게 발송 저장됨!")
-                                    st.session_state.quick_notif_show = False
-                                    st.rerun()
-                            with qnc2:
-                                if st.button("✖ 닫기", key="qn_close"):
-                                    st.session_state.quick_notif_show = False
-                                    st.rerun()
+                    # 격려 이메일 발송
+                    st.divider()
+                    with st.container(border=True):
+                        st.markdown("**📧 이 그룹에 격려 이메일 발송**")
+                        a50_subj = st.text_input("제목", key="a50_subj", value=f"[DragonEyes] {today_str} 업무 수고 감사 안내")
+                        a50_body = st.text_area("내용", key="a50_body", height=100,
+                            value=f"안녕하세요.\n\n오늘({today_str}) 업무 목표를 훌륭하게 달성하고 계십니다.\n꾸준한 모니터링 활동에 감사드립니다.\n\n감사합니다.\n[DragonEyes 관리팀]")
+                        if st.button("📧 50% 이상 그룹 일괄 발송", type="primary", key="send_a50"):
+                            for au in above50_users:
+                                send_notification(user["id"], "individual", au["id"], "email", a50_subj, a50_body)
+                            st.success(f"✅ {len(above50_users)}명에게 이메일 발송 저장 완료!")
+                else:
+                    st.info("오늘 아직 50% 이상 달성한 사용자가 없습니다.")
 
-        # 하단 일괄 알림
-        st.divider()
-        st.markdown("### 📣 일괄 알림 발송")
-        ba1, ba2 = st.columns(2)
-        with ba1:
-            bulk_target = st.selectbox("대상",
-                ["all_my_tenants", "below_50", "below_80"],
-                format_func=lambda x: {
-                    "all_my_tenants": "📢 담당 업체 전체",
-                    "below_50": "⚠️ 달성률 50% 미만",
-                    "below_80": "📊 달성률 80% 미만"
-                }[x], key="bulk_target")
-        with ba2:
-            bulk_channel = st.selectbox("채널", ["email","sms","both"],
-                format_func=lambda x: {"email":"📧 이메일","sms":"📱 SMS","both":"📧📱 둘다"}[x],
-                key="bulk_channel")
-        bulk_subj = st.text_input("제목", key="bulk_subj", value="[DragonEyes] 업무 현황 안내")
-        bulk_body = st.text_area("내용", key="bulk_body", height=100)
-        if st.button("📤 일괄 발송", type="primary", use_container_width=True, key="bulk_send"):
-            if bulk_subj and bulk_body:
-                send_notification(user["id"], bulk_target, None, bulk_channel, bulk_subj, bulk_body)
-                st.success("✅ 일괄 발송 요청이 저장됐습니다!")
-            else:
-                st.warning("제목과 내용을 입력해주세요.")
+            # ── 탭4: 달성률별 그룹 ──
+            with filter_tab4:
+                st.caption("월별 목표 달성률 기준으로 그룹을 나눠 일괄 이메일을 발송합니다.")
+
+                # 달성률별 분류
+                group_100  = []  # 100% 이상
+                group_80   = []  # 80~99%
+                group_50   = []  # 50~79%
+                group_low  = []  # 50% 미만
+
+                for tn in my_tenants:
+                    for u in get_tenant_users(tn["id"]):
+                        stats = calc_user_stats(u, all_reps_ag)
+                        u["_stats"] = stats
+                        u["_tenant_name"] = tn["name"]
+                        rt = stats["monthly_rate"]
+                        if rt >= 100: group_100.append(u)
+                        elif rt >= 80: group_80.append(u)
+                        elif rt >= 50: group_50.append(u)
+                        else: group_low.append(u)
+
+                # 요약 바
+                g1, g2, g3, g4 = st.columns(4)
+                g1.metric("🏆 100% 달성", f"{len(group_100)}명", delta="목표 완료")
+                g2.metric("📈 80~99%", f"{len(group_80)}명", delta="거의 다됐어요")
+                g3.metric("📊 50~79%", f"{len(group_50)}명", delta="노력 필요")
+                g4.metric("⚠️ 50% 미만", f"{len(group_low)}명", delta="즉시 독려 필요", delta_color="inverse")
+                st.divider()
+
+                # 그룹별 표시 + 이메일 발송
+                for grp_name, grp_users, grp_color, grp_key, default_msg in [
+                    ("🏆 100% 달성 그룹", group_100, "#22c55e", "g100",
+                     "이번달 목표를 훌륭하게 달성하셨습니다! 수고하셨습니다."),
+                    ("📈 80~99% 그룹", group_80, "#3b82f6", "g80",
+                     "이번달 목표 달성이 얼마 남지 않았습니다. 조금만 더 힘내주세요!"),
+                    ("📊 50~79% 그룹", group_50, "#f59e0b", "g50",
+                     "이번달 중간 이상 달성하고 계십니다. 꾸준한 모니터링 활동 부탁드립니다."),
+                    ("⚠️ 50% 미만 그룹", group_low, "#ef4444", "glow",
+                     "이번달 업무 목표 달성률이 저조합니다. 배정된 콘텐츠를 확인하고 보고서를 작성해 주세요."),
+                ]:
+                    if not grp_users:
+                        continue
+                    with st.expander(f"{grp_name} — {len(grp_users)}명", expanded=(grp_key in ["glow","g50"])):
+                        render_user_table(grp_users, grp_key)
+                        st.divider()
+                        gc1, gc2 = st.columns([3, 1])
+                        with gc1:
+                            grp_subj = st.text_input("제목", key=f"subj_{grp_key}",
+                                value=f"[DragonEyes] 이번달 업무 현황 안내 ({grp_name})")
+                            grp_body = st.text_area("내용", key=f"body_{grp_key}", height=80,
+                                value=f"안녕하세요.\n\n{default_msg}\n\n감사합니다.\n[DragonEyes 관리팀]")
+                        with gc2:
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            if st.button(f"📧 일괄 발송\n({len(grp_users)}명)", key=f"send_{grp_key}", use_container_width=True, type="primary"):
+                                subj_val = st.session_state.get(f"subj_{grp_key}", "")
+                                body_val = st.session_state.get(f"body_{grp_key}", "")
+                                if subj_val and body_val:
+                                    for gu in grp_users:
+                                        send_notification(user["id"], "individual", gu["id"], "email", subj_val, body_val)
+                                    st.success(f"✅ {len(grp_users)}명에게 발송 완료!")
+                                else:
+                                    st.warning("제목과 내용을 입력해주세요.")
+
+            # ── 빠른 개인 알림 팝업 ──
+            if st.session_state.get("quick_notif_show") and st.session_state.get("quick_notif_user"):
+                qnu = st.session_state.quick_notif_user
+                with st.container(border=True):
+                    st.markdown(f"**📧 {qnu['name']}님에게 이메일 발송**")
+                    qn_subj = st.text_input("제목", key="qn_subj",
+                        value=f"[DragonEyes] {qnu['name']}님 업무 현황 안내")
+                    qn_body = st.text_area("내용", key="qn_body", height=80,
+                        value=f"안녕하세요 {qnu['name']}님.\n\n업무 현황 관련 안내 드립니다.\n\n감사합니다.\n[DragonEyes 관리팀]")
+                    qnc1, qnc2 = st.columns(2)
+                    with qnc1:
+                        if st.button("📧 발송", type="primary", key="qn_send"):
+                            send_notification(user["id"], "individual", qnu["id"], "email",
+                                st.session_state.get("qn_subj",""), st.session_state.get("qn_body",""))
+                            st.success(f"✅ {qnu['name']}님에게 발송 저장됨!")
+                            st.session_state.quick_notif_show = False
+                            st.rerun()
+                    with qnc2:
+                        if st.button("✖ 닫기", key="qn_close"):
+                            st.session_state.quick_notif_show = False
+                            st.rerun()
 
     elif page == "work_page":
         lang = st.session_state.get("lang", "ko")
