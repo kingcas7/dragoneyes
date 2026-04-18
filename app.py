@@ -2751,7 +2751,12 @@ else:
                         st.session_state[sel_state_key] = False
                     btn_label = "☑️ 전체 해제" if st.session_state[sel_state_key] else "☐ 전체 선택"
                     if st.button(btn_label, key=f"sel_all_btn_{tab_key}", use_container_width=True):
-                        st.session_state[sel_state_key] = not st.session_state[sel_state_key]
+                        new_state = not st.session_state[sel_state_key]
+                        st.session_state[sel_state_key] = new_state
+                        # 각 행 체크박스 session_state도 함께 초기화
+                        for u in users_list:
+                            k = f"sel_{tab_key}_{u['id']}"
+                            st.session_state[k] = new_state
                         st.rerun()
                     sel_all = st.session_state[sel_state_key]
 
@@ -2792,11 +2797,8 @@ else:
                     m_color = "#22c55e" if stats["monthly_rate"] >= 100 else "#f59e0b" if stats["monthly_rate"] >= 50 else "#ef4444"
                     d_icon = "✅" if stats["daily_rate"] >= 50 else "⚠️"
                     rc = st.columns([0.3, 1.8, 0.7, 0.7, 0.7, 0.7, 0.8, 0.8, 0.5])
-                    # 전체 선택 상태면 기본값 True
                     ind_key = f"sel_{tab_key}_{u['id']}"
-                    if sel_all and ind_key not in st.session_state:
-                        st.session_state[ind_key] = True
-                    sel = rc[0].checkbox("", key=ind_key, value=sel_all if sel_all else st.session_state.get(ind_key, False), label_visibility="collapsed")
+                    sel = rc[0].checkbox("", key=ind_key, label_visibility="collapsed")
                     if sel:
                         selected_users.append(u)
                     rc[1].write(f"👤 **{u['name']}**")
