@@ -991,6 +991,11 @@ for k, v in defaults.items():
 
 # ── 새로고침 세션 복원 ──
 params = st.query_params
+
+# 동의 페이지 직접 접근 처리 (로그인 없이 접근 가능)
+if "req_id" in params and st.session_state.get("current_page") != "consent_page":
+    st.session_state.current_page = "consent_page"
+
 if "token" in params and st.session_state.user is None:
     try:
         token = params["token"]
@@ -2322,6 +2327,218 @@ else:
     # ══════════════════════════════
     # 💼 일하기 페이지
     # ══════════════════════════════
+    elif page == "license_request":
+        # ══════════════════════════════
+        # 📋 신규 라이선스 신청 페이지 (위탁관리자용)
+        # ══════════════════════════════
+        col_back, col_title = st.columns([1, 5])
+        with col_back:
+            if st.button("◀ 돌아가기"):
+                go_to("agency_dashboard"); st.rerun()
+        with col_title:
+            st.subheader("📋 신규 사용자 라이선스 신청")
+
+        st.info("💡 신청 후 시스템관리자 검토 → 업체 관리자 이메일 동의 → 라이선스 활성화 순으로 진행됩니다.")
+
+        # 위탁관리자 agency_id 조회
+        my_agency = None
+        try:
+            ag_res = supabase.table("agencies").select("*").eq("user_id", user["id"]).execute()
+            if ag_res.data:
+                my_agency = ag_res.data[0]
+        except:
+            pass
+
+        with st.form("license_request_form"):
+            st.markdown("### 🏢 업체 정보")
+            fc1, fc2 = st.columns(2)
+            with fc1:
+                req_company = st.text_input("업체명 *", placeholder="예: (주)포유솔루션")
+                req_biz_num = st.text_input("사업자등록번호", placeholder="000-00-00000")
+                req_company_type = st.text_input("업종", placeholder="예: 아동교육, 복지기관")
+                req_address = st.text_input("업체 주소")
+            with fc2:
+                req_company_phone = st.text_input("업체 대표전화", placeholder="02-0000-0000")
+                req_company_email = st.text_input("업체 대표이메일", placeholder="info@company.com")
+                req_plan = st.selectbox("라이선스 플랜",
+                    ["basic", "standard", "premium"],
+                    format_func=lambda x: {"basic":"🥉 Basic (3명/월)", "standard":"🥈 Standard (5명/월)", "premium":"🥇 Premium (무제한/월)"}[x])
+                req_users = st.number_input("요청 사용자 수", min_value=1, max_value=50, value=5)
+
+            st.divider()
+            st.markdown("### 👤 업체 관리자 정보 (필수 — 이메일 동의 진행)")
+            ac1, ac2 = st.columns(2)
+            with ac1:
+                req_admin_name = st.text_input("관리자 이름 *", placeholder="홍길동")
+                req_admin_email = st.text_input("관리자 이메일 * (동의 이메일 수신)", placeholder="admin@company.com")
+            with ac2:
+                req_admin_phone = st.text_input("관리자 연락처 *", placeholder="010-0000-0000")
+                req_admin_title = st.text_input("직함", placeholder="예: 대표이사, 팀장")
+
+            st.divider()
+            st.markdown("### 📝 사용 목적")
+            req_purpose = st.text_area("사용 목적 및 특이사항", height=80,
+                placeholder="예: 아동 온라인 안전 모니터링 업무, 담당 기관명 등")
+
+            submitted = st.form_submit_button("📤 라이선스 신청 제출", type="primary", use_container_width=True)
+
+            if submitted:
+                if not req_company or not req_admin_name or not req_admin_email or not req_admin_phone:
+                    st.error("업체명, 관리자 이름, 관리자 이메일, 관리자 연락처는 필수 입력 항목입니다.")
+                else:
+                    try:
+                        supabase.table("license_requests").insert({
+                            "agency_id": my_agency["id"] if my_agency else None,
+                            "requested_by": user["id"],
+                            "request_type": "new_tenant",
+                            "company_name": req_company,
+                            "company_address": req_address,
+                            "company_phone": req_company_phone,
+                            "company_email": req_company_email,
+                            "business_number": req_biz_num,
+                            "company_type": req_company_type,
+                            "admin_name": req_admin_name,
+                            "admin_email": req_admin_email,
+                            "admin_phone": req_admin_phone,
+                            "admin_title": req_admin_title,
+                            "requested_users": req_users,
+                            "license_plan": req_plan,
+                            "purpose": req_purpose,
+                            "status": "pending",
+                        }).execute()
+                        st.success("✅ 라이선스 신청이 완료됐습니다! 시스템관리자 검토 후 연락드리겠습니다.")
+                        # 시스템관리자에게 알림
+                        supabase.table("hq_messages").insert({
+                            "from_user_id": user["id"],
+                            "from_name": user["name"],
+                            "from_email": user.get("email",""),
+                            "subject": f"[DragonEyes] 신규 라이선스 신청 — {req_company}",
+                            "body": f"업체명: {req_company}\n관리자: {req_admin_name} ({req_admin_email})\n플랜: {req_plan}\n사용자수: {req_users}명\n목적: {req_purpose}",
+                            "recipient": "kingcas7@gmail.com",
+                        }).execute()
+                    except Exception as e:
+                        st.error(f"신청 오류: {str(e)}")
+
+        # 내 신청 이력
+        st.divider()
+        st.markdown("### 📜 신청 이력")
+        try:
+            my_requests = supabase.table("license_requests").select("*").eq("requested_by", user["id"]).order("created_at", desc=True).execute().data or []
+            status_map = {
+                "pending": "⏳ 검토중",
+                "approved": "✅ 승인됨",
+                "consent_sent": "📧 동의메일 발송",
+                "consented": "✍️ 동의완료",
+                "active": "🟢 활성화",
+                "rejected": "❌ 반려"
+            }
+            if my_requests:
+                for req in my_requests:
+                    st.markdown(f"**{req['company_name']}** | {status_map.get(req['status'],'?')} | {str(req.get('created_at',''))[:10]} | 관리자: {req.get('admin_name','')} ({req.get('admin_email','')})")
+            else:
+                st.info("신청 이력이 없습니다.")
+        except Exception as e:
+            st.error(f"이력 조회 오류: {str(e)}")
+
+    elif page == "consent_page":
+        # ══════════════════════════════
+        # ✍️ 최종사용자 동의 페이지
+        # ══════════════════════════════
+        st.subheader("✍️ DragonEyes 서비스 이용 동의")
+
+        # URL 파라미터에서 request_id 가져오기
+        params = st.query_params
+        req_id = params.get("req_id", "")
+
+        if not req_id:
+            st.error("잘못된 접근입니다. 이메일의 링크를 통해 접속해주세요.")
+        else:
+            try:
+                req_data = supabase.table("license_requests").select("*").eq("id", req_id).execute().data
+                if not req_data:
+                    st.error("신청 정보를 찾을 수 없습니다.")
+                else:
+                    req = req_data[0]
+                    if req["status"] == "active":
+                        st.success("✅ 이미 동의가 완료되어 라이선스가 활성화되어 있습니다.")
+                    elif req["status"] not in ["approved", "consent_sent", "consented"]:
+                        st.warning("아직 관리자 승인이 완료되지 않았습니다.")
+                    else:
+                        st.markdown(f"""
+                        <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:16px;margin-bottom:16px;">
+                            <h4 style="margin:0 0 8px 0;">🏢 {req['company_name']} 귀중</h4>
+                            <p style="margin:0;color:#475569;">안녕하세요, <strong>{req['admin_name']}</strong>님.<br>
+                            DragonEyes 모니터링 시스템 사용 신청에 감사드립니다.<br>
+                            아래 이용 조건을 확인하시고 모든 항목에 동의하시면 라이선스가 즉시 활성화됩니다.</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                        # 동의 항목 표시
+                        consent_items = supabase.table("consent_items").select("*").eq("is_active", True).order("order_num").execute().data or []
+                        all_agreed = True
+                        agreed_items = {}
+
+                        for item in consent_items:
+                            with st.container(border=True):
+                                ci1, ci2 = st.columns([1, 10])
+                                with ci2:
+                                    st.markdown(f"**{'[필수] ' if item['is_required'] else '[선택] '}{item['title']}**")
+                                    st.caption(item['content'])
+                                agreed = st.checkbox(
+                                    f"위 내용에 동의합니다{'(필수)' if item['is_required'] else '(선택)'}",
+                                    key=f"consent_{item['id']}"
+                                )
+                                agreed_items[item['id']] = agreed
+                                if item['is_required'] and not agreed:
+                                    all_agreed = False
+
+                        st.divider()
+                        # 서명 정보
+                        sc1, sc2 = st.columns(2)
+                        with sc1:
+                            consent_name = st.text_input("성명 *", value=req.get('admin_name',''), placeholder="동의자 성명")
+                        with sc2:
+                            consent_email = st.text_input("이메일 *", value=req.get('admin_email',''), placeholder="동의자 이메일")
+
+                        if not all_agreed:
+                            st.warning("⚠️ 필수 동의 항목을 모두 체크해주세요.")
+
+                        if st.button("✅ 모든 항목 동의 및 라이선스 활성화", type="primary",
+                            use_container_width=True, disabled=not all_agreed):
+                            try:
+                                # 동의 기록 저장
+                                for item_id, agreed in agreed_items.items():
+                                    supabase.table("consent_records").insert({
+                                        "request_id": req_id,
+                                        "consent_item_id": item_id,
+                                        "consented": agreed,
+                                        "consented_by_name": consent_name,
+                                        "consented_by_email": consent_email,
+                                    }).execute()
+
+                                # 신청 상태 → consented
+                                supabase.table("license_requests").update({
+                                    "status": "consented",
+                                    "consented_at": datetime.now().isoformat(),
+                                }).eq("id", req_id).execute()
+
+                                # 시스템관리자에게 동의 완료 알림
+                                supabase.table("hq_messages").insert({
+                                    "from_user_id": None,
+                                    "from_name": consent_name,
+                                    "from_email": consent_email,
+                                    "subject": f"[DragonEyes] 동의 완료 — {req['company_name']}",
+                                    "body": f"{req['company_name']} {consent_name}님이 모든 항목에 동의하였습니다.\n라이선스 활성화를 진행해 주세요.",
+                                    "recipient": "kingcas7@gmail.com",
+                                }).execute()
+
+                                st.success("✅ 동의가 완료됐습니다! 시스템관리자가 라이선스를 최종 활성화 후 안내드리겠습니다.")
+                                st.balloons()
+                            except Exception as e:
+                                st.error(f"동의 처리 오류: {str(e)}")
+            except Exception as e:
+                st.error(f"오류: {str(e)}")
+
     elif page == "agency_dashboard":
         # ══════════════════════════════
         # 🤝 위탁관리자 전용 모니터링 대시보드
@@ -2332,6 +2549,16 @@ else:
                 go_home(); st.rerun()
         with col_title:
             st.subheader("🤝 위탁관리자 모니터링 대시보드")
+
+        # 신규 라이선스 신청 버튼
+        ab1, ab2, ab3 = st.columns([2, 2, 6])
+        with ab1:
+            if st.button("➕ 신규 라이선스 신청", type="primary", use_container_width=True, key="new_license_btn"):
+                go_to("license_request"); st.rerun()
+        with ab2:
+            if st.button("📋 신청 이력 보기", use_container_width=True, key="license_history_btn"):
+                go_to("license_request"); st.rerun()
+        st.divider()
 
         today = date.today()
         this_month = today.strftime("%Y-%m")
@@ -2831,13 +3058,13 @@ else:
 
         st.divider()
 
-        # ── 본사에 연락하기 ──
+        # ── 시스템관리자에게 연락하기 ──
         with st.container(border=True):
-            st.markdown("### 📩 본사에 연락하기")
-            st.caption(t("profile_contact_label").format(st.session_state.contact_hq_recipient))
+            st.markdown("### 📩 시스템관리자에게 연락하기")
+            st.caption("수신: kingcas7@gmail.com (DragonEyes 시스템 관리자)")
             contact_subject = st.text_input(t("profile_subject"), placeholder=t("profile_subject_ph"))
             contact_body = st.text_area(t("profile_body"), height=120, placeholder=t("profile_body_ph"))
-            if st.button("📩 본사에 전송", type="primary", use_container_width=True):
+            if st.button("📩 시스템관리자에게 전송", type="primary", use_container_width=True):
                 if contact_subject and contact_body:
                     try:
                         supabase.table("hq_messages").insert({
@@ -2846,9 +3073,9 @@ else:
                             "from_email": user.get("email",""),
                             "subject": contact_subject,
                             "body": contact_body,
-                            "recipient": st.session_state.contact_hq_recipient,
+                            "recipient": "kingcas7@gmail.com",
                         }).execute()
-                        st.success(t("profile_sent"))
+                        st.success("✅ 시스템관리자에게 전송됐습니다!")
                     except Exception as e:
                         st.error(t("send_error_msg").format(str(e)))
                 else:
@@ -4602,9 +4829,9 @@ else:
         if (is_admin or is_super) and tab8:
             with tab8:
                 st.subheader(t("admin_title"))
-                admin_tab1, admin_tab2, admin_tab3, admin_tab4, admin_tab5, admin_tab6, admin_tab7, admin_tab8, admin_tab9, admin_tab10, admin_tab11 = st.tabs([
+                admin_tab1, admin_tab2, admin_tab3, admin_tab4, admin_tab5, admin_tab6, admin_tab7, admin_tab8, admin_tab9, admin_tab10, admin_tab11, admin_tab12 = st.tabs([
                     t("admin_team"), t("admin_assign"), t("admin_token"), t("admin_email"), t("admin_log"), "💬 채팅 토큰", "📡 채널 모니터링", "🧠 키워드 학습",
-                    "🏢 업체(Tenant) 관리", "🤝 위탁관리자 관리", "📣 알림 발송 센터"
+                    "🏢 업체(Tenant) 관리", "🤝 위탁관리자 관리", "📣 알림 발송 센터", "📋 라이선스 신청 관리"
                 ])
 
                 # 팀 현황
@@ -5448,3 +5675,215 @@ else:
                             st.info("발송 이력이 없습니다.")
                     except Exception as e:
                         st.error(f"이력 조회 오류: {str(e)}")
+
+                # ══════════════════════════════
+                # 📋 라이선스 신청 관리 탭
+                # ══════════════════════════════
+                with admin_tab12:
+                    st.subheader("📋 라이선스 신청 관리")
+                    st.caption("위탁관리자가 신청한 신규 업체 라이선스를 검토하고 동의 메일을 발송합니다.")
+
+                    status_map_admin = {
+                        "pending": "⏳ 검토중",
+                        "approved": "✅ 승인됨",
+                        "consent_sent": "📧 동의메일 발송",
+                        "consented": "✍️ 동의완료",
+                        "active": "🟢 활성화",
+                        "rejected": "❌ 반려"
+                    }
+
+                    # 필터
+                    lf1, lf2 = st.columns(2)
+                    with lf1:
+                        filter_status = st.selectbox("상태 필터",
+                            ["전체", "pending", "approved", "consent_sent", "consented", "active", "rejected"],
+                            format_func=lambda x: "전체" if x == "전체" else status_map_admin.get(x, x),
+                            key="license_filter_status")
+                    with lf2:
+                        filter_search = st.text_input("업체명 검색", key="license_search", placeholder="업체명 입력...")
+
+                    try:
+                        lr_query = supabase.table("license_requests").select("*").order("created_at", desc=True)
+                        if filter_status != "전체":
+                            lr_query = lr_query.eq("status", filter_status)
+                        all_requests = lr_query.execute().data or []
+
+                        if filter_search:
+                            all_requests = [r for r in all_requests if filter_search.lower() in r.get("company_name","").lower()]
+
+                        # 요약
+                        rs1, rs2, rs3, rs4, rs5 = st.columns(5)
+                        rs1.metric("전체", len(all_requests))
+                        rs2.metric("⏳ 검토중", len([r for r in all_requests if r["status"]=="pending"]))
+                        rs3.metric("📧 동의대기", len([r for r in all_requests if r["status"] in ["approved","consent_sent"]]))
+                        rs4.metric("✍️ 동의완료", len([r for r in all_requests if r["status"]=="consented"]))
+                        rs5.metric("🟢 활성화", len([r for r in all_requests if r["status"]=="active"]))
+                        st.divider()
+
+                        umap_lr = {u["id"]: u["name"] for u in (supabase.table("users").select("id,name").execute().data or [])}
+                        agency_map_lr = {a["id"]: a["name"] for a in get_all_agencies()}
+
+                        if not all_requests:
+                            st.info("신청 내역이 없습니다.")
+                        else:
+                            for req in all_requests:
+                                status_badge = status_map_admin.get(req["status"], "?")
+                                agency_name = agency_map_lr.get(req.get("agency_id",""), "직접신청")
+                                req_date = str(req.get("created_at",""))[:10]
+
+                                with st.expander(f"{status_badge} **{req['company_name']}** | {agency_name} | {req_date} | 관리자: {req.get('admin_name','')}"):
+                                    # 업체 정보
+                                    lrc1, lrc2 = st.columns(2)
+                                    with lrc1:
+                                        st.markdown("**🏢 업체 정보**")
+                                        st.write(f"업체명: {req.get('company_name','')}")
+                                        st.write(f"사업자번호: {req.get('business_number','-')}")
+                                        st.write(f"주소: {req.get('company_address','-')}")
+                                        st.write(f"대표전화: {req.get('company_phone','-')}")
+                                        st.write(f"플랜: {req.get('license_plan','basic')} | 사용자: {req.get('requested_users',5)}명")
+                                    with lrc2:
+                                        st.markdown("**👤 업체 관리자 정보**")
+                                        st.write(f"이름: {req.get('admin_name','')}")
+                                        st.write(f"이메일: {req.get('admin_email','')}")
+                                        st.write(f"연락처: {req.get('admin_phone','')}")
+                                        st.write(f"직함: {req.get('admin_title','-')}")
+                                    if req.get("purpose"):
+                                        st.caption(f"사용목적: {req['purpose']}")
+
+                                    st.divider()
+
+                                    # 액션 버튼
+                                    if req["status"] == "pending":
+                                        ac1, ac2, ac3 = st.columns(3)
+                                        with ac1:
+                                            admin_memo = st.text_input("관리자 메모", key=f"memo_{req['id']}", placeholder="검토 의견")
+                                        with ac2:
+                                            if st.button("✅ 승인", key=f"approve_{req['id']}", type="primary"):
+                                                supabase.table("license_requests").update({
+                                                    "status": "approved",
+                                                    "approved_at": datetime.now().isoformat(),
+                                                    "approved_by": user["id"],
+                                                    "admin_memo": st.session_state.get(f"memo_{req['id']}",""),
+                                                }).eq("id", req["id"]).execute()
+                                                st.success("✅ 승인됐습니다!")
+                                                st.rerun()
+                                        with ac3:
+                                            if st.button("❌ 반려", key=f"reject_{req['id']}"):
+                                                supabase.table("license_requests").update({
+                                                    "status": "rejected",
+                                                    "admin_memo": st.session_state.get(f"memo_{req['id']}",""),
+                                                }).eq("id", req["id"]).execute()
+                                                st.warning("반려됐습니다.")
+                                                st.rerun()
+
+                                    elif req["status"] == "approved":
+                                        st.markdown("**📧 동의 메일 발송**")
+                                        consent_url = f"https://dragoneyes-appaqljjwd63ayd8n8vlts.streamlit.app/?req_id={req['id']}"
+                                        mail_preview = f"""안녕하세요, {req.get('admin_name','')}님.
+
+DragonEyes 모니터링 시스템 사용 신청이 승인되었습니다.
+
+아래 링크를 클릭하여 서비스 이용 약관 및 조건을 확인하시고 동의해 주시면 라이선스가 즉시 활성화됩니다.
+
+▶ 동의 페이지: {consent_url}
+
+감사합니다.
+DragonEyes 시스템 관리팀"""
+                                        st.code(consent_url, language=None)
+                                        with st.expander("📄 발송 메일 미리보기"):
+                                            st.text(mail_preview)
+                                        if st.button("📧 동의 메일 발송", key=f"send_consent_{req['id']}", type="primary"):
+                                            try:
+                                                supabase.table("hq_messages").insert({
+                                                    "from_user_id": user["id"],
+                                                    "from_name": "DragonEyes 관리팀",
+                                                    "from_email": "kingcas7@gmail.com",
+                                                    "subject": f"[DragonEyes] 서비스 이용 동의 요청 — {req['company_name']}",
+                                                    "body": mail_preview,
+                                                    "recipient": req.get("admin_email",""),
+                                                }).execute()
+                                                supabase.table("license_requests").update({
+                                                    "status": "consent_sent",
+                                                    "consent_sent_at": datetime.now().isoformat(),
+                                                }).eq("id", req["id"]).execute()
+                                                st.success(f"✅ {req.get('admin_email','')}으로 동의 메일 발송 저장됨!")
+                                                st.rerun()
+                                            except Exception as e:
+                                                st.error(f"발송 오류: {str(e)}")
+
+                                    elif req["status"] == "consented":
+                                        st.success("✍️ 업체 관리자가 동의를 완료했습니다!")
+                                        # 동의 기록 확인
+                                        consent_recs = supabase.table("consent_records").select("*").eq("request_id", req["id"]).execute().data or []
+                                        consent_items_map = {ci["id"]: ci["title"] for ci in (supabase.table("consent_items").select("id,title").execute().data or [])}
+                                        if consent_recs:
+                                            for cr in consent_recs:
+                                                icon = "✅" if cr.get("consented") else "❌"
+                                                st.caption(f"{icon} {consent_items_map.get(cr.get('consent_item_id',''), '?')} — {str(cr.get('consented_at',''))[:16]}")
+
+                                        st.divider()
+                                        st.markdown("**🟢 라이선스 활성화**")
+                                        act1, act2 = st.columns(2)
+                                        with act1:
+                                            act_start = st.date_input("라이선스 시작일", key=f"act_start_{req['id']}")
+                                            act_end = st.date_input("라이선스 종료일", key=f"act_end_{req['id']}")
+                                        with act2:
+                                            if st.button("🟢 라이선스 활성화", key=f"activate_{req['id']}", type="primary"):
+                                                try:
+                                                    # 업체 생성
+                                                    new_tenant = supabase.table("tenants").insert({
+                                                        "name": req["company_name"],
+                                                        "license_plan": req.get("license_plan","basic"),
+                                                        "max_users": req.get("requested_users", 5),
+                                                        "is_active": True,
+                                                        "contact_email": req.get("company_email",""),
+                                                        "contact_phone": req.get("company_phone",""),
+                                                        "license_start": str(act_start),
+                                                        "license_end": str(act_end),
+                                                    }).execute()
+                                                    new_tenant_id = new_tenant.data[0]["id"]
+
+                                                    # agency_tenants 연결
+                                                    if req.get("agency_id"):
+                                                        supabase.table("agency_tenants").insert({
+                                                            "agency_id": req["agency_id"],
+                                                            "tenant_id": new_tenant_id,
+                                                        }).execute()
+
+                                                    # 신청 상태 활성화
+                                                    supabase.table("license_requests").update({
+                                                        "status": "active",
+                                                        "activated_at": datetime.now().isoformat(),
+                                                        "tenant_id": new_tenant_id,
+                                                    }).eq("id", req["id"]).execute()
+
+                                                    st.success(f"🎉 {req['company_name']} 라이선스가 활성화됐습니다!")
+                                                    st.rerun()
+                                                except Exception as e:
+                                                    st.error(f"활성화 오류: {str(e)}")
+
+                                    elif req["status"] == "active":
+                                        tenant_id = req.get("tenant_id")
+                                        if tenant_id:
+                                            t_users = get_tenant_users(tenant_id)
+                                            st.success(f"🟢 활성화됨 | 소속 사용자 {len(t_users)}명")
+
+                    except Exception as e:
+                        st.error(f"신청 목록 조회 오류: {str(e)}")
+
+                # 동의 항목 관리
+                with st.expander("⚙️ 동의 항목 관리 (시스템관리자 전용)", expanded=False):
+                    try:
+                        ci_list = supabase.table("consent_items").select("*").order("order_num").execute().data or []
+                        st.caption(f"현재 동의 항목 {len(ci_list)}개")
+                        for ci in ci_list:
+                            cic1, cic2 = st.columns([5, 1])
+                            cic1.markdown(f"**{ci['order_num']}. {ci['title']}** {'[필수]' if ci['is_required'] else '[선택]'}")
+                            cic1.caption(ci['content'][:80] + "...")
+                            with cic2:
+                                toggle = "❌ 비활성화" if ci.get("is_active") else "✅ 활성화"
+                                if st.button(toggle, key=f"ci_toggle_{ci['id']}"):
+                                    supabase.table("consent_items").update({"is_active": not ci.get("is_active")}).eq("id", ci["id"]).execute()
+                                    st.rerun()
+                    except Exception as e:
+                        st.error(f"동의 항목 조회 오류: {str(e)}")
