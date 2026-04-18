@@ -13,6 +13,9 @@ try:
 except ImportError:
     RESEND_AVAILABLE = False
 # v2026.03.15 — 보고서↔탐색URL 양방향 연결, YouTube 메타데이터 30일 보관 정책, 모바일 PWA 최적화
+# v2026.04.19 — 보안 패치: URL 토큰 노출 제거 (login / 세션 복원 양쪽)
+#              ※ is_weekday() 는 현재 항상 True (주말에도 채팅 허용) 상태이며 변경하지 않음.
+#              ※ 앞으로 무엇을 바꿨는지는 이 주석 블록에 날짜와 함께 한 줄씩 남깁니다.
 load_dotenv()
 
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
@@ -1033,9 +1036,21 @@ params = st.query_params
 if "req_id" in params and st.session_state.get("current_page") != "consent_page":
     st.session_state.current_page = "consent_page"
 
+# ⚠️ 보안 수정 (v2026.04.19):
+# 기존에는 URL 의 ?token=... 이 항상 남아 있어 스크린샷·공유·로그로 토큰이 유출될 수 있었음.
+# 이제는 URL 에 token 이 들어오면 '읽자마자 즉시 제거' 하고 세션 상태로만 보관함.
+# → 공유 링크·외부 리다이렉트 등 기존 호환성은 유지하면서, URL 에 민감정보가 남지 않음.
 if "token" in params and st.session_state.user is None:
+    token = params["token"]
+    # 읽은 즉시 URL 에서 token 파라미터 삭제 (재노출 방지)
     try:
-        token = params["token"]
+        del st.query_params["token"]
+    except Exception:
+        try:
+            st.query_params.clear()
+        except Exception:
+            pass
+    try:
         result = supabase.auth.get_user(token)
         if result.user:
             ud = supabase.table("users").select("*").eq("email", result.user.email).execute()
@@ -1047,7 +1062,8 @@ if "token" in params and st.session_state.user is None:
                 st.session_state.report_count = len(res.data)
                 st.session_state.current_page = "home_landing"
     except Exception:
-        st.query_params.clear()
+        # 유효하지 않은 토큰이면 조용히 무시 (이미 URL 에서는 제거됨)
+        pass
 
 # ══════════════════════════════
 # 조직 관리 헬퍼 함수
@@ -1278,7 +1294,10 @@ def login(email, password):
                 st.session_state.user = ud.data[0]
                 st.session_state.access_token = result.session.access_token
                 st.session_state.report_count = get_month_count(ud.data[0]["id"])
-                st.query_params["token"] = result.session.access_token
+                # ⚠️ 보안 수정 (v2026.04.19):
+                # 기존에는 여기서 st.query_params["token"] = access_token 을 저장해
+                # 브라우저 URL에 토큰이 그대로 노출되었음 (스크린샷·히스토리·로그로 유출 위험).
+                # 토큰은 st.session_state 에만 보관하고, URL 에는 절대 노출하지 않음.
                 return True, "로그인 성공"
             return False, "사용자 정보를 찾을 수 없습니다."
     except Exception as e:
@@ -1286,6 +1305,11 @@ def login(email, password):
     return False, "로그인 실패"
 
 def is_weekday():
+    # 📌 참고 (v2026.04.19 점검):
+    # 이 함수는 원래 "평일(월~금)에만 AI 채팅 사용 가능"을 위한 체크용입니다.
+    # 현재는 항상 True 를 반환하도록 되어 있어 → 주말에도 채팅이 허용됩니다.
+    # 주말 제한을 실제로 켜고 싶으면 아래 줄을 다음으로 바꾸면 됩니다:
+    #     return datetime.now().weekday() < 5   # 월(0)~금(4) 만 True
     return True
 
 def get_chat_token_info(user_id):
