@@ -3045,15 +3045,55 @@ else:
                         elif rt >= 50: group_50.append(u)
                         else: group_low.append(u)
 
-                # 요약 바
+                # 요약 바 — 클릭 시 해당 그룹으로 스크롤
+                if "jump_to_group" not in st.session_state:
+                    st.session_state.jump_to_group = None
+
                 g1, g2, g3, g4 = st.columns(4)
-                g1.metric("🏆 100% 달성", f"{len(group_100)}명", delta="목표 완료")
-                g2.metric("📈 80~99%", f"{len(group_80)}명", delta="거의 다됐어요")
-                g3.metric("📊 50~79%", f"{len(group_50)}명", delta="노력 필요")
-                g4.metric("⚠️ 50% 미만", f"{len(group_low)}명", delta="즉시 독려 필요", delta_color="inverse")
+                with g1:
+                    st.markdown(f"""<div style="background:#f0fdf4;border:2px solid #22c55e;border-radius:10px;
+                        padding:12px;text-align:center;cursor:pointer;">
+                        <div style="font-size:1.5rem;font-weight:700;color:#16a34a;">{len(group_100)}명</div>
+                        <div style="font-size:0.8rem;color:#16a34a;font-weight:600;">🏆 100% 달성</div>
+                        <div style="font-size:0.72rem;color:#4ade80;">↑ 목표 완료</div>
+                    </div>""", unsafe_allow_html=True)
+                    if st.button("🏆 그룹 보기", key="jump_g100", use_container_width=True):
+                        st.session_state.jump_to_group = "g100"
+                        st.rerun()
+                with g2:
+                    st.markdown(f"""<div style="background:#eff6ff;border:2px solid #3b82f6;border-radius:10px;
+                        padding:12px;text-align:center;cursor:pointer;">
+                        <div style="font-size:1.5rem;font-weight:700;color:#2563eb;">{len(group_80)}명</div>
+                        <div style="font-size:0.8rem;color:#2563eb;font-weight:600;">📈 80~99%</div>
+                        <div style="font-size:0.72rem;color:#60a5fa;">↑ 거의 다됐어요</div>
+                    </div>""", unsafe_allow_html=True)
+                    if st.button("📈 그룹 보기", key="jump_g80", use_container_width=True):
+                        st.session_state.jump_to_group = "g80"
+                        st.rerun()
+                with g3:
+                    st.markdown(f"""<div style="background:#fffbeb;border:2px solid #f59e0b;border-radius:10px;
+                        padding:12px;text-align:center;cursor:pointer;">
+                        <div style="font-size:1.5rem;font-weight:700;color:#d97706;">{len(group_50)}명</div>
+                        <div style="font-size:0.8rem;color:#d97706;font-weight:600;">📊 50~79%</div>
+                        <div style="font-size:0.72rem;color:#fbbf24;">↑ 노력 필요</div>
+                    </div>""", unsafe_allow_html=True)
+                    if st.button("📊 그룹 보기", key="jump_g50", use_container_width=True):
+                        st.session_state.jump_to_group = "g50"
+                        st.rerun()
+                with g4:
+                    st.markdown(f"""<div style="background:#fef2f2;border:2px solid #ef4444;border-radius:10px;
+                        padding:12px;text-align:center;cursor:pointer;">
+                        <div style="font-size:1.5rem;font-weight:700;color:#dc2626;">{len(group_low)}명</div>
+                        <div style="font-size:0.8rem;color:#dc2626;font-weight:600;">⚠️ 50% 미만</div>
+                        <div style="font-size:0.72rem;color:#f87171;">↑ 즉시 독려 필요</div>
+                    </div>""", unsafe_allow_html=True)
+                    if st.button("⚠️ 그룹 보기", key="jump_glow", use_container_width=True):
+                        st.session_state.jump_to_group = "glow"
+                        st.rerun()
                 st.divider()
 
                 # 그룹별 표시 + 이메일 발송
+                jump = st.session_state.get("jump_to_group")
                 for grp_name, grp_users, grp_color, grp_key, default_msg in [
                     ("🏆 100% 달성 그룹", group_100, "#22c55e", "g100",
                      "이번달 목표를 훌륭하게 달성하셨습니다! 수고하셨습니다."),
@@ -3066,7 +3106,12 @@ else:
                 ]:
                     if not grp_users:
                         continue
-                    with st.expander(f"{grp_name} — {len(grp_users)}명", expanded=(grp_key in ["glow","g50"])):
+                    # 버튼 클릭 시 해당 그룹 자동 펼침
+                    is_jumped = (jump == grp_key)
+                    if is_jumped:
+                        st.session_state.jump_to_group = None  # 한 번만 펼침
+                    with st.expander(f"{grp_name} — {len(grp_users)}명",
+                        expanded=(grp_key in ["glow","g50"] or is_jumped)):
                         render_user_table(grp_users, grp_key)
                         st.divider()
                         gc1, gc2 = st.columns([3, 1])
