@@ -4280,20 +4280,34 @@ window.openMyQR = async function(){
   document.body.appendChild(tmp);
   new QRCode(tmp, {text:qrData, width:240, height:240, colorDark:'#000000', colorLight:'#ffffff'});
 
-  const waitForImg = () => new Promise(resolve => {
+  // 모바일은 <canvas>, 데스크톱은 <img> 생성 — 둘 다 지원
+  const waitForQR = () => new Promise((resolve, reject) => {
+    let elapsed = 0;
     const check = () => {
+      // 모바일: canvas 방식
+      const qrCanvas = tmp.querySelector('canvas');
+      if(qrCanvas && qrCanvas.width > 0){
+        resolve({ type: 'canvas', el: qrCanvas }); return;
+      }
+      // 데스크톱: img 방식
       const qrImg = tmp.querySelector('img');
-      if(qrImg && qrImg.complete && qrImg.naturalWidth > 0){ resolve(qrImg); }
-      else if(qrImg){ qrImg.onload = () => resolve(qrImg); }
-      else { setTimeout(check, 50); }
+      if(qrImg && qrImg.complete && qrImg.naturalWidth > 0){
+        resolve({ type: 'img', el: qrImg }); return;
+      }
+      if(qrImg && !qrImg.complete){
+        qrImg.onload = () => resolve({ type: 'img', el: qrImg }); return;
+      }
+      elapsed += 50;
+      if(elapsed > 5000){ reject(new Error('QR 생성 시간 초과')); return; }
+      setTimeout(check, 50);
     };
     setTimeout(check, 100);
   });
 
   try {
-    const qrImg = await waitForImg();
+    const qr = await waitForQR();
     ctx.clearRect(0,0,240,240);
-    ctx.drawImage(qrImg, 0, 0, 240, 240);
+    ctx.drawImage(qr.el, 0, 0, 240, 240);
   } catch(e) {
     ctx.fillStyle = '#ff4554'; ctx.fillText('QR 생성 실패', 120, 125);
   }
