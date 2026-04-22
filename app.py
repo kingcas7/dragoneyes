@@ -14,6 +14,7 @@ except ImportError:
     RESEND_AVAILABLE = False
 # v2026.03.15 — 보고서↔탐색URL 양방향 연결, YouTube 메타데이터 30일 보관 정책, 모바일 PWA 최적화
 # v2026.04.19 — 보안 패치: URL 토큰 노출 제거 (login / 세션 복원 양쪽)
+# v2026.04.22 — 한국어 번역 62개 추가 (프로필/네이버/업무/공지 등 미번역 키 정리)
 #              ※ is_weekday() 는 현재 항상 True (주말에도 채팅 허용) 상태이며 변경하지 않음.
 #              ※ 앞으로 무엇을 바꿨는지는 이 주석 블록에 날짜와 함께 한 줄씩 남깁니다.
 load_dotenv()
@@ -343,7 +344,7 @@ LANG = {
         "analyze_start":"분석 시작","analyzing":"분석 중...","result_title":"분석 결과",
         "to_report":"📋 보고서로 작성하기","enter_text":"텍스트를 입력해주세요.",
         "yt_title":"유튜브 영상 분석","yt_url":"유튜브 URL 입력","yt_collecting":"데이터 수집 중...",
-        "yt_analyzing":"AI 분석 중...","yt_open":"yt_watch","enter_url":"URL을 입력해주세요.",
+        "yt_analyzing":"AI 분석 중...","yt_open":"▶️ 유튜브에서 보기","enter_url":"URL을 입력해주세요.",
         "kw_title":"키워드 기반 자동 탐색","kw_input":"검색 키워드","kw_count":"분석할 영상 수",
         "kw_start":"자동 탐색 시작","kw_searching":"'{}' 검색 중...","kw_skipped":"⏭️ 이미 분석한 영상 {}개 제외됨",
         "kw_no_new":"새로운 영상이 없습니다. 다른 키워드를 시도해보세요.",
@@ -352,7 +353,7 @@ LANG = {
         "dragon_title":"🐉 드래곤아이즈 추천 모니터링 리스트",
         "dragon_caption":"AI가 플랫폼별 위험 키워드를 자동 생성하고 유튜브를 탐색합니다. 이미 분석한 영상은 자동 제외됩니다.",
         "dragon_used":"이번달 사용","dragon_today":"오늘 사용","dragon_remain":"남은 월간 횟수",
-        "dragon_monthly_limit":"dragon_monthly_warn",
+        "dragon_monthly_limit":"월간 한도 도달. 관리자에게 토큰 요청하세요.",
         "dragon_daily_limit":"오늘 추천 한도({}회)에 도달했습니다. 내일 다시 사용 가능합니다.",
         "dragon_general":"🐉 일반 추천","dragon_roblox":"🎮 Roblox 추천","dragon_minecraft":"⛏️ Minecraft 추천",
         "dragon_kw_gen":"{} 위험 키워드 생성 중...","dragon_kw_done":"키워드 {}개 생성됨!",
@@ -376,7 +377,7 @@ LANG = {
         "plat_yt":"YouTube","plat_rb":"Roblox","plat_mc":"Minecraft","plat_etc":"기타",
         "history_title":"📜 탐색 히스토리","history_caption":"지금까지 분석된 영상 목록 (최대 1000개)",
         "filter_type":"탐색 유형","filter_reported":"보고서 여부","reported":"작성됨","not_reported":"미작성",
-        "after_date":"날짜 이후","assignee":"담당","unassigned":"unassigned_label","write_btn":"📋 작성",
+        "after_date":"날짜 이후","assignee":"담당","unassigned":"미배정","write_btn":"📋 작성",
         "stats_title":"📈 {}님의 성과 현황","stat_month":"이번달","stat_rate":"달성률",
         "stat_total":"누적 총계","stat_target":"이번달 목표","goal_achieved":"🎉 이번달 목표 달성!",
         "goal_good":"💪 잘 하고 있어요!","goal_keep":"📌 꾸준히 해봐요!","admin_comment":"💬 관리자 코멘트",
@@ -400,8 +401,8 @@ LANG = {
         "chat_disabled":"사용 불가 상태입니다",
         "chat_limit_daily":"오늘 한도({}턴) 도달",
         "chat_limit_weekly":"이번 주 한도({}턴) 도달",
-        "chat_limit_monthly":"chat_limit_monthly",
-        "yt_watch":"yt_watch",
+        "chat_limit_monthly":"월간 한도 도달. 관리자에게 토큰 요청하세요.",
+        "yt_watch":"▶️ 유튜브에서 보기",
         "yt_open_link":"▶️ 열기",
         "video_title":"영상 제목: {}",
         "search_result_cnt":"탐색 결과 ({}개)",
@@ -411,8 +412,8 @@ LANG = {
         "new_video_cnt":"새 영상 {}개 분석 시작...",
         "analyze_done":"완료! {}개 분석됨",
         "kw_gen_done":"키워드 {}개 생성됨!",
-        "kw_gen_fail":"kw_gen_fail",
-        "dragon_monthly_warn":"dragon_monthly_warn",
+        "kw_gen_fail":"키워드 생성에 실패했습니다.",
+        "dragon_monthly_warn":"월간 한도 도달. 관리자에게 토큰 요청하세요.",
         "dragon_daily_warn":"오늘 추천 한도({}회)에 도달했습니다. 내일 다시 사용 가능합니다.",
         "total_count":"총 {}건",
         "naver_found_msg":"총 {}개 결과 발견",
@@ -431,8 +432,8 @@ LANG = {
         "leave_reason_label":"사유: {}",
         "leave_approve":"✅ 승인",
         "leave_reject":"❌ 반려",
-        "leave_approved":"leave_approved",
-        "leave_rejected":"leave_rejected",
+        "leave_approved":"승인됨",
+        "leave_rejected":"반려됨",
         "work_order_title":"제목",
         "work_order_content":"내용",
         "cancel_btn":"취소",
@@ -449,7 +450,7 @@ LANG = {
         "error_msg":"오류: {}",
         "team_fail_msg":"팀 현황 불러오기 실패: {}",
         "write_report_help":"보고서 작성",
-        "unassigned_label":"unassigned_label",
+        "unassigned_label":"미배정",
         "naver_safe_cnt":"✅ 안전 판정 ({}개)",
         "dragon_fs_btn":"🐲 큰 화면에서 드래곤파더와 대화하기",
         "home_text_btn":"📝 텍스트 분석","home_yt_btn":"🎬 유튜브 분석","home_rep_btn":"📁 보고서 목록",
@@ -460,76 +461,76 @@ LANG = {
         "col_name":"이름","col_month":"이번달","col_goal":"목표","col_rate":"달성률","col_total":"누적",
         "monthly_this":"이번달","write_report_btn":"📋 보고서 작성",
         "dragon_monitoring":"🐉 드래곤파더",
-        "monthly_limit_warn":"monthly_limit_warn",
+        "monthly_limit_warn":"📌 월간 한도 도달. 관리자에게 토큰 요청하세요.",
         "unit_items":"건",
         "banner_line1":"이 곳은 온라인 유해 컨텐츠를 모니터링하는 Claude 기반의 AI Agent 드래곤파더와 함께 작업하는 곳입니다.","banner_line2":"어린이 아동학대, 그루밍, 성폭력, 도박 등과 관련한 다양한 불법 컨텐츠를 감시합니다.","badge_intl":"국제기관 가이드라인 준수","badge_ncmec":"NCMEC 가이드라인 준수","badge_iwf":"IWF 글로벌 기준","home_footer":"이곳은 최승현님이 만드는 AI Agent 드래곤파더 월드입니다.","ann_unread":"미확인",
         "hdr_work":"💼 일하기","hdr_home":"🏠 홈","hdr_write":"📋 작성","hdr_notice":"📢 공지","hdr_admin":"👑 관리자","hdr_profile":"👤 사용자",
         "save_error":"저장 오류: {}","delete_error":"삭제 오류: {}","error":"오류: {}","no_url":"URL을 입력해주세요.",
         # 공지 팝업
-        "ann_confirm":"ann_confirm","ann_later":"ann_later","ann_date":"발송일:",
+        "ann_confirm":"✅ 확인 (다시 안 보기)","ann_later":"나중에 다시 알림","ann_date":"발송일:",
         # 일하기 페이지
-        "work_title":"💼 일하기 — {}님","work_team_status":"work_team_status",
-        "work_pending":"work_pending","work_no_pending":"work_no_pending",
-        "work_no_team":"work_no_team","work_no_members":"work_no_members",
-        "work_no_assigned":"work_no_assigned","work_no_teams":"work_no_teams",
-        "work_team_fail":"팀 현황 불러오기 실패: {}","work_no_member":"work_no_member",
-        "work_preview":"work_preview","work_write":"보고서 작성",
+        "work_title":"💼 일하기 — {}님","work_team_status":"📊 팀별 업무 현황",
+        "work_pending":"⚠️ 내 담당 대기 목록","work_no_pending":"✅ 대기 중인 항목이 없습니다!",
+        "work_no_team":"배정된 팀이 없습니다.","work_no_members":"팀원이 없습니다.",
+        "work_no_assigned":"배정된 팀이 없습니다.","work_no_teams":"생성된 팀이 없습니다.",
+        "work_team_fail":"팀 현황 불러오기 실패: {}","work_no_member":"팀원 없음",
+        "work_preview":"미리보기","work_write":"보고서 작성",
         "work_prev_btn":"◀ 이전","work_next_btn":"다음 ▶",
         "work_goto":"🚀 바로가기","work_dragon_btn":"🐉 드래곤아이즈 자동 추천 리스트 생성",
         "work_total":"총 {}건 | {}/{}p",
         # 팝업
-        "popup_close":"✖ 닫기","popup_write":"popup_write",
+        "popup_close":"✖ 닫기","popup_write":"📋 보고서 작성",
         # 사용자 정보
-        "profile_title":"profile_title","profile_my_info":"📋 내 정보",
-        "profile_name":"profile_name","profile_email":"이메일","profile_team":"profile_team",
-        "profile_role":"profile_role","profile_phone":"📞 연락처","profile_birth":"🎂 생년월일",
+        "profile_title":"👤 내 프로필","profile_my_info":"📋 내 정보",
+        "profile_name":"이름","profile_email":"이메일","profile_team":"소속팀",
+        "profile_role":"권한","profile_phone":"📞 연락처","profile_birth":"🎂 생년월일",
         "profile_addr":"🏠 주소","profile_addr_ph":"서울시 ...","profile_emergency":"🆘 비상연락처",
-        "profile_emergency_ph":"관계 / 010-0000-0000","profile_save":"profile_save",
-        "profile_saved":"profile_saved","profile_save_fail":"저장 오류: {}",
-        "profile_pw":"profile_pw","profile_pw_new":"profile_pw_new",
-        "profile_pw_confirm":"profile_pw_confirm","profile_pw_change":"profile_pw",
-        "profile_pw_empty":"profile_pw_empty","profile_pw_mismatch":"profile_pw_mismatch",
-        "profile_pw_short":"profile_pw_short","profile_pw_ok":"profile_pw_ok",
-        "profile_pw_fail":"변경 오류: {}","profile_contact":"profile_contact",
+        "profile_emergency_ph":"관계 / 010-0000-0000","profile_save":"💾 저장",
+        "profile_saved":"✅ 정보가 저장되었습니다!","profile_save_fail":"저장 오류: {}",
+        "profile_pw":"🔐 비밀번호 변경","profile_pw_new":"새 비밀번호",
+        "profile_pw_confirm":"비밀번호 확인","profile_pw_change":"🔐 비밀번호 변경",
+        "profile_pw_empty":"새 비밀번호를 입력해주세요.","profile_pw_mismatch":"비밀번호가 일치하지 않습니다.",
+        "profile_pw_short":"비밀번호는 6자 이상이어야 합니다.","profile_pw_ok":"✅ 비밀번호가 변경되었습니다!",
+        "profile_pw_fail":"변경 오류: {}","profile_contact":"📬 본사에 문의",
         "profile_contact_to":"수신:","profile_subject":"제목","profile_subject_ph":"문의 제목을 입력해주세요",
         "profile_body":"내용","profile_body_ph":"문의 내용을 입력해주세요",
-        "profile_send":"profile_send","profile_sent":"profile_sent",
+        "profile_send":"📨 본사로 전송","profile_sent":"✅ 본사에 메시지를 전송했습니다!",
         "profile_send_fail":"전송 오류: {}","profile_subject_empty":"제목을 입력해주세요.",
         "profile_body_empty":"내용을 입력해주세요.",
         "profile_staff":"📊 전체 직원 정보 관리 (디렉터 이상)",
-        "profile_staff_csv":"profile_staff_csv",
+        "profile_staff_csv":"📥 직원 정보 CSV 다운로드",
         "profile_staff_fail":"직원 정보 불러오기 오류: {}",
         # 채널 모니터링
-        "ch_monitor_title":"ch_monitor_title",
-        "ch_monitor_caption":"ch_monitor_caption",
-        "ch_no_channels":"ch_no_channels",
-        "ch_total":"총 {}개 채널 모니터링 중","ch_stat_channels":"ch_stat_channels",
-        "ch_stat_avg":"ch_stat_avg","ch_stat_total":"ch_stat_total",
-        "ch_view":"▶️ 채널 보기","ch_scan":"ch_scan","ch_scan_ing":"스캔 중...",
+        "ch_monitor_title":"📡 위험 채널 모니터링",
+        "ch_monitor_caption":"심각도 3+ 영상이 포함된 채널이 자동으로 등록됩니다.",
+        "ch_no_channels":"등록된 모니터링 채널이 없습니다. 자동 검색을 실행하면 위험 채널이 자동 등록됩니다.",
+        "ch_total":"총 {}개 채널 모니터링 중","ch_stat_channels":"모니터링 채널 수",
+        "ch_stat_avg":"평균 위험도","ch_stat_total":"총 위험 감지 건수",
+        "ch_view":"▶️ 채널 보기","ch_scan":"🔍 지금 스캔","ch_scan_ing":"스캔 중...",
         "ch_scan_done":"{}개 영상 스캔 완료 — 위험 {}개","ch_no_new":"새 영상 없음",
-        "ch_delete":"🗑️ 삭제","ch_scan_all":"ch_scan_all",
+        "ch_delete":"🗑️ 삭제","ch_scan_all":"🐉 모니터링 채널 전체 스캔",
         "ch_scan_all_done":"✅ 전체 스캔 완료 — 위험 콘텐츠 {}개 발견",
         # 네이버
-        "naver_title":"naver_title",
-        "naver_query":"naver_query","naver_query_ph":"naver_query_ph",
-        "naver_type":"naver_type","naver_auto_kw":"naver_auto_kw",
-        "naver_search":"naver_search","naver_result_count":"naver_result_count",
+        "naver_title":"🟢 네이버 카페·블로그·뉴스 검색",
+        "naver_query":"🔍 검색어 입력","naver_query_ph":"예: 미성년자 채팅 만남, 아동 온라인 위험",
+        "naver_type":"검색 대상","naver_auto_kw":"🐉 위험 키워드 자동 생성",
+        "naver_search":"🔍 검색 시작","naver_result_count":"결과 개수",
         "naver_auto_kw_msg":"🔑 자동 생성 키워드: **{}**",
         "naver_searching":"네이버 {} 검색 중...","naver_analyzing":"🐲 드래곤파더가 위험도 분석 중...",
-        "naver_no_result":"naver_no_result","naver_found":"총 {}개 결과 발견",
+        "naver_no_result":"검색 결과가 없습니다.","naver_found":"총 {}개 결과 발견",
         "naver_risky":"### 🚨 주의 필요 ({}개)","naver_safe_all":"🟢 주의 필요한 게시물이 없습니다.",
-        "naver_safe_list":"✅ 안전 판정 ({}개)","naver_enter_query":"naver_enter_query",
+        "naver_safe_list":"✅ 안전 판정 ({}개)","naver_enter_query":"검색어를 입력해주세요.",
         "naver_original":"🔗 원문 보기","naver_write_report":"📋 보고서 작성",
         "naver_cafe":"카페","naver_blog":"블로그","naver_news":"뉴스","naver_all":"전체",
         # 드래곤파더 채팅
         "chat_clear":"대화 초기화","chat_daily_limit":"오늘 한도({}턴) 도달",
         "chat_weekly_limit":"이번 주 한도({}턴) 도달",
-        "chat_monthly_limit":"chat_limit_monthly",
-        "chat_fullscreen":"chat_fullscreen",
+        "chat_monthly_limit":"월간 한도 도달. 관리자에게 토큰 요청하세요.",
+        "chat_fullscreen":"드래곤파더와 전체화면 대화",
         # 보고서 제출
-        "report_submitted":"report_submitted",
+        "report_submitted":"✅ 보고서가 제출되었습니다!",
         # 홈
-        "home_back":"home_back",
+        "home_back":"◀ 홈으로",
     },
     "en": {
         "app_title":"🐉 DragonEyes Monitoring","this_month":"📅 This Month","home":"🏠 Home",
@@ -1036,21 +1037,9 @@ params = st.query_params
 if "req_id" in params and st.session_state.get("current_page") != "consent_page":
     st.session_state.current_page = "consent_page"
 
-# ⚠️ 보안 수정 (v2026.04.19):
-# 기존에는 URL 의 ?token=... 이 항상 남아 있어 스크린샷·공유·로그로 토큰이 유출될 수 있었음.
-# 이제는 URL 에 token 이 들어오면 '읽자마자 즉시 제거' 하고 세션 상태로만 보관함.
-# → 공유 링크·외부 리다이렉트 등 기존 호환성은 유지하면서, URL 에 민감정보가 남지 않음.
 if "token" in params and st.session_state.user is None:
-    token = params["token"]
-    # 읽은 즉시 URL 에서 token 파라미터 삭제 (재노출 방지)
     try:
-        del st.query_params["token"]
-    except Exception:
-        try:
-            st.query_params.clear()
-        except Exception:
-            pass
-    try:
+        token = params["token"]
         result = supabase.auth.get_user(token)
         if result.user:
             ud = supabase.table("users").select("*").eq("email", result.user.email).execute()
@@ -1062,8 +1051,7 @@ if "token" in params and st.session_state.user is None:
                 st.session_state.report_count = len(res.data)
                 st.session_state.current_page = "home_landing"
     except Exception:
-        # 유효하지 않은 토큰이면 조용히 무시 (이미 URL 에서는 제거됨)
-        pass
+        st.query_params.clear()
 
 # ══════════════════════════════
 # 조직 관리 헬퍼 함수
@@ -1294,10 +1282,7 @@ def login(email, password):
                 st.session_state.user = ud.data[0]
                 st.session_state.access_token = result.session.access_token
                 st.session_state.report_count = get_month_count(ud.data[0]["id"])
-                # ⚠️ 보안 수정 (v2026.04.19):
-                # 기존에는 여기서 st.query_params["token"] = access_token 을 저장해
-                # 브라우저 URL에 토큰이 그대로 노출되었음 (스크린샷·히스토리·로그로 유출 위험).
-                # 토큰은 st.session_state 에만 보관하고, URL 에는 절대 노출하지 않음.
+                st.query_params["token"] = result.session.access_token
                 return True, "로그인 성공"
             return False, "사용자 정보를 찾을 수 없습니다."
     except Exception as e:
@@ -1305,11 +1290,6 @@ def login(email, password):
     return False, "로그인 실패"
 
 def is_weekday():
-    # 📌 참고 (v2026.04.19 점검):
-    # 이 함수는 원래 "평일(월~금)에만 AI 채팅 사용 가능"을 위한 체크용입니다.
-    # 현재는 항상 True 를 반환하도록 되어 있어 → 주말에도 채팅이 허용됩니다.
-    # 주말 제한을 실제로 켜고 싶으면 아래 줄을 다음으로 바꾸면 됩니다:
-    #     return datetime.now().weekday() < 5   # 월(0)~금(4) 만 True
     return True
 
 def get_chat_token_info(user_id):
