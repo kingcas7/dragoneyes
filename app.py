@@ -2034,9 +2034,15 @@ if st.session_state.user is None:
     with lc4:
         if st.button("🇯🇵", help="日本語", key="login_flag_ja"): st.session_state.lang = "ja"; st.rerun()
 
-    st.title(t("login_title"))
-    st.subheader(t("login_sub"))
-    st.divider()
+    # ── 로그인 배너 (v2026.04.24 신규) ──
+    import os as _os
+    _banner_path = "login_banner.png"
+    if _os.path.exists(_banner_path):
+        st.image(_banner_path, use_container_width=True)
+    else:
+        st.title(t("login_title"))
+        st.subheader(t("login_sub"))
+    st.write("")
     c1, c2, c3 = st.columns([1,2,1])
     with c2:
         email = st.text_input(t("email"))
