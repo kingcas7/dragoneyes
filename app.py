@@ -2039,9 +2039,9 @@ if st.session_state.user is None:
     with lc4:
         if st.button("🇯🇵", help="日本語", key="login_flag_ja"): st.session_state.lang = "ja"; st.rerun()
 
-    # ── 로그인 배너 (v2026.04.24 신규) ──
+    # ── 로그인 배너 (v2026.04.26 절대경로 수정) ──
     import os as _os
-    _banner_path = "login_banner.png"
+    _banner_path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "login_banner.png")
     if _os.path.exists(_banner_path):
         st.image(_banner_path, use_container_width=True)
     else:
