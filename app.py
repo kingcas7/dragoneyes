@@ -1088,8 +1088,7 @@ if "sid" in params and st.session_state.user is None:
                     this_month = date.today().strftime("%Y-%m")
                     res = supabase.table("reports").select("id").eq("user_id", _u["id"]).gte("created_at", f"{this_month}-01").execute()
                     st.session_state.report_count = len(res.data)
-                    if st.session_state.get("current_page") not in ["consent_page", "home_landing"]:
-                        st.session_state.current_page = "home_landing"
+                    # current_page는 그대로 유지 (사용자가 보던 페이지 보존)
     except Exception as _sess_err:
         # 세션 복원 실패 → sid 정리
         if "sid" in st.query_params:
