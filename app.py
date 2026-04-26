@@ -1009,6 +1009,7 @@ def t(key, *args):
 defaults = {
     "user": None,
     "access_token": None,
+    "refresh_token": None,
     "report_count": 0,
     "lang": "ko",
     "current_page": "home_landing",
@@ -1037,6 +1038,8 @@ params = st.query_params
 if "req_id" in params and st.session_state.get("current_page") != "consent_page":
     st.session_state.current_page = "consent_page"
 
+# ─── 🔐 세션 복원: sid (refresh_token) 사용 ───
+# 옛 token 파라미터 호환 (기존 세션 마이그레이션)
 if "token" in params and st.session_state.user is None:
     try:
         token = params["token"]
@@ -1050,8 +1053,47 @@ if "token" in params and st.session_state.user is None:
                 res = supabase.table("reports").select("id").eq("user_id", ud.data[0]["id"]).gte("created_at", f"{this_month}-01").execute()
                 st.session_state.report_count = len(res.data)
                 st.session_state.current_page = "home_landing"
+        # 옛 token 정리
+        if "token" in st.query_params:
+            del st.query_params["token"]
     except Exception:
-        st.query_params.clear()
+        if "token" in st.query_params:
+            del st.query_params["token"]
+
+# 신규 sid (refresh_token) 방식
+if "sid" in params and st.session_state.user is None:
+    try:
+        rt = params["sid"]
+        # Supabase에 refresh_token으로 세션 갱신
+        result = supabase.auth.refresh_session(rt)
+        if result and result.session and result.user:
+            ud = supabase.table("users").select("*").eq("email", result.user.email).execute()
+            if ud.data:
+                # 주말 차단 검사 (일반 사용자)
+                from datetime import datetime as _dt_now
+                _u = ud.data[0]
+                _role = _u.get("role_v2", "user")
+                _is_weekend = _dt_now.now().weekday() >= 5  # 5=토, 6=일
+                if _role == "user" and _is_weekend:
+                    st.session_state.user = None
+                    st.warning("📅 주말 보안 정책에 따라 일반 사용자는 토요일/일요일에 접속할 수 없습니다.")
+                    if "sid" in st.query_params:
+                        del st.query_params["sid"]
+                else:
+                    st.session_state.user = _u
+                    st.session_state.access_token = result.session.access_token
+                    st.session_state.refresh_token = result.session.refresh_token
+                    # sid 갱신 (새 refresh_token으로)
+                    st.query_params["sid"] = result.session.refresh_token
+                    this_month = date.today().strftime("%Y-%m")
+                    res = supabase.table("reports").select("id").eq("user_id", _u["id"]).gte("created_at", f"{this_month}-01").execute()
+                    st.session_state.report_count = len(res.data)
+                    if st.session_state.get("current_page") not in ["consent_page", "home_landing"]:
+                        st.session_state.current_page = "home_landing"
+    except Exception as _sess_err:
+        # 세션 복원 실패 → sid 정리
+        if "sid" in st.query_params:
+            del st.query_params["sid"]
 
 # ══════════════════════════════
 # 조직 관리 헬퍼 함수
@@ -1288,11 +1330,22 @@ def login(email, password):
         if result.user:
             ud = supabase.table("users").select("*").eq("email", email).execute()
             if ud.data:
-                st.session_state.user = ud.data[0]
+                _u = ud.data[0]
+                # ─── 🚫 주말 차단 검사 (일반 사용자만) ───
+                from datetime import datetime as _dt_login
+                _role = _u.get("role_v2", "user")
+                _is_weekend = _dt_login.now().weekday() >= 5  # 5=토, 6=일
+                if _role == "user" and _is_weekend:
+                    return False, "📅 주말 보안 정책에 따라 일반 사용자는 토요일/일요일에 접속할 수 없습니다. 평일에 다시 시도해주세요."
+
+                # ─── 정상 로그인 ───
+                st.session_state.user = _u
                 st.session_state.access_token = result.session.access_token
-                st.session_state.report_count = get_month_count(ud.data[0]["id"])
-                # 🔒 보안: URL에 토큰을 심지 않습니다 (4/19 패치 + 4/26 재적용)
-                # 토큰은 st.session_state.access_token 에만 보관
+                st.session_state.refresh_token = result.session.refresh_token
+                st.session_state.report_count = get_month_count(_u["id"])
+                # 🔐 sid (refresh_token) 을 URL에 저장 → 새로고침 시 세션 복원
+                # refresh_token은 access_token과 달리 권한이 제한적이라 URL 노출이 비교적 안전
+                st.query_params["sid"] = result.session.refresh_token
                 return True, "로그인 성공"
             return False, "사용자 정보를 찾을 수 없습니다."
     except Exception as e:
