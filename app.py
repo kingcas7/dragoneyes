@@ -6663,12 +6663,25 @@ else:
                                         st.markdown("### 💰 계약 정보 (매출 관리용)")
                                         cc1, cc2 = st.columns([2, 1])
                                         with cc1:
-                                            contract_amount = st.number_input(
+                                            # 콤마 자동 포맷팅을 위해 text_input 사용
+                                            contract_amount_str = st.text_input(
                                                 "계약 금액 (원) *",
-                                                min_value=0, max_value=99999999999, value=0, step=100000,
-                                                key=f"contract_amt_{req['id']}",
-                                                help="VAT 포함 또는 별도 여부는 메모에 기재"
+                                                value=st.session_state.get(f"contract_amt_str_{req['id']}", ""),
+                                                placeholder="예: 3,600,000",
+                                                key=f"contract_amt_str_{req['id']}",
+                                                help="숫자 입력 시 자동으로 콤마가 표시됩니다 (VAT 포함/별도는 메모에 기재)"
                                             )
+                                            # 입력값에서 숫자만 추출하여 콤마 포맷 미리보기
+                                            _digits_only = "".join(ch for ch in (contract_amount_str or "") if ch.isdigit())
+                                            try:
+                                                contract_amount = int(_digits_only) if _digits_only else 0
+                                                if contract_amount > 0:
+                                                    st.caption(f"💵 입력 금액: **{contract_amount:,}원**")
+                                                else:
+                                                    st.caption("⚠️ 금액을 입력해주세요")
+                                            except Exception:
+                                                contract_amount = 0
+                                                st.caption("⚠️ 숫자만 입력해주세요")
                                         with cc2:
                                             payment_type = st.selectbox(
                                                 "납입 종류 *",
