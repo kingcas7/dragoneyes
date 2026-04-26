@@ -2027,8 +2027,16 @@ if st.session_state.user is None:
     lc1, lc2, lc3, lc4 = st.columns([6,1,1,1])
     st.markdown("""
     <style>
-    button[key="login_flag_ko"] p, button[key="login_flag_en"] p, button[key="login_flag_ja"] p { font-size: 2rem !important; line-height: 1 !important; 
-        font-size: 2.2rem !important;
+    /* 로그인 페이지 국기 버튼 크기 키우기 (v2026.04.26) */
+    [data-testid="stHorizontalBlock"] button p {
+        font-size: 2.5rem !important;
+        line-height: 1.2 !important;
+        margin: 0 !important;
+    }
+    [data-testid="stHorizontalBlock"] button {
+        padding: 8px !important;
+        height: auto !important;
+        min-height: 60px !important;
     }
     </style>
     """, unsafe_allow_html=True)
