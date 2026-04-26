@@ -6673,86 +6673,89 @@ else:
                                     # 액션 버튼
                                     if req["status"] == "pending":
                                         st.markdown("---")
-                                        st.markdown("### 📅 라이선스 기간 설정 (승인 시 필수)")
-                                        lc1, lc2, lc3 = st.columns([2, 1, 2])
-                                        with lc1:
-                                            from datetime import date as _date, timedelta as _td
-                                            lic_start = st.date_input(
-                                                "시작일 *",
-                                                value=_date.today(),
-                                                key=f"lic_start_{req['id']}"
-                                            )
-                                        with lc2:
-                                            lic_months = st.number_input(
-                                                "개월 수 *",
-                                                min_value=1, max_value=36, value=12, step=1,
-                                                key=f"lic_months_{req['id']}"
-                                            )
-                                        with lc3:
-                                            # 종료일 자동 계산 (개월수 - 1일)
-                                            try:
-                                                _y = lic_start.year
-                                                _m = lic_start.month + lic_months
-                                                while _m > 12:
-                                                    _m -= 12
-                                                    _y += 1
-                                                _calc_end = lic_start.replace(year=_y, month=_m) - _td(days=1)
-                                                st.text_input(
-                                                    "종료일 (자동 계산)",
-                                                    value=_calc_end.isoformat(),
-                                                    disabled=True,
-                                                    key=f"lic_end_disp_{req['id']}"
+                                        # st.form 사용 - 입력 중 페이지 리렌더 방지 + 콤마 미리보기
+                                        from datetime import date as _date, timedelta as _td
+                                        with st.form(key=f"approve_form_{req['id']}", clear_on_submit=False):
+                                            st.markdown("### 📅 라이선스 기간 설정 (승인 시 필수)")
+                                            lc1, lc2, lc3 = st.columns([2, 1, 2])
+                                            with lc1:
+                                                lic_start = st.date_input(
+                                                    "시작일 *",
+                                                    value=_date.today(),
+                                                    key=f"lic_start_{req['id']}"
                                                 )
-                                            except Exception:
-                                                _calc_end = lic_start + _td(days=30 * lic_months)
+                                            with lc2:
+                                                lic_months = st.number_input(
+                                                    "개월 수 *",
+                                                    min_value=1, max_value=36, value=12, step=1,
+                                                    key=f"lic_months_{req['id']}"
+                                                )
+                                            with lc3:
                                                 st.text_input(
-                                                    "종료일 (자동 계산)",
-                                                    value=_calc_end.isoformat(),
+                                                    "종료일 (제출 시 자동 계산)",
+                                                    value="시작일 + 개월수에 따라 자동 계산",
                                                     disabled=True,
                                                     key=f"lic_end_disp_{req['id']}"
                                                 )
 
-                                        st.markdown("### 💰 계약 정보 (매출 관리용)")
-                                        cc1, cc2 = st.columns([2, 1])
-                                        with cc1:
-                                            # 콤마 자동 포맷팅을 위해 text_input 사용
-                                            contract_amount_str = st.text_input(
-                                                "계약 금액 (원) *",
-                                                value=st.session_state.get(f"contract_amt_str_{req['id']}", ""),
-                                                placeholder="예: 3,600,000",
-                                                key=f"contract_amt_str_{req['id']}",
-                                                help="숫자 입력 시 자동으로 콤마가 표시됩니다 (VAT 포함/별도는 메모에 기재)"
+                                            st.markdown("### 💰 계약 정보 (매출 관리용)")
+                                            cc1, cc2 = st.columns([2, 1])
+                                            with cc1:
+                                                contract_amount_str = st.text_input(
+                                                    "계약 금액 (원) *",
+                                                    placeholder="예: 3600000",
+                                                    key=f"contract_amt_str_{req['id']}",
+                                                    help="숫자만 입력 (콤마 자동 처리). VAT 포함/별도는 메모에 기재"
+                                                )
+                                            with cc2:
+                                                payment_type = st.selectbox(
+                                                    "납입 종류 *",
+                                                    options=["monthly", "annual", "lump_sum"],
+                                                    format_func=lambda x: {"monthly":"📅 월납", "annual":"🗓️ 연납", "lump_sum":"💵 일시납"}[x],
+                                                    key=f"pay_type_{req['id']}"
+                                                )
+                                            payment_memo = st.text_input(
+                                                "계약 메모 (선택)",
+                                                placeholder="예: VAT 별도, 선납 할인, 분할납부 등",
+                                                key=f"pay_memo_{req['id']}"
                                             )
-                                            # 입력값에서 숫자만 추출하여 콤마 포맷 미리보기
-                                            _digits_only = "".join(ch for ch in (contract_amount_str or "") if ch.isdigit())
-                                            try:
+                                            admin_memo = st.text_input(
+                                                "관리자 메모",
+                                                key=f"memo_{req['id']}",
+                                                placeholder="검토 의견"
+                                            )
+
+                                            st.markdown("---")
+                                            btn_c1, btn_c2 = st.columns(2)
+                                            with btn_c1:
+                                                approve_clicked = st.form_submit_button(
+                                                    "✅ 승인",
+                                                    type="primary",
+                                                    use_container_width=True
+                                                )
+                                            with btn_c2:
+                                                reject_clicked = st.form_submit_button(
+                                                    "❌ 반려",
+                                                    use_container_width=True
+                                                )
+
+                                            # ─── 제출 처리 ───
+                                            if approve_clicked:
+                                                # 콤마 제거 후 숫자 변환
+                                                _digits_only = "".join(ch for ch in (contract_amount_str or "") if ch.isdigit())
                                                 contract_amount = int(_digits_only) if _digits_only else 0
-                                                if contract_amount > 0:
-                                                    st.caption(f"💵 입력 금액: **{contract_amount:,}원**")
-                                                else:
-                                                    st.caption("⚠️ 금액을 입력해주세요")
-                                            except Exception:
-                                                contract_amount = 0
-                                                st.caption("⚠️ 숫자만 입력해주세요")
-                                        with cc2:
-                                            payment_type = st.selectbox(
-                                                "납입 종류 *",
-                                                options=["monthly", "annual", "lump_sum"],
-                                                format_func=lambda x: {"monthly":"📅 월납", "annual":"🗓️ 연납", "lump_sum":"💵 일시납"}[x],
-                                                key=f"pay_type_{req['id']}"
-                                            )
-                                        payment_memo = st.text_input(
-                                            "계약 메모 (선택)",
-                                            placeholder="예: VAT 별도, 선납 할인, 분할납부 등",
-                                            key=f"pay_memo_{req['id']}"
-                                        )
 
-                                        st.markdown("---")
-                                        ac1, ac2, ac3 = st.columns(3)
-                                        with ac1:
-                                            admin_memo = st.text_input("관리자 메모", key=f"memo_{req['id']}", placeholder="검토 의견")
-                                        with ac2:
-                                            if st.button("✅ 승인", key=f"approve_{req['id']}", type="primary"):
+                                                # 종료일 계산
+                                                try:
+                                                    _y = lic_start.year
+                                                    _m = lic_start.month + lic_months
+                                                    while _m > 12:
+                                                        _m -= 12
+                                                        _y += 1
+                                                    _calc_end = lic_start.replace(year=_y, month=_m) - _td(days=1)
+                                                except Exception:
+                                                    _calc_end = lic_start + _td(days=30 * lic_months)
+
                                                 # 검증
                                                 if contract_amount <= 0:
                                                     st.error("⚠️ 계약 금액을 입력해주세요. (매출 관리에 필요)")
@@ -6761,21 +6764,21 @@ else:
                                                         "status": "approved",
                                                         "approved_at": datetime.now().isoformat(),
                                                         "approved_by": user["id"],
-                                                        "admin_memo": st.session_state.get(f"memo_{req['id']}",""),
+                                                        "admin_memo": admin_memo or "",
                                                         "license_start_date": lic_start.isoformat(),
                                                         "license_end_date": _calc_end.isoformat(),
                                                         "license_months": int(lic_months),
                                                         "contract_amount": int(contract_amount),
                                                         "payment_type": payment_type,
-                                                        "payment_memo": payment_memo,
+                                                        "payment_memo": payment_memo or "",
                                                     }).eq("id", req["id"]).execute()
                                                     st.success(f"✅ 승인됐습니다! 라이선스 기간: {lic_start} ~ {_calc_end} ({lic_months}개월) / 금액: {contract_amount:,}원")
                                                     st.rerun()
-                                        with ac3:
-                                            if st.button("❌ 반려", key=f"reject_{req['id']}"):
+
+                                            elif reject_clicked:
                                                 supabase.table("license_requests").update({
                                                     "status": "rejected",
-                                                    "admin_memo": st.session_state.get(f"memo_{req['id']}",""),
+                                                    "admin_memo": admin_memo or "",
                                                 }).eq("id", req["id"]).execute()
                                                 st.warning("반려됐습니다.")
                                                 st.rerun()
