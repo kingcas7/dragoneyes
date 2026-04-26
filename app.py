@@ -13,10 +13,10 @@ try:
 except ImportError:
     RESEND_AVAILABLE = False
 # v2026.03.15 — 보고서↔탐색URL 양방향 연결, YouTube 메타데이터 30일 보관 정책, 모바일 PWA 최적화
-# v2026.04.19 — 보안 패치: URL 토큰 노출 제거 (login / 세션 복원 양쪽)
-# v2026.04.22 — 한국어 번역 62개 추가 (프로필/네이버/업무/공지 등 미번역 키 정리)
-#              ※ is_weekday() 는 현재 항상 True (주말에도 채팅 허용) 상태이며 변경하지 않음.
-#              ※ 앞으로 무엇을 바꿨는지는 이 주석 블록에 날짜와 함께 한 줄씩 남깁니다.
+# v2026.04.19 — 보안 패치: URL 토큰 노출 방지, 세션 복원 시 토큰 즉시 삭제
+# v2026.04.21 — 한국어 번역 62개 추가
+# v2026.04.24 — 로그인 페이지 배너 이미지 추가
+# v2026.04.26 — Resend 발신자 도메인 변경 (dragoneyes@dragoneyes.co.kr), 이메일 발송 에러 로깅 추가
 load_dotenv()
 
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
@@ -1146,7 +1146,7 @@ def send_notification(sent_by_id, target_type, target_id, channel, subject, body
             try:
                 resend.api_key = RESEND_API_KEY
                 resend.Emails.send({
-                    "from": "DragonEyes <onboarding@resend.dev>",
+                    "from": "AI agent_dragoneyes <dragoneyes@dragoneyes.co.kr>",
                     "to": [recipient_email],
                     "subject": subject,
                     "html": f"""
@@ -1167,6 +1167,11 @@ def send_notification(sent_by_id, target_type, target_id, channel, subject, body
                 email_sent = True
             except Exception as e:
                 email_sent = False
+                # v2026.04.26 — 이메일 발송 에러 로깅
+                try:
+                    st.warning(f"⚠️ 이메일 발송 실패: {str(e)[:200]}")
+                except:
+                    pass
 
         # DB에 발송 기록 저장
         supabase.table("notifications").insert({
@@ -2040,6 +2045,7 @@ if st.session_state.user is None:
     if _os.path.exists(_banner_path):
         st.image(_banner_path, use_container_width=True)
     else:
+        # 배너 파일이 없으면 기존 텍스트 방식으로 fallback
         st.title(t("login_title"))
         st.subheader(t("login_sub"))
     st.write("")
@@ -3735,13 +3741,14 @@ else:
                             try:
                                 resend.api_key = RESEND_API_KEY
                                 resend.Emails.send({
-                                    "from": "DragonEyes <onboarding@resend.dev>",
+                                    "from": "AI agent_dragoneyes <dragoneyes@dragoneyes.co.kr>",
                                     "to": ["kingcas7@gmail.com"],
                                     "subject": f"[DragonEyes 문의] {contact_subject}",
                                     "html": f"<p><b>발신:</b> {user.get('name','')} ({user.get('email','')})</p><p><b>내용:</b></p><pre>{contact_body}</pre>",
                                 })
-                            except:
-                                pass
+                            except Exception as e:
+                                # v2026.04.26 — 에러 로깅 추가
+                                st.warning(f"⚠️ 이메일 발송 실패: {str(e)[:200]}")
                         supabase.table("hq_messages").insert({
                             "from_user_id": user["id"],
                             "from_name": user["name"],
