@@ -1122,6 +1122,10 @@ def get_all_tenants():
         return []
 
 @st.cache_data(ttl=60, show_spinner=False)
+def _pay_label(pt):
+    """납입 종류 한글 라벨"""
+    return {"monthly":"월납", "annual":"연납", "lump_sum":"일시납"}.get(pt or "", "-")
+
 def get_all_agencies():
     """전체 위탁관리자 목록"""
     try:
@@ -6506,6 +6510,50 @@ else:
                                 req_date = str(req.get("created_at",""))[:10]
 
                                 with st.expander(f"{status_badge} **{req['company_name']}** | {agency_name} | {req_date} | 관리자: {req.get('admin_name','')}"):
+                                    # ─── 📅 라이선스 정보 (승인됐거나 활성화된 경우만) ───
+                                    if req.get("license_start_date") and req.get("license_end_date"):
+                                        from datetime import date as _date_disp
+                                        try:
+                                            _start = _date_disp.fromisoformat(req["license_start_date"][:10])
+                                            _end = _date_disp.fromisoformat(req["license_end_date"][:10])
+                                            _today = _date_disp.today()
+                                            _days_left = (_end - _today).days
+
+                                            # 잔여 기간 색상 + 메시지
+                                            if _days_left < 0:
+                                                _badge = "⚫ 만료"
+                                                _color = "#6c757d"
+                                                _msg = f"❌ {abs(_days_left)}일 전 만료됨"
+                                            elif _days_left <= 30:
+                                                _badge = "🔴 긴급"
+                                                _color = "#dc3545"
+                                                _msg = f"⚠️ 긴급: {_days_left}일 후 만료 — 즉시 갱신 필요"
+                                            elif _days_left <= 90:
+                                                _badge = "🟠 갱신 협상 시기"
+                                                _color = "#fd7e14"
+                                                _msg = f"⚠️ {_days_left}일 후 만료 — 갱신 진행 권장"
+                                            elif _days_left <= 180:
+                                                _badge = "🟡 예산 편성 시기"
+                                                _color = "#ffc107"
+                                                _msg = f"💡 {_days_left}일 후 만료 — 갱신 검토 필요"
+                                            else:
+                                                _badge = "🟢 정상"
+                                                _color = "#28a745"
+                                                _msg = f"✅ {_days_left}일 남음"
+
+                                            st.markdown(
+                                                f"""<div style="background:{_color}15;border-left:4px solid {_color};padding:12px 16px;border-radius:6px;margin-bottom:12px;">
+                                                <div style="font-size:14px;color:{_color};font-weight:600;margin-bottom:4px;">📅 라이선스 상태: {_badge}</div>
+                                                <div style="font-size:13px;color:#333;">{_msg}</div>
+                                                <div style="font-size:12px;color:#666;margin-top:6px;">기간: {_start.isoformat()} ~ {_end.isoformat()} ({req.get('license_months','-')}개월) | 금액: {int(req.get('contract_amount') or 0):,}원 ({_pay_label(req.get('payment_type',''))})</div>
+                                                </div>""",
+                                                unsafe_allow_html=True
+                                            )
+                                            if req.get("payment_memo"):
+                                                st.caption(f"💬 {req['payment_memo']}")
+                                        except Exception as _lic_err:
+                                            st.caption(f"라이선스 정보 표시 오류: {str(_lic_err)}")
+
                                     # 업체 정보
                                     lrc1, lrc2 = st.columns(2)
                                     with lrc1:
@@ -6572,19 +6620,92 @@ else:
 
                                     # 액션 버튼
                                     if req["status"] == "pending":
+                                        st.markdown("---")
+                                        st.markdown("### 📅 라이선스 기간 설정 (승인 시 필수)")
+                                        lc1, lc2, lc3 = st.columns([2, 1, 2])
+                                        with lc1:
+                                            from datetime import date as _date, timedelta as _td
+                                            lic_start = st.date_input(
+                                                "시작일 *",
+                                                value=_date.today(),
+                                                key=f"lic_start_{req['id']}"
+                                            )
+                                        with lc2:
+                                            lic_months = st.number_input(
+                                                "개월 수 *",
+                                                min_value=1, max_value=36, value=12, step=1,
+                                                key=f"lic_months_{req['id']}"
+                                            )
+                                        with lc3:
+                                            # 종료일 자동 계산 (개월수 - 1일)
+                                            try:
+                                                _y = lic_start.year
+                                                _m = lic_start.month + lic_months
+                                                while _m > 12:
+                                                    _m -= 12
+                                                    _y += 1
+                                                _calc_end = lic_start.replace(year=_y, month=_m) - _td(days=1)
+                                                st.text_input(
+                                                    "종료일 (자동 계산)",
+                                                    value=_calc_end.isoformat(),
+                                                    disabled=True,
+                                                    key=f"lic_end_disp_{req['id']}"
+                                                )
+                                            except Exception:
+                                                _calc_end = lic_start + _td(days=30 * lic_months)
+                                                st.text_input(
+                                                    "종료일 (자동 계산)",
+                                                    value=_calc_end.isoformat(),
+                                                    disabled=True,
+                                                    key=f"lic_end_disp_{req['id']}"
+                                                )
+
+                                        st.markdown("### 💰 계약 정보 (매출 관리용)")
+                                        cc1, cc2 = st.columns([2, 1])
+                                        with cc1:
+                                            contract_amount = st.number_input(
+                                                "계약 금액 (원) *",
+                                                min_value=0, max_value=99999999999, value=0, step=100000,
+                                                key=f"contract_amt_{req['id']}",
+                                                help="VAT 포함 또는 별도 여부는 메모에 기재"
+                                            )
+                                        with cc2:
+                                            payment_type = st.selectbox(
+                                                "납입 종류 *",
+                                                options=["monthly", "annual", "lump_sum"],
+                                                format_func=lambda x: {"monthly":"📅 월납", "annual":"🗓️ 연납", "lump_sum":"💵 일시납"}[x],
+                                                key=f"pay_type_{req['id']}"
+                                            )
+                                        payment_memo = st.text_input(
+                                            "계약 메모 (선택)",
+                                            placeholder="예: VAT 별도, 선납 할인, 분할납부 등",
+                                            key=f"pay_memo_{req['id']}"
+                                        )
+
+                                        st.markdown("---")
                                         ac1, ac2, ac3 = st.columns(3)
                                         with ac1:
                                             admin_memo = st.text_input("관리자 메모", key=f"memo_{req['id']}", placeholder="검토 의견")
                                         with ac2:
                                             if st.button("✅ 승인", key=f"approve_{req['id']}", type="primary"):
-                                                supabase.table("license_requests").update({
-                                                    "status": "approved",
-                                                    "approved_at": datetime.now().isoformat(),
-                                                    "approved_by": user["id"],
-                                                    "admin_memo": st.session_state.get(f"memo_{req['id']}",""),
-                                                }).eq("id", req["id"]).execute()
-                                                st.success("✅ 승인됐습니다!")
-                                                st.rerun()
+                                                # 검증
+                                                if contract_amount <= 0:
+                                                    st.error("⚠️ 계약 금액을 입력해주세요. (매출 관리에 필요)")
+                                                else:
+                                                    supabase.table("license_requests").update({
+                                                        "status": "approved",
+                                                        "approved_at": datetime.now().isoformat(),
+                                                        "approved_by": user["id"],
+                                                        "admin_memo": st.session_state.get(f"memo_{req['id']}",""),
+                                                        "license_start_date": lic_start.isoformat(),
+                                                        "license_end_date": _calc_end.isoformat(),
+                                                        "license_months": int(lic_months),
+                                                        "contract_amount": int(contract_amount),
+                                                        "payment_type": payment_type,
+                                                        "payment_memo": payment_memo,
+                                                    }).eq("id", req["id"]).execute()
+                                                    st.success(f"✅ 승인됐습니다! 라이선스 기간: {lic_start} ~ {_calc_end} ({lic_months}개월) / 금액: {contract_amount:,}원")
+                                                    st.rerun()
                                         with ac3:
                                             if st.button("❌ 반려", key=f"reject_{req['id']}"):
                                                 supabase.table("license_requests").update({
