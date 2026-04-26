@@ -1287,7 +1287,8 @@ def login(email, password):
                 st.session_state.user = ud.data[0]
                 st.session_state.access_token = result.session.access_token
                 st.session_state.report_count = get_month_count(ud.data[0]["id"])
-                st.query_params["token"] = result.session.access_token
+                # 🔒 보안: URL에 토큰을 심지 않습니다 (4/19 패치 + 4/26 재적용)
+                # 토큰은 st.session_state.access_token 에만 보관
                 return True, "로그인 성공"
             return False, "사용자 정보를 찾을 수 없습니다."
     except Exception as e:
