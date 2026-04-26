@@ -2526,6 +2526,17 @@ else:
         except:
             pass
 
+        # 관할 장애인고용공단 지역지사 옵션
+        DISABILITY_OFFICES = [
+            "선택안함",
+            "서울지역본부", "서울남부지사", "서울동부지사", "서울북부지사",
+            "부산지역본부", "대구지역본부", "인천지역본부", "광주지역본부",
+            "대전지역본부", "울산지사", "세종지사",
+            "경기지역본부", "경기북부지사", "경기서부지사",
+            "강원지사", "충북지사", "충남지사", "전북지사", "전남지사",
+            "경북지사", "경남지사", "제주지사", "기타"
+        ]
+
         with st.form("license_request_form"):
             st.markdown("### 🏢 업체 정보")
             fc1, fc2 = st.columns(2)
@@ -2543,6 +2554,14 @@ else:
                 req_users = st.number_input("요청 사용자 수", min_value=1, max_value=50, value=5)
 
             st.divider()
+            st.markdown("### ♿ 장애인 고용 정보 (선택)")
+            dc1, dc2 = st.columns(2)
+            with dc1:
+                req_disability_office = st.selectbox("관할 장애인고용공단 지사", DISABILITY_OFFICES)
+            with dc2:
+                req_disability_org = st.text_input("소속 장애인 단체", placeholder="예: 한국장애인고용협회")
+
+            st.divider()
             st.markdown("### 👤 업체 관리자 정보 (필수 — 이메일 동의 진행)")
             ac1, ac2 = st.columns(2)
             with ac1:
@@ -2557,13 +2576,70 @@ else:
             req_purpose = st.text_area("사용 목적 및 특이사항", height=80,
                 placeholder="예: 아동 온라인 안전 모니터링 업무, 담당 기관명 등")
 
+            st.divider()
+            st.markdown("### 📎 첨부 파일")
+            st.caption("⚠️ 사업자등록증은 필수입니다. JPG, PNG, PDF 형식 (최대 10MB)")
+            req_business_cert = st.file_uploader(
+                "📄 사업자등록증 * (필수)",
+                type=["jpg", "jpeg", "png", "pdf"],
+                key="biz_cert_upload"
+            )
+            req_additional_files = st.file_uploader(
+                "📂 추가 첨부파일 (선택, 여러 개 가능)",
+                type=["jpg", "jpeg", "png", "pdf"],
+                accept_multiple_files=True,
+                key="additional_files_upload",
+                help="명함, 재직증명서, 계약서 등"
+            )
+
             submitted = st.form_submit_button("📤 라이선스 신청 제출", type="primary", use_container_width=True)
 
             if submitted:
+                # ─── 필수 검증 ───
                 if not req_company or not req_admin_name or not req_admin_email or not req_admin_phone:
                     st.error("업체명, 관리자 이름, 관리자 이메일, 관리자 연락처는 필수 입력 항목입니다.")
+                elif not req_business_cert:
+                    st.error("📎 사업자등록증 첨부는 필수입니다.")
                 else:
                     try:
+                        import time as _time
+                        # ─── 1단계: 사업자등록증 업로드 ───
+                        biz_cert_path = None
+                        ts = int(_time.time())
+                        cert_ext = req_business_cert.name.split(".")[-1].lower()
+                        biz_cert_path = f"license-requests/{user['id']}/{ts}_biz_cert.{cert_ext}"
+
+                        try:
+                            supabase.storage.from_("license-documents").upload(
+                                biz_cert_path,
+                                req_business_cert.getvalue(),
+                                file_options={"content-type": req_business_cert.type or "application/octet-stream"}
+                            )
+                        except Exception as up_err:
+                            st.error(f"📎 사업자등록증 업로드 실패: {str(up_err)}")
+                            st.stop()
+
+                        # ─── 2단계: 추가 파일 업로드 ───
+                        additional_files_list = []
+                        if req_additional_files:
+                            for idx, af in enumerate(req_additional_files):
+                                try:
+                                    af_ext = af.name.split(".")[-1].lower()
+                                    af_path = f"license-requests/{user['id']}/{ts}_extra_{idx}_{af.name}"
+                                    supabase.storage.from_("license-documents").upload(
+                                        af_path,
+                                        af.getvalue(),
+                                        file_options={"content-type": af.type or "application/octet-stream"}
+                                    )
+                                    additional_files_list.append({
+                                        "path": af_path,
+                                        "name": af.name,
+                                        "size": af.size,
+                                    })
+                                except Exception as up_err:
+                                    st.warning(f"⚠️ 추가 파일 '{af.name}' 업로드 실패: {str(up_err)}")
+
+                        # ─── 3단계: DB INSERT ───
                         supabase.table("license_requests").insert({
                             "agency_id": my_agency["id"] if my_agency else None,
                             "requested_by": user["id"],
@@ -2582,15 +2658,23 @@ else:
                             "license_plan": req_plan,
                             "purpose": req_purpose,
                             "status": "pending",
+                            "disability_office": req_disability_office if req_disability_office != "선택안함" else None,
+                            "disability_org": req_disability_org or None,
+                            "business_cert_path": biz_cert_path,
+                            "additional_files": additional_files_list,
                         }).execute()
                         st.success("✅ 라이선스 신청이 완료됐습니다! 시스템관리자 검토 후 연락드리겠습니다.")
-                        # 시스템관리자에게 알림
+
+                        # ─── 4단계: 시스템관리자 알림 ───
+                        attach_info = f"\n📎 사업자등록증: 첨부됨"
+                        if additional_files_list:
+                            attach_info += f"\n📂 추가 첨부: {len(additional_files_list)}건"
                         supabase.table("hq_messages").insert({
                             "from_user_id": user["id"],
                             "from_name": user["name"],
                             "from_email": user.get("email",""),
                             "subject": f"[DragonEyes] 신규 라이선스 신청 — {req_company}",
-                            "body": f"업체명: {req_company}\n관리자: {req_admin_name} ({req_admin_email})\n플랜: {req_plan}\n사용자수: {req_users}명\n목적: {req_purpose}",
+                            "body": f"업체명: {req_company}\n관리자: {req_admin_name} ({req_admin_email})\n플랜: {req_plan}\n사용자수: {req_users}명\n목적: {req_purpose}{attach_info}",
                             "recipient": "kingcas7@gmail.com",
                         }).execute()
                     except Exception as e:
@@ -6439,6 +6523,50 @@ else:
                                         st.write(f"직함: {req.get('admin_title','-')}")
                                     if req.get("purpose"):
                                         st.caption(f"사용목적: {req['purpose']}")
+
+                                    # ─── ♿ 장애인 정보 표시 ───
+                                    if req.get("disability_office") or req.get("disability_org"):
+                                        st.markdown("**♿ 장애인 고용 정보**")
+                                        di1, di2 = st.columns(2)
+                                        with di1:
+                                            if req.get("disability_office"):
+                                                st.write(f"관할 공단: {req['disability_office']}")
+                                        with di2:
+                                            if req.get("disability_org"):
+                                                st.write(f"소속 단체: {req['disability_org']}")
+
+                                    # ─── 📎 첨부파일 표시 ───
+                                    biz_path = req.get("business_cert_path")
+                                    add_files = req.get("additional_files") or []
+                                    if biz_path or add_files:
+                                        st.markdown("**📎 첨부 파일**")
+                                        # 사업자등록증 다운로드 링크
+                                        if biz_path:
+                                            try:
+                                                signed = supabase.storage.from_("license-documents").create_signed_url(biz_path, 3600)
+                                                signed_url = signed.get("signedURL") or signed.get("signed_url") or ""
+                                                if signed_url:
+                                                    st.markdown(f"📄 사업자등록증 → [📥 다운로드]({signed_url})")
+                                                else:
+                                                    st.warning(f"📄 사업자등록증 (경로: {biz_path}) — 다운로드 링크 생성 실패")
+                                            except Exception as dl_err:
+                                                st.warning(f"📄 사업자등록증 다운로드 오류: {str(dl_err)}")
+                                        # 추가 파일 다운로드 링크
+                                        if add_files:
+                                            st.caption(f"📂 추가 첨부 ({len(add_files)}건)")
+                                            for af in add_files:
+                                                af_path = af.get("path") if isinstance(af, dict) else None
+                                                af_name = af.get("name","파일") if isinstance(af, dict) else "파일"
+                                                if af_path:
+                                                    try:
+                                                        af_signed = supabase.storage.from_("license-documents").create_signed_url(af_path, 3600)
+                                                        af_url = af_signed.get("signedURL") or af_signed.get("signed_url") or ""
+                                                        if af_url:
+                                                            st.markdown(f"  • {af_name} → [📥 다운로드]({af_url})")
+                                                        else:
+                                                            st.write(f"  • {af_name} (다운로드 실패)")
+                                                    except Exception:
+                                                        st.write(f"  • {af_name} (오류)")
 
                                     st.divider()
 
