@@ -479,12 +479,12 @@ LANG = {
         "monthly_limit_warn":"📌 월간 한도 도달. 관리자에게 토큰 요청하세요.",
         "unit_items":"건",
         "banner_line1":"이 곳은 온라인 유해 컨텐츠를 모니터링하는 Claude 기반의 AI Agent 드래곤파더와 함께 작업하는 곳입니다.","banner_line2":"어린이 아동학대, 그루밍, 성폭력, 도박 등과 관련한 다양한 불법 컨텐츠를 감시합니다.","badge_intl":"국제기관 가이드라인 준수","badge_ncmec":"NCMEC 가이드라인 준수","badge_iwf":"IWF 글로벌 기준","home_footer":"이곳은 최승현님이 만드는 AI Agent 드래곤파더 월드입니다.","ann_unread":"미확인",
-        "hdr_work":"💼 일하기","hdr_home":"🏠 홈","hdr_write":"📋 작성","hdr_notice":"📢 공지","hdr_admin":"👑 관리자","hdr_profile":"👤 사용자",
+        "hdr_work":"📊 업무현황","hdr_home":"🏠 홈","hdr_write":"📋 작성","hdr_notice":"📢 공지","hdr_admin":"👑 관리자","hdr_profile":"👤 사용자",
         "save_error":"저장 오류: {}","delete_error":"삭제 오류: {}","error":"오류: {}","no_url":"URL을 입력해주세요.",
         # 공지 팝업
         "ann_confirm":"✅ 확인 (다시 안 보기)","ann_later":"나중에 다시 알림","ann_date":"발송일:",
         # 일하기 페이지
-        "work_title":"💼 일하기 — {}님","work_team_status":"📊 팀별 업무 현황",
+        "work_title":"📊 업무현황 — {}님","work_team_status":"📊 팀별 업무 현황",
         "work_pending":"⚠️ 내 담당 대기 목록","work_no_pending":"✅ 대기 중인 항목이 없습니다!",
         "work_no_team":"배정된 팀이 없습니다.","work_no_members":"팀원이 없습니다.",
         "work_no_assigned":"배정된 팀이 없습니다.","work_no_teams":"생성된 팀이 없습니다.",
@@ -699,7 +699,7 @@ LANG = {
         "monthly_limit_warn":"📌 Monthly limit reached. Ask admin for more tokens.",
         "unit_items":"",
         "banner_line1":"This is a place to work with Claude-based AI Agent DragonFather to monitor harmful online content.","banner_line2":"We monitor illegal content related to child abuse, grooming, sexual violence, and gambling.","badge_intl":"International Guidelines Compliant","badge_ncmec":"NCMEC Guidelines","badge_iwf":"IWF Global Standards","home_footer":"This is the AI Agent DragonFather World created by SeungHyun Choi.","ann_unread":"Unread",
-        "hdr_work":"💼 Work","hdr_home":"🏠 Home","hdr_write":"📋 Write","hdr_notice":"📢 Notice","hdr_admin":"👑 Admin","hdr_profile":"👤 Profile",
+        "hdr_work":"📊 Work Status","hdr_home":"🏠 Home","hdr_write":"📋 Write","hdr_notice":"📢 Notice","hdr_admin":"👑 Admin","hdr_profile":"👤 Profile",
         "save_error":"Save error: {}","delete_error":"Delete error: {}","error":"Error: {}","no_url":"Please enter a URL.",
         # announcement popup
 # 2nd pass
@@ -731,7 +731,7 @@ LANG = {
         "no_recipients":"No recipients registered.",
         "ann_confirm":"✅ Confirm (Don't show again)","ann_later":"Remind me later","ann_date":"Sent:",
         # work page
-        "work_title":"💼 Work — {}","work_team_status":"📊 Team Work Status",
+        "work_title":"📊 Work Status — {}","work_team_status":"📊 Team Work Status",
         "work_pending":"⚠️ My Assigned Pending List","work_no_pending":"✅ No pending items!",
         "work_no_team":"Not assigned to a team.","work_no_members":"No team members.",
         "work_no_assigned":"No team assigned.","work_no_teams":"No teams created.",
@@ -946,7 +946,7 @@ LANG = {
         "monthly_limit_warn":"📌 今月の上限に達しました。管理者に追加を申請してください。",
         "unit_items":"件",
         "banner_line1":"ここはClaude基盤のAI Agent ドラゴンファーザーと共にオンライン有害コンテンツをモニタリングする場所です。","banner_line2":"子どもへの性的虐待、グルーミング、性暴力、ギャンブル等の違法コンテンツを監視します。","badge_intl":"国際機関ガイドライン準拠","badge_ncmec":"NCMECガイドライン","badge_iwf":"IWFグローバル基準","home_footer":"ここはChoi SeungHyunが作るAI Agent ドラゴンファーザーワールドです。","ann_unread":"未確認",
-        "hdr_work":"💼 作業","hdr_home":"🏠 ホーム","hdr_write":"📋 作成","hdr_notice":"📢 公知","hdr_admin":"👑 管理者","hdr_profile":"👤 ユーザー",
+        "hdr_work":"📊 業務状況","hdr_home":"🏠 ホーム","hdr_write":"📋 作成","hdr_notice":"📢 公知","hdr_admin":"👑 管理者","hdr_profile":"👤 ユーザー",
         "save_error":"保存エラー: {}","delete_error":"削除エラー: {}","error":"エラー: {}","no_url":"URLを入力してください。",
         # 公知ポップアップ
 # 2次翻訳
@@ -978,7 +978,7 @@ LANG = {
         "no_recipients":"受信者が登録されていません。",
         "ann_confirm":"✅ 確認（次回から表示しない）","ann_later":"後で確認","ann_date":"送信日:",
         # 作業ページ
-        "work_title":"💼 作業 — {}さん","work_team_status":"📊 チーム別業務状況",
+        "work_title":"📊 業務状況 — {}さん","work_team_status":"📊 チーム別業務状況",
         "work_pending":"⚠️ 担当未作成リスト","work_no_pending":"✅ 未作成リストはありません！",
         "work_no_team":"チームに割り当てられていません。","work_no_members":"チームメンバーがいません。",
         "work_no_assigned":"チームが割り当てられていません。","work_no_teams":"チームが作成されていません。",
@@ -1173,6 +1173,155 @@ def is_team_leader(user):
         "team_leader",
     )
 
+# ═══════════════════════════════════════════════════════════════
+# 🛡️ 페이지 진입 권한 가드 (5/5 보안 강화)
+# ═══════════════════════════════════════════════════════════════
+def guard_page(user, allowed_roles=None, allow_admins=True, redirect_to="home_landing"):
+    """
+    페이지 진입 시 권한 검사. 권한 없으면 메시지 + 홈으로 리다이렉트.
+    allowed_roles: 명시적으로 허용할 role_v2 리스트 (None이면 관리자만)
+    allow_admins: superadmin/agency_admin/tenant_admin 자동 허용
+    반환: True (통과) / False (차단됨, 호출자가 return으로 종료해야 함)
+    """
+    if not user:
+        st.error("🔒 로그인이 필요합니다.")
+        st.session_state.current_page = "home_landing"
+        st.rerun()
+        return False
+
+    _role = get_user_role(user)
+
+    # 관리자 자동 통과
+    if allow_admins and _role in ("superadmin", "agency_admin", "tenant_admin", "admin"):
+        return True
+
+    # 명시적 허용 역할
+    if allowed_roles and _role in allowed_roles:
+        return True
+
+    # 차단
+    st.error("🚫 이 페이지에 접근할 권한이 없습니다.")
+    st.caption(f"현재 권한: {role_label(_role)}")
+    if st.button("🏠 홈으로 돌아가기", type="primary"):
+        st.session_state.current_page = redirect_to
+        st.rerun()
+    return False
+
+
+def can_view_report(user, report):
+    """보고서 조회 권한 검사"""
+    if not user or not report:
+        return False
+    _role = get_user_role(user)
+    # 관리자 전체 조회 가능
+    if _role in ("superadmin", "agency_admin", "tenant_admin", "admin"):
+        return True
+    # 본인 보고서
+    if report.get("user_id") == user.get("id"):
+        return True
+    # 같은 팀 (team_leader)
+    if _role == "team_leader" and user.get("team_id"):
+        try:
+            author = supabase.table("users").select("team_id").eq("id", report.get("user_id")).limit(1).execute().data or []
+            if author and author[0].get("team_id") == user.get("team_id"):
+                return True
+        except Exception:
+            pass
+    # 같은 테넌트 (tenant_admin은 위에서 통과, 여기는 일반 사용자)
+    return False
+
+
+# ═══════════════════════════════════════════════════════════════
+# 📋 다운로드 감사 로그 (5/5 추가) — 누가/언제/무엇을 추적
+# ═══════════════════════════════════════════════════════════════
+def log_download(user, resource_type, resource_label, file_format, file_name,
+                 scope_description="", record_count=0,
+                 scope_tenant_ids=None, scope_user_ids=None):
+    """
+    모든 다운로드를 download_logs 테이블에 기록.
+    실패해도 다운로드 자체는 영향 없도록 try/except 처리.
+    """
+    try:
+        if not user or not user.get("id"):
+            return  # 비로그인은 기록 안함
+
+        # 다운로드한 사용자의 agency_id 조회 (해당시)
+        _agency_id = None
+        try:
+            _agency_row = supabase.table("agencies").select("id").eq("user_id", user.get("id")).limit(1).execute().data or []
+            if _agency_row:
+                _agency_id = _agency_row[0].get("id")
+        except Exception:
+            pass
+
+        _log_data = {
+            "user_id": user.get("id"),
+            "user_name": user.get("name", ""),
+            "user_email": user.get("email", ""),
+            "user_role": get_user_role(user),
+            "user_tenant_id": user.get("tenant_id"),
+            "user_team_id": user.get("team_id"),
+            "user_agency_id": _agency_id,
+            "resource_type": resource_type,
+            "resource_label": resource_label or "",
+            "file_format": file_format or "",
+            "file_name": file_name or "",
+            "scope_description": scope_description or "",
+            "record_count": int(record_count or 0),
+            "scope_tenant_ids": scope_tenant_ids or [],
+            "scope_user_ids": scope_user_ids or [],
+        }
+        supabase.table("download_logs").insert(_log_data).execute()
+    except Exception as _e_log:
+        # 로그 실패는 silent (다운로드 자체는 성공해야 함)
+        try:
+            print(f"[log_download] 실패: {_e_log}")
+        except Exception:
+            pass
+
+
+def get_download_logs_for_user(viewer):
+    """
+    조회자(viewer)의 권한에 따라 download_logs를 필터링해서 반환.
+    위계 원칙:
+    - superadmin: 전체
+    - agency_admin: 본인 + 본인이 담당하는 업체 사용자들의 다운로드
+    - tenant_admin: 본인 + 본인 업체 사용자들의 다운로드
+    - team_leader: 본인 + 본인 팀원들의 다운로드
+    - 일반 사용자: 본인 것만
+    """
+    if not viewer:
+        return []
+    _role = get_user_role(viewer)
+    try:
+        _q = supabase.table("download_logs").select("*").order("downloaded_at", desc=True).limit(500)
+
+        if _role in ("superadmin", "admin"):
+            return _q.execute().data or []
+
+        if is_agency_admin(viewer):
+            # 본인 + 담당 업체들의 사용자들
+            _agency_tids = [at["tenant_id"] for at in (supabase.table("agency_tenants").select("tenant_id").eq("agency_user_id", viewer["id"]).execute().data or [])]
+            _scope_uids = [u["id"] for u in (supabase.table("users").select("id").in_("tenant_id", _agency_tids).execute().data or [])] if _agency_tids else []
+            _scope_uids.append(viewer["id"])
+            return _q.in_("user_id", list(set(_scope_uids))).execute().data or []
+
+        if is_tenant_admin(viewer):
+            # 본인 업체 사용자들
+            _scope_uids = [u["id"] for u in (supabase.table("users").select("id").eq("tenant_id", viewer.get("tenant_id","")).execute().data or [])]
+            return _q.in_("user_id", _scope_uids).execute().data or [] if _scope_uids else []
+
+        if _role == "team_leader":
+            # 자기 팀원들
+            _scope_uids = [u["id"] for u in (supabase.table("users").select("id").eq("team_id", viewer.get("team_id","")).execute().data or [])]
+            return _q.in_("user_id", _scope_uids).execute().data or [] if _scope_uids else []
+
+        # 일반 사용자: 본인 것만
+        return _q.eq("user_id", viewer["id"]).execute().data or []
+    except Exception:
+        return []
+
+
 # ── 위탁관리자 헬퍼 함수 ──
 @st.cache_data(ttl=60, show_spinner=False)
 def get_agency_tenants(agency_user_id):
@@ -1337,6 +1486,61 @@ def get_unread_announcements(user_id):
         return [a for a in all_ann if a["id"] not in read_ids]
     except:
         return []
+
+# ═══════════════════════════════════════════════════════════════
+# 계속고용 / 사용 개월수 분석 도우미 (5/5 추가)
+# ═══════════════════════════════════════════════════════════════
+def calc_employment_metrics(user_data, user_reports):
+    """
+    사용자의 계속고용 메트릭 계산
+    - 사용 개월수: created_at 기준 가입한 지 몇 개월
+    - 월평균 보고서수: 누적 / 사용 개월수
+    - 최근 활동: 가장 최근 보고서 날짜 (없으면 '활동 없음')
+    """
+    try:
+        from datetime import datetime as _dt
+        created = user_data.get("created_at", "")
+        if not created:
+            return {"months": 0, "avg_monthly": 0.0, "last_activity": "-"}
+
+        try:
+            created_dt = _dt.fromisoformat(created.replace("Z", "+00:00"))
+            now_dt = _dt.now(created_dt.tzinfo) if created_dt.tzinfo else _dt.now()
+            delta_days = (now_dt - created_dt.replace(tzinfo=now_dt.tzinfo) if not created_dt.tzinfo else now_dt - created_dt).days
+            months = max(1, delta_days // 30)
+        except Exception:
+            months = 1
+
+        total_reports = len(user_reports) if user_reports else 0
+        avg_monthly = round(total_reports / months, 1) if months > 0 else 0.0
+
+        if user_reports:
+            sorted_r = sorted(user_reports, key=lambda r: r.get("created_at", ""), reverse=True)
+            last_activity = sorted_r[0].get("created_at", "")[:10] if sorted_r else "-"
+        else:
+            last_activity = "-"
+
+        return {"months": months, "avg_monthly": avg_monthly, "last_activity": last_activity}
+    except Exception:
+        return {"months": 0, "avg_monthly": 0.0, "last_activity": "-"}
+
+
+def get_tenant_license_info(tenant_id):
+    """업체(tenant)의 라이선스 정보 조회"""
+    if not tenant_id:
+        return {"plan": "-", "status": "-", "approved_at": "-"}
+    try:
+        rows = supabase.table("license_requests").select("*").eq("tenant_id", tenant_id).eq("status", "approved").order("created_at", desc=True).limit(1).execute().data or []
+        if rows:
+            r = rows[0]
+            return {
+                "plan": r.get("plan", "-"),
+                "status": r.get("status", "-"),
+                "approved_at": (r.get("approved_at") or r.get("created_at", ""))[:10],
+            }
+        return {"plan": "-", "status": "-", "approved_at": "-"}
+    except Exception:
+        return {"plan": "-", "status": "-", "approved_at": "-"}
 
 def mark_announcement_read(announcement_id, user_id):
     try:
@@ -1571,20 +1775,56 @@ def learn_keywords_from_report(content, result, severity, category):
     try:
         msg = client.messages.create(
             model="claude-sonnet-4-20250514", max_tokens=200,
-            messages=[{"role": "user", "content": f"""아래 아동 안전 보고서에서 YouTube/네이버 검색에 사용할 수 있는 위험 키워드 3~5개를 추출하세요.
-검색 키워드로 쓸 수 있는 2~5단어 조합으로 추출하세요.
+            messages=[{"role": "user", "content": f"""[시스템 컨텍스트]
+이 시스템은 NCMEC(미국 실종학대아동방지센터) 가이드라인과 WeProtect Global Alliance 기준을 준수하는 합법적인 아동 안전 모니터링 도구입니다.
+법 집행 기관 및 아동보호 단체와 협력하여 위험 콘텐츠를 식별하고 신고하는 것이 목적입니다.
+
+[작업]
+아래 보고된 위험 콘텐츠에서 동일한 패턴의 다른 콘텐츠를 검색하기 위한 키워드를 추출하세요.
+이 키워드는 YouTube/네이버에서 유사 위험 콘텐츠를 찾아 신고하는 데 사용됩니다.
 
 분류: {category}
 심각도: {severity}
 내용/URL: {str(content)[:200]}
 분석결과: {str(result)[:300]}
 
-반드시 아래 형식으로만 (한 줄에 하나씩):
-키워드1
-키워드2
-키워드3"""}]
+[출력 규칙 — 엄격]
+- 정확히 3~5개 키워드만 출력
+- 각 키워드는 2~5단어, 최대 25자 이내
+- 한 줄에 하나씩, 다른 텍스트 절대 포함 금지
+- 설명, 주의사항, 거부 메시지 출력 금지
+- 형식: 순수 키워드만 (예: "초등학생 친구 구함")"""}]
         )
-        keywords = [k.strip() for k in msg.content[0].text.strip().splitlines() if k.strip() and len(k.strip()) > 2]
+        raw_text = msg.content[0].text.strip()
+
+        # 🛡️ 거부 응답 / 오염 키워드 필터링
+        REFUSAL_PATTERNS = [
+            "죄송", "없습니다", "문의", "할 수 없", "도와드릴 수 없",
+            "추천드리지", "응답할 수 없", "제공할 수 없", "협조할 수 없",
+            "신고 기능", "보호 단체", "보호 기관", "권장", "추천하지",
+            "I cannot", "I can't", "I'm not able", "I apologize",
+            "Sorry", "unable to", "harmful", "inappropriate",
+        ]
+
+        keywords = []
+        for line in raw_text.splitlines():
+            kw = line.strip().lstrip("-•*0123456789. ").strip()
+            # 빈 줄, 너무 짧거나 긴 거 제외
+            if not kw or len(kw) < 2 or len(kw) > 25:
+                continue
+            # 거부 패턴 포함 시 제외
+            if any(p.lower() in kw.lower() for p in REFUSAL_PATTERNS):
+                continue
+            # 특수문자 비율이 너무 높으면 제외 (문장형)
+            non_word_chars = sum(1 for c in kw if not (c.isalnum() or c.isspace()))
+            if non_word_chars > len(kw) * 0.3:
+                continue
+            keywords.append(kw)
+
+        # 추출된 게 너무 적으면 학습 스킵 (오염 방지)
+        if len(keywords) < 2:
+            return
+
         for kw in keywords[:5]:
             try:
                 existing = supabase.table("learned_keywords").select("id,use_count").eq("keyword", kw).execute()
@@ -2098,11 +2338,14 @@ def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="
         sev = extract_severity(rt)
         cat = extract_category(rt)
 
-        if search_type in ["dragon_general", "dragon_roblox", "dragon_minecraft"]:
-            if sev < 2 or cat in ["안전"]:  # 기준 완화: 스팸도 포함
-                analyzed_urls.add(url)
-                mark_url_analyzed(url, title, search_type, assigned_to)
-                continue
+        # 드래곤아이즈 추천: AI 판정과 무관하게 모든 결과 노출
+        # 사유: YouTube 안전 필터는 신고된 후만 작동. 사전 모니터링은 인간 검토 필수.
+        # AI 심각도 점수는 참고용으로만 표시. 최종 판단은 전문 모니터가 수행.
+        # 도박만 예외: 공식 채널 등 명백한 안전 콘텐츠는 자동 제외
+        if search_type == "dragon_gambling" and sev <= 1 and cat == "안전":
+            analyzed_urls.add(url)
+            mark_url_analyzed(url, title, search_type, assigned_to)
+            continue
 
         mark_url_analyzed(url, title, search_type, assigned_to)
         # 심각도 3 이상이면 채널 자동 모니터링 등록
@@ -2913,6 +3156,16 @@ else:
     # ══════════════════════════════
     elif page == "report_detail":
         r = st.session_state.selected_report
+
+        # 🛡️ 보안: 보고서 조회 권한 검사
+        if not can_view_report(user, r):
+            st.error("🚫 이 보고서를 조회할 권한이 없습니다.")
+            st.caption("본인이 작성한 보고서, 같은 팀원의 보고서, 또는 관리자 권한이 있을 때만 조회 가능합니다.")
+            if st.button("🏠 홈으로 돌아가기", type="primary"):
+                st.session_state.current_page = "home_landing"
+                st.rerun()
+            st.stop()
+
         can_edit = is_admin or r.get("user_id") == user["id"]
 
         col_back, col_title = st.columns([1,5])
@@ -3083,6 +3336,15 @@ else:
         # ══════════════════════════════
         # 📋 신규 라이선스 신청 페이지 (위탁관리자용)
         # ══════════════════════════════
+        # 🛡️ 보안: 위탁관리자/업체관리자/superadmin만 접근 가능
+        if not (is_agency_admin(user) or is_tenant_admin(user) or is_superadmin(user)):
+            st.error("🚫 라이선스 신청은 위탁관리자/업체관리자만 가능합니다.")
+            st.caption(f"현재 권한: {role_label(get_user_role(user))}")
+            if st.button("🏠 홈으로 돌아가기", type="primary"):
+                st.session_state.current_page = "home_landing"
+                st.rerun()
+            st.stop()
+
         col_back, col_title = st.columns([1, 5])
         with col_back:
             if st.button("◀ 돌아가기"):
@@ -3379,6 +3641,17 @@ else:
         # ══════════════════════════════
         # 🤝 위탁관리자 전용 모니터링 대시보드
         # ══════════════════════════════
+        # 🛡️ 보안: 위탁관리자/superadmin만 접근 가능
+        if not guard_page(user, allowed_roles=None, allow_admins=True):
+            st.stop()
+        if not (is_agency_admin(user) or is_superadmin(user)):
+            st.error("🚫 이 페이지는 위탁관리자만 접근할 수 있습니다.")
+            st.caption(f"현재 권한: {role_label(get_user_role(user))}")
+            if st.button("🏠 홈으로 돌아가기", type="primary"):
+                st.session_state.current_page = "home_landing"
+                st.rerun()
+            st.stop()
+
         col_back, col_title = st.columns([1, 5])
         with col_back:
             if st.button("🏠 홈"):
@@ -4120,13 +4393,23 @@ else:
 
                         # CSV 다운로드
                         csv_cal = df_matrix.to_csv(index=False, encoding="utf-8-sig")
-                        st.download_button(
+                        _cal_filename = f"업무현황_{cal_sel_tenant}_{cal_year}{str(cal_month).zfill(2)}.csv"
+                        if st.download_button(
                             f"📥 {cal_year}년 {cal_month}월 현황 CSV 다운로드",
                             data=csv_cal.encode("utf-8-sig"),
-                            file_name=f"업무현황_{cal_sel_tenant}_{cal_year}{str(cal_month).zfill(2)}.csv",
+                            file_name=_cal_filename,
                             mime="text/csv",
                             use_container_width=True
-                        )
+                        ):
+                            log_download(
+                                user=user,
+                                resource_type="monthly_calendar",
+                                resource_label=f"월별 캘린더 매트릭스 ({cal_sel_tenant})",
+                                file_format="csv",
+                                file_name=_cal_filename,
+                                scope_description=f"{cal_year}년 {cal_month}월 / {cal_sel_tenant}",
+                                record_count=len(matrix_data),
+                            )
 
             # ── 빠른 개인 알림 팝업 ──
             if st.session_state.get("quick_notif_show") and st.session_state.get("quick_notif_user"):
@@ -4181,6 +4464,123 @@ else:
         page_num = st.session_state.work_page_num
         paged = assigned_data[page_num*PAGE_SIZE:(page_num+1)*PAGE_SIZE]
 
+        # ── 📥 다운로드 버튼 (관리자 권한만, 권한별 데이터 필터링) ──
+        _can_download = (
+            _role in ("superadmin","group_leader","group_leader_2","group_leader_3","group_leader_4",
+                      "director","director_2","director_3","director_4","team_leader","admin")
+            or is_agency_admin(user) or is_tenant_admin(user)
+        )
+        if _can_download:
+            try:
+                # 🛡️ 권한별 사용자 범위 결정 (서버 사이드 필터)
+                _all_teams_dl = supabase.table("teams").select("*").execute().data or []
+                _team_map_dl = {t_["id"]: t_.get("name","") for t_ in _all_teams_dl}
+
+                if _role == "superadmin":
+                    _scope_users = supabase.table("users").select("*").execute().data or []
+                elif is_agency_admin(user):
+                    _agency_tenant_ids = [at["tenant_id"] for at in (supabase.table("agency_tenants").select("tenant_id").eq("agency_user_id", user["id"]).execute().data or [])]
+                    _scope_users = (supabase.table("users").select("*").in_("tenant_id", _agency_tenant_ids).execute().data or []) if _agency_tenant_ids else []
+                elif is_tenant_admin(user):
+                    _scope_users = supabase.table("users").select("*").eq("tenant_id", user.get("tenant_id","")).execute().data or []
+                elif _role == "team_leader":
+                    _scope_users = supabase.table("users").select("*").eq("team_id", user.get("team_id","")).execute().data or []
+                else:
+                    # director/group_leader: 전체 (조직 구조상)
+                    _scope_users = supabase.table("users").select("*").execute().data or []
+
+                # 보고서는 범위 사용자 것만
+                _scope_user_ids = [u["id"] for u in _scope_users]
+                if _scope_user_ids:
+                    _all_reports_dl = supabase.table("reports").select("user_id,created_at").in_("user_id", _scope_user_ids).execute().data or []
+                else:
+                    _all_reports_dl = []
+
+                # DataFrame 빌드
+                _dl_rows = []
+                for _u in _scope_users:
+                    _ur = [r for r in _all_reports_dl if r["user_id"] == _u["id"]]
+                    _um = len([r for r in _ur if r["created_at"][:7] == this_month])
+                    _ut = len(_ur)
+                    _utgt = _u.get("monthly_target", 10)
+                    _urt = min(int(_um/_utgt*100), 100) if _utgt > 0 else 0
+                    _metrics = calc_employment_metrics(_u, _ur)
+                    _dl_rows.append({
+                        "이름": _u.get("name", ""),
+                        "이메일": _u.get("email", ""),
+                        "권한": role_label(_u.get("role_v2", "user")),
+                        "팀": _team_map_dl.get(_u.get("team_id", ""), "미배정"),
+                        "이번달": _um,
+                        "목표": _utgt,
+                        "달성률(%)": _urt,
+                        "누적": _ut,
+                        "사용개월": _metrics["months"],
+                        "월평균": _metrics["avg_monthly"],
+                        "최근활동": _metrics["last_activity"],
+                    })
+                _df_dl = pd.DataFrame(_dl_rows)
+                _today_str = date.today().strftime("%Y%m%d")
+                _scope_label = f"{len(_dl_rows)}명"
+
+                _dlc1, _dlc2, _dlc3 = st.columns([1,1,4])
+                with _dlc1:
+                    _csv_data = _df_dl.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
+                    _csv_filename = f"DragonEyes_업무현황_{_today_str}.csv"
+                    if st.download_button(
+                        f"📄 CSV ({_scope_label})",
+                        data=_csv_data,
+                        file_name=_csv_filename,
+                        mime="text/csv",
+                        use_container_width=True,
+                        key="work_dl_csv",
+                    ):
+                        # 📋 감사 로그
+                        log_download(
+                            user=user,
+                            resource_type="work_status",
+                            resource_label="업무현황 (사용자별 메트릭)",
+                            file_format="csv",
+                            file_name=_csv_filename,
+                            scope_description=f"{_scope_label} ({role_label(_role)} 권한)",
+                            record_count=len(_dl_rows),
+                            scope_tenant_ids=list(set([u.get("tenant_id") for u in _scope_users if u.get("tenant_id")])),
+                            scope_user_ids=[u.get("id") for u in _scope_users if u.get("id")],
+                        )
+                with _dlc2:
+                    try:
+                        import io as _io
+                        _xbuf = _io.BytesIO()
+                        with pd.ExcelWriter(_xbuf, engine="openpyxl") as _wr:
+                            _df_dl.to_excel(_wr, index=False, sheet_name="업무현황")
+                        _xbuf.seek(0)
+                        _xlsx_filename = f"DragonEyes_업무현황_{_today_str}.xlsx"
+                        if st.download_button(
+                            f"📊 Excel ({_scope_label})",
+                            data=_xbuf.getvalue(),
+                            file_name=_xlsx_filename,
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            use_container_width=True,
+                            key="work_dl_xlsx",
+                        ):
+                            # 📋 감사 로그
+                            log_download(
+                                user=user,
+                                resource_type="work_status",
+                                resource_label="업무현황 (사용자별 메트릭)",
+                                file_format="xlsx",
+                                file_name=_xlsx_filename,
+                                scope_description=f"{_scope_label} ({role_label(_role)} 권한)",
+                                record_count=len(_dl_rows),
+                                scope_tenant_ids=list(set([u.get("tenant_id") for u in _scope_users if u.get("tenant_id")])),
+                                scope_user_ids=[u.get("id") for u in _scope_users if u.get("id")],
+                            )
+                    except Exception:
+                        st.caption("Excel 모듈 미설치")
+                with _dlc3:
+                    st.caption(f"💡 본인 권한 범위 내 데이터만 다운로드됩니다. 모든 다운로드는 감사 로그에 기록됩니다.")
+            except Exception as _e_dl:
+                st.caption(f"다운로드 준비 실패: {str(_e_dl)[:60]}")
+
         # 타이틀 행 (HTML)
         st.markdown(f"""<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:0 0 6px 0;">
             <div style="font-size:1rem;font-weight:700;color:#1e293b;">📊 팀별 업무 현황</div>
@@ -4227,8 +4627,9 @@ else:
                                 leader = umap_dash.get(team.get("leader_id",""), {})
                                 with st.expander(f"🏢 **{team['name']}** | 팀장: {leader.get('name','미지정')} | {len(members)}명", expanded=True):
                                     if members:
-                                        ch = st.columns([2.5,1,1,1,1])
+                                        ch = st.columns([2,0.7,0.7,0.8,0.7,0.7,0.7,1])
                                         ch[0].markdown(t("col_name")); ch[1].markdown(t("col_month")); ch[2].markdown(t("col_goal")); ch[3].markdown(t("col_rate")); ch[4].markdown(t("col_total"))
+                                        ch[5].markdown("**개월**"); ch[6].markdown("**월평균**"); ch[7].markdown("**최근활동**")
                                         for m in members:
                                             mr = [r for r in all_reports_dash if r["user_id"]==m["id"]]
                                             mm = len([r for r in mr if r["created_at"][:7]==this_month])
@@ -4236,9 +4637,11 @@ else:
                                             mrt = min(int(mm/mtgt*100),100) if mtgt>0 else 0
                                             rc = "#22c55e" if mrt>=100 else ("#f59e0b" if mrt>=50 else "#ef4444")
                                             ri = role_icon(m.get("role_v2","user"))
-                                            cv = st.columns([2.5,1,1,1,1])
+                                            _met = calc_employment_metrics(m, mr)
+                                            cv = st.columns([2,0.7,0.7,0.8,0.7,0.7,0.7,1])
                                             cv[0].write(f"{ri} {m['name']}"); cv[1].write(f"{mm}건"); cv[2].write(f"{mtgt}건")
                                             cv[3].markdown(f"<span style='color:{rc};font-weight:700'>{mrt}%</span>", unsafe_allow_html=True); cv[4].write(f"{mt}건")
+                                            cv[5].write(f"{_met['months']}M"); cv[6].write(f"{_met['avg_monthly']}"); cv[7].caption(_met['last_activity'])
                                     else:
                                         st.caption(t("work_no_member"))
                         else:
@@ -4259,8 +4662,9 @@ else:
                             tm = supabase.table("users").select("*").eq("team_id",my_team_id).execute().data or []
                             ar = supabase.table("reports").select("user_id,created_at").execute().data or []
                             if tm:
-                                ch = st.columns([2.5,1,1,1,1])
+                                ch = st.columns([2,0.7,0.7,0.8,0.7,0.7,0.7,1])
                                 ch[0].markdown(t("col_name")); ch[1].markdown(t("col_month")); ch[2].markdown(t("col_goal")); ch[3].markdown(t("col_rate")); ch[4].markdown(t("col_total"))
+                                ch[5].markdown("**개월**"); ch[6].markdown("**월평균**"); ch[7].markdown("**최근활동**")
                                 for m in tm:
                                     mr = [r for r in ar if r["user_id"]==m["id"]]
                                     mm = len([r for r in mr if r["created_at"][:7]==this_month])
@@ -4268,9 +4672,11 @@ else:
                                     mrt = min(int(mm/mtgt*100),100) if mtgt>0 else 0
                                     rc = "#22c55e" if mrt>=100 else ("#f59e0b" if mrt>=50 else "#ef4444")
                                     is_me = "⭐ " if m["id"]==user["id"] else ""
-                                    cv = st.columns([2.5,1,1,1,1])
+                                    _met = calc_employment_metrics(m, mr)
+                                    cv = st.columns([2,0.7,0.7,0.8,0.7,0.7,0.7,1])
                                     cv[0].write(f"{is_me}{m['name']}"); cv[1].write(f"{mm}건"); cv[2].write(f"{mtgt}건")
                                     cv[3].markdown(f"<span style='color:{rc};font-weight:700'>{mrt}%</span>", unsafe_allow_html=True); cv[4].write(f"{mt}건")
+                                    cv[5].write(f"{_met['months']}M"); cv[6].write(f"{_met['avg_monthly']}"); cv[7].caption(_met['last_activity'])
                             else:
                                 st.info(t("work_no_members"))
                         else:
@@ -4459,16 +4865,110 @@ else:
 
                     # CSV 다운로드 (openpyxl 불필요)
                     csv_data = df_prof.to_csv(index=False, encoding="utf-8-sig")
-                    st.download_button(
+                    _staff_filename = f"DragonEyes_직원정보_{date.today().strftime('%Y%m%d')}.csv"
+                    if st.download_button(
                         label=t("profile_staff_csv"),
                         data=csv_data.encode("utf-8-sig"),
-                        file_name=f"DragonEyes_직원정보_{date.today().strftime('%Y%m%d')}.csv",
+                        file_name=_staff_filename,
                         mime="text/csv",
                         use_container_width=True,
                         type="primary",
-                    )
+                    ):
+                        # 📋 감사 로그
+                        log_download(
+                            user=user,
+                            resource_type="staff_info",
+                            resource_label="전체 직원 정보 (개인정보 포함)",
+                            file_format="csv",
+                            file_name=_staff_filename,
+                            scope_description=f"전체 직원 {len(all_users_prof)}명 (디렉터 권한)",
+                            record_count=len(all_users_prof),
+                            scope_tenant_ids=list(set([u.get("tenant_id") for u in all_users_prof if u.get("tenant_id")])),
+                            scope_user_ids=[u.get("id") for u in all_users_prof if u.get("id")],
+                        )
                 except Exception as e:
                     st.error(t("staff_error_msg").format(str(e)))
+
+        # ══════════════════════════════
+        # 📧 자동 이메일 발송 동의 (5/5 추가)
+        # 유관기관별 Opt-in + 태그 선택
+        # 🛡️ 본인 데이터만 조회/수정 가능
+        # ══════════════════════════════
+        with st.container(border=True):
+            st.markdown("### 📧 자동 이메일 발송 설정")
+            st.caption("매월 1일에 자동으로 발송되는 보고서/알림을 어느 유관기관에 보낼지 직접 선택할 수 있습니다.")
+
+            try:
+                # 🛡️ 본인 user_id로만 조회
+                _user_orgs = supabase.table("user_org_mapping").select("*").eq("user_id", user["id"]).execute().data or []
+
+                if not _user_orgs:
+                    st.info("소속된 유관기관이 없습니다. 관리자에게 기관 등록을 요청하세요.")
+                else:
+                    _org_ids = [m.get("org_id") for m in _user_orgs if m.get("org_id")]
+                    _all_orgs = supabase.table("affiliated_orgs").select("*").in_("id", _org_ids).execute().data or [] if _org_ids else []
+                    _org_map = {o["id"]: o for o in _all_orgs}
+
+                    _tag_options = {
+                        "monthly_summary": "📊 월간 종합 보고서",
+                        "license_alert": "⚠️ 라이선스 만료 알림",
+                        "achievement_report": "🎯 달성률 보고서",
+                        "employment_record": "📋 고용 실적 (정부 제출용)",
+                    }
+
+                    st.markdown("**기관별 발송 설정**")
+                    for _mp in _user_orgs:
+                        # 🛡️ 추가 검증: user_id가 본인 것인지 확인 (이중 안전장치)
+                        if _mp.get("user_id") != user["id"]:
+                            continue
+
+                        _org_info = _org_map.get(_mp.get("org_id"), {})
+                        _org_name = _org_info.get("name", "(이름 없음)")
+
+                        with st.expander(f"🏛️ {_org_name}", expanded=False):
+                            _current_consent = bool(_mp.get("auto_email_consent", False))
+                            _current_tags = _mp.get("email_tags") or []
+                            if isinstance(_current_tags, str):
+                                try:
+                                    import json as _json
+                                    _current_tags = _json.loads(_current_tags)
+                                except Exception:
+                                    _current_tags = []
+
+                            _new_consent = st.checkbox(
+                                "이 기관에 자동 이메일 발송 동의",
+                                value=_current_consent,
+                                key=f"consent_{_mp['id']}",
+                            )
+
+                            _new_tags = []
+                            if _new_consent:
+                                st.caption("받을 보고서 종류를 선택하세요:")
+                                for _tag_key, _tag_label in _tag_options.items():
+                                    _is_checked = st.checkbox(
+                                        _tag_label,
+                                        value=(_tag_key in _current_tags),
+                                        key=f"tag_{_mp['id']}_{_tag_key}",
+                                    )
+                                    if _is_checked:
+                                        _new_tags.append(_tag_key)
+
+                            if st.button("💾 저장", key=f"save_consent_{_mp['id']}", type="primary"):
+                                try:
+                                    # 🛡️ user_id 매칭 검증 후 업데이트
+                                    supabase.table("user_org_mapping").update({
+                                        "auto_email_consent": _new_consent,
+                                        "email_tags": _new_tags,
+                                        "consent_updated_at": datetime.now().isoformat(),
+                                    }).eq("id", _mp["id"]).eq("user_id", user["id"]).execute()
+                                    st.success("✅ 저장되었습니다.")
+                                    st.rerun()
+                                except Exception as _e_save:
+                                    st.error(f"저장 실패: {str(_e_save)[:100]}")
+
+                    st.caption("ℹ️ 동의는 언제든지 해제할 수 있습니다. 변경사항은 다음 발송일부터 적용됩니다.")
+            except Exception as _e_email:
+                st.warning(f"자동 이메일 설정을 불러올 수 없습니다: {str(_e_email)[:100]}")
 
     # ══════════════════════════════
     # 홈 랜딩 페이지 (심플 버전)
@@ -5349,7 +5849,39 @@ else:
         with tab6:
             st.subheader(t("report_list"))
 
-            all_reps_data = supabase.table("reports").select("*").order("created_at", desc=True).execute()
+            # 🛡️ 보안: 권한별로 보고서 범위 제한
+            _role_rl = get_user_role(user)
+            _reps_query = supabase.table("reports").select("*").order("created_at", desc=True)
+
+            if _role_rl in ("superadmin", "admin"):
+                # 전체 조회
+                all_reps_data = _reps_query.execute()
+            elif is_agency_admin(user):
+                # 담당 업체들의 사용자가 작성한 보고서만
+                try:
+                    _agency_tids = [at["tenant_id"] for at in (supabase.table("agency_tenants").select("tenant_id").eq("agency_user_id", user["id"]).execute().data or [])]
+                    _scope_uids = [u["id"] for u in (supabase.table("users").select("id").in_("tenant_id", _agency_tids).execute().data or [])] if _agency_tids else []
+                    all_reps_data = _reps_query.in_("user_id", _scope_uids).execute() if _scope_uids else type("Obj",(),{"data":[]})()
+                except Exception:
+                    all_reps_data = _reps_query.eq("user_id", user["id"]).execute()
+            elif is_tenant_admin(user):
+                # 자기 업체 사용자의 보고서만
+                try:
+                    _scope_uids = [u["id"] for u in (supabase.table("users").select("id").eq("tenant_id", user.get("tenant_id","")).execute().data or [])]
+                    all_reps_data = _reps_query.in_("user_id", _scope_uids).execute() if _scope_uids else type("Obj",(),{"data":[]})()
+                except Exception:
+                    all_reps_data = _reps_query.eq("user_id", user["id"]).execute()
+            elif _role_rl == "team_leader":
+                # 자기 팀원의 보고서만
+                try:
+                    _scope_uids = [u["id"] for u in (supabase.table("users").select("id").eq("team_id", user.get("team_id","")).execute().data or [])]
+                    all_reps_data = _reps_query.in_("user_id", _scope_uids).execute() if _scope_uids else type("Obj",(),{"data":[]})()
+                except Exception:
+                    all_reps_data = _reps_query.eq("user_id", user["id"]).execute()
+            else:
+                # 일반 사용자: 본인 것만
+                all_reps_data = _reps_query.eq("user_id", user["id"]).execute()
+
             all_users_r = supabase.table("users").select("id,name").execute()
             umap_r = {u["id"]: u["name"] for u in (all_users_r.data or [])}
 
@@ -6178,9 +6710,9 @@ else:
         if (is_admin or is_super) and tab8:
             with tab8:
                 st.subheader(t("admin_title"))
-                admin_tab1, admin_tab2, admin_tab3, admin_tab4, admin_tab5, admin_tab6, admin_tab7, admin_tab8, admin_tab9, admin_tab10, admin_tab11, admin_tab12, admin_tab13 = st.tabs([
+                admin_tab1, admin_tab2, admin_tab3, admin_tab4, admin_tab5, admin_tab6, admin_tab7, admin_tab8, admin_tab9, admin_tab10, admin_tab11, admin_tab12, admin_tab13, admin_tab14 = st.tabs([
                     t("admin_team"), t("admin_assign"), t("admin_token"), t("admin_email"), t("admin_log"), "💬 채팅 토큰", "📡 채널 모니터링", "🧠 키워드 학습",
-                    "🏢 업체(Tenant) 관리", "🤝 위탁관리자 관리", "📣 알림 발송 센터", "📋 라이선스 신청 관리", "🗂️ 동의서 보관함"
+                    "🏢 업체(Tenant) 관리", "🤝 위탁관리자 관리", "📣 알림 발송 센터", "📋 라이선스 신청 관리", "🗂️ 동의서 보관함", "🛡️ 다운로드 감사 로그"
                 ])
 
                 # 팀 현황
@@ -6219,13 +6751,23 @@ else:
                             st.dataframe(df_summary, use_container_width=True)
                             # CSV 다운로드
                             csv_summary = df_summary.to_csv(index=False, encoding="utf-8-sig")
-                            st.download_button(
+                            _all_users_filename = f"DragonEyes_전체사용자_{date.today().strftime('%Y%m%d')}.csv"
+                            if st.download_button(
                                 label="📥 전체 사용자 현황 CSV 다운로드",
                                 data=csv_summary.encode("utf-8-sig"),
-                                file_name=f"DragonEyes_전체사용자_{date.today().strftime('%Y%m%d')}.csv",
+                                file_name=_all_users_filename,
                                 mime="text/csv",
                                 use_container_width=True,
-                            )
+                            ):
+                                log_download(
+                                    user=user,
+                                    resource_type="all_users_summary",
+                                    resource_label="전체 사용자 현황 (관리자용)",
+                                    file_format="csv",
+                                    file_name=_all_users_filename,
+                                    scope_description=f"전체 사용자 {len(summary)}명",
+                                    record_count=len(summary),
+                                )
 
                     with view_tab2:
                         # 그룹 역할 정의
@@ -6627,8 +7169,18 @@ else:
 
                             # CSV 다운로드
                             csv_kw = df_kw.to_csv(index=False, encoding="utf-8-sig")
-                            st.download_button("📥 키워드 목록 CSV 다운로드", data=csv_kw.encode("utf-8-sig"),
-                                file_name=f"learned_keywords_{date.today().strftime('%Y%m%d')}.csv", mime="text/csv")
+                            _kw_filename = f"learned_keywords_{date.today().strftime('%Y%m%d')}.csv"
+                            if st.download_button("📥 키워드 목록 CSV 다운로드", data=csv_kw.encode("utf-8-sig"),
+                                file_name=_kw_filename, mime="text/csv"):
+                                log_download(
+                                    user=user,
+                                    resource_type="learned_keywords",
+                                    resource_label="학습된 키워드 목록",
+                                    file_format="csv",
+                                    file_name=_kw_filename,
+                                    scope_description=f"키워드 {len(kw_data)}개",
+                                    record_count=len(kw_data),
+                                )
 
                             st.divider()
 
@@ -7439,13 +7991,23 @@ DragonEyes 시스템 관리팀"""
                             } for r in consent_records])
                             if not df_consent.empty:
                                 csv_c = df_consent.to_csv(index=False, encoding="utf-8-sig")
-                                st.download_button(
+                                _consent_filename = f"동의서보관함_{date.today().strftime('%Y%m%d')}.csv"
+                                if st.download_button(
                                     "📥 동의서 목록 CSV",
                                     data=csv_c.encode("utf-8-sig"),
-                                    file_name=f"동의서보관함_{date.today().strftime('%Y%m%d')}.csv",
+                                    file_name=_consent_filename,
                                     mime="text/csv",
                                     use_container_width=True
-                                )
+                                ):
+                                    log_download(
+                                        user=user,
+                                        resource_type="consent_records",
+                                        resource_label="동의서 보관함 (개인정보 포함)",
+                                        file_format="csv",
+                                        file_name=_consent_filename,
+                                        scope_description=f"동의 기록 {len(consent_records)}건",
+                                        record_count=len(consent_records),
+                                    )
 
                         # 동의 완료 목록
                         st.markdown("#### ✅ 동의 완료 사용자")
@@ -7534,3 +8096,155 @@ DragonEyes 시스템 관리팀"""
                                     st.rerun()
                     except Exception as e:
                         st.error(f"동의 항목 조회 오류: {str(e)}")
+
+                # ══════════════════════════════════════════════════════════════
+                # 🛡️ 다운로드 감사 로그 (5/5 추가)
+                # 누가, 언제, 무엇을 다운로드 받았는지 추적
+                # ══════════════════════════════════════════════════════════════
+                with admin_tab14:
+                    st.markdown("### 🛡️ 다운로드 감사 로그")
+                    st.caption("개인정보보호법 안전성 확보조치 의무 대응 — 모든 다운로드 행위를 추적합니다.")
+
+                    try:
+                        # 권한별 로그 조회
+                        _logs = get_download_logs_for_user(user)
+
+                        if not _logs:
+                            st.info("아직 다운로드 기록이 없습니다.")
+                        else:
+                            # 통계 카드
+                            _today_iso = date.today().strftime("%Y-%m-%d")
+                            _this_month_iso = date.today().strftime("%Y-%m")
+                            _today_logs = [l for l in _logs if str(l.get("downloaded_at",""))[:10] == _today_iso]
+                            _month_logs = [l for l in _logs if str(l.get("downloaded_at",""))[:7] == _this_month_iso]
+                            _unique_users = len(set([l.get("user_id") for l in _logs if l.get("user_id")]))
+
+                            mc1, mc2, mc3, mc4 = st.columns(4)
+                            mc1.metric("📊 전체 기록", f"{len(_logs)}건")
+                            mc2.metric("📅 오늘", f"{len(_today_logs)}건")
+                            mc3.metric("🗓️ 이번달", f"{len(_month_logs)}건")
+                            mc4.metric("👥 다운로드 사용자", f"{_unique_users}명")
+
+                            st.divider()
+
+                            # 필터
+                            fc1, fc2, fc3, fc4 = st.columns(4)
+                            with fc1:
+                                _filter_user = st.text_input("👤 사용자 검색 (이름/이메일)", key="dl_filter_user")
+                            with fc2:
+                                _resource_types = sorted(set([l.get("resource_type","") for l in _logs if l.get("resource_type")]))
+                                _filter_resource = st.selectbox("📁 자료 종류", ["전체"] + _resource_types, key="dl_filter_resource")
+                            with fc3:
+                                _format_types = sorted(set([l.get("file_format","") for l in _logs if l.get("file_format")]))
+                                _filter_format = st.selectbox("📄 파일 형식", ["전체"] + _format_types, key="dl_filter_format")
+                            with fc4:
+                                _filter_period = st.selectbox("⏰ 기간", ["전체", "오늘", "이번주", "이번달"], key="dl_filter_period")
+
+                            # 필터링
+                            _filtered = _logs
+                            if _filter_user:
+                                _q_lower = _filter_user.lower()
+                                _filtered = [l for l in _filtered if _q_lower in str(l.get("user_name","")).lower() or _q_lower in str(l.get("user_email","")).lower()]
+                            if _filter_resource != "전체":
+                                _filtered = [l for l in _filtered if l.get("resource_type") == _filter_resource]
+                            if _filter_format != "전체":
+                                _filtered = [l for l in _filtered if l.get("file_format") == _filter_format]
+                            if _filter_period == "오늘":
+                                _filtered = [l for l in _filtered if str(l.get("downloaded_at",""))[:10] == _today_iso]
+                            elif _filter_period == "이번주":
+                                from datetime import timedelta as _td
+                                _week_start = (date.today() - _td(days=date.today().weekday())).strftime("%Y-%m-%d")
+                                _filtered = [l for l in _filtered if str(l.get("downloaded_at",""))[:10] >= _week_start]
+                            elif _filter_period == "이번달":
+                                _filtered = [l for l in _filtered if str(l.get("downloaded_at",""))[:7] == _this_month_iso]
+
+                            st.caption(f"🔍 검색 결과: **{len(_filtered)}건** / 전체 {len(_logs)}건")
+
+                            # 자료 종류 라벨 매핑
+                            _resource_labels = {
+                                "work_status": "📊 업무현황",
+                                "staff_info": "👥 직원정보",
+                                "monthly_calendar": "📅 월별 캘린더",
+                                "all_users_summary": "👤 전체 사용자",
+                                "learned_keywords": "🧠 학습 키워드",
+                                "consent_records": "📋 동의서 보관함",
+                                "reports": "📝 보고서",
+                            }
+
+                            # 다운로드 (관리자 본인이 감사 로그를 다운로드 - 메타 로그 안 남김)
+                            if _filtered:
+                                _df_audit = pd.DataFrame([{
+                                    "다운로드시각": str(l.get("downloaded_at",""))[:19].replace("T", " "),
+                                    "사용자": l.get("user_name",""),
+                                    "이메일": l.get("user_email",""),
+                                    "권한": role_label(l.get("user_role","user")),
+                                    "자료종류": _resource_labels.get(l.get("resource_type",""), l.get("resource_type","")),
+                                    "라벨": l.get("resource_label",""),
+                                    "형식": (l.get("file_format","") or "").upper(),
+                                    "파일명": l.get("file_name",""),
+                                    "범위설명": l.get("scope_description",""),
+                                    "레코드수": l.get("record_count", 0),
+                                } for l in _filtered])
+
+                                # 감사 로그 자체 다운로드 (관리자만)
+                                if is_superadmin(user) or is_admin:
+                                    _audit_csv = _df_audit.to_csv(index=False, encoding="utf-8-sig")
+                                    _audit_filename = f"DragonEyes_감사로그_{date.today().strftime('%Y%m%d')}.csv"
+                                    st.download_button(
+                                        "📥 감사 로그 CSV 다운로드 (관리자 전용)",
+                                        data=_audit_csv.encode("utf-8-sig"),
+                                        file_name=_audit_filename,
+                                        mime="text/csv",
+                                        type="primary",
+                                    )
+
+                                st.divider()
+                                st.markdown("#### 📋 상세 기록 (최신순)")
+
+                                # 상세 표시 (페이지네이션)
+                                if "audit_page" not in st.session_state:
+                                    st.session_state.audit_page = 0
+                                _per_page = 20
+                                _total_pages = max(1, (len(_filtered) + _per_page - 1) // _per_page)
+                                _cur_page = min(st.session_state.audit_page, _total_pages - 1)
+                                _start = _cur_page * _per_page
+                                _page_data = _filtered[_start:_start + _per_page]
+
+                                for _l in _page_data:
+                                    _format_icon = {"csv": "📄", "xlsx": "📊", "pdf": "📕"}.get(_l.get("file_format",""), "📁")
+                                    _resource_icon = _resource_labels.get(_l.get("resource_type",""), "📁")
+                                    _time_str = str(_l.get("downloaded_at",""))[:19].replace("T", " ")
+
+                                    with st.container(border=True):
+                                        rc1, rc2, rc3 = st.columns([2, 3, 2])
+                                        with rc1:
+                                            st.markdown(f"**👤 {_l.get('user_name','?')}**")
+                                            st.caption(f"{_l.get('user_email','')}")
+                                            st.caption(f"권한: {role_label(_l.get('user_role','user'))}")
+                                        with rc2:
+                                            st.markdown(f"{_resource_icon} **{_l.get('resource_label', _l.get('resource_type',''))}**")
+                                            st.caption(f"📁 {_l.get('file_name','')}")
+                                            st.caption(f"📊 {_l.get('scope_description','')} ({_l.get('record_count',0)}건)")
+                                        with rc3:
+                                            st.markdown(f"🕐 **{_time_str}**")
+                                            _fmt = (_l.get('file_format','') or '').upper()
+                                            st.caption(f"형식: {_fmt}")
+
+                                # 페이지네이션
+                                pn1, pn2, pn3 = st.columns([1, 2, 1])
+                                with pn1:
+                                    if st.button("◀ 이전", disabled=_cur_page == 0, key="audit_prev"):
+                                        st.session_state.audit_page -= 1
+                                        st.rerun()
+                                with pn2:
+                                    st.markdown(f"<div style='text-align:center;color:#94a3b8;'>{_cur_page + 1} / {_total_pages}</div>", unsafe_allow_html=True)
+                                with pn3:
+                                    if st.button("다음 ▶", disabled=_cur_page >= _total_pages - 1, key="audit_next"):
+                                        st.session_state.audit_page += 1
+                                        st.rerun()
+                            else:
+                                st.info("필터 조건에 맞는 기록이 없습니다.")
+
+                    except Exception as _e_audit:
+                        st.error(f"감사 로그 조회 오류: {str(_e_audit)}")
+                        st.caption("download_logs 테이블이 정상적으로 생성되었는지 확인하세요.")
