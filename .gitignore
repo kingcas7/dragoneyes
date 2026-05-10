@@ -52,3 +52,5 @@ __pycache__/
 # Streamlit 비밀 정보
 # ========================================
 .streamlit/secrets.toml
+_archive_backups/
+venv/

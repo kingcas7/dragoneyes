@@ -1097,7 +1097,12 @@ if "token" in params and st.session_state.user is None:
                 this_month = date.today().strftime("%Y-%m")
                 res = supabase.table("reports").select("id").eq("user_id", ud.data[0]["id"]).gte("created_at", f"{this_month}-01").execute()
                 st.session_state.report_count = len(res.data)
-                st.session_state.current_page = "home_landing"
+                _new_user = ud.data[0]
+                _new_role = (_new_user.get("role") or _new_user.get("role_v2") or "").lower()
+                if _new_role == "agency_admin" or _new_user.get("is_tenant_admin"):
+                    st.session_state.current_page = "agency_dashboard"
+                else:
+                    st.session_state.current_page = "home_landing"
         # 옛 token 정리
         if "token" in st.query_params:
             del st.query_params["token"]
@@ -1133,7 +1138,12 @@ if "sid" in params and st.session_state.user is None:
                     this_month = date.today().strftime("%Y-%m")
                     res = supabase.table("reports").select("id").eq("user_id", _u["id"]).gte("created_at", f"{this_month}-01").execute()
                     st.session_state.report_count = len(res.data)
-                    # current_page는 그대로 유지 (사용자가 보던 페이지 보존)
+                    # current_page는 사용자가 보던 페이지 보존하되, 기본값(home_landing)일 때는 role 기반 분기
+                    _cur_page_sid = st.session_state.get("current_page", "home_landing")
+                    if _cur_page_sid == "home_landing":
+                        _sid_role = (_u.get("role") or _u.get("role_v2") or "").lower()
+                        if _sid_role == "agency_admin" or _u.get("is_tenant_admin"):
+                            st.session_state.current_page = "agency_dashboard"
     except Exception as _sess_err:
         # 세션 복원 실패 → sid 정리
         if "sid" in st.query_params:
@@ -2929,6 +2939,10 @@ else:
                 if save_user_consent(user["id"], user.get("name",""), user.get("email","")):
                     st.session_state.user["terms_agreed"] = True
                     st.session_state.user["terms_version"] = TERMS_VERSION
+                    _terms_user = st.session_state.user or {}
+                    _terms_role = (_terms_user.get("role") or _terms_user.get("role_v2") or "").lower()
+                    if _terms_role == "agency_admin" or _terms_user.get("is_tenant_admin"):
+                        st.session_state.current_page = "agency_dashboard"
                     st.session_state.current_page = "home_landing"
                     st.success("✅ 동의 완료! 시스템을 시작합니다.")
                     st.rerun()
@@ -3667,6 +3681,87 @@ else:
         with ab2:
             if st.button("📋 신청 이력 보기", use_container_width=True, key="license_history_btn"):
                 go_to("license_request"); st.rerun()
+        st.divider()
+
+        # ══════════════════════════════
+        # ══════════════════════════════
+        # ══════════════════════════════
+        # ══════════════════════════════
+        # ══════════════════════════════
+        # 🎯 파트너 액션 카드 그리드 (작은 박스, 가운데 정렬)
+        # ══════════════════════════════
+        st.markdown("""
+        <style>
+        .ac-card {
+            border-radius: 12px;
+            padding: 12px 8px 10px 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+            min-height: 75px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .ac-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 14px rgba(0,0,0,0.10);
+        }
+        .ac-card .ac-icon { font-size: 1.5rem; line-height: 1; }
+        .ac-card .ac-title { font-size: 0.78rem; font-weight: 700; margin-top: 4px; color: #0f172a; }
+        .ac-card .ac-desc { font-size: 0.62rem; color: #475569; margin-top: 2px; }
+        /* 카드 색상 */
+        .ac-blue   { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1px solid #bfdbfe; }
+        .ac-cyan   { background: linear-gradient(135deg, #ecfeff 0%, #cffafe 100%); border: 1px solid #a5f3fc; }
+        .ac-indigo { background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%); border: 1px solid #c7d2fe; }
+        .ac-violet { background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); border: 1px solid #ddd6fe; }
+        .ac-green  { background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 1px solid #bbf7d0; }
+        .ac-amber  { background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border: 1px solid #fde68a; }
+        .ac-rose   { background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%); border: 1px solid #fecdd3; }
+        .ac-slate  { background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border: 1px solid #e2e8f0; }
+        /* 클릭 버튼 자체는 투명/숨김 */
+        [data-testid="stButton"] button[kind="secondary"] {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            color: transparent !important;
+            min-height: 0 !important;
+            padding: 2px 0 !important;
+            margin-top: -8px !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+        def _action_card(col, icon, title, desc, key, target_page, color_class):
+            with col:
+                st.markdown(
+                    f'<div class="ac-card {color_class}">'
+                    f'<div class="ac-icon">{icon}</div>'
+                    f'<div class="ac-title">{title}</div>'
+                    f'<div class="ac-desc">{desc}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+                if st.button(" ", use_container_width=True, key=key, help=f"{title}로 이동"):
+                    go_to(target_page); st.rerun()
+
+        st.markdown("##### 📁 고객 관리")
+        # 가운데 정렬: 좌우 여백 + 8개 카드 → 4컬럼이지만 절반 너비
+        _pad_l1, ac1, ac2, ac3, ac4, _pad_r1 = st.columns([1, 1.5, 1.5, 1.5, 1.5, 1])
+        _action_card(ac1, "🏢", "고객사 관리", "업체 정보 등록·수정", "card_customer_mgmt", "customer_management", "ac-blue")
+        _action_card(ac2, "👥", "사용자 관리", "추가·수정·퇴사", "card_user_mgmt", "user_management", "ac-cyan")
+        _action_card(ac3, "🔍", "사용자 검색", "업체·지역·기관별", "card_user_search", "user_search", "ac-indigo")
+        _action_card(ac4, "💼", "라이선스 현황", "발급·만료·갱신", "card_license_status", "license_status", "ac-violet")
+
+        st.markdown("##### 📊 보고 및 운영")
+        _pad_l2, ac5, ac6, ac7, ac8, _pad_r2 = st.columns([1, 1.5, 1.5, 1.5, 1.5, 1])
+        _action_card(ac5, "📊", "보고서 통계", "월간 활동 리포트", "card_report_stats", "report_stats", "ac-green")
+        _action_card(ac6, "📑", "공단 서류 대행", "월간 서류 작성", "card_doc_agency", "doc_agency", "ac-amber")
+        _action_card(ac7, "📨", "Support Request", "본부에 요청", "card_support_request", "support_request", "ac-rose")
+        _action_card(ac8, "⚙️", "파트너 정보", "우리 회사 정보", "card_partner_info", "partner_info", "ac-slate")
+
         st.divider()
 
         today = date.today()
@@ -4973,6 +5068,732 @@ else:
     # ══════════════════════════════
     # 홈 랜딩 페이지 (심플 버전)
     # ══════════════════════════════
+    elif page == "customer_management":
+        st.markdown("### 🏢 고객사 관리")
+        st.info("🚧 준비 중인 기능입니다. 곧 만나보실 수 있습니다.")
+        st.caption("위탁업체가 관리하는 고객사(법인) 목록을 등록·수정할 수 있습니다.")
+        if st.button("⬅️ 대시보드로 돌아가기", key="back_cust_mgmt"):
+            go_to("agency_dashboard"); st.rerun()
+
+    elif page == "user_detail":
+        _did = st.session_state.get("detail_user_id")
+        if not _did:
+            st.warning("선택된 사용자가 없습니다.")
+            if st.button("⬅️ 사용자 관리로 돌아가기", key="back_no_uid"):
+                go_to("user_management"); st.rerun()
+        else:
+            _cur = st.session_state.user or {}
+            _cur_agency = _cur.get("agency_id")
+            _cur_role = _cur.get("role") or _cur.get("role_v2") or ""
+            _cur_is_admin = _cur.get("is_tenant_admin", False) or "admin" in str(_cur_role).lower()
+
+            try:
+                _u_res = supabase.table("users").select("*").eq("id", _did).limit(1).execute()
+                _user = (_u_res.data or [None])[0]
+            except Exception as _e:
+                st.error(f"사용자 조회 실패: {_e}")
+                _user = None
+
+            if not _user:
+                st.error("사용자를 찾을 수 없습니다.")
+                if st.button("⬅️ 사용자 관리로 돌아가기", key="back_notfound"):
+                    go_to("user_management"); st.rerun()
+            elif (not _cur_is_admin) and _cur_agency and _user.get("agency_id") != _cur_agency:
+                st.error("⛔ 다른 위탁업체 소속 사용자입니다. 접근 권한이 없습니다.")
+                if st.button("⬅️ 사용자 관리로 돌아가기", key="back_noperm"):
+                    go_to("user_management"); st.rerun()
+            else:
+                _ROLE_LABEL_DTL = {"user": "일반회원", "admin": "관리자", "agency": "위탁업체", "super_admin": "본부관리자", "agency_admin": "위탁관리자", "member": "관리자"}
+                _status = (_user.get("status") or "active")
+                _status_badge = "🟢 재직" if _status == "active" else ("🔴 퇴사" if _status == "resigned" else _status)
+
+                _hdr_c1, _hdr_c2 = st.columns([3, 1])
+                with _hdr_c1:
+                    st.markdown(f"### 👤 {_user.get('name') or '(이름 없음)'}")
+                    st.caption(f"{_status_badge} · {_user.get('email','-')}")
+                with _hdr_c2:
+                    _edit_mode = st.session_state.get("detail_edit_mode", False)
+                    if not _edit_mode:
+                        if st.button("✏️ 편집 모드", use_container_width=True, key="enter_edit"):
+                            st.session_state["detail_edit_mode"] = True
+                            st.rerun()
+                    else:
+                        if st.button("👁 조회 모드", use_container_width=True, key="exit_edit"):
+                            st.session_state["detail_edit_mode"] = False
+                            st.rerun()
+
+                st.divider()
+                _edit_mode = st.session_state.get("detail_edit_mode", False)
+
+                if not _edit_mode:
+                    _s1c1, _s1c2 = st.columns(2)
+                    with _s1c1:
+                        st.markdown("##### 📋 기본정보")
+                        st.markdown(f"**구분**: {_ROLE_LABEL_DTL.get(_user.get('role'), _user.get('role') or '-')}")
+                        st.markdown(f"**이름**: {_user.get('name') or '-'}")
+                        st.markdown(f"**이메일**: {_user.get('email') or '-'}")
+                        st.markdown(f"**생년월일**: {_user.get('birthdate') or '-'}")
+                        st.markdown(f"**주소**: {_user.get('address') or '-'}")
+                    with _s1c2:
+                        st.markdown("##### 📞 연락처")
+                        st.markdown(f"**본인 연락처**: {_user.get('phone') or '-'}")
+                        st.markdown(f"**비상연락망**: {_user.get('emergency_contact') or '-'}")
+
+                    _s2c1, _s2c2 = st.columns(2)
+                    with _s2c1:
+                        st.markdown("##### 👨‍👩‍👧 보호자")
+                        st.markdown(f"**보호자 성명**: {_user.get('guardian_name') or '-'}")
+                        st.markdown(f"**보호자 연락처**: {_user.get('guardian_phone') or '-'}")
+                    with _s2c2:
+                        st.markdown("##### ♿ 장애정보")
+                        st.markdown(f"**장애등급**: {_user.get('disability_grade') or '-'}")
+                        st.markdown(f"**월간 목표**: {_user.get('monthly_target') or '-'}")
+
+                    if _status == "resigned":
+                        st.divider()
+                        _resigned_at = (_user.get("resigned_at") or "")[:10]
+                        st.markdown(f"##### 🚪 퇴사 정보")
+                        st.markdown(f"**퇴사일**: {_resigned_at or '-'}")
+
+                    with st.expander("⚙️ 시스템 정보 (읽기 전용)", expanded=False):
+                        st.markdown(f"**User ID**: `{_user.get('id')}`")
+                        st.markdown(f"**Agency ID**: `{_user.get('agency_id') or '-'}`")
+                        st.markdown(f"**Tenant ID**: `{_user.get('tenant_id') or '-'}`")
+                        st.markdown(f"**Team ID**: `{_user.get('team_id') or '-'}`")
+                        st.markdown(f"**Tenant 관리자**: {'예' if _user.get('is_tenant_admin') else '아니오'}")
+                        st.markdown(f"**가입일**: {(_user.get('created_at') or '')[:19]}")
+                        st.markdown(f"**약관 동의**: {'예' if _user.get('terms_agreed') else '아니오'}")
+                        if _user.get("terms_agreed_at"):
+                            st.markdown(f"**약관 동의일**: {(_user.get('terms_agreed_at') or '')[:19]}")
+
+                    st.divider()
+                    st.markdown("##### 📎 첨부서류")
+                    st.caption("장애인등록증, 계약서, 통장사본 등 (PDF/JPG/PNG, 최대 10MB)")
+
+                    import re as _attre
+                    import time as _atttime
+                    from datetime import datetime as _attdt
+
+                    _BUCKET = "user-documents"
+                    _ALLOWED_MIME = {
+                        "application/pdf": "pdf",
+                        "image/jpeg": "jpg",
+                        "image/jpg": "jpg",
+                        "image/png": "png",
+                    }
+                    _MAX_BYTES = 10 * 1024 * 1024
+
+                    _target_agency = _user.get("agency_id") or (st.session_state.user or {}).get("agency_id")
+                    _uploader_id = (st.session_state.user or {}).get("id")
+
+                    with st.expander("📤 새 서류 업로드", expanded=False):
+                        _doc_name_in = st.text_input(
+                            "서류명 *",
+                            placeholder="예: 장애인등록증, 근로계약서, 통장사본",
+                            max_chars=100,
+                            key=f"upl_name_{_did}"
+                        )
+                        _doc_file = st.file_uploader(
+                            "파일 선택",
+                            type=["pdf", "jpg", "jpeg", "png"],
+                            key=f"upl_file_{_did}"
+                        )
+                        _doc_notes = st.text_input(
+                            "메모 (선택)",
+                            max_chars=200,
+                            key=f"upl_notes_{_did}"
+                        )
+
+                        if st.button("⬆️ 업로드", type="primary", key=f"upl_btn_{_did}"):
+                            _err = None
+                            _doc_name_clean = (_doc_name_in or "").strip()
+                            if not _doc_name_clean:
+                                _err = "서류명을 입력하세요."
+                            elif _doc_file is None:
+                                _err = "파일을 선택하세요."
+                            elif _doc_file.size > _MAX_BYTES:
+                                _err = f"파일 크기가 10MB를 초과합니다. ({_doc_file.size / 1024 / 1024:.1f}MB)"
+                            elif _doc_file.type not in _ALLOWED_MIME:
+                                _err = f"허용되지 않는 파일 형식입니다. (PDF/JPG/PNG만 가능, 받은 형식: {_doc_file.type})"
+                            elif not _target_agency:
+                                _err = "사용자의 소속(agency_id)이 확인되지 않아 업로드할 수 없습니다."
+
+                            if _err:
+                                st.error(_err)
+                            else:
+                                try:
+                                    _ext = _doc_file.name.rsplit(".", 1)[-1].lower() if "." in _doc_file.name else "bin"
+                                    _safe_orig = _attre.sub(r"[^a-zA-Z0-9._-]", "_", _doc_file.name.rsplit(".", 1)[0])[:60] + "." + _ext
+                                    _ts = int(_atttime.time())
+                                    _file_path = f"agency_{_target_agency}/user_{_did}/{_ts}_{_safe_orig}"
+
+                                    _file_bytes = _doc_file.getvalue()
+                                    _upload_res = supabase.storage.from_(_BUCKET).upload(
+                                        path=_file_path,
+                                        file=_file_bytes,
+                                        file_options={
+                                            "content-type": _doc_file.type,
+                                            "upsert": "false"
+                                        }
+                                    )
+
+                                    _meta = {
+                                        "user_id": _did,
+                                        "agency_id": _target_agency,
+                                        "document_name": _doc_name_clean,
+                                        "file_path": _file_path,
+                                        "file_name": _doc_file.name,
+                                        "file_size": _doc_file.size,
+                                        "mime_type": _doc_file.type,
+                                        "uploaded_by": _uploader_id,
+                                        "notes": (_doc_notes or "").strip() or None,
+                                    }
+                                    supabase.table("user_documents").insert(_meta).execute()
+                                    st.success(f"✅ '{_doc_name_clean}' 업로드 완료")
+                                    _atttime.sleep(0.6)
+                                    st.rerun()
+                                except Exception as _ue:
+                                    _msg = str(_ue)
+                                    if "duplicate" in _msg.lower() or "already exists" in _msg.lower():
+                                        st.error("같은 이름의 파일이 이미 있습니다. 잠시 후 다시 시도해주세요.")
+                                    elif "row-level security" in _msg.lower() or "rls" in _msg.lower():
+                                        st.error("권한이 없습니다. 다른 위탁업체 사용자의 서류는 업로드할 수 없습니다.")
+                                    else:
+                                        st.error(f"업로드 실패: {_msg[:200]}")
+
+                    try:
+                        _doc_res = supabase.table("user_documents").select(
+                            "id,document_name,file_path,file_name,file_size,mime_type,uploaded_at,notes"
+                        ).eq("user_id", _did).is_("deleted_at", "null").order(
+                            "uploaded_at", desc=True
+                        ).execute()
+                        _docs = _doc_res.data or []
+                    except Exception as _de:
+                        st.error(f"서류 목록 조회 실패: {_de}")
+                        _docs = []
+
+                    if not _docs:
+                        st.info("등록된 서류가 없습니다.")
+                    else:
+                        st.markdown(f"**📋 등록된 서류 {len(_docs)}건**")
+                        for _doc in _docs:
+                            _doc_id = _doc["id"]
+                            _fsize_kb = (_doc.get("file_size") or 0) / 1024
+                            _fsize_str = f"{_fsize_kb:.0f} KB" if _fsize_kb < 1024 else f"{_fsize_kb/1024:.1f} MB"
+                            _uploaded = (_doc.get("uploaded_at") or "")[:16].replace("T", " ")
+
+                            with st.container():
+                                _dc1, _dc2, _dc3, _dc4 = st.columns([3, 2, 1, 1])
+                                with _dc1:
+                                    st.markdown(f"**📄 {_doc.get('document_name', '-')}**")
+                                    st.caption(f"📎 {_doc.get('file_name', '-')}")
+                                    if _doc.get("notes"):
+                                        st.caption(f"💬 {_doc['notes']}")
+                                with _dc2:
+                                    st.caption(f"📅 {_uploaded}")
+                                    st.caption(f"💾 {_fsize_str}")
+                                with _dc3:
+                                    if st.button("📥", key=f"dl_{_doc_id}", help="다운로드 링크 생성"):
+                                        try:
+                                            _signed = supabase.storage.from_(_BUCKET).create_signed_url(
+                                                _doc["file_path"], 3600
+                                            )
+                                            _url = _signed.get("signedURL") or _signed.get("signed_url") or _signed.get("signedUrl")
+                                            if _url:
+                                                st.session_state[f"signed_url_{_doc_id}"] = _url
+                                                st.rerun()
+                                            else:
+                                                st.error("URL 생성 실패")
+                                        except Exception as _se:
+                                            st.error(f"다운로드 링크 생성 실패: {str(_se)[:120]}")
+                                with _dc4:
+                                    if st.button("🗑️", key=f"del_{_doc_id}", help="삭제"):
+                                        st.session_state[f"confirm_del_{_doc_id}"] = True
+                                        st.rerun()
+
+                                if st.session_state.get(f"signed_url_{_doc_id}"):
+                                    _u = st.session_state[f"signed_url_{_doc_id}"]
+                                    st.markdown(f"🔗 [**여기를 클릭해서 다운로드**]({_u}) (1시간 유효)")
+
+                                if st.session_state.get(f"confirm_del_{_doc_id}"):
+                                    st.warning(f"'{_doc.get('document_name')}' 서류를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.")
+                                    _cf1, _cf2, _cf3 = st.columns([1, 1, 3])
+                                    if _cf1.button("✅ 삭제", key=f"confirm_yes_{_doc_id}", type="primary"):
+                                        try:
+                                            supabase.table("user_documents").update({
+                                                "deleted_at": _attdt.now().isoformat()
+                                            }).eq("id", _doc_id).execute()
+                                            try:
+                                                supabase.storage.from_(_BUCKET).remove([_doc["file_path"]])
+                                            except Exception:
+                                                pass
+                                            st.session_state.pop(f"confirm_del_{_doc_id}", None)
+                                            st.session_state.pop(f"signed_url_{_doc_id}", None)
+                                            st.success("삭제 완료")
+                                            _atttime.sleep(0.5)
+                                            st.rerun()
+                                        except Exception as _de2:
+                                            st.error(f"삭제 실패: {str(_de2)[:200]}")
+                                    if _cf2.button("❌ 취소", key=f"confirm_no_{_doc_id}"):
+                                        st.session_state.pop(f"confirm_del_{_doc_id}", None)
+                                        st.rerun()
+                                st.divider()
+
+                else:
+                    st.markdown("##### ✏️ 정보 수정")
+                    st.caption("이메일과 소속(agency_id)은 보안상 변경할 수 없습니다. 변경하려면 본부 관리자에게 문의하세요.")
+
+                    with st.form("user_edit_form", clear_on_submit=False):
+                        _ec1, _ec2 = st.columns(2)
+                        with _ec1:
+                            st.markdown("**📋 기본정보**")
+                            _f_role = st.selectbox(
+                                "구분",
+                                ["user", "admin"],
+                                index=0 if _user.get("role") != "admin" else 1,
+                                format_func=lambda x: _ROLE_LABEL_DTL.get(x, x),
+                                key="edit_role"
+                            )
+                            _f_name = st.text_input("이름 *", value=_user.get("name") or "", key="edit_name")
+                            st.text_input("이메일 (변경 불가)", value=_user.get("email") or "", disabled=True, key="edit_email_ro")
+                            _f_birth = st.text_input("생년월일 (YYYY-MM-DD)", value=_user.get("birthdate") or "", key="edit_birth")
+                            _f_addr = st.text_input("주소", value=_user.get("address") or "", key="edit_addr")
+
+                        with _ec2:
+                            st.markdown("**📞 연락처 / 보호자 / 장애**")
+                            _f_phone = st.text_input("본인 연락처", value=_user.get("phone") or "", key="edit_phone")
+                            _f_emer = st.text_input("비상연락망", value=_user.get("emergency_contact") or "", key="edit_emer")
+                            _f_gname = st.text_input("보호자 성명", value=_user.get("guardian_name") or "", key="edit_gname")
+                            _f_gphone = st.text_input("보호자 연락처", value=_user.get("guardian_phone") or "", key="edit_gphone")
+                            _f_grade = st.text_input("장애등급", value=_user.get("disability_grade") or "", key="edit_grade")
+                            _f_target = st.number_input(
+                                "월간 목표",
+                                value=int(_user.get("monthly_target") or 0),
+                                step=1,
+                                key="edit_target"
+                            )
+
+                        _bcol1, _bcol2 = st.columns(2)
+                        _save = _bcol1.form_submit_button("💾 저장", type="primary", use_container_width=True)
+                        _cancel = _bcol2.form_submit_button("❌ 취소", use_container_width=True)
+
+                        if _cancel:
+                            st.session_state["detail_edit_mode"] = False
+                            st.rerun()
+
+                        if _save:
+                            if not _f_name.strip():
+                                st.error("이름은 필수입니다.")
+                            else:
+                                _new_vals = {
+                                    "role": _f_role,
+                                    "name": _f_name.strip(),
+                                    "birthdate": _f_birth.strip() or None,
+                                    "address": _f_addr.strip() or None,
+                                    "phone": _f_phone.strip() or None,
+                                    "emergency_contact": _f_emer.strip() or None,
+                                    "guardian_name": _f_gname.strip() or None,
+                                    "guardian_phone": _f_gphone.strip() or None,
+                                    "disability_grade": _f_grade.strip() or None,
+                                    "monthly_target": int(_f_target) if _f_target else None,
+                                }
+                                _changes = {}
+                                for _k, _v in _new_vals.items():
+                                    _old = _user.get(_k)
+                                    if (_old or None) != (_v or None):
+                                        _changes[_k] = _v
+
+                                if not _changes:
+                                    st.info("변경된 내용이 없습니다.")
+                                else:
+                                    try:
+                                        from datetime import datetime as _dt
+                                        _changes["updated_at"] = _dt.now().isoformat()
+                                        supabase.table("users").update(_changes).eq("id", _did).execute()
+                                        st.success(f"✅ {len(_changes)-1}개 항목 저장 완료")
+                                        st.session_state["detail_edit_mode"] = False
+                                        import time as _t
+                                        _t.sleep(0.8)
+                                        st.rerun()
+                                    except Exception as _e:
+                                        st.error(f"저장 실패: {_e}")
+
+                st.divider()
+                if st.button("⬅️ 사용자 관리로 돌아가기", key="back_user_detail"):
+                    st.session_state["detail_edit_mode"] = False
+                    go_to("user_management"); st.rerun()
+
+    elif page == "user_management":
+        st.markdown("### 👥 사용자 관리")
+        st.caption("재직/퇴사 사용자 관리 + 신규 등록")
+
+        _cur = st.session_state.user or {}
+        _agency_id = _cur.get("agency_id")
+        _role = _cur.get("role") or _cur.get("role_v2") or ""
+        _is_admin = _cur.get("is_tenant_admin", False)
+
+        if not _agency_id and not _is_admin and _role not in ("admin", "super_admin"):
+            st.warning("위탁업체(agency) 소속이 확인되지 않습니다. 본부 관리자에게 문의하세요.")
+            if st.button("⬅️ 대시보드로 돌아가기", key="back_user_mgmt_noaccess"):
+                go_to("agency_dashboard"); st.rerun()
+        else:
+            try:
+                _q = supabase.table("users").select(
+                    "id,email,name,role,phone,guardian_name,guardian_phone,"
+                    "status,resigned_at,agency_id,created_at"
+                )
+                if _agency_id and not _is_admin and _role not in ("admin", "super_admin"):
+                    _q = _q.eq("agency_id", _agency_id)
+                _all_users = _q.order("created_at", desc=True).execute().data or []
+            except Exception as _e:
+                st.error(f"사용자 조회 실패: {_e}")
+                _all_users = []
+
+            _active = [u for u in _all_users if (u.get("status") or "active") == "active"]
+            _resigned = [u for u in _all_users if (u.get("status") or "") == "resigned"]
+
+            _c1, _c2, _c3 = st.columns(3)
+            _c1.metric("재직", len(_active))
+            _c2.metric("퇴사", len(_resigned))
+            _c3.metric("전체", len(_all_users))
+
+            _tab_active, _tab_resigned, _tab_new = st.tabs(
+                [f"재직 ({len(_active)})", f"퇴사 ({len(_resigned)})", "신규 등록"]
+            )
+
+            _ROLE_LABEL = {"user": "일반회원", "admin": "관리자", "agency": "위탁업체", "super_admin": "본부관리자", "agency_admin": "위탁관리자", "member": "관리자"}
+
+            def _render_user_table(rows, key_prefix, show_resigned_at=False):
+                if not rows:
+                    st.info("표시할 사용자가 없습니다.")
+                    return
+                _table_rows = []
+                for u in rows:
+                    _row = {
+                        "구분": _ROLE_LABEL.get(u.get("role"), u.get("role") or "-"),
+                        "이름": u.get("name") or "-",
+                        "이메일": u.get("email") or "-",
+                        "연락처": u.get("phone") or "-",
+                        "보호자 성명": u.get("guardian_name") or "-",
+                        "보호자 연락처": u.get("guardian_phone") or "-",
+                    }
+                    if show_resigned_at:
+                        _row["퇴사일"] = (u.get("resigned_at") or "")[:10] or "-"
+                    _table_rows.append(_row)
+                st.dataframe(_table_rows, use_container_width=True, hide_index=True)
+
+                with st.expander("🔧 개별 사용자 작업", expanded=False):
+                    _options = {f"{u.get('name','-')} ({u.get('email','-')})": u["id"] for u in rows}
+                    if _options:
+                        _sel = st.selectbox("대상 선택", list(_options.keys()), key=f"{key_prefix}_sel")
+                        _sel_id = _options[_sel]
+                        _b1, _b2, _b3 = st.columns(3)
+                        if _b1.button("🔍 상세보기", key=f"{key_prefix}_detail_{_sel_id}"):
+                            st.session_state["detail_user_id"] = _sel_id
+                            st.session_state["detail_edit_mode"] = False
+                            go_to("user_detail")
+                            st.rerun()
+                        if not show_resigned_at:
+                            if _b2.button("🚪 퇴사 처리", key=f"{key_prefix}_resign_{_sel_id}"):
+                                try:
+                                    from datetime import datetime
+                                    supabase.table("users").update({
+                                        "status": "resigned",
+                                        "resigned_at": datetime.now().isoformat()
+                                    }).eq("id", _sel_id).execute()
+                                    st.success("퇴사 처리 완료")
+                                    st.rerun()
+                                except Exception as _e:
+                                    st.error(f"실패: {_e}")
+                        else:
+                            if _b2.button("↩️ 복직 처리", key=f"{key_prefix}_restore_{_sel_id}"):
+                                try:
+                                    supabase.table("users").update({
+                                        "status": "active",
+                                        "resigned_at": None
+                                    }).eq("id", _sel_id).execute()
+                                    st.success("복직 처리 완료")
+                                    st.rerun()
+                                except Exception as _e:
+                                    st.error(f"실패: {_e}")
+
+            with _tab_active:
+                _render_user_table(_active, "active")
+
+            with _tab_resigned:
+                _render_user_table(_resigned, "resigned", show_resigned_at=True)
+
+            with _tab_new:
+                _reg_mode = st.radio(
+                    "등록 방식",
+                    ["단일 등록", "CSV 일괄 등록"],
+                    horizontal=True,
+                    key="reg_mode"
+                )
+
+                if _reg_mode == "단일 등록":
+                    st.markdown("##### 신규 사용자 등록")
+                    st.caption("라이선스 신청서 양식 ④번 항목과 동일")
+                    _new_role = st.selectbox("구분", ["user", "admin"],
+                                             format_func=lambda x: _ROLE_LABEL.get(x, x), key="new_role")
+                    _new_name = st.text_input("이름 *", key="new_name")
+                    _new_email = st.text_input("이메일 *", key="new_email")
+                    _new_phone = st.text_input("연락처", key="new_phone")
+                    _new_gname = st.text_input("보호자 성명", key="new_gname")
+                    _new_gphone = st.text_input("보호자 연락처", key="new_gphone")
+                    _new_org = st.text_input("소속 단체/기관 (선택)", key="new_org",
+                                             help="추후 related_organizations 매핑 예정")
+
+                    if st.button("✅ 등록", type="primary", key="new_submit"):
+                        if not _new_name or not _new_email:
+                            st.error("이름과 이메일은 필수입니다.")
+                        else:
+                            try:
+                                _payload = {
+                                    "name": _new_name,
+                                    "email": _new_email,
+                                    "role": _new_role,
+                                    "phone": _new_phone or None,
+                                    "guardian_name": _new_gname or None,
+                                    "guardian_phone": _new_gphone or None,
+                                    "status": "active",
+                                    "agency_id": _agency_id,
+                                }
+                                supabase.table("users").insert(_payload).execute()
+                                st.success(f"{_new_name} 등록 완료")
+                                st.rerun()
+                            except Exception as _e:
+                                st.error(f"등록 실패: {_e}")
+
+                else:
+                    st.markdown("##### CSV 일괄 등록")
+                    st.caption("여러 사용자를 한 번에 등록합니다. 이메일이 중복되면 기존 정보가 업데이트됩니다 (upsert).")
+
+                    import io as _io
+                    import csv as _csv
+
+                    _template_csv = (
+                        "구분,이름,이메일,연락처,보호자성명,보호자연락처,소속단체\n"
+                        "user,홍길동,hong@example.com,010-1234-5678,홍부모,010-9876-5432,서울시각장애인협회\n"
+                        "user,김철수,kim@example.com,010-2222-3333,,,\n"
+                    )
+                    st.download_button(
+                        label="📥 CSV 템플릿 다운로드",
+                        data=_template_csv.encode("utf-8-sig"),
+                        file_name="dragoneyes_users_template.csv",
+                        mime="text/csv",
+                        key="csv_template_download"
+                    )
+
+                    st.divider()
+
+                    _uploaded = st.file_uploader(
+                        "📤 CSV 파일 업로드",
+                        type=["csv"],
+                        key="csv_upload",
+                        help="UTF-8 또는 EUC-KR(CP949) 인코딩 모두 지원합니다."
+                    )
+
+                    if _uploaded is not None:
+                        _raw = _uploaded.read()
+                        _decoded = None
+                        _enc_used = None
+                        for _enc in ("utf-8-sig", "cp949", "utf-8"):
+                            try:
+                                _decoded = _raw.decode(_enc)
+                                _enc_used = _enc
+                                break
+                            except UnicodeDecodeError:
+                                continue
+
+                        if _decoded is None:
+                            st.error("파일 인코딩을 인식할 수 없습니다. UTF-8 또는 EUC-KR로 저장 후 다시 시도하세요.")
+                        else:
+                            st.caption(f"인코딩 감지: {_enc_used}")
+                            try:
+                                _reader = _csv.DictReader(_io.StringIO(_decoded))
+                                _rows_raw = list(_reader)
+                            except Exception as _e:
+                                st.error(f"CSV 파싱 실패: {_e}")
+                                _rows_raw = []
+
+                            _COL_MAP = {
+                                "구분": "role", "role": "role",
+                                "이름": "name", "name": "name",
+                                "이메일": "email", "email": "email",
+                                "연락처": "phone", "phone": "phone", "전화번호": "phone",
+                                "보호자성명": "guardian_name", "보호자 성명": "guardian_name", "guardian_name": "guardian_name",
+                                "보호자연락처": "guardian_phone", "보호자 연락처": "guardian_phone", "guardian_phone": "guardian_phone",
+                                "소속단체": "_org", "소속 단체": "_org", "소속기관": "_org",
+                            }
+
+                            _normalized = []
+                            _errors = []
+                            import re as _re
+                            _email_re = _re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+                            for _i, _row in enumerate(_rows_raw, start=2):
+                                _clean = {}
+                                for _k, _v in _row.items():
+                                    if _k is None:
+                                        continue
+                                    _key = _COL_MAP.get(_k.strip())
+                                    if _key:
+                                        _clean[_key] = (_v or "").strip()
+
+                                _name = _clean.get("name", "")
+                                _email = _clean.get("email", "")
+                                _role_v = _clean.get("role", "user") or "user"
+                                if _role_v not in ("user", "admin"):
+                                    _role_v = "user"
+
+                                _err = None
+                                if not _name:
+                                    _err = "이름 누락"
+                                elif not _email:
+                                    _err = "이메일 누락"
+                                elif not _email_re.match(_email):
+                                    _err = "이메일 형식 오류"
+
+                                if _err:
+                                    _errors.append({"행": _i, "이메일": _email or "-", "이름": _name or "-", "오류": _err})
+                                else:
+                                    _normalized.append({
+                                        "name": _name,
+                                        "email": _email.lower(),
+                                        "role": _role_v,
+                                        "phone": _clean.get("phone") or None,
+                                        "guardian_name": _clean.get("guardian_name") or None,
+                                        "guardian_phone": _clean.get("guardian_phone") or None,
+                                        "status": "active",
+                                        "agency_id": _agency_id,
+                                    })
+
+                            _emails_in_file = [r["email"] for r in _normalized]
+                            _existing_emails = set()
+                            if _emails_in_file:
+                                try:
+                                    _exist_res = supabase.table("users").select("email").in_(
+                                        "email", _emails_in_file
+                                    ).execute()
+                                    _existing_emails = {r["email"] for r in (_exist_res.data or [])}
+                                except Exception as _e:
+                                    st.warning(f"중복 확인 중 경고: {_e}")
+
+                            _new_count = len([r for r in _normalized if r["email"] not in _existing_emails])
+                            _upd_count = len([r for r in _normalized if r["email"] in _existing_emails])
+
+                            st.markdown("##### 미리보기")
+                            _m1, _m2, _m3, _m4 = st.columns(4)
+                            _m1.metric("전체", len(_rows_raw))
+                            _m2.metric("신규", _new_count)
+                            _m3.metric("업데이트", _upd_count)
+                            _m4.metric("오류", len(_errors))
+
+                            if _normalized:
+                                _preview_rows = []
+                                for r in _normalized[:50]:
+                                    _preview_rows.append({
+                                        "처리": "🆕 신규" if r["email"] not in _existing_emails else "🔄 업데이트",
+                                        "구분": _ROLE_LABEL.get(r["role"], r["role"]),
+                                        "이름": r["name"],
+                                        "이메일": r["email"],
+                                        "연락처": r["phone"] or "-",
+                                        "보호자": r["guardian_name"] or "-",
+                                    })
+                                st.dataframe(_preview_rows, use_container_width=True, hide_index=True)
+                                if len(_normalized) > 50:
+                                    st.caption(f"... 외 {len(_normalized) - 50}건 (등록은 전체 처리)")
+
+                            if _errors:
+                                with st.expander(f"⚠️ 오류 {len(_errors)}건", expanded=True):
+                                    st.dataframe(_errors, use_container_width=True, hide_index=True)
+
+                            st.divider()
+                            _can_submit = len(_normalized) > 0
+                            if st.button(
+                                f"✅ {_new_count}명 신규 + {_upd_count}명 업데이트 실행",
+                                type="primary",
+                                disabled=not _can_submit,
+                                key="csv_bulk_submit"
+                            ):
+                                _success = 0
+                                _fail = []
+                                for _r in _normalized:
+                                    try:
+                                        if _r["email"] in _existing_emails:
+                                            _update_payload = {k: v for k, v in _r.items() if k != "email" and v is not None}
+                                            if _agency_id and not _is_admin:
+                                                supabase.table("users").update(_update_payload).eq(
+                                                    "email", _r["email"]
+                                                ).eq("agency_id", _agency_id).execute()
+                                            else:
+                                                supabase.table("users").update(_update_payload).eq(
+                                                    "email", _r["email"]
+                                                ).execute()
+                                        else:
+                                            supabase.table("users").insert(_r).execute()
+                                        _success += 1
+                                    except Exception as _e:
+                                        _fail.append({"이메일": _r["email"], "사유": str(_e)[:120]})
+
+                                if _success:
+                                    st.success(f"✅ {_success}명 처리 완료")
+                                if _fail:
+                                    st.error(f"❌ {len(_fail)}건 실패")
+                                    st.dataframe(_fail, use_container_width=True, hide_index=True)
+                                if _success and not _fail:
+                                    st.balloons()
+                                    import time as _time
+                                    _time.sleep(1.2)
+                                    st.rerun()
+
+            st.divider()
+            if st.button("⬅️ 대시보드로 돌아가기", key="back_user_mgmt"):
+                go_to("agency_dashboard"); st.rerun()
+
+    elif page == "user_search":
+        st.markdown("### 🔍 사용자 검색")
+        st.info("🚧 곧 위탁업체별·지역별·기관별 검색 기능이 추가됩니다.")
+        st.caption("필터 + CSV 내보내기 기능 준비 중")
+        if st.button("⬅️ 대시보드로 돌아가기", key="back_user_search"):
+            go_to("agency_dashboard"); st.rerun()
+
+    elif page == "license_status":
+        st.markdown("### 💼 라이선스 현황")
+        st.info("🚧 준비 중인 기능입니다. 곧 만나보실 수 있습니다.")
+        st.caption("발급된 라이선스의 만료일·갱신 알림을 한눈에 확인할 수 있습니다.")
+        if st.button("⬅️ 대시보드로 돌아가기", key="back_lic_status"):
+            go_to("agency_dashboard"); st.rerun()
+
+    elif page == "report_stats":
+        st.markdown("### 📊 보고서 통계")
+        st.info("🚧 준비 중인 기능입니다. 곧 만나보실 수 있습니다.")
+        st.caption("월간 활동 리포트와 권한별 맞춤 통계를 제공합니다.")
+        if st.button("⬅️ 대시보드로 돌아가기", key="back_report_stats"):
+            go_to("agency_dashboard"); st.rerun()
+
+    elif page == "doc_agency":
+        st.markdown("### 📑 공단 서류 대행")
+        st.info("🚧 준비 중인 기능입니다. 곧 만나보실 수 있습니다.")
+        st.caption("한국장애인고용공단 매월 제출 서류를 자동 생성합니다.")
+        if st.button("⬅️ 대시보드로 돌아가기", key="back_doc_agency"):
+            go_to("agency_dashboard"); st.rerun()
+
+    elif page == "support_request":
+        st.markdown("### 📨 Support Request")
+        st.info("🚧 곧 본부에 요청을 보내고 진행 상황을 확인하는 기능이 추가됩니다.")
+        st.caption("요청 작성 + 이력 조회 + 본부 응답 알림")
+        if st.button("⬅️ 대시보드로 돌아가기", key="back_support"):
+            go_to("agency_dashboard"); st.rerun()
+
+    elif page == "partner_info":
+        st.markdown("### ⚙️ 파트너 정보")
+        st.info("🚧 준비 중인 기능입니다. 곧 만나보실 수 있습니다.")
+        st.caption("우리 회사(대리점/위탁업체) 기본 정보를 확인·수정할 수 있습니다.")
+        if st.button("⬅️ 대시보드로 돌아가기", key="back_partner_info"):
+            go_to("agency_dashboard"); st.rerun()
+
     elif page == "home_landing":
         lang = st.session_state.get("lang", "ko")
 
