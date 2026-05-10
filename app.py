@@ -22,6 +22,39 @@ load_dotenv()
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 youtube = build("youtube", "v3", developerKey=os.getenv("YOUTUBE_API_KEY"))
 supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
+# ════════════════════════════════════════════════════════════════════
+# Phase 3 마이그레이션 헬퍼 (5/10 추가)
+# 듀얼 리드: partner_id 우선, agency_id 폴백
+# Phase 4에서 agency_id 폴백 제거 예정
+# ════════════════════════════════════════════════════════════════════
+def get_partner_id_for_user(user):
+    """Phase 3 듀얼 리드 헬퍼. partner_id 우선, agency_id 폴백."""
+    if not user:
+        return None
+    partner_id = user.get("partner_id")
+    if partner_id:
+        return partner_id
+    return user.get("agency_id")
+
+
+def get_user_partner_id_from_db(user_email):
+    """DB에서 직접 조회 (캐시 없을 때)."""
+    if not user_email:
+        return None
+    try:
+        result = supabase.table("users").select(
+            "partner_id, agency_id"
+        ).eq("email", user_email).is_("deleted_at", "null").execute()
+        if not result.data:
+            return None
+        row = result.data[0]
+        return row.get("partner_id") or row.get("agency_id")
+    except Exception as e:
+        print(f"[get_user_partner_id_from_db] Error: {e}")
+        return None
+
+
+
 def get_naver_keys():
     cid = os.getenv("NAVER_CLIENT_ID", "")
     sec = os.getenv("NAVER_CLIENT_SECRET", "")
@@ -5083,7 +5116,7 @@ else:
                 go_to("user_management"); st.rerun()
         else:
             _cur = st.session_state.user or {}
-            _cur_agency = _cur.get("agency_id")
+            _cur_agency = get_partner_id_for_user(_cur)  # Phase 3 듀얼 리드
             _cur_role = _cur.get("role") or _cur.get("role_v2") or ""
             _cur_is_admin = _cur.get("is_tenant_admin", False) or "admin" in str(_cur_role).lower()
 
@@ -5098,7 +5131,7 @@ else:
                 st.error("사용자를 찾을 수 없습니다.")
                 if st.button("⬅️ 사용자 관리로 돌아가기", key="back_notfound"):
                     go_to("user_management"); st.rerun()
-            elif (not _cur_is_admin) and _cur_agency and _user.get("agency_id") != _cur_agency:
+            elif (not _cur_is_admin) and _cur_agency and get_partner_id_for_user(_user) != _cur_agency:
                 st.error("⛔ 다른 파트너사 소속 사용자입니다. 접근 권한이 없습니다.")
                 if st.button("⬅️ 사용자 관리로 돌아가기", key="back_noperm"):
                     go_to("user_management"); st.rerun()
@@ -5157,7 +5190,7 @@ else:
 
                     with st.expander("⚙️ 시스템 정보 (읽기 전용)", expanded=False):
                         st.markdown(f"**User ID**: `{_user.get('id')}`")
-                        st.markdown(f"**Agency ID**: `{_user.get('agency_id') or '-'}`")
+                        st.markdown(f"**Agency ID**: `{get_partner_id_for_user(_user) or '-'}`")
                         st.markdown(f"**Tenant ID**: `{_user.get('tenant_id') or '-'}`")
                         st.markdown(f"**Team ID**: `{_user.get('team_id') or '-'}`")
                         st.markdown(f"**Tenant 관리자**: {'예' if _user.get('is_tenant_admin') else '아니오'}")
@@ -5183,7 +5216,7 @@ else:
                     }
                     _MAX_BYTES = 10 * 1024 * 1024
 
-                    _target_agency = _user.get("agency_id") or (st.session_state.user or {}).get("agency_id")
+                    _target_agency = get_partner_id_for_user(_user) or get_partner_id_for_user(st.session_state.user or {})
                     _uploader_id = (st.session_state.user or {}).get("id")
 
                     with st.expander("📤 새 서류 업로드", expanded=False):
@@ -5428,7 +5461,7 @@ else:
         st.caption("재직/퇴사 사용자 관리 + 신규 등록")
 
         _cur = st.session_state.user or {}
-        _agency_id = _cur.get("agency_id")
+        _agency_id = get_partner_id_for_user(_cur)  # Phase 3 듀얼 리드
         _role = _cur.get("role") or _cur.get("role_v2") or ""
         _is_admin = _cur.get("is_tenant_admin", False)
 
@@ -5440,10 +5473,11 @@ else:
             try:
                 _q = supabase.table("users").select(
                     "id,email,name,role,phone,guardian_name,guardian_phone,"
-                    "status,resigned_at,agency_id,created_at"
+                    "status,resigned_at,agency_id,partner_id,created_at"
                 ).is_("deleted_at", "null")
                 if _agency_id and not _is_admin and _role not in ("admin", "super_admin"):
-                    _q = _q.eq("agency_id", _agency_id)
+                    # Phase 3 듀얼 리드: partner_id 또는 agency_id 매칭
+                    _q = _q.or_(f"partner_id.eq.{_agency_id},agency_id.eq.{_agency_id}")
                 _all_users = _q.order("created_at", desc=True).execute().data or []
             except Exception as _e:
                 st.error(f"사용자 조회 실패: {_e}")
@@ -5558,6 +5592,7 @@ else:
                                     "guardian_phone": _new_gphone or None,
                                     "status": "active",
                                     "agency_id": _agency_id,
+                                    "partner_id": _agency_id,  # Phase 3 듀얼 라이트
                                 }
                                 supabase.table("users").insert(_payload).execute()
                                 st.success(f"{_new_name} 등록 완료")
@@ -5667,6 +5702,7 @@ else:
                                         "guardian_phone": _clean.get("guardian_phone") or None,
                                         "status": "active",
                                         "agency_id": _agency_id,
+                                        "partner_id": _agency_id,  # Phase 3 듀얼 라이트
                                     })
 
                             _emails_in_file = [r["email"] for r in _normalized]
@@ -7538,7 +7574,7 @@ else:
 
                 # 팀 현황
                 with admin_tab1:
-                    all_users_data = supabase.table("users").select("*").execute()
+                    all_users_data = supabase.table("users").select("*").is_("deleted_at", "null").execute()
                     all_reps = supabase.table("reports").select("*").execute()
 
                     # ── 전체 / 그룹별 보기 탭 ──
