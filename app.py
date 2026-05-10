@@ -8222,8 +8222,8 @@ else:
 
                             with st.expander(f"🤝 **{agency['name']}** | 담당자: {manager_name} | 담당 업체: {len(assigned_tenants)}개"):
                                 ac1, ac2 = st.columns(2)
-                                ac1.write(f"**이메일:** {agency.get('contact_email','-')}")
-                                ac2.write(f"**연락처:** {agency.get('contact_phone','-')}")
+                                ac1.write(f"**이메일:** {agency.get('email','-')}")
+                                ac2.write(f"**연락처:** {agency.get('phone','-')}")
 
                                 # 담당 업체 배정
                                 st.divider()
