@@ -5441,7 +5441,7 @@ else:
                 _q = supabase.table("users").select(
                     "id,email,name,role,phone,guardian_name,guardian_phone,"
                     "status,resigned_at,agency_id,created_at"
-                )
+                ).is_("deleted_at", "null")
                 if _agency_id and not _is_admin and _role not in ("admin", "super_admin"):
                     _q = _q.eq("agency_id", _agency_id)
                 _all_users = _q.order("created_at", desc=True).execute().data or []

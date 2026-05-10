@@ -54,3 +54,4 @@ __pycache__/
 .streamlit/secrets.toml
 _archive_backups/
 venv/
+*.backup_before_*
