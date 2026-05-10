@@ -244,7 +244,7 @@ TERMS_CONTENT = {
             "items": [
                 "(1) 본 시스템은 '드래곤아이즈' 입니다. AI Agent가 온라인 유해컨텐츠를 자동으로 추적·모니터링하여 유해컨텐츠로 의심되는 콘텐츠를 추천리스트 형태로 각 사용자에게 중복 없이 제공합니다.",
                 "(2) 관리자는 사용자의 업무 목표(모니터링 건수)를 설정하고 업무 달성도를 모니터링하며, 필요한 지시를 할 수 있습니다.",
-                "(3) 라이선스 신청 업체의 동의가 있을 경우 위탁관리 업체도 사용자를 관리할 수 있게 지원합니다.",
+                "(3) 라이선스 신청 업체의 동의가 있을 경우 파트너관리 업체도 사용자를 관리할 수 있게 지원합니다.",
                 "(4) 드래곤아이즈의 자동추적 기능은 외부의 업무 요청을 수용할 수 있으며, 상황에 따라 자동 검색과 보고서 작성 업무 범위가 변경될 수 있습니다.",
             ]
         },
@@ -276,8 +276,8 @@ CHAT_MONTHLY_LIMIT = 400
 # ══════════════════════════════
 ROLE_LABELS = {
     "superadmin":     "👑 전체 관리자",
-    # 위탁/업체 관리자
-    "agency_admin":   "🤝 위탁관리자",
+    # 파트너/업체 관리자
+    "agency_admin":   "🤝 파트너관리자",
     "tenant_admin":   "🏢 업체관리자",
     # 1그룹
     "group_leader":   "🔱 제1 그룹장",
@@ -1161,7 +1161,7 @@ def is_superadmin(user):
     return get_user_role(user) == "superadmin"
 
 def is_agency_admin(user):
-    """위탁관리자 여부"""
+    """파트너관리자 여부"""
     return get_user_role(user) == "agency_admin"
 
 def is_tenant_admin(user):
@@ -1332,10 +1332,10 @@ def get_download_logs_for_user(viewer):
         return []
 
 
-# ── 위탁관리자 헬퍼 함수 ──
+# ── 파트너관리자 헬퍼 함수 ──
 @st.cache_data(ttl=60, show_spinner=False)
 def get_agency_tenants(agency_user_id):
-    """위탁관리자가 담당하는 업체 목록"""
+    """파트너관리자가 담당하는 업체 목록"""
     try:
         agency = supabase.table("agencies").select("id").eq("user_id", agency_user_id).execute()
         if not agency.data:
@@ -1372,7 +1372,7 @@ def _pay_label(pt):
     return {"monthly":"월납", "annual":"연납", "lump_sum":"일시납"}.get(pt or "", "-")
 
 def get_all_agencies():
-    """전체 위탁관리자 목록"""
+    """전체 파트너관리자 목록"""
     try:
         return supabase.table("agencies").select("*").execute().data or []
     except:
@@ -3057,7 +3057,7 @@ else:
                 st.session_state.lang = "ja"; st.rerun()
         if bc_agency:
             with bc_agency:
-                if st.button("🤝 위탁대시보드", use_container_width=True, key="hdr_agency_btn"):
+                if st.button("🤝 파트너페이지", use_container_width=True, key="hdr_agency_btn"):
                     go_to("agency_dashboard"); st.rerun()
         with bc_work:
             if st.button(t("hdr_work"), use_container_width=True, key="hdr_work_btn"):
@@ -3348,11 +3348,11 @@ else:
     # ══════════════════════════════
     elif page == "license_request":
         # ══════════════════════════════
-        # 📋 신규 라이선스 신청 페이지 (위탁관리자용)
+        # 📋 신규 라이선스 신청 페이지 (파트너관리자용)
         # ══════════════════════════════
-        # 🛡️ 보안: 위탁관리자/업체관리자/superadmin만 접근 가능
+        # 🛡️ 보안: 파트너관리자/업체관리자/superadmin만 접근 가능
         if not (is_agency_admin(user) or is_tenant_admin(user) or is_superadmin(user)):
-            st.error("🚫 라이선스 신청은 위탁관리자/업체관리자만 가능합니다.")
+            st.error("🚫 라이선스 신청은 파트너관리자/업체관리자만 가능합니다.")
             st.caption(f"현재 권한: {role_label(get_user_role(user))}")
             if st.button("🏠 홈으로 돌아가기", type="primary"):
                 st.session_state.current_page = "home_landing"
@@ -3368,7 +3368,7 @@ else:
 
         st.info("💡 신청 후 시스템관리자 검토 → 업체 관리자 이메일 동의 → 라이선스 활성화 순으로 진행됩니다.")
 
-        # 위탁관리자 agency_id 조회
+        # 파트너관리자 agency_id 조회
         my_agency = None
         try:
             ag_res = supabase.table("agencies").select("*").eq("user_id", user["id"]).execute()
@@ -3653,13 +3653,13 @@ else:
 
     elif page == "agency_dashboard":
         # ══════════════════════════════
-        # 🤝 위탁관리자 전용 모니터링 대시보드
+        # 🤝 파트너관리자 전용 모니터링 대시보드
         # ══════════════════════════════
-        # 🛡️ 보안: 위탁관리자/superadmin만 접근 가능
+        # 🛡️ 보안: 파트너관리자/superadmin만 접근 가능
         if not guard_page(user, allowed_roles=None, allow_admins=True):
             st.stop()
         if not (is_agency_admin(user) or is_superadmin(user)):
-            st.error("🚫 이 페이지는 위탁관리자만 접근할 수 있습니다.")
+            st.error("🚫 이 페이지는 파트너관리자만 접근할 수 있습니다.")
             st.caption(f"현재 권한: {role_label(get_user_role(user))}")
             if st.button("🏠 홈으로 돌아가기", type="primary"):
                 st.session_state.current_page = "home_landing"
@@ -3671,7 +3671,7 @@ else:
             if st.button("🏠 홈"):
                 go_home(); st.rerun()
         with col_title:
-            st.subheader("🤝 위탁관리자 모니터링 대시보드")
+            st.subheader("🤝 파트너관리자 모니터링 대시보드")
 
         # 신규 라이선스 신청 버튼
         ab1, ab2, ab3 = st.columns([2, 2, 6])
@@ -5071,7 +5071,7 @@ else:
     elif page == "customer_management":
         st.markdown("### 🏢 고객사 관리")
         st.info("🚧 준비 중인 기능입니다. 곧 만나보실 수 있습니다.")
-        st.caption("위탁업체가 관리하는 고객사(법인) 목록을 등록·수정할 수 있습니다.")
+        st.caption("파트너사가 관리하는 고객사(법인) 목록을 등록·수정할 수 있습니다.")
         if st.button("⬅️ 대시보드로 돌아가기", key="back_cust_mgmt"):
             go_to("agency_dashboard"); st.rerun()
 
@@ -5099,11 +5099,11 @@ else:
                 if st.button("⬅️ 사용자 관리로 돌아가기", key="back_notfound"):
                     go_to("user_management"); st.rerun()
             elif (not _cur_is_admin) and _cur_agency and _user.get("agency_id") != _cur_agency:
-                st.error("⛔ 다른 위탁업체 소속 사용자입니다. 접근 권한이 없습니다.")
+                st.error("⛔ 다른 파트너사 소속 사용자입니다. 접근 권한이 없습니다.")
                 if st.button("⬅️ 사용자 관리로 돌아가기", key="back_noperm"):
                     go_to("user_management"); st.rerun()
             else:
-                _ROLE_LABEL_DTL = {"user": "일반회원", "admin": "관리자", "agency": "위탁업체", "super_admin": "본부관리자", "agency_admin": "위탁관리자", "member": "관리자"}
+                _ROLE_LABEL_DTL = {"user": "일반회원", "admin": "관리자", "agency": "파트너사", "super_admin": "본부관리자", "agency_admin": "파트너관리자", "member": "관리자"}
                 _status = (_user.get("status") or "active")
                 _status_badge = "🟢 재직" if _status == "active" else ("🔴 퇴사" if _status == "resigned" else _status)
 
@@ -5257,7 +5257,7 @@ else:
                                     if "duplicate" in _msg.lower() or "already exists" in _msg.lower():
                                         st.error("같은 이름의 파일이 이미 있습니다. 잠시 후 다시 시도해주세요.")
                                     elif "row-level security" in _msg.lower() or "rls" in _msg.lower():
-                                        st.error("권한이 없습니다. 다른 위탁업체 사용자의 서류는 업로드할 수 없습니다.")
+                                        st.error("권한이 없습니다. 다른 파트너사 사용자의 서류는 업로드할 수 없습니다.")
                                     else:
                                         st.error(f"업로드 실패: {_msg[:200]}")
 
@@ -5433,7 +5433,7 @@ else:
         _is_admin = _cur.get("is_tenant_admin", False)
 
         if not _agency_id and not _is_admin and _role not in ("admin", "super_admin"):
-            st.warning("위탁업체(agency) 소속이 확인되지 않습니다. 본부 관리자에게 문의하세요.")
+            st.warning("파트너사(agency) 소속이 확인되지 않습니다. 본부 관리자에게 문의하세요.")
             if st.button("⬅️ 대시보드로 돌아가기", key="back_user_mgmt_noaccess"):
                 go_to("agency_dashboard"); st.rerun()
         else:
@@ -5461,7 +5461,7 @@ else:
                 [f"재직 ({len(_active)})", f"퇴사 ({len(_resigned)})", "신규 등록"]
             )
 
-            _ROLE_LABEL = {"user": "일반회원", "admin": "관리자", "agency": "위탁업체", "super_admin": "본부관리자", "agency_admin": "위탁관리자", "member": "관리자"}
+            _ROLE_LABEL = {"user": "일반회원", "admin": "관리자", "agency": "파트너사", "super_admin": "본부관리자", "agency_admin": "파트너관리자", "member": "관리자"}
 
             def _render_user_table(rows, key_prefix, show_resigned_at=False):
                 if not rows:
@@ -5754,7 +5754,7 @@ else:
 
     elif page == "user_search":
         st.markdown("### 🔍 사용자 검색")
-        st.info("🚧 곧 위탁업체별·지역별·기관별 검색 기능이 추가됩니다.")
+        st.info("🚧 곧 파트너사별·지역별·기관별 검색 기능이 추가됩니다.")
         st.caption("필터 + CSV 내보내기 기능 준비 중")
         if st.button("⬅️ 대시보드로 돌아가기", key="back_user_search"):
             go_to("agency_dashboard"); st.rerun()
@@ -5790,7 +5790,7 @@ else:
     elif page == "partner_info":
         st.markdown("### ⚙️ 파트너 정보")
         st.info("🚧 준비 중인 기능입니다. 곧 만나보실 수 있습니다.")
-        st.caption("우리 회사(대리점/위탁업체) 기본 정보를 확인·수정할 수 있습니다.")
+        st.caption("우리 회사(대리점/파트너사) 기본 정보를 확인·수정할 수 있습니다.")
         if st.button("⬅️ 대시보드로 돌아가기", key="back_partner_info"):
             go_to("agency_dashboard"); st.rerun()
 
@@ -7533,7 +7533,7 @@ else:
                 st.subheader(t("admin_title"))
                 admin_tab1, admin_tab2, admin_tab3, admin_tab4, admin_tab5, admin_tab6, admin_tab7, admin_tab8, admin_tab9, admin_tab10, admin_tab11, admin_tab12, admin_tab13, admin_tab14 = st.tabs([
                     t("admin_team"), t("admin_assign"), t("admin_token"), t("admin_email"), t("admin_log"), "💬 채팅 토큰", "📡 채널 모니터링", "🧠 키워드 학습",
-                    "🏢 업체(Tenant) 관리", "🤝 위탁관리자 관리", "📣 알림 발송 센터", "📋 라이선스 신청 관리", "🗂️ 동의서 보관함", "🛡️ 다운로드 감사 로그"
+                    "🏢 업체(Tenant) 관리", "🤝 파트너관리자 관리", "📣 알림 발송 센터", "📋 라이선스 신청 관리", "🗂️ 동의서 보관함", "🛡️ 다운로드 감사 로그"
                 ])
 
                 # 팀 현황
@@ -8136,14 +8136,14 @@ else:
                                         st.rerun()
 
                 # ══════════════════════════════
-                # 🤝 위탁관리자 관리 탭
+                # 🤝 파트너관리자 관리 탭
                 # ══════════════════════════════
                 with admin_tab10:
-                    st.subheader("🤝 위탁관리자(Agency) 관리")
-                    st.caption("컨설팅 업체 또는 에이전시를 위탁관리자로 등록하고 담당 업체를 배정합니다.")
+                    st.subheader("🤝 파트너관리자(Agency) 관리")
+                    st.caption("컨설팅 업체 또는 에이전시를 파트너관리자로 등록하고 담당 업체를 배정합니다.")
 
-                    # 신규 위탁관리자 등록
-                    with st.expander("➕ 위탁관리자 등록", expanded=False):
+                    # 신규 파트너관리자 등록
+                    with st.expander("➕ 파트너관리자 등록", expanded=False):
                         ag1, ag2 = st.columns(2)
                         with ag1:
                             new_agency_name = st.text_input("에이전시명 *", key="new_agency_name")
@@ -8155,7 +8155,7 @@ else:
                                 [None] + all_users_ag,
                                 format_func=lambda x: "선택..." if x is None else f'{x["name"]} ({x.get("email","")})',
                                 key="new_agency_user")
-                        if st.button("✅ 위탁관리자 등록", type="primary", key="create_agency_btn"):
+                        if st.button("✅ 파트너관리자 등록", type="primary", key="create_agency_btn"):
                             if new_agency_name:
                                 try:
                                     result = supabase.table("agencies").insert({
@@ -8168,22 +8168,22 @@ else:
                                     # 연결된 사용자 role을 agency_admin으로 변경
                                     if sel_agency_user:
                                         supabase.table("users").update({"role_v2": "agency_admin"}).eq("id", sel_agency_user["id"]).execute()
-                                    st.success(f"✅ '{new_agency_name}' 위탁관리자 등록 완료!")
+                                    st.success(f"✅ '{new_agency_name}' 파트너관리자 등록 완료!")
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"오류: {str(e)}")
                             else:
                                 st.warning("에이전시명을 입력해주세요.")
 
-                    # 위탁관리자 목록
+                    # 파트너관리자 목록
                     all_agencies = get_all_agencies()
-                    st.caption(f"전체 위탁관리자: {len(all_agencies)}개")
+                    st.caption(f"전체 파트너관리자: {len(all_agencies)}개")
                     all_tenants_ag = get_all_tenants()
                     tenant_map_ag = {t["id"]: t["name"] for t in all_tenants_ag}
                     umap_ag = {u["id"]: u["name"] for u in (supabase.table("users").select("id,name").execute().data or [])}
 
                     if not all_agencies:
-                        st.info("등록된 위탁관리자가 없습니다.")
+                        st.info("등록된 파트너관리자가 없습니다.")
                     else:
                         for agency in all_agencies:
                             # 담당 업체 목록 조회
@@ -8403,7 +8403,7 @@ else:
                 # ══════════════════════════════
                 with admin_tab12:
                     st.subheader("📋 라이선스 신청 관리")
-                    st.caption("위탁관리자가 신청한 신규 업체 라이선스를 검토하고 동의 메일을 발송합니다.")
+                    st.caption("파트너관리자가 신청한 신규 업체 라이선스를 검토하고 동의 메일을 발송합니다.")
 
                     status_map_admin = {
                         "pending": "⏳ 검토중",
