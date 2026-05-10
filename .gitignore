@@ -56,3 +56,4 @@ _archive_backups/
 venv/
 *.backup_before_*
 *.backup_before_*
+*.backup_*

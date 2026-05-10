@@ -1288,14 +1288,8 @@ def log_download(user, resource_type, resource_label, file_format, file_name,
         if not user or not user.get("id"):
             return  # 비로그인은 기록 안함
 
-        # 다운로드한 사용자의 agency_id 조회 (해당시)
-        _agency_id = None
-        try:
-            _agency_row = supabase.table("agencies").select("id").eq("user_id", user.get("id")).limit(1).execute().data or []
-            if _agency_row:
-                _agency_id = _agency_row[0].get("id")
-        except Exception:
-            pass
+        # Phase 4: user.partner_id 직접 사용 (DB 조회 불필요)
+        _agency_id = user.get("partner_id") or user.get("agency_id")
 
         _log_data = {
             "user_id": user.get("id"),
@@ -1305,6 +1299,7 @@ def log_download(user, resource_type, resource_label, file_format, file_name,
             "user_tenant_id": user.get("tenant_id"),
             "user_team_id": user.get("team_id"),
             "user_agency_id": _agency_id,
+            "partner_id": _agency_id,  # Phase 4 듀얼 라이트
             "resource_type": resource_type,
             "resource_label": resource_label or "",
             "file_format": file_format or "",
@@ -1344,7 +1339,9 @@ def get_download_logs_for_user(viewer):
 
         if is_agency_admin(viewer):
             # 본인 + 담당 업체들의 사용자들
-            _agency_tids = [at["tenant_id"] for at in (supabase.table("agency_tenants").select("tenant_id").eq("agency_user_id", viewer["id"]).execute().data or [])]
+            # Phase 4: viewer.partner_id로 partner_customers 조회
+            _viewer_partner_id = viewer.get("partner_id") or viewer.get("agency_id")
+            _agency_tids = [pc["tenant_id"] for pc in (supabase.table("partner_customers").select("tenant_id").eq("partner_id", _viewer_partner_id).execute().data or [])] if _viewer_partner_id else []
             _scope_uids = [u["id"] for u in (supabase.table("users").select("id").in_("tenant_id", _agency_tids).execute().data or [])] if _agency_tids else []
             _scope_uids.append(viewer["id"])
             return _q.in_("user_id", list(set(_scope_uids))).execute().data or []
@@ -1368,16 +1365,19 @@ def get_download_logs_for_user(viewer):
 # ── 파트너관리자 헬퍼 함수 ──
 @st.cache_data(ttl=60, show_spinner=False)
 def get_agency_tenants(agency_user_id):
-    """파트너관리자가 담당하는 업체 목록"""
+    """Phase 4: 파트너가 담당하는 업체 목록 (partners + partner_customers 사용)"""
     try:
-        agency = supabase.table("agencies").select("id").eq("user_id", agency_user_id).execute()
-        if not agency.data:
+        # user_id로 partner 찾기 (해당 user의 partner_id로 partners 조회)
+        u = supabase.table("users").select("partner_id, agency_id").eq("id", agency_user_id).execute()
+        if not u.data:
             return []
-        agency_id = agency.data[0]["id"]
-        at = supabase.table("agency_tenants").select("tenant_id").eq("agency_id", agency_id).execute()
-        if not at.data:
+        partner_id = u.data[0].get("partner_id") or u.data[0].get("agency_id")
+        if not partner_id:
             return []
-        tenant_ids = [x["tenant_id"] for x in at.data]
+        pc = supabase.table("partner_customers").select("tenant_id").eq("partner_id", partner_id).execute()
+        if not pc.data:
+            return []
+        tenant_ids = [x["tenant_id"] for x in pc.data]
         tenants = supabase.table("tenants").select("*").in_("id", tenant_ids).execute()
         return tenants.data or []
     except:
@@ -1405,9 +1405,9 @@ def _pay_label(pt):
     return {"monthly":"월납", "annual":"연납", "lump_sum":"일시납"}.get(pt or "", "-")
 
 def get_all_agencies():
-    """전체 파트너관리자 목록"""
+    """Phase 4: 전체 파트너 목록 (partners 테이블 사용, 레거시 함수명 유지)"""
     try:
-        return supabase.table("agencies").select("*").execute().data or []
+        return supabase.table("partners").select("*").execute().data or []
     except:
         return []
 
@@ -3401,12 +3401,14 @@ else:
 
         st.info("💡 신청 후 시스템관리자 검토 → 업체 관리자 이메일 동의 → 라이선스 활성화 순으로 진행됩니다.")
 
-        # 파트너관리자 agency_id 조회
+        # Phase 4: 파트너 정보 조회 (user.partner_id 직접 사용)
         my_agency = None
         try:
-            ag_res = supabase.table("agencies").select("*").eq("user_id", user["id"]).execute()
-            if ag_res.data:
-                my_agency = ag_res.data[0]
+            user_partner_id = user.get("partner_id") or user.get("agency_id")
+            if user_partner_id:
+                p_res = supabase.table("partners").select("*").eq("id", user_partner_id).execute()
+                if p_res.data:
+                    my_agency = p_res.data[0]
         except:
             pass
 
@@ -3526,6 +3528,7 @@ else:
                         # ─── 3단계: DB INSERT ───
                         supabase.table("license_requests").insert({
                             "agency_id": my_agency["id"] if my_agency else None,
+                            "partner_id": my_agency["id"] if my_agency else None,  # Phase 4 듀얼 라이트
                             "requested_by": user["id"],
                             "request_type": "new_tenant",
                             "company_name": req_company,
@@ -4607,7 +4610,9 @@ else:
                 if _role == "superadmin":
                     _scope_users = supabase.table("users").select("*").execute().data or []
                 elif is_agency_admin(user):
-                    _agency_tenant_ids = [at["tenant_id"] for at in (supabase.table("agency_tenants").select("tenant_id").eq("agency_user_id", user["id"]).execute().data or [])]
+                    # Phase 4: user.partner_id로 partner_customers 조회
+                    _user_partner_id = user.get("partner_id") or user.get("agency_id")
+                    _agency_tenant_ids = [pc["tenant_id"] for pc in (supabase.table("partner_customers").select("tenant_id").eq("partner_id", _user_partner_id).execute().data or [])] if _user_partner_id else []
                     _scope_users = (supabase.table("users").select("*").in_("tenant_id", _agency_tenant_ids).execute().data or []) if _agency_tenant_ids else []
                 elif is_tenant_admin(user):
                     _scope_users = supabase.table("users").select("*").eq("tenant_id", user.get("tenant_id","")).execute().data or []
@@ -5273,6 +5278,7 @@ else:
                                     _meta = {
                                         "user_id": _did,
                                         "agency_id": _target_agency,
+                                        "partner_id": _target_agency,  # Phase 4 듀얼 라이트
                                         "document_name": _doc_name_clean,
                                         "file_path": _file_path,
                                         "file_name": _doc_file.name,
@@ -6716,7 +6722,9 @@ else:
             elif is_agency_admin(user):
                 # 담당 업체들의 사용자가 작성한 보고서만
                 try:
-                    _agency_tids = [at["tenant_id"] for at in (supabase.table("agency_tenants").select("tenant_id").eq("agency_user_id", user["id"]).execute().data or [])]
+                    # Phase 4: user.partner_id로 partner_customers 조회
+                    _user_partner_id = user.get("partner_id") or user.get("agency_id")
+                    _agency_tids = [pc["tenant_id"] for pc in (supabase.table("partner_customers").select("tenant_id").eq("partner_id", _user_partner_id).execute().data or [])] if _user_partner_id else []
                     _scope_uids = [u["id"] for u in (supabase.table("users").select("id").in_("tenant_id", _agency_tids).execute().data or [])] if _agency_tids else []
                     all_reps_data = _reps_query.in_("user_id", _scope_uids).execute() if _scope_uids else type("Obj",(),{"data":[]})()
                 except Exception:
@@ -8191,25 +8199,9 @@ else:
                                 [None] + all_users_ag,
                                 format_func=lambda x: "선택..." if x is None else f'{x["name"]} ({x.get("email","")})',
                                 key="new_agency_user")
-                        if st.button("✅ 파트너관리자 등록", type="primary", key="create_agency_btn"):
-                            if new_agency_name:
-                                try:
-                                    result = supabase.table("agencies").insert({
-                                        "name": new_agency_name,
-                                        "user_id": sel_agency_user["id"] if sel_agency_user else None,
-                                        "contact_email": new_agency_email,
-                                        "contact_phone": new_agency_phone,
-                                        "is_active": True,
-                                    }).execute()
-                                    # 연결된 사용자 role을 agency_admin으로 변경
-                                    if sel_agency_user:
-                                        supabase.table("users").update({"role_v2": "agency_admin"}).eq("id", sel_agency_user["id"]).execute()
-                                    st.success(f"✅ '{new_agency_name}' 파트너관리자 등록 완료!")
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"오류: {str(e)}")
-                            else:
-                                st.warning("에이전시명을 입력해주세요.")
+                        if st.button("✅ 파트너관리자 등록", type="primary", key="create_agency_btn", disabled=True):
+                            pass
+                        st.info("ℹ️ Phase 4 마이그레이션 진행 중 — 신규 파트너 등록은 현재 SQL 직접 등록만 지원합니다. (관리자 문의)")
 
                     # 파트너관리자 목록
                     all_agencies = get_all_agencies()
@@ -8223,7 +8215,7 @@ else:
                     else:
                         for agency in all_agencies:
                             # 담당 업체 목록 조회
-                            at_data = supabase.table("agency_tenants").select("tenant_id").eq("agency_id", agency["id"]).execute().data or []
+                            at_data = supabase.table("partner_customers").select("tenant_id").eq("partner_id", agency["id"]).execute().data or []  # Phase 4
                             assigned_tenant_ids = [x["tenant_id"] for x in at_data]
                             assigned_tenants = [t for t in all_tenants_ag if t["id"] in assigned_tenant_ids]
                             manager_name = umap_ag.get(agency.get("user_id",""), "미연결")
@@ -8245,9 +8237,11 @@ else:
                                     if st.button("➕ 업체 배정", key=f"assign_btn_{agency['id']}"):
                                         if sel_tenant:
                                             try:
-                                                supabase.table("agency_tenants").insert({
-                                                    "agency_id": agency["id"],
-                                                    "tenant_id": sel_tenant["id"]
+                                                # Phase 4: partner_customers.insert
+                                                supabase.table("partner_customers").insert({
+                                                    "partner_id": agency["id"],
+                                                    "tenant_id": sel_tenant["id"],
+                                                    "relationship_type": "sales",
                                                 }).execute()
                                                 st.success(f"✅ {sel_tenant['name']} 배정 완료!")
                                                 st.rerun()
@@ -8262,7 +8256,7 @@ else:
                                         atc1.write(f"🏢 {at['name']} | {at.get('contact_email','-')}")
                                         with atc2:
                                             if st.button("제거", key=f"remove_at_{agency['id']}_{at['id']}"):
-                                                supabase.table("agency_tenants").delete().eq("agency_id", agency["id"]).eq("tenant_id", at["id"]).execute()
+                                                supabase.table("partner_customers").delete().eq("partner_id", agency["id"]).eq("tenant_id", at["id"]).execute()  # Phase 4
                                                 st.rerun()
 
                 # ══════════════════════════════
@@ -8778,11 +8772,13 @@ DragonEyes 시스템 관리팀"""
                                                     }).execute()
                                                     new_tenant_id = new_tenant.data[0]["id"]
 
-                                                    # agency_tenants 연결
-                                                    if req.get("agency_id"):
-                                                        supabase.table("agency_tenants").insert({
-                                                            "agency_id": req["agency_id"],
+                                                    # Phase 4: partner_customers 연결
+                                                    _link_partner_id = req.get("partner_id") or req.get("agency_id")
+                                                    if _link_partner_id:
+                                                        supabase.table("partner_customers").insert({
+                                                            "partner_id": _link_partner_id,
                                                             "tenant_id": new_tenant_id,
+                                                            "relationship_type": "sales",
                                                         }).execute()
 
                                                     # 신청 상태 활성화
