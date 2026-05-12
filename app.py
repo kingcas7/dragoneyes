@@ -3772,6 +3772,7 @@ else:
 
         def _action_card(col, icon, title, desc, key, target_page, color_class):
             with col:
+                # 5/12: 5/7 카드 디자인 유지 + 카드 아래에 명시적 이동 버튼
                 st.markdown(
                     f'<div class="ac-card {color_class}">'
                     f'<div class="ac-icon">{icon}</div>'
@@ -3780,8 +3781,9 @@ else:
                     f'</div>',
                     unsafe_allow_html=True
                 )
-                if st.button(" ", use_container_width=True, key=key, help=f"{title}로 이동"):
-                    go_to(target_page); st.rerun()
+                if st.button(f"▶ {title}로 이동", use_container_width=True, key=key, type="secondary"):
+                    go_to(target_page)
+                    st.rerun()
 
         st.markdown("##### 📁 고객 관리")
         # 가운데 정렬: 좌우 여백 + 8개 카드 → 4컬럼이지만 절반 너비
@@ -8209,6 +8211,23 @@ else:
                     all_tenants_ag = get_all_tenants()
                     tenant_map_ag = {t["id"]: t["name"] for t in all_tenants_ag}
                     umap_ag = {u["id"]: u["name"] for u in (supabase.table("users").select("id,name").execute().data or [])}
+                    
+                    # Phase 5-2: 파트너별 admin 매핑 (역할이 admin이고 파트너 소속인 활성 사용자)
+                    _partner_admins_raw = supabase.table("users").select(
+                        "id, name, email, partner_id, is_partner_primary"
+                    ).eq("role", "admin").not_.is_("partner_id", "null").is_("deleted_at", "null").order("name").execute().data or []
+                    
+                    partner_admin_map = {}  # {partner_id: [admin_info, ...]}
+                    for _u in _partner_admins_raw:
+                        _pid = _u["partner_id"]
+                        if _pid not in partner_admin_map:
+                            partner_admin_map[_pid] = []
+                        partner_admin_map[_pid].append({
+                            "id": _u["id"],
+                            "name": _u["name"] or _u.get("email", "이름없음"),
+                            "email": _u.get("email", ""),
+                            "is_primary": _u.get("is_partner_primary", False),
+                        })
 
                     if not all_agencies:
                         st.info("등록된 파트너관리자가 없습니다.")
@@ -8218,7 +8237,17 @@ else:
                             at_data = supabase.table("partner_customers").select("tenant_id").eq("partner_id", agency["id"]).execute().data or []  # Phase 4
                             assigned_tenant_ids = [x["tenant_id"] for x in at_data]
                             assigned_tenants = [t for t in all_tenants_ag if t["id"] in assigned_tenant_ids]
-                            manager_name = umap_ag.get(agency.get("user_id",""), "미연결")
+                            # Phase 5-2: partner_id 기반 담당자 표시
+                            _admins = partner_admin_map.get(agency["id"], [])
+                            if not _admins:
+                                manager_name = "미연결"
+                            else:
+                                _admins_sorted = sorted(_admins, key=lambda x: (not x["is_primary"], x["name"]))
+                                _primary_name = _admins_sorted[0]["name"]
+                                if len(_admins) == 1:
+                                    manager_name = _primary_name
+                                else:
+                                    manager_name = f"{_primary_name} 외 {len(_admins)-1}명"
 
                             with st.expander(f"🤝 **{agency['name']}** | 담당자: {manager_name} | 담당 업체: {len(assigned_tenants)}개"):
                                 ac1, ac2 = st.columns(2)
