@@ -304,6 +304,151 @@ CHAT_DAILY_LIMIT = 40
 CHAT_WEEKLY_LIMIT = 100
 CHAT_MONTHLY_LIMIT = 400
 
+# ════════════════════════════════════════════════════════════════
+# 드래곤아이즈(주) 회사 정보 (5/14 추가, 사업자등록증 기준)
+# 사이트/PO 양식/계약서/인보이스/이메일 푸터에 일관되게 사용
+# ════════════════════════════════════════════════════════════════
+COMPANY_INFO = {
+    "name_ko": "드래곤아이즈(주)",
+    "name_full_ko": "드래곤아이즈 주식회사",
+    "name_en": "DragonEyes Inc.",
+    "ceo": "정미옥",
+    "business_number": "238-86-03926",
+    "corporate_number": "110111-0958373",
+    "address": "서울특별시 동작구 시흥대로 606, 오피스동 411호",
+    "address_detail": "신대방동, 동작 협성휴포레 시그니처",
+    "email": "support@dragoneyes.kr",
+    "website": "https://dragoneyes-production.up.railway.app",
+    "tax_office": "동작세무서",
+    "established_date": "2026-05-07",
+    "business_areas": [
+        "AI Agent 개발",
+        "아동보호 모니터링",
+        "장애인 고용지원 컨설팅",
+        "시니어 고용지원 컨설팅",
+    ],
+}
+
+# 프론트엔드 푸터 노출용 (핵심 정보만)
+COMPANY_FOOTER_CORE = f"""
+{COMPANY_INFO['name_ko']}  |  사업자등록번호: {COMPANY_INFO['business_number']}  |  {COMPANY_INFO['address']}  |  {COMPANY_INFO['email']}
+""".strip()
+
+# ════════════════════════════════════════════════════════════════
+# 라이선스 등급 및 단가 정책 (PO 양식 기반, 5/14 추가)
+# 수정 시: 이 dict만 변경하면 전체 시스템 반영
+# ════════════════════════════════════════════════════════════════
+LICENSE_PRICING = {
+    "Standard": {
+        "monthly_price": 300_000,  # 소비자가, 사용자 1명당 월
+        "label": "🥉 Standard",
+        "description": "기본 모니터링 + 월간 보고서",
+    },
+    "Pro": {
+        "monthly_price": 500_000,
+        "label": "🥈 Pro",
+        "description": "Standard + 주간 보고서 + 컴플라이언스 알림",
+    },
+    "Enterprise": {
+        "monthly_price": 800_000,
+        "label": "🥇 Enterprise",
+        "description": "Pro + 전담 컨설팅 + 맞춤 보고서",
+    },
+}
+
+# 기존 등급 호환성 매핑 (Phase 2: 신규 등급 우선, 기존은 표시용)
+LEGACY_PLAN_LABELS = {
+    "basic": "🥉 Basic (3명/월) [구버전]",
+    "standard": "🥈 Standard (5명/월) [구버전]",
+    "premium": "🥇 Premium (무제한/월) [구버전]",
+}
+
+# ════════════════════════════════════════════════════════════════
+# 지원 사업 분야 + 관할 기관 (5/14 시장 확장 결정, 하이브리드 방식)
+# 하드코딩으로 시작, 향후 DB 동적 시스템으로 확장 예정
+# "기타 (직접 입력)" 선택 시 사용자가 자유롭게 입력 가능
+# ════════════════════════════════════════════════════════════════
+BUSINESS_FIELDS = [
+    "선택안함",
+    "장애인 고용지원",
+    "시니어 고용지원",
+    "청년/여성 고용지원",
+    "지자체 사업",
+    "사회복지 일반",
+    "기타",
+]
+
+REGULATORY_AUTHORITIES = {
+    "선택안함": ["선택안함"],
+    "장애인 고용지원": [
+        "선택안함",
+        "한국장애인고용공단/서울지역본부",
+        "한국장애인고용공단/서울남부지사",
+        "한국장애인고용공단/서울동부지사",
+        "한국장애인고용공단/서울북부지사",
+        "한국장애인고용공단/부산지역본부",
+        "한국장애인고용공단/대구지역본부",
+        "한국장애인고용공단/인천지역본부",
+        "한국장애인고용공단/광주지역본부",
+        "한국장애인고용공단/대전지역본부",
+        "한국장애인고용공단/울산지사",
+        "한국장애인고용공단/세종지사",
+        "한국장애인고용공단/경기지역본부",
+        "한국장애인고용공단/경기북부지사",
+        "한국장애인고용공단/경기서부지사",
+        "한국장애인고용공단/강원지사",
+        "한국장애인고용공단/충북지사",
+        "한국장애인고용공단/충남지사",
+        "한국장애인고용공단/전북지사",
+        "한국장애인고용공단/전남지사",
+        "한국장애인고용공단/경북지사",
+        "한국장애인고용공단/경남지사",
+        "한국장애인고용공단/제주지사",
+        "기타 (직접 입력)",
+    ],
+    "시니어 고용지원": [
+        "선택안함",
+        "한국노인인력개발원/서울지역본부",
+        "한국노인인력개발원/부산지역본부",
+        "한국노인인력개발원/대구경북지역본부",
+        "한국노인인력개발원/광주전남지역본부",
+        "한국노인인력개발원/대전충청지역본부",
+        "한국노인인력개발원/경기지역본부",
+        "한국노인인력개발원/강원지역본부",
+        "기타 (직접 입력)",
+    ],
+    "청년/여성 고용지원": [
+        "선택안함",
+        "고용노동부 본부",
+        "여성가족부 본부",
+        "지역 고용센터",
+        "여성새로일하기센터",
+        "기타 (직접 입력)",
+    ],
+    "지자체 사업": [
+        "선택안함",
+        "서울특별시청", "부산광역시청", "대구광역시청", "인천광역시청",
+        "광주광역시청", "대전광역시청", "울산광역시청", "세종특별자치시청",
+        "경기도청", "강원특별자치도청", "충청북도청", "충청남도청",
+        "전북특별자치도청", "전라남도청", "경상북도청", "경상남도청",
+        "제주특별자치도청",
+        "시군구청 (기초자치단체)",
+        "기타 (직접 입력)",
+    ],
+    "사회복지 일반": [
+        "선택안함",
+        "한국사회복지협의회",
+        "지역 사회복지협의회",
+        "한국사회복지사협회",
+        "사회복지법인",
+        "기타 (직접 입력)",
+    ],
+    "기타": [
+        "선택안함",
+        "기타 (직접 입력)",
+    ],
+}
+
 # ══════════════════════════════
 # 역할 레이블 매핑 (중앙 관리)
 # ══════════════════════════════
@@ -511,7 +656,7 @@ LANG = {
         "dragon_monitoring":"🐉 드래곤파더",
         "monthly_limit_warn":"📌 월간 한도 도달. 관리자에게 토큰 요청하세요.",
         "unit_items":"건",
-        "banner_line1":"이 곳은 온라인 유해 컨텐츠를 모니터링하는 Claude 기반의 AI Agent 드래곤파더와 함께 작업하는 곳입니다.","banner_line2":"어린이 아동학대, 그루밍, 성폭력, 도박 등과 관련한 다양한 불법 컨텐츠를 감시합니다.","badge_intl":"국제기관 가이드라인 준수","badge_ncmec":"NCMEC 가이드라인 준수","badge_iwf":"IWF 글로벌 기준","home_footer":"이곳은 최승현님이 만드는 AI Agent 드래곤파더 월드입니다.","ann_unread":"미확인",
+        "banner_line1":"이 곳은 온라인 유해 컨텐츠를 모니터링하는 Claude 기반의 AI Agent 드래곤파더와 함께 작업하는 곳입니다.","banner_line2":"어린이 아동학대, 그루밍, 성폭력, 도박 등과 관련한 다양한 불법 컨텐츠를 감시합니다.","badge_intl":"국제기관 가이드라인 준수","badge_ncmec":"NCMEC 가이드라인 준수","badge_iwf":"IWF 글로벌 기준","home_footer":"드래곤아이즈(주) | DragonEyes Inc. | 사업자등록번호 238-86-03926 | 📧 support@dragoneyes.kr","ann_unread":"미확인",
         "hdr_work":"📊 업무현황","hdr_home":"🏠 홈","hdr_write":"📋 작성","hdr_notice":"📢 공지","hdr_admin":"👑 관리자","hdr_profile":"👤 사용자",
         "save_error":"저장 오류: {}","delete_error":"삭제 오류: {}","error":"오류: {}","no_url":"URL을 입력해주세요.",
         # 공지 팝업
@@ -731,7 +876,7 @@ LANG = {
         "dragon_monitoring":"🐉 DragonFather",
         "monthly_limit_warn":"📌 Monthly limit reached. Ask admin for more tokens.",
         "unit_items":"",
-        "banner_line1":"This is a place to work with Claude-based AI Agent DragonFather to monitor harmful online content.","banner_line2":"We monitor illegal content related to child abuse, grooming, sexual violence, and gambling.","badge_intl":"International Guidelines Compliant","badge_ncmec":"NCMEC Guidelines","badge_iwf":"IWF Global Standards","home_footer":"This is the AI Agent DragonFather World created by SeungHyun Choi.","ann_unread":"Unread",
+        "banner_line1":"This is a place to work with Claude-based AI Agent DragonFather to monitor harmful online content.","banner_line2":"We monitor illegal content related to child abuse, grooming, sexual violence, and gambling.","badge_intl":"International Guidelines Compliant","badge_ncmec":"NCMEC Guidelines","badge_iwf":"IWF Global Standards","home_footer":"DragonEyes Inc. | 드래곤아이즈(주) | Business Reg. No. 238-86-03926 | 📧 support@dragoneyes.kr","ann_unread":"Unread",
         "hdr_work":"📊 Work Status","hdr_home":"🏠 Home","hdr_write":"📋 Write","hdr_notice":"📢 Notice","hdr_admin":"👑 Admin","hdr_profile":"👤 Profile",
         "save_error":"Save error: {}","delete_error":"Delete error: {}","error":"Error: {}","no_url":"Please enter a URL.",
         # announcement popup
@@ -978,7 +1123,7 @@ LANG = {
         "dragon_monitoring":"🐉 ドラゴンファーザー",
         "monthly_limit_warn":"📌 今月の上限に達しました。管理者に追加を申請してください。",
         "unit_items":"件",
-        "banner_line1":"ここはClaude基盤のAI Agent ドラゴンファーザーと共にオンライン有害コンテンツをモニタリングする場所です。","banner_line2":"子どもへの性的虐待、グルーミング、性暴力、ギャンブル等の違法コンテンツを監視します。","badge_intl":"国際機関ガイドライン準拠","badge_ncmec":"NCMECガイドライン","badge_iwf":"IWFグローバル基準","home_footer":"ここはChoi SeungHyunが作るAI Agent ドラゴンファーザーワールドです。","ann_unread":"未確認",
+        "banner_line1":"ここはClaude基盤のAI Agent ドラゴンファーザーと共にオンライン有害コンテンツをモニタリングする場所です。","banner_line2":"子どもへの性的虐待、グルーミング、性暴力、ギャンブル等の違法コンテンツを監視します。","badge_intl":"国際機関ガイドライン準拠","badge_ncmec":"NCMECガイドライン","badge_iwf":"IWFグローバル基準","home_footer":"ドラゴンアイズ株式会社 | DragonEyes Inc. | 事業者登録番号 238-86-03926 | 📧 support@dragoneyes.kr","ann_unread":"未確認",
         "hdr_work":"📊 業務状況","hdr_home":"🏠 ホーム","hdr_write":"📋 作成","hdr_notice":"📢 公知","hdr_admin":"👑 管理者","hdr_profile":"👤 ユーザー",
         "save_error":"保存エラー: {}","delete_error":"削除エラー: {}","error":"エラー: {}","no_url":"URLを入力してください。",
         # 公知ポップアップ
@@ -3383,9 +3528,27 @@ else:
         # ══════════════════════════════
         # 📋 신규 라이선스 신청 페이지 (파트너관리자용)
         # ══════════════════════════════
-        # 🛡️ 보안: 파트너관리자/업체관리자/superadmin만 접근 가능
-        if not (is_agency_admin(user) or is_tenant_admin(user) or is_superadmin(user)):
-            st.error("🚫 라이선스 신청은 파트너관리자/업체관리자만 가능합니다.")
+        # 🛡️ 보안: 본부 admin만 접근 가능 (5/14 변경)
+        # 라이선스 신청은 PO 양식 + 청약서 수신 → 본부 검토 → 대금 입금 → 발급 흐름
+        # 본부 admin (role=admin, partner_id=NULL) 또는 superadmin만 입력 가능
+        is_hq_admin = (user.get("role") == "admin" and not user.get("partner_id"))
+        if not (is_hq_admin or is_superadmin(user)):
+            st.error("🚫 라이선스 신청 입력은 본부 관리자 전용입니다.")
+            st.info("""
+            **📋 라이선스 신청 안내**
+            
+            라이선스 신청은 다음 절차로 진행됩니다:
+            
+            1. PO 양식과 청약서를 작성하여 **support@dragoneyes.kr**로 이메일 송부
+            2. 본부 검토 (1~2 영업일)
+            3. 청약서 확정 및 인보이스 발행
+            4. 대금 입금 확인
+            5. 라이선스 발급 및 환영 메일 자동 발송
+            
+            📧 PO 양식 및 청약서는 **support@dragoneyes.kr**로 요청해주세요.
+            """)
+            
+            # 홈으로 돌아가기 옵션
             st.caption(f"현재 권한: {role_label(get_user_role(user))}")
             if st.button("🏠 홈으로 돌아가기", type="primary"):
                 st.session_state.current_page = "home_landing"
@@ -3423,6 +3586,53 @@ else:
             "경북지사", "경남지사", "제주지사", "기타"
         ]
 
+        # ════════════════════════════════════════════════════════════════
+        # 🏛️ 관할 기관 정보 (form 밖 - 동적 selectbox 작동을 위해)
+        # 5/14 시장 확장: 사업 분야별 관할 기관 (하이브리드 방식)
+        # ════════════════════════════════════════════════════════════════
+        st.markdown("### 🏛️ 관할 기관 정보 (선택)")
+        st.caption("지원 사업 분야와 관할 기관을 선택하세요. 목록에 없는 경우 '기타 (직접 입력)' 선택 후 직접 입력하세요.")
+        
+        rc1, rc2 = st.columns(2)
+        with rc1:
+            req_business_field = st.selectbox(
+                "지원 사업 분야",
+                BUSINESS_FIELDS,
+                key="req_business_field_outside",
+                help="해당 라이선스가 활용될 사업 분야를 선택하세요."
+            )
+        with rc2:
+            # 사업 분야에 따라 관할 기관 목록 동적 변경
+            _authority_options = REGULATORY_AUTHORITIES.get(req_business_field, ["선택안함"])
+            req_regulatory_authority = st.selectbox(
+                "관할 기관",
+                _authority_options,
+                key="req_regulatory_authority_outside",
+                help="관할 기관을 선택하세요. 목록에 없으면 '기타 (직접 입력)' 선택."
+            )
+        
+        # "기타 (직접 입력)" 선택 시 텍스트 박스 노출
+        req_authority_other = ""
+        if req_regulatory_authority == "기타 (직접 입력)":
+            req_authority_other = st.text_input(
+                "🏛️ 관할 기관명 직접 입력",
+                key="req_authority_other_outside",
+                placeholder="예: 새로운 사회복지법인 OO지부, 미등록 공공기관 등",
+                help="목록에 없는 관할 기관의 정확한 명칭을 입력하세요."
+            )
+        
+        # 소속 기관/단체명 (자유 입력)
+        req_disability_org = st.text_input(
+            "소속 단체/기관명 (자유 입력, 복수 기재 가능)",
+            placeholder="예: 한국장애인고용협회, OO 사회복지법인 OO지부 등",
+            key="req_org_name_outside"
+        )
+        
+        # 호환성: 기존 disability_office 컬럼에도 저장 (장애인 분야일 때만)
+        req_disability_office = req_regulatory_authority if req_business_field == "장애인 고용지원" else "선택안함"
+        
+        st.divider()
+        
         with st.form("license_request_form"):
             st.markdown("### 🏢 업체 정보")
             fc1, fc2 = st.columns(2)
@@ -3434,19 +3644,17 @@ else:
             with fc2:
                 req_company_phone = st.text_input("업체 대표전화", placeholder="02-0000-0000")
                 req_company_email = st.text_input("업체 대표이메일", placeholder="info@company.com")
-                req_plan = st.selectbox("라이선스 플랜",
-                    ["basic", "standard", "premium"],
-                    format_func=lambda x: {"basic":"🥉 Basic (3명/월)", "standard":"🥈 Standard (5명/월)", "premium":"🥇 Premium (무제한/월)"}[x])
+                # 5/14 Step 2-2: 신규 등급 (PO 양식 기준)
+                # 기존 basic/standard/premium은 만료까지 유지, 신규는 Standard/Pro/Enterprise
+                req_plan = st.selectbox(
+                    "라이선스 등급",
+                    list(LICENSE_PRICING.keys()),
+                    format_func=lambda x: f"{LICENSE_PRICING[x]['label']} (월 {LICENSE_PRICING[x]['monthly_price']:,}원/명)",
+                    help="등급별 기본 단가가 자동 적용됩니다. 협상 시 다음 단계에서 수정 가능."
+                )
                 req_users = st.number_input("요청 사용자 수", min_value=1, max_value=50, value=5)
 
             st.divider()
-            st.markdown("### ♿ 장애인 고용 정보 (선택)")
-            dc1, dc2 = st.columns(2)
-            with dc1:
-                req_disability_office = st.selectbox("관할 장애인고용공단 지사", DISABILITY_OFFICES)
-            with dc2:
-                req_disability_org = st.text_input("소속 장애인 단체", placeholder="예: 한국장애인고용협회")
-
             st.divider()
             st.markdown("### 👤 업체 관리자 정보 (필수 — 이메일 동의 진행)")
             ac1, ac2 = st.columns(2)
@@ -3545,6 +3753,14 @@ else:
                             "license_plan": req_plan,
                             "purpose": req_purpose,
                             "status": "pending",
+                            # 5/14 시장 확장: 사업 분야 + 관할 기관 (하이브리드 방식)
+                            "business_field": req_business_field if req_business_field != "선택안함" else None,
+                            "regulatory_authority": (
+                                req_authority_other.strip()
+                                if req_regulatory_authority == "기타 (직접 입력)" and req_authority_other.strip()
+                                else (req_regulatory_authority if req_regulatory_authority != "선택안함" else None)
+                            ),
+                            # 기존 컬럼 호환성 유지 (장애인 분야일 때만 자동 매핑)
                             "disability_office": req_disability_office if req_disability_office != "선택안함" else None,
                             "disability_org": req_disability_org or None,
                             "business_cert_path": biz_cert_path,
@@ -5832,9 +6048,129 @@ else:
             go_to("agency_dashboard"); st.rerun()
 
     elif page == "partner_info":
-        st.markdown("### ⚙️ 파트너 정보")
-        st.info("🚧 준비 중인 기능입니다. 곧 만나보실 수 있습니다.")
-        st.caption("우리 회사(대리점/파트너사) 기본 정보를 확인·수정할 수 있습니다.")
+        # ══════════════════════════════════════════════════════════════
+        # ⚙️ 파트너 정보 페이지 (5/14 구현, Phase 5-4)
+        # 파트너 admin이 본인 회사 정보 수정 + 본부 superadmin은 전체 관리
+        # ══════════════════════════════════════════════════════════════
+        st.markdown("### ⚙️ 우리 회사 정보")
+        
+        # ─── 권한 체크 ───
+        is_partner_admin_pi = (user.get("role") == "admin" and user.get("partner_id"))
+        is_hq_super = is_superadmin(user)
+        
+        if not (is_partner_admin_pi or is_hq_super):
+            st.error("🚫 파트너 관리자 또는 본부 시스템관리자만 접근 가능합니다.")
+            if st.button("⬅️ 홈으로", key="back_pi_home"):
+                st.session_state.current_page = "home_landing"; st.rerun()
+            st.stop()
+        
+        # ─── 대상 파트너 선택 (본부 superadmin만 드롭다운) ───
+        if is_hq_super and not user.get("partner_id"):
+            all_partners_pi = supabase.table("partners").select("id,name").is_("terminated_at", "null").order("name").execute().data or []
+            if not all_partners_pi:
+                st.info("등록된 파트너가 없습니다.")
+                st.stop()
+            
+            pi_partner_options = {p["name"]: p["id"] for p in all_partners_pi}
+            pi_selected_name = st.selectbox(
+                "🏢 파트너 선택 (본부 시스템관리자 전용)",
+                list(pi_partner_options.keys()),
+                help="본부에서 모든 파트너 정보를 조회·수정할 수 있습니다."
+            )
+            target_partner_id = pi_partner_options[pi_selected_name]
+        else:
+            # 파트너 admin은 본인 파트너만
+            target_partner_id = user.get("partner_id")
+        
+        # ─── 파트너 데이터 조회 ───
+        try:
+            p_data = supabase.table("partners").select("*").eq("id", target_partner_id).execute().data
+            if not p_data:
+                st.error("파트너 정보를 찾을 수 없습니다.")
+                st.stop()
+            partner_pi = p_data[0]
+        except Exception as e:
+            st.error(f"조회 오류: {str(e)[:100]}")
+            st.stop()
+        
+        # ─── 정보 표시 (수정 불가, 본부 권한) ───
+        st.markdown("##### 🔒 파트너 분류 및 계약 정보 (본부 관리)")
+        info_col1, info_col2, info_col3 = st.columns(3)
+        with info_col1:
+            partner_types = []
+            if partner_pi.get("is_distributor"): partner_types.append("총판")
+            if partner_pi.get("is_reseller"): partner_types.append("대리점")
+            if partner_pi.get("is_related_org"): partner_types.append("유관기관")
+            st.metric("파트너 유형", " · ".join(partner_types) if partner_types else "미분류")
+        with info_col2:
+            contracts_active = []
+            if partner_pi.get("has_sales_contract"): contracts_active.append("판매")
+            if partner_pi.get("has_customer_contract"): contracts_active.append("고객관리")
+            if partner_pi.get("has_org_admin_contract"): contracts_active.append("유관기관")
+            st.metric("활성 계약", " · ".join(contracts_active) if contracts_active else "없음")
+        with info_col3:
+            status_emoji = {"active": "🟢 정상", "pilot": "🟡 시범", "suspended": "🔴 정지"}
+            ps = partner_pi.get("partnership_status", "active")
+            st.metric("파트너십 상태", status_emoji.get(ps, ps))
+        
+        if partner_pi.get("company_updated_at"):
+            st.caption(f"🕒 최근 회사 정보 수정: {str(partner_pi['company_updated_at'])[:19].replace('T',' ')}")
+        
+        st.divider()
+        
+        # ─── 입력 폼 (수정 가능) ───
+        with st.form("partner_info_form"):
+            st.markdown("##### 🏢 회사 기본 정보 (PO 양식 ① TO 대리점)")
+            cc1, cc2 = st.columns(2)
+            with cc1:
+                pi_name = st.text_input("상호 *", value=partner_pi.get("name") or "", placeholder="(주)예시컴퍼니")
+                pi_biz_num = st.text_input("사업자등록번호", value=partner_pi.get("business_number") or "", placeholder="000-00-00000")
+                pi_rep_name = st.text_input("대표이사", value=partner_pi.get("representative_name") or "", placeholder="홍길동")
+            with cc2:
+                pi_phone = st.text_input("대표전화", value=partner_pi.get("phone") or "", placeholder="02-0000-0000")
+                pi_email = st.text_input("대표 이메일", value=partner_pi.get("email") or "", placeholder="info@company.com")
+            pi_address = st.text_input("주소", value=partner_pi.get("address") or "", placeholder="서울특별시 ...")
+            
+            st.divider()
+            st.markdown("##### 👤 담당자 정보 (실무 연락 담당자)")
+            ac1, ac2, ac3 = st.columns(3)
+            with ac1:
+                pi_admin_name = st.text_input("담당자 이름", value=partner_pi.get("admin_name") or "", placeholder="김담당")
+            with ac2:
+                pi_admin_title = st.text_input("직책", value=partner_pi.get("admin_title") or "", placeholder="예: 영업팀장")
+            with ac3:
+                pi_admin_phone = st.text_input("연락처", value=partner_pi.get("admin_phone") or "", placeholder="010-0000-0000")
+            
+            st.caption("⚠️ 상호 변경 시 계약서 재발급이 필요합니다. 본부에 문의해주세요.")
+            
+            pi_submitted = st.form_submit_button("💾 저장", type="primary", use_container_width=True)
+            
+            if pi_submitted:
+                if not pi_name:
+                    st.error("상호는 필수 입력 항목입니다.")
+                else:
+                    try:
+                        from datetime import datetime as _dt_pi
+                        update_data = {
+                            "name": pi_name,
+                            "business_number": pi_biz_num or None,
+                            "representative_name": pi_rep_name or None,
+                            "address": pi_address or None,
+                            "phone": pi_phone or None,
+                            "email": pi_email or None,
+                            "admin_name": pi_admin_name or None,
+                            "admin_title": pi_admin_title or None,
+                            "admin_phone": pi_admin_phone or None,
+                            "company_updated_at": _dt_pi.now().isoformat(),
+                            "updated_at": _dt_pi.now().isoformat(),
+                        }
+                        supabase.table("partners").update(update_data).eq("id", target_partner_id).execute()
+                        st.success(f"✅ {pi_name} 회사 정보가 저장되었습니다.")
+                        st.caption("페이지를 새로고침하면 변경된 내용이 반영됩니다.")
+                    except Exception as e:
+                        st.error(f"저장 오류: {str(e)[:150]}")
+        
+        st.divider()
         if st.button("⬅️ 대시보드로 돌아가기", key="back_partner_info"):
             go_to("agency_dashboard"); st.rerun()
 
@@ -6041,7 +6377,7 @@ else:
             font-size: 0.88rem;
             letter-spacing: 0.04em;
         ">
-            🐉 {t("home_footer")}
+            🏢 {t("home_footer")}
         </div>
         """, unsafe_allow_html=True)
 
@@ -8254,6 +8590,42 @@ else:
                                 ac1.write(f"**이메일:** {agency.get('email','-')}")
                                 ac2.write(f"**연락처:** {agency.get('phone','-')}")
 
+                                # 5/14 Step C v2: 담당자 관리 (대표 지정/해제) - st.rerun() 제거
+                                st.divider()
+                                _admins_for_this = partner_admin_map.get(agency["id"], [])
+                                if _admins_for_this:
+                                    # 권한 체크
+                                    _cu = st.session_state.user
+                                    _is_hq = (_cu.get("role") == "admin" and not _cu.get("partner_id"))
+                                    _is_primary_here = (_cu.get("partner_id") == agency["id"] 
+                                                       and _cu.get("is_partner_primary"))
+                                    _can_manage = _is_hq or _is_primary_here
+                                    
+                                    st.markdown(f"**👥 담당자 관리** ({len(_admins_for_this)}명)")
+                                    
+                                    # primary 우선 정렬
+                                    _admins_sorted = sorted(_admins_for_this, key=lambda x: (not x["is_primary"], x["name"]))
+                                    
+                                    for _admin in _admins_sorted:
+                                        _adm_col1, _adm_col2 = st.columns([3, 1])
+                                        with _adm_col1:
+                                            if _admin["is_primary"]:
+                                                st.markdown(f"⭐ **{_admin['name']}** (대표) — `{_admin['email']}`")
+                                            else:
+                                                st.markdown(f"· {_admin['name']} — `{_admin['email']}`")
+                                        with _adm_col2:
+                                            if _can_manage and not _admin["is_primary"]:
+                                                # 대표 지정 버튼 (현재 대표가 아닌 경우)
+                                                if st.button("⭐ 대표로", key=f"set_{agency['id']}_{_admin['id']}", help=f"{_admin['name']}을(를) 대표로 지정"):
+                                                    # 같은 파트너의 모든 admin → primary=False
+                                                    supabase.table("users").update({"is_partner_primary": False}) \
+                                                        .eq("partner_id", agency["id"]).eq("role", "admin").execute()
+                                                    # 이 사용자만 → primary=True
+                                                    supabase.table("users").update({"is_partner_primary": True}) \
+                                                        .eq("id", _admin["id"]).execute()
+                                                    # st.rerun() 생략 — 페이지 새로고침 안내로 대체
+                                                    st.success(f"✅ {_admin['name']}님을 대표로 지정했습니다. expander를 닫았다가 다시 열면 반영됩니다.")
+                                
                                 # 담당 업체 배정
                                 st.divider()
                                 st.markdown("**🏢 담당 업체 배정**")
