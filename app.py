@@ -1556,6 +1556,309 @@ def get_all_agencies():
     except:
         return []
 
+
+# ════════════════════════════════════════════════════════════════
+# PO 양식(.xlsx) 파서 (5/14 추가, AI 파서 Step 2)
+# DragonEyes 표준 PO 양식 v2 (5종: Tier1/2/3-100/200/500) 인식
+# ════════════════════════════════════════════════════════════════
+def parse_po_xlsx(uploaded_file):
+    """
+    PO 양식(.xlsx)을 파싱하여 신청서 데이터로 변환
+    
+    Returns dict with:
+        - tier_detected, po_no, date
+        - agency (TO 대리점), customer (FROM 고객사)
+        - regulatory_authority, business_field, payment_terms
+        - items (라이선스 발주 명세)
+        - total_amount
+        - users (관리자 + 일반 사용자 리스트)
+        - errors, warnings
+        - user_count
+    """
+    import openpyxl
+    from io import BytesIO
+    
+    result = {
+        "tier_detected": "",
+        "po_no": "", "date": "",
+        "agency": {}, "customer": {},
+        "regulatory_authority": "", "business_field": "",
+        "payment_terms": "",
+        "items": [],
+        "total_amount": 0,
+        "users": [],
+        "errors": [],
+        "warnings": [],
+        "user_count": 0,
+    }
+    
+    try:
+        # 파일 로드
+        uploaded_file.seek(0)
+        wb = openpyxl.load_workbook(BytesIO(uploaded_file.read()), data_only=True)
+        ws = wb.active  # 첫 번째 시트
+        
+        # 시트명 검증 (양식 인식)
+        if "DragonEyes" not in (ws.title or "") and "라이선스" not in (ws.title or ""):
+            result["warnings"].append(f"시트명이 표준 양식과 다릅니다: '{ws.title}'")
+        
+        # ─── 1. PO NO, DATE ───
+        result["po_no"] = str(ws["C4"].value or "").strip()
+        date_val = ws["G4"].value
+        if date_val:
+            result["date"] = str(date_val)[:10] if hasattr(date_val, "year") else str(date_val).strip()
+        
+        # ─── 2. ① TO 대리점 정보 ───
+        result["agency"] = {
+            "name": str(ws["C6"].value or "").strip(),
+            "address": str(ws["C7"].value or "").strip(),
+            "ceo": str(ws["C8"].value or "").strip(),
+            "biz_number": str(ws["C9"].value or "").strip(),
+            "manager": str(ws["C10"].value or "").strip(),
+            "phone": str(ws["C11"].value or "").strip(),
+            "email": str(ws["C12"].value or "").strip(),
+        }
+        
+        # ─── 3. ② FROM 고객사 정보 ───
+        result["customer"] = {
+            "name": str(ws["G6"].value or "").strip(),
+            "address": str(ws["G7"].value or "").strip(),
+            "ceo": str(ws["G8"].value or "").strip(),
+            "biz_number": str(ws["G9"].value or "").strip(),
+            "manager": str(ws["G10"].value or "").strip(),
+            "phone": str(ws["G11"].value or "").strip(),
+            "email": str(ws["G12"].value or "").strip(),
+        }
+        
+        # ─── 4. 관할 기관 + 사업 분야 + 결제 ───
+        result["regulatory_authority"] = str(ws["C13"].value or "").strip()
+        result["business_field"] = str(ws["G13"].value or "").strip()
+        result["payment_terms"] = str(ws["C14"].value or "").strip()
+        
+        # 예시 텍스트 필터링 (양식의 안내 텍스트는 제외)
+        for key in ["regulatory_authority", "business_field", "payment_terms"]:
+            val = result[key]
+            if val.startswith("예:") or "예시" in val or val.startswith("일시불 /"):
+                result[key] = ""
+        
+        # ─── 5. 라이선스 발주 명세 (Row 19~21) — Phase 6 v2/v3 호환 ───
+        # Phase 6 (5/14 PM): 단가/수량/기간 구조로 업그레이드
+        #   v2 양식: G=시작일, H=종료일, I=단가, J=금액
+        #   v3 양식: G=단가,    H=수량,    I=기간(개월), J=금액
+        # 자동 인식: G가 날짜형이면 v2, 숫자(작은 값)면 v3
+        
+        import datetime as _dt_mod
+        
+        def _excel_date_to_str(val):
+            """Excel 직렬 날짜/datetime → YYYY-MM-DD"""
+            if val is None or val == "":
+                return ""
+            if isinstance(val, _dt_mod.datetime):
+                return val.strftime("%Y-%m-%d")
+            if isinstance(val, _dt_mod.date):
+                return val.strftime("%Y-%m-%d")
+            if isinstance(val, (int, float)) and val > 30000:
+                try:
+                    dt = _dt_mod.datetime(1899, 12, 30) + _dt_mod.timedelta(days=int(val))
+                    return dt.strftime("%Y-%m-%d")
+                except:
+                    pass
+            return str(val)[:10]
+        
+        def _to_int_safe(val):
+            """안전한 int 변환"""
+            if val is None or val == "":
+                return 0
+            try:
+                if isinstance(val, str):
+                    val = val.replace(",", "").replace("원", "").strip()
+                return int(float(val))
+            except (ValueError, TypeError):
+                return 0
+        
+        def _looks_like_date(val):
+            """날짜 셀처럼 보이는지 (Excel 직렬 30000 이상 또는 datetime)"""
+            if isinstance(val, (_dt_mod.datetime, _dt_mod.date)):
+                return True
+            if isinstance(val, (int, float)) and val > 30000:
+                return True
+            if isinstance(val, str):
+                # "2026-05-15" 형식
+                return len(val) >= 8 and "-" in val
+            return False
+        
+        def _calc_months(start_str, end_str):
+            """YYYY-MM-DD 두 날짜 사이의 개월 수"""
+            if not start_str or not end_str:
+                return 0
+            try:
+                s = _dt_mod.datetime.strptime(start_str, "%Y-%m-%d")
+                e = _dt_mod.datetime.strptime(end_str, "%Y-%m-%d")
+                months = (e.year - s.year) * 12 + (e.month - s.month)
+                return max(months, 1)
+            except:
+                return 0
+        
+        for row_idx in [19, 20, 21]:
+            description = str(ws[f"C{row_idx}"].value or "").strip()
+            grade_raw = str(ws[f"F{row_idx}"].value or "").strip()
+            if not description and not grade_raw:
+                continue
+            
+            # 등급 매핑
+            grade = "standard"
+            if "Pro" in grade_raw or "프로" in grade_raw or "🥇" in grade_raw:
+                grade = "pro"
+            elif "Enterprise" in grade_raw or "엔터" in grade_raw or "💎" in grade_raw:
+                grade = "enterprise"
+            elif "Standard" in grade_raw or "스탠다드" in grade_raw or "🥈" in grade_raw:
+                grade = "standard"
+            
+            # G/H/I 셀 값
+            g_val = ws[f"G{row_idx}"].value
+            h_val = ws[f"H{row_idx}"].value
+            i_val = ws[f"I{row_idx}"].value
+            j_val = ws[f"J{row_idx}"].value
+            
+            # v2/v3 자동 인식: G가 날짜처럼 보이면 v2
+            is_v2 = _looks_like_date(g_val)
+            
+            if is_v2:
+                # v2: G=시작일, H=종료일, I=단가, J=금액
+                start_date = _excel_date_to_str(g_val)
+                end_date = _excel_date_to_str(h_val)
+                unit_price = _to_int_safe(i_val)
+                amount = _to_int_safe(j_val)
+                # v2에서 수량/기간 추정
+                quantity = result.get("user_count", 0) or 1  # 사용자 수로 추정
+                period_months = _calc_months(start_date, end_date) or 1
+                form_version = "v2"
+            else:
+                # v3: G=단가, H=수량, I=기간(개월), J=금액
+                unit_price = _to_int_safe(g_val)
+                quantity = _to_int_safe(h_val) or 1
+                period_months = _to_int_safe(i_val) or 1
+                amount = _to_int_safe(j_val) or (unit_price * quantity * period_months)
+                start_date = ""
+                end_date = ""
+                form_version = "v3"
+            
+            result["items"].append({
+                "description": description,
+                "grade": grade,
+                "unit_price": unit_price,
+                "quantity": quantity,
+                "period_months": period_months,
+                "amount": amount,
+                # v2 호환 (있으면 보관, v3는 빈 문자열)
+                "start_date": start_date,
+                "end_date": end_date,
+                # 양식 버전 표시
+                "form_version": form_version,
+            })
+        
+        # ─── 6. 총액 ───
+        try:
+            result["total_amount"] = _to_int_safe(ws["J23"].value)
+        except:
+            result["total_amount"] = 0
+        if not result["total_amount"]:
+            result["total_amount"] = sum(item["amount"] for item in result["items"])
+        
+        # 양식 버전 통합 (모든 line이 같은 버전이면 통일)
+        if result["items"]:
+            _versions = set(it.get("form_version") for it in result["items"])
+            if len(_versions) == 1:
+                result["form_version"] = list(_versions)[0]
+            else:
+                result["form_version"] = "mixed"
+        
+        # ─── 7. 사용자 지정 (Row 28: ⭐ 관리자, Row 29~: 일반 사용자) ───
+        # Tier별 사용자 수 자동 감지: Row 28부터 빈 행 만날 때까지 또는 시그너처 영역 전까지
+        max_row = ws.max_row
+        users_collected = []
+        
+        for row_idx in range(28, min(max_row + 1, 600)):  # 최대 500명 + 여유
+            # B열: 구분 (⭐ 관리자 / 사용자 N)
+            role_cell = str(ws[f"B{row_idx}"].value or "").strip()
+            
+            # 시그너처 영역 도달 시 종료
+            if "서명" in role_cell or "Signatures" in role_cell:
+                break
+            
+            # 빈 행 또는 사용자 영역 끝
+            if not role_cell:
+                # 다음 5행 중 데이터 있으면 계속, 없으면 종료
+                has_more = False
+                for check_row in range(row_idx + 1, min(row_idx + 6, max_row + 1)):
+                    if str(ws[f"B{check_row}"].value or "").strip():
+                        has_more = True
+                        break
+                if not has_more:
+                    break
+                continue
+            
+            # 사용자 데이터 추출
+            name = str(ws[f"C{row_idx}"].value or "").strip()
+            if not name:
+                continue  # 이름 없으면 빈 행으로 간주
+            
+            # 역할 결정
+            user_role = "admin" if "관리자" in role_cell or "⭐" in role_cell else "user"
+            
+            users_collected.append({
+                "role": user_role,
+                "name": name,
+                "email": str(ws[f"D{row_idx}"].value or "").strip(),
+                "phone": str(ws[f"E{row_idx}"].value or "").strip(),
+                "guardian_name": str(ws[f"F{row_idx}"].value or "").strip(),
+                "guardian_phone": str(ws[f"G{row_idx}"].value or "").strip(),
+                "org": str(ws[f"H{row_idx}"].value or "").strip(),
+            })
+        
+        result["users"] = users_collected
+        result["user_count"] = len(users_collected)
+        
+        # ─── 8. Tier 자동 감지 (사용자 수 기준) ───
+        count = result["user_count"]
+        if count <= 10:
+            result["tier_detected"] = "Tier 1 (최대 10명)"
+        elif count <= 50:
+            result["tier_detected"] = "Tier 2 (최대 50명)"
+        elif count <= 100:
+            result["tier_detected"] = "Tier 3-100"
+        elif count <= 200:
+            result["tier_detected"] = "Tier 3-200"
+        elif count <= 500:
+            result["tier_detected"] = "Tier 3-500"
+        else:
+            result["tier_detected"] = f"미지정 ({count}명)"
+        
+        # ─── 9. 검증 ───
+        if not result["customer"]["name"]:
+            result["errors"].append("고객사명(② FROM)이 비어있습니다.")
+        if not result["users"]:
+            result["errors"].append("사용자 정보(④)가 비어있습니다.")
+        else:
+            # 관리자 1명 필수
+            admin_count = sum(1 for u in result["users"] if u["role"] == "admin")
+            if admin_count == 0:
+                result["errors"].append("관리자가 지정되지 않았습니다. ④ 표 첫 행에 ⭐ 관리자를 입력해주세요.")
+            elif admin_count > 1:
+                result["warnings"].append(f"관리자가 {admin_count}명 지정되었습니다. (첫 번째 관리자가 대표로 등록됩니다)")
+        
+        # 발주 수량 vs 사용자 수 일치 확인
+        if result["items"] and result["user_count"] > 0:
+            # 발주 명세의 unit_price 합산 vs 사용자 수 비교는 단가 일치 시에만 가능
+            # 일단 사용자 수 표시
+            pass
+        
+    except Exception as e:
+        result["errors"].append(f"파일 파싱 오류: {str(e)[:200]}")
+    
+    return result
+
+
 def send_notification(sent_by_id, target_type, target_id, channel, subject, body):
     """알림 발송 + 실제 이메일 발송 (Resend)"""
     email_sent = False
@@ -3587,6 +3890,181 @@ else:
         ]
 
         # ════════════════════════════════════════════════════════════════
+        # 📂 PO 양식 업로드 (AI 파서, 5/14 추가)
+        # 표준 PO 양식 업로드 시 신청서 자동 채움
+        # Step 1: UI만 (Step 2에서 파싱 로직 추가 예정)
+        # ════════════════════════════════════════════════════════════════
+        with st.expander("📂 PO 양식 업로드 (선택, 빠른 신청)", expanded=False):
+            st.caption(
+                "DragonEyes 표준 PO 양식을 업로드하면 신청서가 자동으로 채워집니다. "
+                "표준 양식이 없으시면 본부에 문의하여 발급받으세요."
+            )
+            
+            dl_col1, dl_col2 = st.columns(2)
+            with dl_col1:
+                st.markdown("**🎫 양식 종류 (사용자 수별)**")
+                st.markdown("""
+                - **Tier 1** — 사용자 10명
+                - **Tier 2** — 사용자 50명
+                - **Tier 3** — 100 / 200 / 500명
+                """)
+            with dl_col2:
+                st.markdown("**💡 양식 안내**")
+                st.markdown("""
+                - 본부 발급 표준 PO 양식 (.xlsx)
+                - 사용자 수에 맞게 선택
+                - 📧 support@dragoneyes.kr 또는 카톡 문의
+                """)
+            
+            st.divider()
+            
+            uploaded_po = st.file_uploader(
+                "📤 작성한 PO 양식 업로드",
+                type=["xlsx"],
+                key="po_form_upload_outside",
+                help="작성 완료한 PO 양식(.xlsx)을 업로드하세요. 신청서 항목이 자동으로 채워집니다."
+            )
+            
+            if uploaded_po:
+                st.info(f"📄 **업로드됨**: {uploaded_po.name} ({uploaded_po.size:,} bytes)")
+                
+                # ════════════════════════════════════════════
+                # Step 3: 양식 파싱 + 미리보기 화면 (5/14)
+                # ════════════════════════════════════════════
+                with st.spinner("🔍 양식을 분석하는 중..."):
+                    parsed = parse_po_xlsx(uploaded_po)
+                
+                # 에러 처리
+                if parsed["errors"]:
+                    st.error("❌ 양식 파싱 중 문제가 발견되었습니다:")
+                    for err in parsed["errors"]:
+                        st.markdown(f"- {err}")
+                else:
+                    st.success(f"✅ 양식 파싱 완료 — **{parsed['tier_detected']}** / 사용자 {parsed['user_count']}명")
+                
+                # 경고 (있으면 표시)
+                if parsed["warnings"]:
+                    with st.expander("⚠️ 경고 사항", expanded=False):
+                        for warn in parsed["warnings"]:
+                            st.markdown(f"- {warn}")
+                
+                # 메트릭 카드 (3개)
+                mc1, mc2, mc3 = st.columns(3)
+                with mc1:
+                    st.metric("📊 자동 감지", parsed["tier_detected"] or "—")
+                with mc2:
+                    st.metric("👥 사용자 수", f"{parsed['user_count']}명")
+                with mc3:
+                    total_amt = parsed.get("total_amount", 0)
+                    st.metric("💰 발주 총액", f"{total_amt:,}원" if total_amt else "—")
+                
+                st.divider()
+                
+                # ─── 회사 정보 미리보기 (좌우 분할) ───
+                pv_col1, pv_col2 = st.columns(2)
+                with pv_col1:
+                    st.markdown("**① TO — 대리점 (Reseller)**")
+                    ag = parsed.get("agency", {})
+                    if ag.get("name"):
+                        st.markdown(f"""
+                        - 🏢 **상호**: {ag.get('name', '—')}
+                        - 👤 **대표이사**: {ag.get('ceo', '—')}
+                        - 🏷️ **사업자번호**: {ag.get('biz_number', '—')}
+                        - 📞 **TEL/FAX**: {ag.get('phone', '—')}
+                        - 📧 **이메일**: {ag.get('email', '—')}
+                        """)
+                    else:
+                        st.caption("(대리점 정보 비어있음)")
+                
+                with pv_col2:
+                    st.markdown("**② FROM — 고객사 (End User)**")
+                    cu = parsed.get("customer", {})
+                    if cu.get("name"):
+                        st.markdown(f"""
+                        - 🏢 **업체명**: {cu.get('name', '—')}
+                        - 👤 **대표이사**: {cu.get('ceo', '—')}
+                        - 🏷️ **사업자번호**: {cu.get('biz_number', '—')}
+                        - 📞 **TEL/FAX**: {cu.get('phone', '—')}
+                        - 📧 **이메일**: {cu.get('email', '—')}
+                        - 🏛️ **관할 기관**: {parsed.get('regulatory_authority', '—') or '—'}
+                        - 📋 **사업 분야**: {parsed.get('business_field', '—') or '—'}
+                        """)
+                    else:
+                        st.caption("(고객사 정보 비어있음)")
+                
+                st.divider()
+                
+                # ─── 발주 명세 (Phase 6 v3: 단가/수량/기간 구조) ───
+                if parsed.get("items"):
+                    _form_ver = parsed.get("form_version", "v3")
+                    _ver_badge = {
+                        "v2": "📋 양식 v2 (시작일/종료일 기반)",
+                        "v3": "📋 양식 v3 (단가/수량/기간 기반)",
+                        "mixed": "📋 양식 혼합",
+                    }.get(_form_ver, "")
+                    st.markdown(f"**🎫 라이선스 발주 명세** &nbsp; {_ver_badge}")
+                    
+                    import pandas as _pd_pv
+                    items_df = _pd_pv.DataFrame(parsed["items"])
+                    if not items_df.empty:
+                        # v2 호환 보조 컬럼 숨김 (UI에서만)
+                        for _col_drop in ["start_date", "end_date", "form_version"]:
+                            if _col_drop in items_df.columns:
+                                items_df = items_df.drop(columns=[_col_drop])
+                        
+                        # 등급 한글화
+                        grade_label = {"standard": "🥈 Standard", "pro": "🥇 Pro", "enterprise": "💎 Enterprise"}
+                        if "grade" in items_df.columns:
+                            items_df["grade"] = items_df["grade"].map(lambda x: grade_label.get(x, x))
+                        
+                        # 금액 포맷 (단가, 금액)
+                        for _col in ["unit_price", "amount"]:
+                            if _col in items_df.columns:
+                                items_df[_col] = items_df[_col].map(lambda x: f"{x:,}원" if x else "—")
+                        
+                        # 수량/기간 포맷
+                        if "quantity" in items_df.columns:
+                            items_df["quantity"] = items_df["quantity"].map(lambda x: f"{x:,}" if x else "—")
+                        if "period_months" in items_df.columns:
+                            items_df["period_months"] = items_df["period_months"].map(lambda x: f"{x}개월" if x else "—")
+                        
+                        # 컬럼명 한글화 (v3 표준: 단가/수량/기간 구조)
+                        # dict 순서: description, grade, unit_price, quantity, period_months, amount
+                        items_df.columns = ["품목", "등급", "단가", "수량", "기간(개월)", "금액"][:len(items_df.columns)]
+                        st.dataframe(items_df, use_container_width=True, hide_index=True)
+                
+                # ─── 사용자 목록 ───
+                if parsed.get("users"):
+                    st.markdown(f"**👥 사용자 목록 (총 {parsed['user_count']}명)**")
+                    import pandas as _pd_pv2
+                    users_df = _pd_pv2.DataFrame(parsed["users"])
+                    if not users_df.empty:
+                        # 역할 한글화
+                        role_label = {"admin": "⭐ 관리자", "user": "👤 사용자"}
+                        if "role" in users_df.columns:
+                            users_df["role"] = users_df["role"].map(lambda x: role_label.get(x, x))
+                        # 컬럼명 한글
+                        users_df.columns = ["구분", "이름", "이메일", "연락처", "보호자", "보호자 연락처", "소속"][:len(users_df.columns)]
+                        # 상위 5명만 표시 (나머지는 펼치기)
+                        if len(users_df) > 5:
+                            st.dataframe(users_df.head(5), use_container_width=True, hide_index=True)
+                            with st.expander(f"📋 전체 {len(users_df)}명 보기"):
+                                st.dataframe(users_df, use_container_width=True, hide_index=True)
+                        else:
+                            st.dataframe(users_df, use_container_width=True, hide_index=True)
+                
+                # ─── 자동 채움 안내 (Step 4 예정) ───
+                st.divider()
+                if not parsed["errors"]:
+                    st.info(
+                        "✅ **양식 검토 완료.** 아래 신청서 항목이 자동으로 채워졌는지 확인 후, "
+                        "필요 시 수정하여 제출하세요. "
+                        "(자동 채움 기능은 Step 4 작업 후 활성화됩니다.)"
+                    )
+                    # 세션에 저장 (Step 4에서 form 자동 채움에 사용 예정)
+                    st.session_state["po_parsed_data"] = parsed
+        
+        # ════════════════════════════════════════════════════════════════
         # 🏛️ 관할 기관 정보 (form 밖 - 동적 selectbox 작동을 위해)
         # 5/14 시장 확장: 사업 분야별 관할 기관 (하이브리드 방식)
         # ════════════════════════════════════════════════════════════════
@@ -3634,40 +4112,68 @@ else:
         st.divider()
         
         with st.form("license_request_form"):
+            # ════════════════════════════════════════════════
+            # Step 4: PO 양식 자동 채움 (5/14)
+            # session_state.po_parsed_data 의 값으로 default 채움
+            # ════════════════════════════════════════════════
+            _po = st.session_state.get("po_parsed_data", {})
+            _cu = _po.get("customer", {})  # ② FROM 고객사
+            _items = _po.get("items", [])
+            _first_item = _items[0] if _items else {}
+            _users_po = _po.get("users", [])
+            _admin_po = next((u for u in _users_po if u.get("role") == "admin"), {})
+            _po_active = bool(_cu.get("name"))  # 파싱 결과가 있을 때만 표시
+            
+            if _po_active:
+                st.success(f"✨ PO 양식에서 자동 채워졌습니다 — **{_cu.get('name', '')}** ({_po.get('user_count', 0)}명)")
+            
             st.markdown("### 🏢 업체 정보")
             fc1, fc2 = st.columns(2)
             with fc1:
-                req_company = st.text_input("업체명 *", placeholder="예: (주)포유솔루션")
-                req_biz_num = st.text_input("사업자등록번호", placeholder="000-00-00000")
+                req_company = st.text_input("업체명 *", value=_cu.get("name", ""), placeholder="예: (주)포유솔루션")
+                req_biz_num = st.text_input("사업자등록번호", value=_cu.get("biz_number", ""), placeholder="000-00-00000")
+                req_ceo = st.text_input("대표이사", value=_cu.get("ceo", ""), placeholder="홍길동", help="법적 계약 주체 (PO 양식 ② FROM)")
                 req_company_type = st.text_input("업종", placeholder="예: 아동교육, 복지기관")
-                req_address = st.text_input("업체 주소")
+                req_address = st.text_input("업체 주소", value=_cu.get("address", ""))
             with fc2:
-                req_company_phone = st.text_input("업체 대표전화", placeholder="02-0000-0000")
-                req_company_email = st.text_input("업체 대표이메일", placeholder="info@company.com")
+                req_company_phone = st.text_input("업체 대표전화", value=_cu.get("phone", ""), placeholder="02-0000-0000")
+                req_company_email = st.text_input("업체 대표이메일", value=_cu.get("email", ""), placeholder="info@company.com")
                 # 5/14 Step 2-2: 신규 등급 (PO 양식 기준)
                 # 기존 basic/standard/premium은 만료까지 유지, 신규는 Standard/Pro/Enterprise
+                # PO 양식에서 자동 채움 - 인덱스 매핑
+                _plan_keys = list(LICENSE_PRICING.keys())
+                _po_grade = _first_item.get("grade", "")
+                _default_plan_idx = _plan_keys.index(_po_grade) if _po_grade in _plan_keys else 0
                 req_plan = st.selectbox(
                     "라이선스 등급",
-                    list(LICENSE_PRICING.keys()),
+                    _plan_keys,
+                    index=_default_plan_idx,
                     format_func=lambda x: f"{LICENSE_PRICING[x]['label']} (월 {LICENSE_PRICING[x]['monthly_price']:,}원/명)",
                     help="등급별 기본 단가가 자동 적용됩니다. 협상 시 다음 단계에서 수정 가능."
                 )
-                req_users = st.number_input("요청 사용자 수", min_value=1, max_value=50, value=5)
+                # PO 양식 사용자 수 자동 반영 (최대 500까지 확장)
+                _po_user_count = _po.get("user_count", 0) or 5
+                req_users = st.number_input("요청 사용자 수", min_value=1, max_value=500, value=min(_po_user_count, 500))
 
-            st.divider()
             st.divider()
             st.markdown("### 👤 업체 관리자 정보 (필수 — 이메일 동의 진행)")
             ac1, ac2 = st.columns(2)
             with ac1:
-                req_admin_name = st.text_input("관리자 이름 *", placeholder="홍길동")
-                req_admin_email = st.text_input("관리자 이메일 * (동의 이메일 수신)", placeholder="admin@company.com")
+                req_admin_name = st.text_input("관리자 이름 *", value=_admin_po.get("name", ""), placeholder="홍길동")
+                req_admin_email = st.text_input("관리자 이메일 * (동의 이메일 수신)", value=_admin_po.get("email", ""), placeholder="admin@company.com")
             with ac2:
-                req_admin_phone = st.text_input("관리자 연락처 *", placeholder="010-0000-0000")
+                req_admin_phone = st.text_input("관리자 연락처 *", value=_admin_po.get("phone", ""), placeholder="010-0000-0000")
                 req_admin_title = st.text_input("직함", placeholder="예: 대표이사, 팀장")
 
             st.divider()
             st.markdown("### 📝 사용 목적")
-            req_purpose = st.text_area("사용 목적 및 특이사항", height=80,
+            _default_purpose = ""
+            if _po_active:
+                _bf = _po.get("business_field", "")
+                _ra = _po.get("regulatory_authority", "")
+                if _bf or _ra:
+                    _default_purpose = f"{_bf} - {_ra}".strip(" -")
+            req_purpose = st.text_area("사용 목적 및 특이사항", value=_default_purpose, height=80,
                 placeholder="예: 아동 온라인 안전 모니터링 업무, 담당 기관명 등")
 
             st.divider()
@@ -3734,7 +4240,7 @@ else:
                                     st.warning(f"⚠️ 추가 파일 '{af.name}' 업로드 실패: {str(up_err)}")
 
                         # ─── 3단계: DB INSERT ───
-                        supabase.table("license_requests").insert({
+                        _request_insert_result = supabase.table("license_requests").insert({
                             "agency_id": my_agency["id"] if my_agency else None,
                             "partner_id": my_agency["id"] if my_agency else None,  # Phase 4 듀얼 라이트
                             "requested_by": user["id"],
@@ -3745,6 +4251,7 @@ else:
                             "company_email": req_company_email,
                             "business_number": req_biz_num,
                             "company_type": req_company_type,
+                            "representative_name": req_ceo or None,  # 5/14 PO 양식 자동 채움
                             "admin_name": req_admin_name,
                             "admin_email": req_admin_email,
                             "admin_phone": req_admin_phone,
@@ -3766,7 +4273,56 @@ else:
                             "business_cert_path": biz_cert_path,
                             "additional_files": additional_files_list,
                         }).execute()
-                        st.success("✅ 라이선스 신청이 완료됐습니다! 시스템관리자 검토 후 연락드리겠습니다.")
+                        
+                        # ════════════════════════════════════════════
+                        # Step 4-2: PO 양식 사용자 일괄 INSERT (5/14)
+                        # ════════════════════════════════════════════
+                        _po_users_inserted = 0
+                        _po_data_for_users = st.session_state.get("po_parsed_data", {})
+                        _po_users_list = _po_data_for_users.get("users", []) if _po_data_for_users else []
+                        
+                        if _po_users_list and _request_insert_result.data:
+                            _new_request_id = _request_insert_result.data[0]["id"]
+                            
+                            # 일괄 INSERT용 리스트 구성
+                            _users_to_insert = []
+                            for _idx, _u in enumerate(_po_users_list):
+                                if not _u.get("name", "").strip():
+                                    continue  # 이름 없는 행 제외
+                                _users_to_insert.append({
+                                    "request_id": _new_request_id,
+                                    "user_role": _u.get("role", "user"),
+                                    "user_order": _idx,
+                                    "name": _u.get("name", "").strip(),
+                                    "email": _u.get("email", "").strip() or None,
+                                    "phone": _u.get("phone", "").strip() or None,
+                                    "guardian_name": _u.get("guardian_name", "").strip() or None,
+                                    "guardian_phone": _u.get("guardian_phone", "").strip() or None,
+                                    "disability_org": _u.get("org", "").strip() or None,
+                                    "status": "pending",
+                                })
+                            
+                            if _users_to_insert:
+                                try:
+                                    supabase.table("license_request_users").insert(_users_to_insert).execute()
+                                    _po_users_inserted = len(_users_to_insert)
+                                except Exception as _users_err:
+                                    st.warning(f"⚠️ 사용자 일괄 등록 중 일부 오류: {str(_users_err)[:200]}")
+                            
+                            # PO 양식 데이터 클리어 (다음 신청 시 영향 방지)
+                            if _po_users_inserted > 0:
+                                st.session_state.pop("po_parsed_data", None)
+                        
+                        # 신청 완료 메시지 (PO 기반 여부에 따라 강화)
+                        if _po_users_inserted > 0:
+                            st.success(
+                                f"✅ **PO 양식 기반 라이선스 신청 완료!** "
+                                f"사용자 **{_po_users_inserted}명**이 일괄 등록됐습니다. "
+                                f"시스템관리자 검토 후 연락드리겠습니다."
+                            )
+                            st.balloons()
+                        else:
+                            st.success("✅ 라이선스 신청이 완료됐습니다! 시스템관리자 검토 후 연락드리겠습니다.")
 
                         # ─── 4단계: 시스템관리자 알림 ───
                         attach_info = f"\n📎 사업자등록증: 첨부됨"
