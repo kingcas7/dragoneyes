@@ -7001,7 +7001,17 @@ else:
                 st.info("등록된 파트너가 없습니다.")
                 st.stop()
             pa_options = {p["name"]: p["id"] for p in all_partners_pa}
-            pa_selected_name = st.selectbox("🏢 파트너 선택", list(pa_options.keys()))
+            # admin_tab10에서 사전 선택된 파트너가 있으면 기본값으로 사용
+            _preselected_pid = st.session_state.pop("selected_partner_for_admins", None)
+            _default_index = 0
+            if _preselected_pid:
+                _pid_to_name = {p["id"]: p["name"] for p in all_partners_pa}
+                _preselected_name = _pid_to_name.get(_preselected_pid)
+                if _preselected_name:
+                    _names_list = list(pa_options.keys())
+                    if _preselected_name in _names_list:
+                        _default_index = _names_list.index(_preselected_name)
+            pa_selected_name = st.selectbox("🏢 파트너 선택", list(pa_options.keys()), index=_default_index)
             target_partner_id_pa = pa_options[pa_selected_name]
             partner_name_pa = pa_selected_name
         else:
@@ -9539,41 +9549,19 @@ else:
                                 ac1.write(f"**이메일:** {agency.get('email','-')}")
                                 ac2.write(f"**연락처:** {agency.get('phone','-')}")
 
-                                # 5/14 Step C v2: 담당자 관리 (대표 지정/해제) - st.rerun() 제거
+                                # 5/16 정리: 담당자 관리는 별도 페이지(partner_admins)로 통합
                                 st.divider()
-                                _admins_for_this = partner_admin_map.get(agency["id"], [])
-                                if _admins_for_this:
-                                    # 권한 체크
-                                    _cu = st.session_state.user
-                                    _is_hq = (_cu.get("role") == "admin" and not _cu.get("partner_id"))
-                                    _is_primary_here = (_cu.get("partner_id") == agency["id"] 
-                                                       and _cu.get("is_partner_primary"))
-                                    _can_manage = _is_hq or _is_primary_here
-                                    
-                                    st.markdown(f"**👥 담당자 관리** ({len(_admins_for_this)}명)")
-                                    
-                                    # primary 우선 정렬
-                                    _admins_sorted = sorted(_admins_for_this, key=lambda x: (not x["is_primary"], x["name"]))
-                                    
-                                    for _admin in _admins_sorted:
-                                        _adm_col1, _adm_col2 = st.columns([3, 1])
-                                        with _adm_col1:
-                                            if _admin["is_primary"]:
-                                                st.markdown(f"⭐ **{_admin['name']}** (대표) — `{_admin['email']}`")
-                                            else:
-                                                st.markdown(f"· {_admin['name']} — `{_admin['email']}`")
-                                        with _adm_col2:
-                                            if _can_manage and not _admin["is_primary"]:
-                                                # 대표 지정 버튼 (현재 대표가 아닌 경우)
-                                                if st.button("⭐ 대표로", key=f"set_{agency['id']}_{_admin['id']}", help=f"{_admin['name']}을(를) 대표로 지정"):
-                                                    # 같은 파트너의 모든 admin → primary=False
-                                                    supabase.table("users").update({"is_partner_primary": False}) \
-                                                        .eq("partner_id", agency["id"]).eq("role", "admin").execute()
-                                                    # 이 사용자만 → primary=True
-                                                    supabase.table("users").update({"is_partner_primary": True}) \
-                                                        .eq("id", _admin["id"]).execute()
-                                                    # st.rerun() 생략 — 페이지 새로고침 안내로 대체
-                                                    st.success(f"✅ {_admin['name']}님을 대표로 지정했습니다. expander를 닫았다가 다시 열면 반영됩니다.")
+                                _admin_count_t10 = len(partner_admin_map.get(agency["id"], []))
+                                _pa_col1, _pa_col2 = st.columns([3, 1])
+                                with _pa_col1:
+                                    st.markdown(f"**👥 담당자 관리** ({_admin_count_t10}명)")
+                                    st.caption("대표 지정·해제, 비활성화 등 세부 관리")
+                                with _pa_col2:
+                                    if st.button("관리 화면 →", key=f"goto_pa_t10_{agency['id']}",
+                                                 help=f"{agency['name']}의 담당자 관리 페이지로 이동",
+                                                 use_container_width=True):
+                                        st.session_state["selected_partner_for_admins"] = agency["id"]
+                                        go_to("partner_admins"); st.rerun()
                                 
                                 # 담당 업체 배정
                                 st.divider()
