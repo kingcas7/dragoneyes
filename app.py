@@ -7369,7 +7369,6 @@ else:
     elif page == "opportunity_detail":
         if not guard_page(user, allowed_roles=["admin", "tenant_admin", "agency_admin", "partner_primary"], allow_admins=True):
             st.stop()
-        render_header()
 
         opp_id = st.session_state.get("selected_opp_id")
         if not opp_id:
