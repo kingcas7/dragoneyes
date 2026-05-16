@@ -4813,9 +4813,11 @@ else:
         _action_card(ac7, "📨", "Support Request", "본부에 요청", "card_support_request", "support_request", "ac-rose")
         _action_card(ac8, "⚙️", "파트너 정보", "우리 회사 정보", "card_partner_info", "partner_info", "ac-slate")
 
-        st.markdown("##### 👥 조직 관리")
-        _pad_l3, ac9, _pad_r3 = st.columns([1, 1.5, 1])
+        st.markdown("##### 👥 조직 관리 & 💼 Opportunity")
+        ac9, ac_op = st.columns(2)
         _action_card(ac9, "👥", "담당자 관리", "대표 지정·해제·비활성화", "card_partner_admins", "partner_admins", "ac-teal")
+        _action_card(ac_op, "📊", "영업 파이프라인", "고객 발굴·계약 관리·Forecast", "card_sales_pipeline", "sales_pipeline", "ac-blue")
+
 
         st.divider()
 
@@ -7141,6 +7143,465 @@ else:
             if st.button("🏠 대시보드로", key="back_pa_to_dash", use_container_width=True):
                 go_to("agency_dashboard"); st.rerun()
 
+
+
+
+    elif page == "sales_pipeline":
+        # ══════════════════════════════════════════════════════════════
+        # 📊 영업 파이프라인 페이지 (Phase 3, 5/16 신규)
+        # CRUD: 등록 + 목록 + 필터/정렬
+        # 채널 4가지: 드래곤아이즈다이렉트 / 총판 / 인다이렉트파트너 / 직접계약파트너
+        # ══════════════════════════════════════════════════════════════
+        st.markdown("### 📊 영업 파이프라인")
+
+        # ─── 권한 체크 ───
+        is_hq_sp = (not user.get("partner_id")) and user.get("role") in ("admin", "super_admin", "member")
+        is_partner_admin_sp = (user.get("role") == "admin" and user.get("partner_id"))
+
+        if not (is_hq_sp or is_partner_admin_sp):
+            st.error("🚫 본부 직원 또는 파트너 관리자만 접근 가능합니다.")
+            if st.button("🏠 홈으로", key="back_sp_home"):
+                go_to("home_landing"); st.rerun()
+            st.stop()
+
+        # ─── 가시 범위 안내 ───
+        partner_name_sp = None
+        partner_channel_sp = None
+        if is_hq_sp:
+            st.caption("🏢 본부 — 전체 영업 기회를 관리합니다 (모든 채널)")
+        elif is_partner_admin_sp:
+            try:
+                p_resp = sb_admin().table("partners").select("name, channel_type").eq("id", user["partner_id"]).single().execute()
+                partner_name_sp = p_resp.data.get("name", "내 회사")
+                partner_channel_sp = p_resp.data.get("channel_type", "알 수 없음")
+                st.caption(f"🤝 {partner_name_sp} ({partner_channel_sp}) — 인게이지된 영업 기회만 표시")
+            except Exception:
+                st.caption("🤝 파트너 — 인게이지된 영업 기회만 표시")
+
+        # ─── 영업 기회 데이터 조회 (권한별 RLS 자동 적용) ───
+        try:
+            opps_resp = supabase.table("opportunities").select("*").order("expected_close_date", desc=False).execute()
+            all_opps = opps_resp.data or []
+        except Exception as e:
+            st.error(f"영업 기회 조회 실패: {e}")
+            all_opps = []
+
+        # ─── 통계 카드 ───
+        total_count = len(all_opps)
+        active_opps = [o for o in all_opps if o.get("status") not in ("closed_won", "closed_lost")]
+        won_opps = [o for o in all_opps if o.get("status") == "closed_won"]
+        
+        # 가중 매출 (확률 × 금액) — 진행 중인 거래만
+        weighted_revenue = sum(
+            float(o.get("expected_amount") or 0) * float(o.get("win_probability") or 0) / 100
+            for o in active_opps
+        )
+        total_pipeline = sum(float(o.get("expected_amount") or 0) for o in active_opps)
+
+        col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+        col_s1.metric("📋 전체 기회", f"{total_count}건")
+        col_s2.metric("🎯 진행 중", f"{len(active_opps)}건")
+        col_s3.metric("💰 파이프라인", f"₩{total_pipeline/100000000:.2f}억" if total_pipeline >= 100000000 else f"₩{total_pipeline/10000:.0f}만")
+        col_s4.metric("📈 가중 매출", f"₩{weighted_revenue/100000000:.2f}억" if weighted_revenue >= 100000000 else f"₩{weighted_revenue/10000:.0f}만", help="확률 × 금액 (예상 매출)")
+
+        st.divider()
+
+        # ─── 신규 등록 폼 (expander) ───
+        with st.expander("➕ **신규 영업 기회 등록**", expanded=False):
+            with st.form(key="new_opp_form", clear_on_submit=True):
+                col_f1, col_f2 = st.columns(2)
+                
+                with col_f1:
+                    new_customer_name = st.text_input("🏢 고객사명 *", placeholder="예: 서울특별시 ○○구청")
+                    new_customer_contact_name = st.text_input("👤 담당자명", placeholder="예: 김부장")
+                    new_customer_email = st.text_input("📧 이메일", placeholder="예: contact@example.com")
+                    new_customer_phone = st.text_input("📞 연락처", placeholder="예: 02-1234-5678")
+                
+                with col_f2:
+                    # 채널 선택 (권한별 제한)
+                    if is_hq_sp:
+                        channel_options = ["드래곤아이즈다이렉트", "총판", "인다이렉트파트너", "직접계약파트너"]
+                    else:
+                        # 파트너 admin은 본인 채널만
+                        channel_options = [partner_channel_sp] if partner_channel_sp else ["직접계약파트너"]
+                    
+                    new_channel = st.selectbox("📡 채널 *", channel_options)
+                    new_tier = st.selectbox("📦 라이선스 등급", ["Standard", "Pro", "Enterprise"])
+                    new_seats = st.number_input("👥 예상 좌석 수", min_value=1, value=10, step=1)
+                    new_amount = st.number_input("💰 예상 금액 (net to DragonEyes, 원)", min_value=0, value=0, step=100000, format="%d")
+                
+                col_f3, col_f4 = st.columns(2)
+                with col_f3:
+                    new_probability = st.slider("📊 계약 확률 (%)", min_value=0, max_value=100, value=20, step=5)
+                with col_f4:
+                    new_close_date = st.date_input("📅 예상 마감일", value=date.today() + timedelta(days=30))
+                
+                new_notes = st.text_area("📝 메모 (선택)", placeholder="고객 발굴 경로, 특이사항 등")
+                
+                submitted = st.form_submit_button("✅ 등록", use_container_width=True, type="primary")
+                
+                if submitted:
+                    if not new_customer_name:
+                        st.error("⚠️ 고객사명은 필수입니다")
+                    else:
+                        try:
+                            # ─── 디버그: 어떤 ID로 INSERT 하는지 확인 ───
+                            
+                            new_opp_data = {
+                                "customer_name": new_customer_name,
+                                "customer_contact_name": new_customer_contact_name or None,
+                                "customer_contact_email": new_customer_email or None,
+                                "customer_contact_phone": new_customer_phone or None,
+                                "origin_channel": new_channel,
+                                "primary_owner": "HQ" if is_hq_sp else "PARTNER",
+                                "license_tier": new_tier,
+                                "expected_seats": int(new_seats),
+                                "expected_amount": float(new_amount),
+                                "win_probability": float(new_probability),
+                                "expected_close_date": new_close_date.isoformat(),
+                                "status": "prospect",
+                                "created_by": None,  # 임시 우회: FK 에러 회피
+                                "notes": new_notes or None,
+                                "assigned_sales_user_id": None,  # 임시 우회: FK 에러 회피
+                            }
+                            supabase.table("opportunities").insert(new_opp_data).execute()
+                            st.success(f"✅ 영업 기회 등록 완료: {new_customer_name}")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ 등록 실패: {e}")
+
+        st.divider()
+
+        # ─── 필터 + 정렬 컨트롤 ───
+        col_filter1, col_filter2, col_filter3 = st.columns(3)
+        with col_filter1:
+            min_prob = st.slider("📊 최소 계약 확률 (%)", 0, 100, 0, 10, key="sp_min_prob")
+        with col_filter2:
+            status_filter = st.multiselect(
+                "🎯 상태 필터",
+                ["prospect", "qualified", "proposal", "negotiation", "contract", "closed_won", "closed_lost"],
+                default=["prospect", "qualified", "proposal", "negotiation", "contract"]
+            )
+        with col_filter3:
+            sort_by = st.selectbox("📑 정렬", ["확률 높은 순", "마감일 가까운 순", "금액 높은 순", "최신 등록 순"])
+
+        # 필터 적용
+        filtered_opps = [
+            o for o in all_opps
+            if float(o.get("win_probability") or 0) >= min_prob
+            and o.get("status") in status_filter
+        ]
+
+        # 정렬 적용
+        if sort_by == "확률 높은 순":
+            filtered_opps.sort(key=lambda x: float(x.get("win_probability") or 0), reverse=True)
+        elif sort_by == "마감일 가까운 순":
+            filtered_opps.sort(key=lambda x: x.get("expected_close_date") or "9999-12-31")
+        elif sort_by == "금액 높은 순":
+            filtered_opps.sort(key=lambda x: float(x.get("expected_amount") or 0), reverse=True)
+        else:  # 최신 등록 순
+            filtered_opps.sort(key=lambda x: x.get("created_at") or "", reverse=True)
+
+        # ─── 채널별 탭 (본부만, 파트너는 본인 채널만) ───
+        def _render_opp_list(opps_list, tab_label):
+            """영업 기회 목록을 테이블로 표시"""
+            if not opps_list:
+                st.info(f"📭 {tab_label} 채널에 영업 기회가 없습니다")
+                return
+            
+            for opp in opps_list:
+                # 상태별 이모지
+                status_emoji = {
+                    "prospect": "🌱", "qualified": "✅", "proposal": "📄",
+                    "negotiation": "🤝", "contract": "📝",
+                    "closed_won": "🎉", "closed_lost": "❌"
+                }.get(opp.get("status"), "📋")
+                
+                prob = float(opp.get("win_probability") or 0)
+                amount = float(opp.get("expected_amount") or 0)
+                amount_str = f"₩{amount/100000000:.2f}억" if amount >= 100000000 else (f"₩{amount/10000:.0f}만" if amount >= 10000 else f"₩{amount:.0f}")
+                
+                with st.container(border=True):
+                    col_o1, col_o2, col_o3, col_o4 = st.columns([3, 2, 2, 1])
+                    with col_o1:
+                        st.markdown(f"**{status_emoji} {opp.get('customer_name', '?')}**")
+                        st.caption(f"📡 {opp.get('origin_channel', '?')} · 📦 {opp.get('license_tier', '?')} · 👥 {opp.get('expected_seats', 0)}석")
+                    with col_o2:
+                        st.markdown(f"💰 **{amount_str}**")
+                        st.caption(f"📅 {opp.get('expected_close_date', '?')}")
+                    with col_o3:
+                        st.markdown(f"📊 **{prob:.0f}%**")
+                        st.progress(prob / 100)
+                    with col_o4:
+                        if st.button("📂", key=f"opp_detail_{tab_label}_{opp['id']}", help="상세 보기"):
+                            st.session_state["selected_opp_id"] = opp["id"]
+                            go_to("opportunity_detail"); st.rerun()
+
+        if is_hq_sp:
+            tab_all, tab_direct, tab_dist, tab_indirect, tab_partner = st.tabs([
+                f"📋 전체 ({len(filtered_opps)})",
+                f"🏢 다이렉트 ({len([o for o in filtered_opps if o.get('origin_channel') == '드래곤아이즈다이렉트'])})",
+                f"📦 총판 ({len([o for o in filtered_opps if o.get('origin_channel') == '총판'])})",
+                f"🔗 인다이렉트 ({len([o for o in filtered_opps if o.get('origin_channel') == '인다이렉트파트너'])})",
+                f"🤝 직접계약 ({len([o for o in filtered_opps if o.get('origin_channel') == '직접계약파트너'])})"
+            ])
+            with tab_all:
+                _render_opp_list(filtered_opps, "전체")
+            with tab_direct:
+                _render_opp_list([o for o in filtered_opps if o.get("origin_channel") == "드래곤아이즈다이렉트"], "드래곤아이즈다이렉트")
+            with tab_dist:
+                _render_opp_list([o for o in filtered_opps if o.get("origin_channel") == "총판"], "총판")
+            with tab_indirect:
+                _render_opp_list([o for o in filtered_opps if o.get("origin_channel") == "인다이렉트파트너"], "인다이렉트파트너")
+            with tab_partner:
+                _render_opp_list([o for o in filtered_opps if o.get("origin_channel") == "직접계약파트너"], "직접계약파트너")
+        else:
+            # 파트너 admin은 본인 채널만 (RLS로 이미 필터됨)
+            _render_opp_list(filtered_opps, "내 영업 기회")
+
+        st.divider()
+
+        # ─── 하단 액션 ───
+        if st.button("🏠 홈으로", key="back_sp_to_home", use_container_width=True):
+            go_to("home_landing"); st.rerun()
+
+
+    elif page == "opportunity_detail":
+        guard_page(["admin", "tenant_admin", "agency_admin", "partner_primary"])
+        render_header()
+
+        opp_id = st.session_state.get("selected_opp_id")
+        if not opp_id:
+            st.error("❌ 영업 기회 ID가 없습니다.")
+            if st.button("← 목록으로"):
+                go_to("sales_pipeline"); st.rerun()
+            st.stop()
+
+        # 데이터 조회
+        try:
+            opp_resp = supabase.table("opportunities").select("*").eq("id", opp_id).single().execute()
+            opp = opp_resp.data
+        except Exception as e:
+            st.error(f"❌ 영업 기회를 찾을 수 없습니다: {e}")
+            if st.button("← 목록으로"):
+                go_to("sales_pipeline"); st.rerun()
+            st.stop()
+
+        # 편집 모드 상태
+        edit_key = f"edit_mode_{opp_id}"
+        if edit_key not in st.session_state:
+            st.session_state[edit_key] = False
+        is_editing = st.session_state[edit_key]
+
+        # 헤더 + 액션 버튼
+        col_h1, col_h2, col_h3, col_h4 = st.columns([4, 1, 1, 1])
+        with col_h1:
+            st.markdown(f"## 🌱 {opp.get('customer_name', '(고객사명 없음)')}")
+        with col_h2:
+            if st.button("← 목록", key=f"back_to_list_{opp_id}", use_container_width=True):
+                st.session_state[edit_key] = False
+                go_to("sales_pipeline"); st.rerun()
+        with col_h3:
+            if not is_editing:
+                if st.button("✏️ 수정", key=f"edit_btn_{opp_id}", use_container_width=True):
+                    st.session_state[edit_key] = True
+                    st.rerun()
+            else:
+                if st.button("❌ 취소", key=f"cancel_btn_{opp_id}", use_container_width=True):
+                    st.session_state[edit_key] = False
+                    st.rerun()
+        with col_h4:
+            if is_editing:
+                save_clicked = st.button("💾 저장", key=f"save_btn_{opp_id}", type="primary", use_container_width=True)
+            else:
+                save_clicked = False
+
+        st.markdown("---")
+
+        # 채널 배지
+        channel_emoji = {
+            "드래곤아이즈다이렉트": "🌱", "총판": "📦",
+            "인다이렉트파트너": "🔗", "직접계약파트너": "🤝", "유관기관": "🏛️"
+        }.get(opp.get("origin_channel", ""), "📋")
+        st.markdown(f"**채널:** {channel_emoji} {opp.get('origin_channel', '-')}")
+
+        # ===== 영업 정보 =====
+        st.markdown("### 📊 영업 정보")
+        update_data = {}
+
+        col_s1, col_s2 = st.columns(2)
+        with col_s1:
+            if is_editing:
+                tiers = ["Standard", "Pro", "Enterprise"]
+                cur_tier = opp.get("license_tier", "Standard")
+                update_data["license_tier"] = st.selectbox(
+                    "📦 라이선스 등급", tiers,
+                    index=tiers.index(cur_tier) if cur_tier in tiers else 0,
+                    key=f"edit_tier_{opp_id}"
+                )
+                update_data["expected_seats"] = st.number_input(
+                    "👥 예상 좌석 수", min_value=1, max_value=100000,
+                    value=int(opp.get("expected_seats") or 1),
+                    key=f"edit_seats_{opp_id}"
+                )
+                update_data["expected_amount"] = st.number_input(
+                    "💰 예상 금액 (원)", min_value=0,
+                    value=int(opp.get("expected_amount") or 0),
+                    step=1000000,
+                    key=f"edit_amount_{opp_id}"
+                )
+            else:
+                st.markdown(f"**📦 라이선스 등급:** {opp.get('license_tier', '-')}")
+                st.markdown(f"**👥 예상 좌석 수:** {opp.get('expected_seats', 0):,}석")
+                amt = float(opp.get("expected_amount") or 0)
+                st.markdown(f"**💰 예상 금액:** ₩{amt/100000000:.2f}억" if amt >= 100000000 else f"**💰 예상 금액:** ₩{amt:,.0f}")
+
+        with col_s2:
+            if is_editing:
+                update_data["win_probability"] = st.slider(
+                    "📊 계약 확률 (%)", 0, 100,
+                    int(opp.get("win_probability") or 0),
+                    step=5, key=f"edit_prob_{opp_id}"
+                )
+                from datetime import date as _date
+                cur_close = opp.get("expected_close_date")
+                if isinstance(cur_close, str):
+                    try:
+                        cur_close = _date.fromisoformat(cur_close)
+                    except Exception:
+                        cur_close = _date.today()
+                elif cur_close is None:
+                    cur_close = _date.today()
+                update_data["expected_close_date"] = st.date_input(
+                    "📅 예상 마감일", value=cur_close,
+                    key=f"edit_close_{opp_id}"
+                ).isoformat()
+
+                statuses = ["prospect", "qualified", "proposal", "negotiation", "contract", "closed_won", "closed_lost"]
+                cur_status = opp.get("status", "prospect")
+                update_data["status"] = st.selectbox(
+                    "🎯 상태", statuses,
+                    index=statuses.index(cur_status) if cur_status in statuses else 0,
+                    key=f"edit_status_{opp_id}"
+                )
+            else:
+                prob = float(opp.get("win_probability") or 0)
+                st.markdown(f"**📊 계약 확률:** {prob:.0f}%")
+                st.progress(prob / 100)
+                st.markdown(f"**📅 예상 마감일:** {opp.get('expected_close_date', '-')}")
+                st.markdown(f"**🎯 상태:** `{opp.get('status', 'prospect')}`")
+
+        st.markdown("---")
+
+        # ===== 고객사 정보 (PO 발주서 ②FROM 연계) =====
+        st.markdown("### 🏢 고객사 정보 (발주서 ②FROM 섹션)")
+
+        col_c1, col_c2 = st.columns(2)
+        with col_c1:
+            if is_editing:
+                update_data["customer_name"] = st.text_input(
+                    "🏢 업체명 *", value=opp.get("customer_name", ""),
+                    key=f"edit_cname_{opp_id}"
+                )
+                update_data["customer_address"] = st.text_input(
+                    "📍 주소", value=opp.get("customer_address", "") or "",
+                    placeholder="예: 서울특별시 동작구 시흥대로 606",
+                    key=f"edit_caddr_{opp_id}"
+                )
+                update_data["customer_ceo_name"] = st.text_input(
+                    "👔 대표이사", value=opp.get("customer_ceo_name", "") or "",
+                    key=f"edit_ceo_{opp_id}"
+                )
+                update_data["customer_business_no"] = st.text_input(
+                    "🆔 사업자등록번호", value=opp.get("customer_business_no", "") or "",
+                    placeholder="XXX-XX-XXXXX",
+                    key=f"edit_bizno_{opp_id}"
+                )
+                fields_default = ["장애인고용지원", "시니어고용지원", "청년고용지원", "여성고용지원", "지자체사업", "사회복지", "기타"]
+                cur_field = opp.get("business_field") or "장애인고용지원"
+                if cur_field not in fields_default:
+                    fields_default.insert(0, cur_field)
+                update_data["business_field"] = st.selectbox(
+                    "🏷️ 지원 사업 분야", fields_default,
+                    index=fields_default.index(cur_field),
+                    key=f"edit_bfield_{opp_id}"
+                )
+            else:
+                st.markdown(f"**🏢 업체명:** {opp.get('customer_name', '-')}")
+                st.markdown(f"**📍 주소:** {opp.get('customer_address') or '_(미입력)_'}")
+                st.markdown(f"**👔 대표이사:** {opp.get('customer_ceo_name') or '_(미입력)_'}")
+                st.markdown(f"**🆔 사업자등록번호:** {opp.get('customer_business_no') or '_(미입력)_'}")
+                st.markdown(f"**🏷️ 지원 사업 분야:** {opp.get('business_field') or '_(미입력)_'}")
+
+        with col_c2:
+            if is_editing:
+                update_data["customer_contact_name"] = st.text_input(
+                    "👤 담당자 성명", value=opp.get("customer_contact_name", "") or "",
+                    key=f"edit_contactn_{opp_id}"
+                )
+                update_data["customer_contact_title"] = st.text_input(
+                    "💼 담당자 직책", value=opp.get("customer_contact_title", "") or "",
+                    placeholder="예: 부장, 팀장",
+                    key=f"edit_contactt_{opp_id}"
+                )
+                update_data["customer_contact_phone"] = st.text_input(
+                    "📞 TEL", value=opp.get("customer_contact_phone", "") or "",
+                    placeholder="예: 02-1234-5678",
+                    key=f"edit_phone_{opp_id}"
+                )
+                update_data["customer_fax"] = st.text_input(
+                    "📠 FAX", value=opp.get("customer_fax", "") or "",
+                    key=f"edit_fax_{opp_id}"
+                )
+                update_data["customer_contact_email"] = st.text_input(
+                    "📧 이메일", value=opp.get("customer_contact_email", "") or "",
+                    placeholder="예: contact@example.com",
+                    key=f"edit_email_{opp_id}"
+                )
+            else:
+                st.markdown(f"**👤 담당자 성명:** {opp.get('customer_contact_name') or '_(미입력)_'}")
+                st.markdown(f"**💼 담당자 직책:** {opp.get('customer_contact_title') or '_(미입력)_'}")
+                st.markdown(f"**📞 TEL:** {opp.get('customer_contact_phone') or '_(미입력)_'}")
+                st.markdown(f"**📠 FAX:** {opp.get('customer_fax') or '_(미입력)_'}")
+                st.markdown(f"**📧 이메일:** {opp.get('customer_contact_email') or '_(미입력)_'}")
+
+        st.markdown("---")
+
+        # ===== 메모 (Remark) =====
+        st.markdown("### 📝 메모 (Remark)")
+        if is_editing:
+            update_data["notes"] = st.text_area(
+                "메모", value=opp.get("notes", "") or "",
+                height=120, key=f"edit_notes_{opp_id}",
+                label_visibility="collapsed"
+            )
+        else:
+            notes_val = opp.get("notes") or "_(메모 없음)_"
+            st.markdown(notes_val)
+
+        st.markdown("---")
+
+        # ===== 메타데이터 =====
+        with st.expander("📅 메타데이터", expanded=False):
+            st.caption(f"**ID:** `{opp.get('id')}`")
+            st.caption(f"**등록일:** {opp.get('created_at', '-')}")
+            st.caption(f"**마지막 수정:** {opp.get('updated_at') or '_(수정 이력 없음)_'}")
+            st.caption(f"**생성자 ID:** {opp.get('created_by') or '_(NULL — Phase 7H 우회)_'}")
+            st.caption(f"**담당 영업 ID:** {opp.get('assigned_sales_user_id') or '_(NULL — Phase 7H 우회)_'}")
+
+        # ===== 저장 처리 =====
+        if save_clicked:
+            try:
+                from datetime import datetime as _dt
+                update_data["updated_at"] = _dt.utcnow().isoformat()
+                # 빈 문자열은 None으로 변환
+                clean_data = {k: (v if v != "" else None) for k, v in update_data.items()}
+                supabase.table("opportunities").update(clean_data).eq("id", opp_id).execute()
+                st.success("✅ 저장 완료!")
+                st.session_state[edit_key] = False
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ 저장 실패: {e}")
 
     elif page == "home_landing":
         lang = st.session_state.get("lang", "ko")
