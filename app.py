@@ -7581,6 +7581,156 @@ else:
 
         st.markdown("---")
 
+        # ===== 영업 활동 로그 (Phase 7J) =====
+        st.markdown("---")
+        col_act_h1, col_act_h2 = st.columns([5, 2])
+        with col_act_h1:
+            st.markdown("### 💼 영업 활동 로그")
+        with col_act_h2:
+            if st.button("➕ 활동 기록 추가", key=f"add_act_btn_{opp_id}", use_container_width=True):
+                st.session_state[f"show_act_form_{opp_id}"] = not st.session_state.get(f"show_act_form_{opp_id}", False)
+                st.rerun()
+
+        # 활동 목록 조회
+        try:
+            act_resp = supabase.table("opportunity_activities").select("*").eq("opportunity_id", opp_id).order("activity_date", desc=True).execute()
+            activities = act_resp.data or []
+        except Exception as e:
+            activities = []
+            st.warning(f"활동 로그 조회 실패: {e}")
+
+        if activities:
+            latest = activities[0]
+            latest_dt = latest.get("activity_date", "")[:16].replace("T", " ")
+            latest_type_map = {
+                "meeting": "🤝 미팅", "call": "📞 통화", "email": "📧 이메일",
+                "visit": "🚗 방문", "proposal_sent": "📤 제안서", "contract_sent": "📄 계약서",
+                "demo": "🖥️ 데모", "other": "📌 기타"
+            }
+            latest_type = latest_type_map.get(latest.get("activity_type"), "📌 기타")
+            st.caption(f"📊 총 {len(activities)}건 | 가장 최근: {latest_dt} ({latest_type})")
+        else:
+            st.caption("📊 아직 활동 기록이 없습니다. 첫 활동을 기록해보세요!")
+
+        # ===== 활동 추가 폼 =====
+        if st.session_state.get(f"show_act_form_{opp_id}", False):
+            with st.container(border=True):
+                st.markdown("##### ➕ 신규 활동 기록")
+
+                col_af1, col_af2 = st.columns(2)
+                with col_af1:
+                    act_type_options = {
+                        "🤝 미팅": "meeting", "📞 통화": "call", "📧 이메일": "email",
+                        "🚗 방문": "visit", "📤 제안서 송부": "proposal_sent",
+                        "📄 계약서 송부": "contract_sent", "🖥️ 데모": "demo", "📌 기타": "other"
+                    }
+                    new_act_label = st.selectbox(
+                        "활동 유형 *", list(act_type_options.keys()),
+                        key=f"new_act_type_{opp_id}"
+                    )
+                    new_act_type = act_type_options[new_act_label]
+
+                    from datetime import datetime as _dt_now, date as _date_today
+                    new_act_date = st.date_input(
+                        "활동 일자 *", value=_date_today.today(),
+                        key=f"new_act_date_{opp_id}"
+                    )
+
+                with col_af2:
+                    new_act_title = st.text_input(
+                        "제목 *", placeholder="예: 권찬 총장 1차 미팅",
+                        key=f"new_act_title_{opp_id}"
+                    )
+                    new_act_next_date = st.date_input(
+                        "다음 액션 예정일 (선택)", value=None,
+                        key=f"new_act_next_date_{opp_id}"
+                    )
+
+                new_act_content = st.text_area(
+                    "활동 내용 *",
+                    placeholder="논의 내용, 고객 요청 사항, 의사결정자 정보, 경쟁 현황 등을 자유롭게 기록하세요.",
+                    height=120, key=f"new_act_content_{opp_id}"
+                )
+                new_act_next = st.text_input(
+                    "다음 액션 (선택)", placeholder="예: 제안서 송부, 2차 미팅 일정 조율",
+                    key=f"new_act_next_{opp_id}"
+                )
+
+                col_save1, col_save2 = st.columns([1, 5])
+                with col_save1:
+                    if st.button("💾 저장", key=f"save_act_{opp_id}", type="primary", use_container_width=True):
+                        if not new_act_title.strip() or not new_act_content.strip():
+                            st.error("❌ 제목과 내용은 필수입니다.")
+                        else:
+                            try:
+                                act_data = {
+                                    "opportunity_id": opp_id,
+                                    "activity_type": new_act_type,
+                                    "activity_date": new_act_date.isoformat(),
+                                    "title": new_act_title.strip(),
+                                    "content": new_act_content.strip(),
+                                    "next_action": new_act_next.strip() if new_act_next.strip() else None,
+                                    "next_action_date": new_act_next_date.isoformat() if new_act_next_date else None,
+                                    "author_id": None,
+                                    "author_name": user.get("name", "익명"),
+                                }
+                                supabase.table("opportunity_activities").insert(act_data).execute()
+                                st.success("✅ 활동 기록 저장 완료!")
+                                st.session_state[f"show_act_form_{opp_id}"] = False
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"❌ 저장 실패: {e}")
+                with col_save2:
+                    if st.button("❌ 취소", key=f"cancel_act_{opp_id}", use_container_width=False):
+                        st.session_state[f"show_act_form_{opp_id}"] = False
+                        st.rerun()
+
+        # ===== 활동 타임라인 =====
+        if activities:
+            st.markdown("##### 📅 활동 타임라인")
+            type_emoji = {
+                "meeting": "🤝", "call": "📞", "email": "📧", "visit": "🚗",
+                "proposal_sent": "📤", "contract_sent": "📄", "demo": "🖥️", "other": "📌"
+            }
+            type_label = {
+                "meeting": "미팅", "call": "통화", "email": "이메일", "visit": "방문",
+                "proposal_sent": "제안서 송부", "contract_sent": "계약서 송부",
+                "demo": "데모", "other": "기타"
+            }
+
+            for act in activities:
+                act_id = act.get("id")
+                a_type = act.get("activity_type", "other")
+                emoji = type_emoji.get(a_type, "📌")
+                label = type_label.get(a_type, "기타")
+                a_date = (act.get("activity_date") or "")[:10]
+                a_title = act.get("title", "(제목 없음)")
+                a_author = act.get("author_name") or "익명"
+
+                with st.container(border=True):
+                    col_at1, col_at2 = st.columns([6, 1])
+                    with col_at1:
+                        st.markdown(f"**{emoji} [{a_date}] {a_title}** _({label})_")
+                        st.caption(f"✍️ {a_author}")
+                    with col_at2:
+                        if st.button("🗑️", key=f"del_act_{act_id}", help="삭제"):
+                            try:
+                                supabase.table("opportunity_activities").delete().eq("id", act_id).execute()
+                                st.success("✅ 삭제 완료")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"삭제 실패: {e}")
+
+                    st.markdown(act.get("content", ""))
+
+                    if act.get("next_action"):
+                        next_str = f"▶️ **다음 액션:** {act['next_action']}"
+                        if act.get("next_action_date"):
+                            next_str += f" _(예정일: {act['next_action_date']})_"
+                        st.info(next_str)
+
+        st.markdown("---")
+
         # ===== 메타데이터 =====
         with st.expander("📅 메타데이터", expanded=False):
             st.caption(f"**ID:** `{opp.get('id')}`")
