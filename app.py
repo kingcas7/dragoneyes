@@ -6481,18 +6481,27 @@ else:
         _role = _cur.get("role") or _cur.get("role_v2") or ""
         _is_admin = _cur.get("is_tenant_admin", False)
 
-        if not _agency_id and not _is_admin and _role not in ("admin", "super_admin"):
-            st.warning("파트너사(agency) 소속이 확인되지 않습니다. 본부 관리자에게 문의하세요.")
-            if st.button("⬅️ 대시보드로 돌아가기", key="back_user_mgmt_noaccess"):
-                go_to("agency_dashboard"); st.rerun()
+        # Phase 7 데이터 격리: 본부 admin / 파트너 admin / 일반 사용자 분리
+        _is_hq_admin = (_role in ("admin", "super_admin")) and not _cur.get("partner_id")
+        _is_partner_admin_um = _is_admin or (
+            _role == "admin" and _cur.get("partner_id")
+        )
+
+        # 파트너 소속도 없고 본부도 아닌 일반 사용자: 프로필로 안내
+        if not _is_hq_admin and not _is_partner_admin_um and not _agency_id:
+            st.info("👤 본인 정보 및 소속 회사 정보를 확인하시려면 프로필 페이지를 이용해주세요.")
+            if st.button("👤 내 프로필 보기", key="go_my_profile_um", type="primary"):
+                go_to("user_profile"); st.rerun()
+            if st.button("🏠 홈으로", key="back_home_um"):
+                go_home(); st.rerun()
         else:
             try:
                 _q = supabase.table("users").select(
                     "id,email,name,role,phone,guardian_name,guardian_phone,"
                     "status,resigned_at,agency_id,partner_id,created_at"
                 ).is_("deleted_at", "null")
-                if _agency_id and not _is_admin and _role not in ("admin", "super_admin"):
-                    # Phase 3 듀얼 리드: partner_id 또는 agency_id 매칭
+                # 본부 admin이 아니면 본인 파트너 소속만 필터링
+                if not _is_hq_admin and _agency_id:
                     _q = _q.or_(f"partner_id.eq.{_agency_id},agency_id.eq.{_agency_id}")
                 _all_users = _q.order("created_at", desc=True).execute().data or []
             except Exception as _e:
