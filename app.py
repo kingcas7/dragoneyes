@@ -492,8 +492,17 @@ ROLE_ICONS = {
     "admin":          "⚙️",
 }
 
-def role_label(role_v2):
-    return ROLE_LABELS.get(role_v2, "👤 일반사용자")
+def role_label(arg):
+    """role_v2 라벨을 반환.
+    arg가 dict(user 객체)면 role(admin/member) 우선 검사 후 role_v2 fallback.
+    arg가 str이면 기존 동작(role_v2 직접 매핑).
+    """
+    if isinstance(arg, dict):
+        _role = (arg.get("role") or "").lower()
+        if _role in ("admin", "member"):
+            return ROLE_LABELS.get("admin", "⚙️ 관리자")
+        return ROLE_LABELS.get(arg.get("role_v2") or "user", "👤 일반사용자")
+    return ROLE_LABELS.get(arg, "👤 일반사용자")
 
 def role_icon(role_v2):
     return ROLE_ICONS.get(role_v2, "👤")
@@ -5651,7 +5660,7 @@ else:
                     _dl_rows.append({
                         "이름": _u.get("name", ""),
                         "이메일": _u.get("email", ""),
-                        "권한": role_label(_u.get("role_v2", "user")),
+                        "권한": role_label(_u),
                         "팀": _team_map_dl.get(_u.get("team_id", ""), "미배정"),
                         "이번달": _um,
                         "목표": _utgt,
@@ -5894,7 +5903,7 @@ else:
                 st.text_input(t("profile_name"), value=user.get("name",""), disabled=True)
                 st.text_input(t("profile_email"), value=user.get("email",""), disabled=True)
                 st.text_input(t("profile_team"), value=user.get("team_id",t("unassigned_label")), disabled=True)
-                st.text_input(t("profile_role"), value=role_label(user.get("role_v2","user")), disabled=True)
+                st.text_input(t("profile_role"), value=role_label(user), disabled=True)
             with pc2:
                 new_phone = st.text_input("📱 연락처 (휴대폰)", value=user.get("phone",""), placeholder="010-0000-0000")
                 new_birth = st.text_input("🎂 생년월일", value=user.get("birthdate",""), placeholder="1990-01-01")
@@ -5995,7 +6004,7 @@ else:
                         preview_data.append({
                             t("profile_name"): u.get("name",""),
                             "이메일": u.get("email",""),
-                            t("profile_role"): role_label(u.get("role_v2","user")),
+                            t("profile_role"): role_label(u),
                             "소속팀": team_map.get(u.get("team_id",""), t("unassigned_label")),
                             "연락처": u.get("phone",""),
                             "생년월일": u.get("birthdate",""),
@@ -8898,7 +8907,7 @@ else:
                                 tgt = u.get("monthly_target",10)
                                 rt = min(int(len(mr)/tgt*100),100) if tgt>0 else 0
                                 ti = get_token_info(u["id"])
-                                _role_label_str = role_label(u.get("role_v2","user"))
+                                _role_label_str = role_label(u)
                                 summary.append({
                                     t("profile_role"): _role_label_str,
                                     t("profile_name"): u["name"] + "  (" + u.get("email","") + ")",
@@ -9461,7 +9470,7 @@ else:
                                     for u in tenant_users:
                                         uc1, uc2, uc3 = st.columns([3, 2, 1])
                                         uc1.write(f"{'👑' if u.get('is_tenant_admin') else '👤'} {u['name']} ({u.get('email','')})")
-                                        uc2.caption(role_label(u.get("role_v2","user")))
+                                        uc2.caption(role_label(u))
                                         with uc3:
                                             if st.button("제거", key=f"remove_tenant_user_{u['id']}"):
                                                 supabase.table("users").update({"tenant_id": None, "is_tenant_admin": False}).eq("id", u["id"]).execute()
@@ -10220,7 +10229,7 @@ DragonEyes 시스템 관리팀"""
                                 uc1, uc2, uc3, uc4, uc5 = st.columns([2, 2.5, 1.5, 1.5, 1])
                                 uc1.write(f"✅ {u.get('name','')}")
                                 uc2.caption(u.get("email",""))
-                                uc3.caption(role_label(u.get("role_v2","user")))
+                                uc3.caption(role_label(u))
                                 uc4.caption(str(u.get("terms_agreed_at",""))[:16])
                                 uc5.caption(u.get("terms_version","-"))
                         elif consent_filter != "미동의":
@@ -10238,7 +10247,7 @@ DragonEyes 시스템 관리팀"""
                                     nc1, nc2, nc3, nc4 = st.columns([2, 2.5, 2, 1.5])
                                     nc1.write(f"⏳ {u.get('name','')}")
                                     nc2.caption(u.get("email",""))
-                                    nc3.caption(role_label(u.get("role_v2","user")))
+                                    nc3.caption(role_label(u))
                                     with nc4:
                                         # 동의 독려 버튼
                                         if st.button("📧 동의 독려", key=f"nudge_{u['id']}"):
