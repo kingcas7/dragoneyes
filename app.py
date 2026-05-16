@@ -1302,7 +1302,15 @@ if "sid" in params and st.session_state.user is None:
                 _u = ud.data[0]
                 _role = _u.get("role_v2", "user")
                 _is_weekend = _dt_now.now().weekday() >= 5  # 5=토, 6=일
-                if _role == "user" and _is_weekend:
+                # 본부/파트너/총판 admin은 주말에도 접속 가능
+                _is_admin_role = (
+                    _u.get("role") == "admin"
+                    or _u.get("partner_role") == "partner_admin"
+                    or _u.get("hq_position")
+                    or _u.get("distributor_id")
+                    or _u.get("is_tenant_admin")
+                )
+                if _role == "user" and _is_weekend and not _is_admin_role:
                     st.session_state.user = None
                     st.warning("📅 주말 보안 정책에 따라 일반 사용자는 토요일/일요일에 접속할 수 없습니다.")
                     if "sid" in st.query_params:
@@ -1339,8 +1347,25 @@ def is_superadmin(user):
     return get_user_role(user) == "superadmin"
 
 def is_agency_admin(user):
-    """파트너관리자 여부"""
-    return get_user_role(user) == "agency_admin"
+    """파트너관리자 여부 (Phase 7 보강 — 2026-05-16)
+
+    원래: role_v2 == "agency_admin"만 인정
+    Phase 7 추가:
+        - partner_role == "partner_admin" (정다운/정희영/황철희)
+        - role == "admin" + partner_id (role_v2 미설정 폴백)
+        - is_tenant_admin (포유솔루션 정희영 케이스)
+    """
+    if not user:
+        return False
+    if get_user_role(user) == "agency_admin":
+        return True
+    if user.get("partner_role") == "partner_admin":
+        return True
+    if user.get("role") == "admin" and user.get("partner_id"):
+        return True
+    if user.get("is_tenant_admin"):
+        return True
+    return False
 
 def is_tenant_admin(user):
     """업체관리자 여부"""
@@ -1381,6 +1406,14 @@ def guard_page(user, allowed_roles=None, allow_admins=True, redirect_to="home_la
 
     # 관리자 자동 통과
     if allow_admins and _role in ("superadmin", "agency_admin", "tenant_admin", "admin"):
+        return True
+
+    # Phase 7: 파트너 admin 케이스 (정다운/정희영/황철희)
+    if allow_admins and (
+        user.get("partner_role") == "partner_admin"
+        or (user.get("role") == "admin" and user.get("partner_id"))
+        or user.get("is_tenant_admin")
+    ):
         return True
 
     # 명시적 허용 역할
@@ -1677,14 +1710,17 @@ def parse_po_xlsx(uploaded_file):
                 return 0
         
         def _looks_like_date(val):
-            """날짜 셀처럼 보이는지 (Excel 직렬 30000 이상 또는 datetime)"""
+            """날짜 셀처럼 보이는지 — v2/v3 자동 판정용
+            v2 양식: G=시작일(datetime), v3 양식: G=단가(int)
+            500000원 같은 큰 숫자가 날짜로 오인되는 버그 수정 (5/14)
+            → datetime 객체이거나, 'YYYY-MM-DD' 형식 문자열일 때만 날짜로 판정
+            → int/float은 모두 숫자(단가)로 처리 → v3 모드"""
             if isinstance(val, (_dt_mod.datetime, _dt_mod.date)):
                 return True
-            if isinstance(val, (int, float)) and val > 30000:
-                return True
             if isinstance(val, str):
-                # "2026-05-15" 형식
-                return len(val) >= 8 and "-" in val
+                # "2026-05-15" 형식만 날짜로 인식 (10자, '-' 2개)
+                return len(val) >= 8 and val.count("-") >= 2
+            # int/float은 단가로 처리 (v3 모드)
             return False
         
         def _calc_months(start_str, end_str):
@@ -1702,6 +1738,8 @@ def parse_po_xlsx(uploaded_file):
         for row_idx in [19, 20, 21]:
             description = str(ws[f"C{row_idx}"].value or "").strip()
             grade_raw = str(ws[f"F{row_idx}"].value or "").strip()
+            # Phase 6 Step 2: B 컬럼(ITEM) 거래유형 인식
+            item_b = str(ws[f"B{row_idx}"].value or "").strip()
             if not description and not grade_raw:
                 continue
             
@@ -1713,6 +1751,32 @@ def parse_po_xlsx(uploaded_file):
                 grade = "enterprise"
             elif "Standard" in grade_raw or "스탠다드" in grade_raw or "🥈" in grade_raw:
                 grade = "standard"
+            
+            # Phase 6 Step 2: ITEM 거래유형 매핑 (ARR 추적용)
+            # 좋아요님 5/14 결정: 신규/갱신/추가/다운그레이드
+            transaction_type = "new"  # 기본값
+            if "갱신" in item_b or "Renewal" in item_b or "🔄" in item_b:
+                transaction_type = "renewal"
+            elif "추가" in item_b or "Add-on" in item_b or "Addon" in item_b or "➕" in item_b:
+                transaction_type = "addon"
+            elif "다운그레이드" in item_b or "Downgrade" in item_b or "⬇️" in item_b:
+                transaction_type = "downgrade"
+            elif "신규" in item_b or "New" in item_b or "🆕" in item_b:
+                transaction_type = "new"
+            # 숫자만 있거나(v2 호환) 빈 값이면 "new"로 처리
+            
+            # Phase 6 Step 2: 품목 카테고리 매핑 (catalog 매핑)
+            item_category = "license"  # 기본값
+            if "컨설팅" in description or "Consulting" in description:
+                item_category = "consulting"
+            elif "셋업" in description or "Setup" in description or "셋업 비용" in description:
+                item_category = "setup"
+            elif "교육" in description or "Training" in description:
+                item_category = "training"
+            elif "라이선스" in description or "License" in description or "DragonEyes" in description:
+                item_category = "license"
+            elif "기타" in description:
+                item_category = "other"
             
             # G/H/I 셀 값
             g_val = ws[f"G{row_idx}"].value
@@ -1746,6 +1810,9 @@ def parse_po_xlsx(uploaded_file):
             result["items"].append({
                 "description": description,
                 "grade": grade,
+                # Phase 6 Step 2: ITEM 거래유형 + 카테고리 (ARR 추적용)
+                "transaction_type": transaction_type,
+                "item_category": item_category,
                 "unit_price": unit_price,
                 "quantity": quantity,
                 "period_months": period_months,
@@ -2074,7 +2141,15 @@ def login(email, password):
                 from datetime import datetime as _dt_login
                 _role = _u.get("role_v2", "user")
                 _is_weekend = _dt_login.now().weekday() >= 5  # 5=토, 6=일
-                if _role == "user" and _is_weekend:
+                # 본부/파트너/총판 admin은 주말에도 접속 가능
+                _is_admin_role = (
+                    _u.get("role") == "admin"
+                    or _u.get("partner_role") == "partner_admin"
+                    or _u.get("hq_position")
+                    or _u.get("distributor_id")
+                    or _u.get("is_tenant_admin")
+                )
+                if _role == "user" and _is_weekend and not _is_admin_role:
                     return False, "📅 주말 보안 정책에 따라 일반 사용자는 토요일/일요일에 접속할 수 없습니다. 평일에 다시 시도해주세요."
 
                 # ─── 정상 로그인 ───
@@ -2085,6 +2160,16 @@ def login(email, password):
                 # 🔐 sid (refresh_token) 을 URL에 저장 → 새로고침 시 세션 복원
                 # refresh_token은 access_token과 달리 권한이 제한적이라 URL 노출이 비교적 안전
                 st.query_params["sid"] = result.session.refresh_token
+                # ✅ 로그인 직후 라우팅: 파트너 admin은 agency_dashboard
+                _is_partner_admin = (
+                    _u.get("partner_role") == "partner_admin"
+                    or _u.get("is_tenant_admin")
+                    or (_u.get("role") == "admin" and _u.get("partner_id"))
+                )
+                if _is_partner_admin:
+                    st.session_state.current_page = "agency_dashboard"
+                else:
+                    st.session_state.current_page = "home_landing"
                 return True, "로그인 성공"
             return False, "사용자 정보를 찾을 수 없습니다."
     except Exception as e:
@@ -2646,8 +2731,19 @@ def go_back():
     st.session_state.prev_page = "home"
 
 def go_home():
-    st.session_state.current_page = "home_landing"
-    st.session_state.prev_page = "home_landing"
+    # Phase 7: 파트너 admin은 agency_dashboard로 돌아감
+    _u = st.session_state.get("user") or {}
+    _is_partner_admin = (
+        _u.get("partner_role") == "partner_admin"
+        or (_u.get("role") == "admin" and _u.get("partner_id"))
+        or _u.get("is_tenant_admin")
+    )
+    if _is_partner_admin:
+        st.session_state.current_page = "agency_dashboard"
+        st.session_state.prev_page = "agency_dashboard"
+    else:
+        st.session_state.current_page = "home_landing"
+        st.session_state.prev_page = "home_landing"
     st.session_state.selected_report = None
 
 def open_report_form(content="", result="", severity=1, category="안전", platform="YouTube", from_tab=None):
@@ -3437,10 +3533,17 @@ else:
                 st.rerun()
         st.stop()
 
-    is_admin = user.get("role") == "admin" or user.get("role_v2") in (
-        "superadmin",
-        "group_leader", "group_leader_2", "group_leader_3", "group_leader_4",
-        "director", "director_2", "director_3", "director_4",
+    # 🛡️ Phase 6 보안 (5/15): is_admin = 본부 admin 전용 (파트너 admin 차단)
+    # 정다운(role=admin, partner_id=포유솔루션) 검증으로 발견된 권한 누수 해결
+    # 파트너 admin은 partner_id가 있어서 is_admin=False → 본부 메뉴/페이지 차단
+    # role_v2 본부 직책(group_leader/director)은 그대로 통과 (본부 소속이므로)
+    is_admin = (
+        (user.get("role") == "admin" and not user.get("partner_id"))
+        or user.get("role_v2") in (
+            "superadmin",
+            "group_leader", "group_leader_2", "group_leader_3", "group_leader_4",
+            "director", "director_2", "director_3", "director_4",
+        )
     )
     user_role = get_user_role(user)
     is_super = is_superadmin(user)
@@ -4004,13 +4107,61 @@ else:
                     }.get(_form_ver, "")
                     st.markdown(f"**🎫 라이선스 발주 명세** &nbsp; {_ver_badge}")
                     
+                    # ════════════════════════════════════════════════
+                    # Phase 6 Step 3 (5/15): 추가 디스카운트 입력 (form 밖)
+                    # 좋아요님 의도: 입력 → 표의 단가/금액 즉시 변경
+                    #   · 본 계약 기간 한정 · 소급 X · 갱신 시 새 협상
+                    # ════════════════════════════════════════════════
+                    _po_period_for_caption = parsed["items"][0].get("period_months", 12) if parsed.get("items") else 12
+                    dc1, dc2 = st.columns([1, 3])
+                    with dc1:
+                        _phase6_discount = st.number_input(
+                            "💰 추가 디스카운트 (%)",
+                            min_value=0, max_value=30,
+                            value=int(st.session_state.get("phase6_discount_pct", 0)),
+                            step=1,
+                            key="phase6_discount_input",
+                            help=f"0~30% / 본 계약({_po_period_for_caption}개월)에만 적용 · 소급 X · 갱신 시 새 협상"
+                        )
+                        st.session_state["phase6_discount_pct"] = _phase6_discount
+                    with dc2:
+                        st.markdown("&nbsp;")
+                        if _phase6_discount > 0:
+                            st.caption(f"💡 **본 계약 {_po_period_for_caption}개월 한정** · 소급 X · 갱신 시 새 협상 필요")
+                        else:
+                            st.caption(f"💡 디스카운트 미적용 (정찰가 기준) · 본 계약 {_po_period_for_caption}개월 한정 정책")
+                    
                     import pandas as _pd_pv
-                    items_df = _pd_pv.DataFrame(parsed["items"])
+                    # 디스카운트 적용된 items 복사본 생성 (원본 parsed 보존)
+                    _items_with_discount = []
+                    for _item in parsed["items"]:
+                        _item_copy = dict(_item)
+                        _orig_unit = _item_copy.get("unit_price", 0) or 0
+                        _qty = _item_copy.get("quantity", 0) or 0
+                        _months = _item_copy.get("period_months", 0) or 0
+                        # 라이선스 카테고리만 디스카운트 적용
+                        if _item_copy.get("item_category") == "license" and _phase6_discount > 0:
+                            _item_copy["_original_unit_price"] = _orig_unit
+                            _item_copy["unit_price"] = int(_orig_unit * (1 - _phase6_discount / 100))
+                            _item_copy["amount"] = _item_copy["unit_price"] * _qty * _months
+                        _items_with_discount.append(_item_copy)
+                    
+                    items_df = _pd_pv.DataFrame(_items_with_discount)
                     if not items_df.empty:
-                        # v2 호환 보조 컬럼 숨김 (UI에서만)
-                        for _col_drop in ["start_date", "end_date", "form_version"]:
+                        # v2 호환 보조 컬럼 + 카테고리 숨김 (UI에서만)
+                        for _col_drop in ["start_date", "end_date", "form_version", "item_category"]:
                             if _col_drop in items_df.columns:
                                 items_df = items_df.drop(columns=[_col_drop])
+                        
+                        # Phase 6 Step 2: 거래유형 한글화 (ARR 추적용)
+                        tx_label = {
+                            "new": "🆕 신규",
+                            "renewal": "🔄 갱신",
+                            "addon": "➕ 추가",
+                            "downgrade": "⬇️ 다운그레이드"
+                        }
+                        if "transaction_type" in items_df.columns:
+                            items_df["transaction_type"] = items_df["transaction_type"].map(lambda x: tx_label.get(x, x))
                         
                         # 등급 한글화
                         grade_label = {"standard": "🥈 Standard", "pro": "🥇 Pro", "enterprise": "💎 Enterprise"}
@@ -4028,10 +4179,26 @@ else:
                         if "period_months" in items_df.columns:
                             items_df["period_months"] = items_df["period_months"].map(lambda x: f"{x}개월" if x else "—")
                         
-                        # 컬럼명 한글화 (v3 표준: 단가/수량/기간 구조)
-                        # dict 순서: description, grade, unit_price, quantity, period_months, amount
-                        items_df.columns = ["품목", "등급", "단가", "수량", "기간(개월)", "금액"][:len(items_df.columns)]
+                        # 컬럼명 한글화 (v3 표준: ITEM/품목/등급/단가/수량/기간/금액)
+                        # dict 순서: description, grade, transaction_type, unit_price, quantity, period_months, amount
+                        # transaction_type을 앞으로 재배치
+                        _desired_order = ["transaction_type", "description", "grade", "unit_price", "quantity", "period_months", "amount"]
+                        _existing = [c for c in _desired_order if c in items_df.columns]
+                        items_df = items_df[_existing]
+                        
+                        items_df.columns = ["ITEM", "품목", "등급", "단가", "수량", "기간(개월)", "금액"][:len(items_df.columns)]
                         st.dataframe(items_df, use_container_width=True, hide_index=True)
+                        
+                        # Phase 6 Step 3 (5/15): 디스카운트 적용 시 절감액/총액 표시
+                        if _phase6_discount > 0:
+                            _total_orig = sum((_i.get("_original_unit_price", _i.get("unit_price", 0)) or 0) * (_i.get("quantity", 0) or 0) * (_i.get("period_months", 0) or 0) for _i in _items_with_discount if _i.get("item_category") == "license")
+                            _total_applied = sum((_i.get("unit_price", 0) or 0) * (_i.get("quantity", 0) or 0) * (_i.get("period_months", 0) or 0) for _i in _items_with_discount if _i.get("item_category") == "license")
+                            _savings = _total_orig - _total_applied
+                            mc1, mc2, mc3 = st.columns(3)
+                            mc1.metric("정찰가 합계", f"{_total_orig:,}원")
+                            mc2.metric("적용가 합계", f"{_total_applied:,}원", delta=f"-{_savings:,}원", delta_color="inverse")
+                            mc3.metric(f"디스카운트 {_phase6_discount}%", f"{_savings:,}원 절감", delta=f"본 계약 한정")
+                            st.success(f"✅ 디스카운트 **{_phase6_discount}%** 적용 — 본 계약 기간 절감액 **{_savings:,}원**")
                 
                 # ─── 사용자 목록 ───
                 if parsed.get("users"):
@@ -4142,18 +4309,40 @@ else:
                 # 기존 basic/standard/premium은 만료까지 유지, 신규는 Standard/Pro/Enterprise
                 # PO 양식에서 자동 채움 - 인덱스 매핑
                 _plan_keys = list(LICENSE_PRICING.keys())
-                _po_grade = _first_item.get("grade", "")
-                _default_plan_idx = _plan_keys.index(_po_grade) if _po_grade in _plan_keys else 0
+                _po_grade_raw = _first_item.get("grade", "")
+                # Phase 6 (5/14 18:18) - 대소문자 무관 매칭
+                # parse_po_xlsx는 소문자("pro"), LICENSE_PRICING은 대문자("Pro")
+                _po_grade = ""
+                for _pk in _plan_keys:
+                    if _pk.lower() == _po_grade_raw.lower():
+                        _po_grade = _pk
+                        break
+                _default_plan_idx = _plan_keys.index(_po_grade) if _po_grade else 0
                 req_plan = st.selectbox(
                     "라이선스 등급",
                     _plan_keys,
                     index=_default_plan_idx,
-                    format_func=lambda x: f"{LICENSE_PRICING[x]['label']} (월 {LICENSE_PRICING[x]['monthly_price']:,}원/명)",
+                    format_func=lambda x: LICENSE_PRICING[x]['label'],  # Phase 6 (5/14): Excel 양식과 일관성 — 가격은 별도 안내 (정찰 가격 정책)
                     help="등급별 기본 단가가 자동 적용됩니다. 협상 시 다음 단계에서 수정 가능."
                 )
                 # PO 양식 사용자 수 자동 반영 (최대 500까지 확장)
                 _po_user_count = _po.get("user_count", 0) or 5
                 req_users = st.number_input("요청 사용자 수", min_value=1, max_value=500, value=min(_po_user_count, 500))
+                # Phase 6 Step 3 (5/15): 기간(개월)만 — 디스카운트는 발주 명세 표 영역에서 처리
+                _po_period = _first_item.get("period_months", 12) if _first_item else 12
+                req_period_months = st.number_input(
+                    "계약 기간 (개월)",
+                    min_value=1, max_value=60,
+                    value=int(_po_period or 12),
+                    help="1~60개월 / 보통 12개월(연간)"
+                )
+                # 디스카운트 값을 session_state에서 가져오기 (표 영역에서 입력)
+                req_discount_pct = st.session_state.get("phase6_discount_pct", 0)
+                # 내부 계산 (DB INSERT 시 사용)
+                _list_price_per_user = LICENSE_PRICING[req_plan]["monthly_price"]
+                req_unit_price = int(_list_price_per_user * (1 - req_discount_pct / 100))
+                req_amount_total = req_unit_price * req_users * req_period_months
+                req_margin_amount = int(req_amount_total * 33 / 100)  # 기본 마진 33%
 
             st.divider()
             st.markdown("### 👤 업체 관리자 정보 (필수 — 이메일 동의 진행)")
@@ -4258,6 +4447,13 @@ else:
                             "admin_title": req_admin_title,
                             "requested_users": req_users,
                             "license_plan": req_plan,
+                            # Phase 6 Step 3 (5/15): 마진 정보 (본부 내부용)
+                            "period_months": req_period_months,
+                            "unit_price": req_unit_price,
+                            "list_price": _list_price_per_user,
+                            "discount_pct": req_discount_pct,
+                            "amount_total": req_amount_total,
+                            "margin_amount": req_margin_amount,
                             "purpose": req_purpose,
                             "status": "pending",
                             # 5/14 시장 확장: 사업 분야 + 관할 기관 (하이브리드 방식)
@@ -4328,12 +4524,48 @@ else:
                         attach_info = f"\n📎 사업자등록증: 첨부됨"
                         if additional_files_list:
                             attach_info += f"\n📂 추가 첨부: {len(additional_files_list)}건"
+                        # Phase 6 Step 4-B (5/15): 본부 알림 이메일에 마진 정보 추가
+                        # 본부가 메일에서 즉시 마진/디스카운트 확인 → 빠른 승인 결정
+                        _discount_line = f"디스카운트: {req_discount_pct}% (절감 {(_list_price_per_user * req_users * req_period_months - req_amount_total):,}원)" if req_discount_pct > 0 else "디스카운트: 0% (정찰가 적용)"
+                        _email_body = (
+                            f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                            f"🏢 신청 업체 정보\n"
+                            f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                            f"업체명: {req_company}\n"
+                            f"사업자등록번호: {req_biz_num}\n"
+                            f"대표이사: {req_ceo or '(미입력)'}\n"
+                            f"관리자: {req_admin_name} ({req_admin_email} / {req_admin_phone})\n"
+                            f"\n"
+                            f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                            f"💰 발주 정보\n"
+                            f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                            f"등급: {req_plan}\n"
+                            f"사용자 수: {req_users}명\n"
+                            f"계약 기간: {req_period_months}개월\n"
+                            f"정찰 단가: {_list_price_per_user:,}원/명\n"
+                            f"적용 단가: {req_unit_price:,}원/명\n"
+                            f"{_discount_line}\n"
+                            f"\n"
+                            f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                            f"📊 매출 인식\n"
+                            f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                            f"발주 총액: {req_amount_total:,}원\n"
+                            f"예상 마진: {req_margin_amount:,}원 (33% 기본)\n"
+                            f"\n"
+                            f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                            f"📝 사용 목적 / 첨부\n"
+                            f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                            f"목적: {req_purpose or '(미입력)'}\n"
+                            f"{attach_info}\n"
+                            f"\n"
+                            f"📌 디스카운트는 본 계약({req_period_months}개월)에 한정 — 갱신 시 새 협상 필요"
+                        )
                         supabase.table("hq_messages").insert({
                             "from_user_id": user["id"],
                             "from_name": user["name"],
                             "from_email": user.get("email",""),
-                            "subject": f"[DragonEyes] 신규 라이선스 신청 — {req_company}",
-                            "body": f"업체명: {req_company}\n관리자: {req_admin_name} ({req_admin_email})\n플랜: {req_plan}\n사용자수: {req_users}명\n목적: {req_purpose}{attach_info}",
+                            "subject": f"[DragonEyes] 신규 라이선스 신청 — {req_company} ({req_plan} {req_users}명 / {req_amount_total:,}원)",
+                            "body": _email_body,
                             "recipient": "kingcas7@gmail.com",
                         }).execute()
                     except Exception as e:
@@ -4571,6 +4803,10 @@ else:
         _action_card(ac6, "📑", "공단 서류 대행", "월간 서류 작성", "card_doc_agency", "doc_agency", "ac-amber")
         _action_card(ac7, "📨", "Support Request", "본부에 요청", "card_support_request", "support_request", "ac-rose")
         _action_card(ac8, "⚙️", "파트너 정보", "우리 회사 정보", "card_partner_info", "partner_info", "ac-slate")
+
+        st.markdown("##### 👥 조직 관리")
+        _pad_l3, ac9, _pad_r3 = st.columns([1, 1.5, 1])
+        _action_card(ac9, "👥", "담당자 관리", "대표 지정·해제·비활성화", "card_partner_admins", "partner_admins", "ac-teal")
 
         st.divider()
 
@@ -6729,6 +6965,154 @@ else:
         st.divider()
         if st.button("⬅️ 대시보드로 돌아가기", key="back_partner_info"):
             go_to("agency_dashboard"); st.rerun()
+
+    elif page == "partner_admins":
+        # ══════════════════════════════════════════════════════════════
+        # 👥 파트너 담당자 관리 페이지 (5/16 신규)
+        # 본부 superadmin + 파트너 admin (공동 admin 동등 권한)
+        # ══════════════════════════════════════════════════════════════
+        st.markdown("### 👥 담당자 관리")
+
+        # ─── 권한 체크 ───
+        is_partner_admin_pa = (user.get("role") == "admin" and user.get("partner_id"))
+        is_hq_super_pa = is_superadmin(user)
+
+        if not (is_partner_admin_pa or is_hq_super_pa):
+            st.error("🚫 파트너 관리자 또는 본부 시스템관리자만 접근 가능합니다.")
+            if st.button("🏠 홈으로", key="back_pa_home"):
+                go_home(); st.rerun()
+            st.stop()
+
+        # ─── 대상 파트너 결정 ───
+        if is_hq_super_pa and not user.get("partner_id"):
+            # 본부 superadmin: 드롭다운
+            all_partners_pa = supabase.table("partners").select("id,name")\
+                .is_("terminated_at", "null").order("name").execute().data or []
+            if not all_partners_pa:
+                st.info("등록된 파트너가 없습니다.")
+                st.stop()
+            pa_options = {p["name"]: p["id"] for p in all_partners_pa}
+            pa_selected_name = st.selectbox("🏢 파트너 선택", list(pa_options.keys()))
+            target_partner_id_pa = pa_options[pa_selected_name]
+            partner_name_pa = pa_selected_name
+        else:
+            # 파트너 admin: 본인 파트너
+            target_partner_id_pa = user.get("partner_id")
+            _p_info_pa = supabase.table("partners").select("name")\
+                .eq("id", target_partner_id_pa).execute().data
+            partner_name_pa = _p_info_pa[0]["name"] if _p_info_pa else "(이름 없음)"
+
+        st.caption(f"🏢 대상 파트너: **{partner_name_pa}**")
+        st.divider()
+
+        # ─── 담당자 목록 조회 ───
+        _admins_pa = supabase.table("users").select(
+            "id, name, email, is_partner_primary, status"
+        ).eq("role", "admin").eq("partner_id", target_partner_id_pa)\
+         .is_("deleted_at", "null").order("name").execute().data or []
+
+        if not _admins_pa:
+            st.info("이 파트너에 등록된 담당자가 없습니다.")
+            if st.button("⬅️ 대시보드로", key="back_pa_empty"):
+                go_to("agency_dashboard"); st.rerun()
+            st.stop()
+
+        # 대표 우선 정렬
+        _admins_pa_sorted = sorted(_admins_pa, key=lambda x: (not x.get("is_partner_primary"), x["name"]))
+
+        st.markdown(f"**총 {len(_admins_pa_sorted)}명의 담당자**")
+        st.write("")
+
+        # ─── 담당자별 카드 렌더링 ───
+        for _adm in _admins_pa_sorted:
+            is_primary = _adm.get("is_partner_primary", False)
+            is_me = (_adm["id"] == user["id"])
+
+            with st.container():
+                col_info, col_action = st.columns([3, 2])
+
+                with col_info:
+                    if is_primary:
+                        label = f"⭐ **{_adm['name']}** (대표)"
+                    else:
+                        label = f"· **{_adm['name']}**"
+                    if is_me:
+                        label += " 🧑 (나)"
+                    st.markdown(label)
+                    st.caption(f"📧 {_adm['email']}")
+
+                with col_action:
+                    action_cols = st.columns(2)
+
+                    # 대표 지정 또는 해제 버튼
+                    with action_cols[0]:
+                        if is_primary:
+                            # 대표 해제 — 본인 보호: 본인 대표 해제 불가
+                            disabled_demote = is_me
+                            help_text = "본인의 대표 권한은 다른 담당자가 해제해야 합니다" if is_me else "대표 권한 해제"
+                            if st.button("⭐ 대표 해제", key=f"demote_{_adm['id']}",
+                                         disabled=disabled_demote, help=help_text,
+                                         use_container_width=True):
+                                supabase.table("users").update({"is_partner_primary": False})\
+                                    .eq("id", _adm["id"]).execute()
+                                st.success(f"✅ {_adm['name']}님의 대표 권한을 해제했습니다.")
+                                st.rerun()
+                        else:
+                            # 대표 지정
+                            if st.button("⭐ 대표로", key=f"promote_{_adm['id']}",
+                                         help=f"{_adm['name']}을(를) 대표로 지정",
+                                         use_container_width=True):
+                                # 같은 파트너의 모든 admin → primary=False
+                                supabase.table("users").update({"is_partner_primary": False})\
+                                    .eq("partner_id", target_partner_id_pa).eq("role", "admin").execute()
+                                # 이 사용자만 primary=True
+                                supabase.table("users").update({"is_partner_primary": True})\
+                                    .eq("id", _adm["id"]).execute()
+                                st.success(f"✅ {_adm['name']}님을 대표로 지정했습니다.")
+                                st.rerun()
+
+                    # 비활성화 버튼
+                    with action_cols[1]:
+                        disabled_deactivate = is_me  # 본인 비활성화 불가
+                        help_deactivate = "본인 권한은 다른 담당자가 비활성화해야 합니다" if is_me else "퇴사/탈퇴 처리"
+                        _confirm_key = f"confirm_deactivate_{_adm['id']}"
+
+                        if st.session_state.get(_confirm_key):
+                            # 확인 단계 — 빨간 확인 버튼
+                            if st.button("⚠️ 확인", key=f"confirm_btn_{_adm['id']}",
+                                         type="primary", use_container_width=True):
+                                supabase.table("users").update({
+                                    "deleted_at": datetime.now().isoformat(),
+                                    "is_partner_primary": False
+                                }).eq("id", _adm["id"]).execute()
+                                st.session_state.pop(_confirm_key, None)
+                                st.success(f"✅ {_adm['name']}님을 비활성화했습니다.")
+                                st.rerun()
+                        else:
+                            if st.button("🗑️ 비활성화", key=f"deactivate_{_adm['id']}",
+                                         disabled=disabled_deactivate, help=help_deactivate,
+                                         use_container_width=True):
+                                st.session_state[_confirm_key] = True
+                                st.rerun()
+
+                st.divider()
+
+        # ─── 안내 ───
+        st.info("💡 **공동 admin 권한 안내**\n\n"
+                "- 모든 담당자(공동 admin)는 서로의 대표 지정/해제, 비활성화를 할 수 있습니다.\n"
+                "- 본인의 대표 권한 해제와 본인 비활성화는 불가능합니다 (다른 담당자가 해야 함).\n"
+                "- 비활성화된 담당자는 로그인 불가하며, 복원이 필요한 경우 본부 시스템관리자에게 요청하세요.")
+
+        # ─── 홈으로 ───
+        st.divider()
+        col_back1, col_back2 = st.columns(2)
+        with col_back1:
+            if st.button("⬅️ 파트너 정보로", key="back_pa_to_info", use_container_width=True):
+                go_to("partner_info"); st.rerun()
+        with col_back2:
+            if st.button("🏠 대시보드로", key="back_pa_to_dash", use_container_width=True):
+                go_to("agency_dashboard"); st.rerun()
+
 
     elif page == "home_landing":
         lang = st.session_state.get("lang", "ko")
