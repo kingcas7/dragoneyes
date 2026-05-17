@@ -2054,9 +2054,809 @@ def get_unread_announcements(user_id):
     except:
         return []
 
+
+# ============================================================
+# Phase 7L Part 4: 영업 기회 → 계약 생성 헬퍼 함수
+# 작성일: 2026-05-17
+# 위치: save_user_consent 함수 다음에 자동 삽입
+# ============================================================
+
+def _create_contract_from_opportunity(opp, user, tier_code, seat_count,
+                                       start_date, end_date, duration_months,
+                                       monthly_amount, total_amount):
+    """영업 기회 → customers + contracts + licenses 일괄 생성"""
+    try:
+        # license_tiers 마스터 조회
+        tier_resp = supabase.table("license_tiers") \
+            .select("*").eq("tier_code", tier_code).eq("is_active", True) \
+            .single().execute()
+        tier = tier_resp.data
+        if not tier:
+            return {"success": False, "error": f"라이선스 등급 {tier_code} 없음"}
+
+        multiplier = tier.get("waiting_group_multiplier")
+        waiting_group_limit = (seat_count * multiplier) if multiplier else 0
+
+        # 1. customers UPSERT (사업자번호 매칭)
+        biz_no = opp.get("customer_business_no") or opp.get("customer_business_reg")
+        customer_id = None
+        customer_no = None
+
+        if biz_no:
+            existing = supabase.table("customers") \
+                .select("id, customer_no").eq("business_number", biz_no) \
+                .limit(1).execute().data
+            if existing:
+                customer_id = existing[0]["id"]
+                customer_no = existing[0]["customer_no"]
+
+        if not customer_id:
+            new_customer = {
+                "name": opp.get("customer_name", "(이름 없음)"),
+                "business_number": biz_no,
+                "representative_name": opp.get("customer_ceo_name"),
+                "address": opp.get("customer_address"),
+                "phone": opp.get("customer_contact_phone"),
+                "email": opp.get("customer_contact_email"),
+                "contact_person_name": opp.get("customer_contact_name"),
+                "contact_person_position": opp.get("customer_contact_title"),
+                "contact_person_phone": opp.get("customer_contact_phone"),
+                "contact_person_email": opp.get("customer_contact_email"),
+                "industry": opp.get("business_field"),
+                "customer_status": "active",
+                "onboarded_at": datetime.now().isoformat(),
+            }
+            customer_resp = supabase.table("customers").insert(new_customer).execute()
+            if not customer_resp.data:
+                return {"success": False, "error": "고객사 생성 실패"}
+            customer_id = customer_resp.data[0]["id"]
+            customer_no = customer_resp.data[0].get("customer_no")
+
+        # 2. contracts INSERT
+        new_contract = {
+            "opportunity_id": opp["id"],
+            "related_customer_id": customer_id,
+            "tier_code": tier_code,
+            "seat_count": seat_count,
+            "waiting_group_count": waiting_group_limit,
+            "contract_type": "license",
+            "contract_amount": total_amount,
+            "contract_currency": "KRW",
+            "contract_status": "active",
+            "contract_effective_from": start_date.isoformat() if hasattr(start_date, 'isoformat') else str(start_date),
+            "contract_effective_to": end_date.isoformat() if hasattr(end_date, 'isoformat') else str(end_date),
+            "contract_signed_date": datetime.now().date().isoformat(),
+            "notes": f"영업기회 자동생성: {tier['tier_name_ko']} {seat_count}석 {duration_months}개월",
+        }
+        contract_resp = supabase.table("contracts").insert(new_contract).execute()
+        if not contract_resp.data:
+            return {"success": False, "error": "계약 생성 실패"}
+        contract_id = contract_resp.data[0]["id"]
+        contract_no = contract_resp.data[0].get("contract_no")
+
+        # 3. licenses 일괄 INSERT (실제 좌석만, Waiting은 한도만 저장)
+        license_rows = []
+        for i in range(1, seat_count + 1):
+            license_rows.append({
+                "contract_id": contract_id,
+                "tier_code": tier_code,
+                "is_waiting": False,
+            })
+
+        BATCH_SIZE = 50
+        license_count = 0
+        for batch_start in range(0, len(license_rows), BATCH_SIZE):
+            batch = license_rows[batch_start:batch_start + BATCH_SIZE]
+            lic_resp = supabase.table("licenses").insert(batch).execute()
+            if lic_resp.data:
+                license_count += len(lic_resp.data)
+
+        # 4. opportunities.status → 'contracted'
+        supabase.table("opportunities") \
+            .update({
+                "status": "contracted",
+                "closed_at": datetime.now().isoformat(),
+                "updated_at": datetime.now().isoformat(),
+            }) \
+            .eq("id", opp["id"]).execute()
+
+        # 5. 영업 활동 로그 기록
+        try:
+            supabase.table("opportunity_activities").insert({
+                "opportunity_id": opp["id"],
+                "activity_type": "contract_sent",
+                "title": f"📝 계약 생성 완료 ({contract_no})",
+                "content": f"{tier['tier_name_ko']} {seat_count}석, {duration_months}개월, 총 {total_amount:,}원. 고객사: {customer_no}",
+                "activity_date": datetime.now().date().isoformat(),
+                "created_by_name": user.get("name", "시스템"),
+            }).execute()
+        except Exception as e:
+            print(f"[WARN] 활동 로그 실패: {e}")
+
+        return {
+            "success": True,
+            "customer_id": customer_id,
+            "customer_no": customer_no,
+            "contract_id": contract_id,
+            "contract_no": contract_no,
+            "license_count": license_count,
+            "waiting_group_limit": waiting_group_limit,
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
+
+def _render_contract_creation_form(opp, user):
+    """영업 기회에서 계약 생성 폼 렌더링"""
+    try:
+        tiers_resp = supabase.table("license_tiers") \
+            .select("*").eq("is_active", True).order("display_order").execute()
+        tiers = tiers_resp.data
+    except Exception as e:
+        st.error(f"❌ 라이선스 등급 정보를 불러올 수 없습니다: {e}")
+        return
+
+    if not tiers:
+        st.warning("⚠️ 등록된 라이선스 등급이 없습니다.")
+        return
+
+    tier_codes = [t["tier_code"] for t in tiers]
+    tier_options = {t["tier_code"]: t for t in tiers}
+    tier_labels = [
+        f"{t['tier_name_ko']} ({int(t['monthly_price_per_seat']):,}원/seat, {t['usage_type']})"
+        for t in tiers
+    ]
+
+    opp_tier_raw = (opp.get("license_tier") or "Standard").strip()
+    opp_tier_upper = opp_tier_raw.upper()
+    default_idx = tier_codes.index(opp_tier_upper) if opp_tier_upper in tier_codes else 0
+
+    opp_id = opp["id"]
+
+    # 폼 입력
+    col1, col2 = st.columns(2)
+    with col1:
+        tier_idx = st.selectbox(
+            "📦 라이선스 등급",
+            range(len(tier_labels)),
+            format_func=lambda i: tier_labels[i],
+            index=default_idx,
+            key=f"contract_tier_{opp_id}"
+        )
+        selected_tier_code = tier_codes[tier_idx]
+        selected_tier = tier_options[selected_tier_code]
+
+        default_seats = int(opp.get("expected_seats") or 1)
+        seat_count = st.number_input(
+            "💺 좌석 수",
+            min_value=1, max_value=10000,
+            value=default_seats, step=1,
+            key=f"contract_seats_{opp_id}"
+        )
+
+    with col2:
+        from datetime import date as _date, timedelta as _td
+        start_date = st.date_input(
+            "📅 계약 시작일",
+            value=_date.today(),
+            key=f"contract_start_{opp_id}"
+        )
+        duration_months = st.number_input(
+            "⏱️ 계약 기간 (개월)",
+            min_value=1, max_value=60,
+            value=12, step=1,
+            key=f"contract_duration_{opp_id}",
+            help="기본 12개월(1년). 필요 시 개월 단위 수정 가능"
+        )
+        end_date = start_date + _td(days=duration_months * 30)
+        st.caption(f"📅 만료일: **{end_date.strftime('%Y-%m-%d')}** (시작일 + {duration_months}개월)")
+
+    # 자동 계산
+    monthly_price = int(selected_tier["monthly_price_per_seat"])
+    monthly_total = monthly_price * seat_count
+    total_amount = monthly_total * duration_months
+
+    multiplier = selected_tier.get("waiting_group_multiplier")
+    if multiplier:
+        waiting_slots = seat_count * multiplier
+        waiting_info = f"+ Waiting Group 한도 <strong>{waiting_slots}석</strong> ({seat_count}석 × {multiplier}배)"
+        usage_badge = '<span style="background:#3b82f6;color:white;padding:2px 8px;border-radius:4px;font-size:0.75rem;">Concurrent</span>'
+    else:
+        waiting_info = "Named license — Waiting Group 없음 (지정 사용자 전용)"
+        usage_badge = '<span style="background:#8b5cf6;color:white;padding:2px 8px;border-radius:4px;font-size:0.75rem;">Named</span>'
+
+    transfer_rule = "본부 승인 필요" if selected_tier.get("transfer_approval_required") else "자유 양도"
+
+    st.markdown(f"""
+    <div style="background:linear-gradient(135deg,#f1f5f9,#e2e8f0);padding:18px;border-radius:10px;margin:12px 0;border-left:4px solid #3b82f6;">
+        <p style="margin:0 0 8px 0;font-size:0.95rem;color:#0f172a;"><strong>📊 자동 계산</strong> {usage_badge}</p>
+        <p style="margin:6px 0;"><strong>등급</strong>: {selected_tier['tier_name_ko']}</p>
+        <p style="margin:6px 0;"><strong>월 단가</strong>: {monthly_price:,}원/seat × {seat_count}석 = <strong>{monthly_total:,}원/월</strong></p>
+        <p style="margin:6px 0;"><strong>총 계약 금액</strong>: <span style="color:#dc2626;font-size:1.15rem;font-weight:bold;">{total_amount:,}원</span> ({duration_months}개월)</p>
+        <p style="margin:6px 0;font-size:0.88rem;color:#475569;">{waiting_info}</p>
+        <p style="margin:6px 0;font-size:0.88rem;color:#475569;">양도 정책: <strong>{transfer_rule}</strong></p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # 2단계 확인 버튼
+    confirm_key = f"contract_confirm_{opp_id}"
+    if confirm_key not in st.session_state:
+        st.session_state[confirm_key] = False
+
+    if not st.session_state[confirm_key]:
+        if st.button("✅ 계약 생성", type="primary", use_container_width=True,
+                     key=f"create_contract_btn_{opp_id}"):
+            st.session_state[confirm_key] = True
+            st.rerun()
+    else:
+        st.warning(f"⚠️ 정말 생성하시겠습니까? 고객사 1건, 계약 1건, 라이선스 {seat_count}건이 생성됩니다.")
+        col_y, col_n = st.columns(2)
+        with col_y:
+            if st.button("✅ 네, 생성합니다", type="primary", use_container_width=True,
+                         key=f"yes_create_{opp_id}"):
+                with st.spinner("계약 생성 중..."):
+                    result = _create_contract_from_opportunity(
+                        opp=opp, user=user,
+                        tier_code=selected_tier_code,
+                        seat_count=seat_count,
+                        start_date=start_date,
+                        end_date=end_date,
+                        duration_months=duration_months,
+                        monthly_amount=monthly_total,
+                        total_amount=total_amount,
+                    )
+                if result["success"]:
+                    st.session_state[confirm_key] = False
+                    st.success(f"""🎉 계약 생성 완료!
+- 고객사 번호: **{result['customer_no']}**
+- 계약 번호: **{result['contract_no']}**
+- 라이선스 발급: **{result['license_count']}건**
+- Waiting Group 한도: **{result['waiting_group_limit']}석**""")
+                    st.balloons()
+                    import time as _time
+                    _time.sleep(2)
+                    st.rerun()
+                else:
+                    st.error(f"❌ 계약 생성 실패: {result['error']}")
+                    st.session_state[confirm_key] = False
+        with col_n:
+            if st.button("❌ 취소", use_container_width=True, key=f"cancel_create_{opp_id}"):
+                st.session_state[confirm_key] = False
+                st.rerun()
+
 # ═══════════════════════════════════════════════════════════════
 # 계속고용 / 사용 개월수 분석 도우미 (5/5 추가)
 # ═══════════════════════════════════════════════════════════════
+
+# ============================================================
+# Phase 7L Part 2B: 영업 기회 등록 승인 워크플로우 헬퍼
+# 작성: 2026-05-17
+# 위치: _create_contract_from_opportunity 함수 다음에 자동 삽입
+# ============================================================
+
+
+def _detect_request_type(business_no=None, customer_name=None):
+    """
+    영업 기회 등록 시 자동으로 request_type 판단
+    
+    분류 우선순위:
+    1. duplicate_review: 활성 영업기회가 이미 있음 (다른 파트너 진행 중)
+    2. renewal: 기존 고객 + 60일 이내 계약 만료
+    3. upsell: 기존 고객 + 활성 계약 (재계약 시기 아님)
+    4. new: 신규 고객 (또는 기존 고객인데 활성 계약 없음)
+    
+    Returns: 'new' / 'renewal' / 'upsell' / 'duplicate_review'
+    """
+    try:
+        from datetime import date as _date, timedelta as _td
+        
+        # === Step 1: 활성 영업기회 중복 체크 ===
+        active_opps = []
+        clean_biz = str(business_no).replace("-", "").strip() if business_no else None
+        
+        if clean_biz:
+            resp = supabase.table("opportunities") \
+                .select("id, customer_name") \
+                .eq("customer_business_no", clean_biz) \
+                .not_.in_("status", ["closed_lost", "cancelled", "contracted"]) \
+                .limit(1).execute()
+            active_opps = resp.data or []
+        
+        if not active_opps and customer_name:
+            resp = supabase.table("opportunities") \
+                .select("id, customer_name") \
+                .eq("customer_name", str(customer_name).strip()) \
+                .not_.in_("status", ["closed_lost", "cancelled", "contracted"]) \
+                .limit(1).execute()
+            active_opps = resp.data or []
+        
+        if active_opps:
+            return "duplicate_review"
+        
+        # === Step 2: 기존 고객 여부 체크 ===
+        if not clean_biz:
+            return "new"  # 사업자번호 없으면 신규로 분류
+        
+        existing_customer = supabase.table("customers") \
+            .select("id, customer_no") \
+            .eq("business_number", clean_biz) \
+            .limit(1).execute().data
+        
+        if not existing_customer:
+            return "new"  # 기존 고객 없음 → 신규
+        
+        customer_id = existing_customer[0]["id"]
+        
+        # === Step 3: 활성 계약 + 만료 임박 체크 ===
+        expiry_threshold = (_date.today() + _td(days=60)).isoformat()
+        
+        expiring = supabase.table("contracts") \
+            .select("id, contract_no, contract_effective_to") \
+            .eq("related_customer_id", customer_id) \
+            .eq("contract_status", "active") \
+            .lte("contract_effective_to", expiry_threshold) \
+            .limit(1).execute().data
+        
+        if expiring:
+            return "renewal"  # 만료 임박 → 재계약 영업
+        
+        # === Step 4: 활성 계약은 있지만 만료 임박 아님 → Upsell ===
+        active_contracts = supabase.table("contracts") \
+            .select("id") \
+            .eq("related_customer_id", customer_id) \
+            .eq("contract_status", "active") \
+            .limit(1).execute().data
+        
+        if active_contracts:
+            return "upsell"  # 추가 좌석 영업
+        
+        # === Step 5: 기존 고객인데 활성 계약 없음 (다 종료됨) → 신규 ===
+        return "new"
+        
+    except Exception as e:
+        print(f"[WARN] request_type 자동 판단 실패: {e}")
+        return "new"  # 안전: 실패 시 신규로
+
+
+def _get_request_type_badge(request_type):
+    """request_type에 따른 배지 HTML 반환"""
+    badges = {
+        "new": '<span style="background:#10b981;color:white;padding:3px 10px;border-radius:6px;font-size:0.8rem;font-weight:600;">🆕 신규</span>',
+        "renewal": '<span style="background:#3b82f6;color:white;padding:3px 10px;border-radius:6px;font-size:0.8rem;font-weight:600;">🔄 갱신</span>',
+        "upsell": '<span style="background:#8b5cf6;color:white;padding:3px 10px;border-radius:6px;font-size:0.8rem;font-weight:600;">⬆️ Upsell</span>',
+        "duplicate_review": '<span style="background:#f59e0b;color:white;padding:3px 10px;border-radius:6px;font-size:0.8rem;font-weight:600;">⚠️ 중복 검토</span>',
+    }
+    return badges.get(request_type, badges["new"])
+
+
+def _get_request_type_label(request_type):
+    """request_type 한글 라벨"""
+    labels = {
+        "new": "🆕 신규 (새 고객사)",
+        "renewal": "🔄 갱신 (재계약, 수량 변동 가능)",
+        "upsell": "⬆️ Upsell (기간 중 좌석 추가)",
+        "duplicate_review": "⚠️ 중복 검토 필요",
+    }
+    return labels.get(request_type, "🆕 신규")
+
+def _check_duplicate_opp(business_no=None, customer_name=None, exclude_id=None):
+    """
+    중복 영업 기회 체크 (사업자번호 우선, 고객사명 보조)
+    
+    Returns:
+        list of dict (중복 의심 영업 기회들, 최소 정보만 노출)
+    """
+    duplicates = []
+    
+    try:
+        # 1. 사업자번호로 매칭 (우선순위 1)
+        if business_no and len(str(business_no).strip()) > 0:
+            clean_biz = str(business_no).replace("-", "").strip()
+            resp = supabase.table("opportunities") \
+                .select("id, customer_name, created_at, status, primary_owner, origin_channel, license_tier, expected_seats, expected_amount, assigned_partner_id") \
+                .eq("customer_business_no", clean_biz) \
+                .not_.in_("status", ["closed_lost", "cancelled"]) \
+                .execute()
+            duplicates.extend(resp.data or [])
+        
+        # 2. 고객사명 정확 매칭 (사업자번호 매칭 없을 때만 보조)
+        if not duplicates and customer_name and len(str(customer_name).strip()) > 0:
+            resp = supabase.table("opportunities") \
+                .select("id, customer_name, created_at, status, primary_owner, origin_channel, license_tier, expected_seats, expected_amount, assigned_partner_id") \
+                .eq("customer_name", customer_name.strip()) \
+                .not_.in_("status", ["closed_lost", "cancelled"]) \
+                .execute()
+            duplicates.extend(resp.data or [])
+        
+        # exclude_id 제외
+        if exclude_id:
+            duplicates = [d for d in duplicates if d.get("id") != exclude_id]
+        
+    except Exception as e:
+        print(f"[WARN] 중복 체크 실패: {e}")
+    
+    return duplicates
+
+
+def _determine_approval_workflow(user, request_type, has_duplicates):
+    """
+    등록자 역할 + 요청 유형에 따라 승인 워크플로우 결정
+    
+    정책 (2026-05-17 v2):
+    - 본부 admin 등록 = Direct Sales Account → auto_approved (승인 불필요)
+    - 단, 본부 admin이라도 duplicate_review → Director 검토
+    - 파트너/영업담당자 등록 → 무조건 pending (admin 승인 대기)
+    - 파트너/영업 + duplicate → escalated (Director 직행)
+    
+    Returns:
+        dict: {
+            "approval_status": auto_approved/pending/escalated,
+            "approval_required": bool,
+            "assigned_to": UUID,
+            "assigned_to_name": str,
+            "assigned_role": admin/director/executive,
+            "escalation_level": int,
+            "auto_approve": bool
+        }
+    """
+    is_hq_admin = (user.get("role") == "admin" and not user.get("partner_id"))
+    is_hq_member = (user.get("role") == "member" and not user.get("partner_id"))
+    is_hq_user = is_hq_admin or is_hq_member  # 본부 사용자 통합
+    is_partner = bool(user.get("partner_id"))
+    
+    # ===== 본부 admin/member + 중복 없음 → auto_approved =====
+    # Direct Sales Account 정책: 본부 등록은 본부 직판
+    if is_hq_user and not has_duplicates:
+        return {
+            "approval_status": "auto_approved",
+            "approval_required": False,
+            "assigned_to": None,
+            "assigned_to_name": None,
+            "assigned_role": None,
+            "escalation_level": 0,
+            "auto_approve": True,
+            "is_direct_sales_account": True,
+        }
+    
+    # ===== 그 외 케이스 → 승인자 찾기 =====
+    if has_duplicates:
+        # 중복 케이스는 무조건 Director 검토
+        target_role = "director"
+        escalation_level = 2
+        approval_status = "escalated"
+    else:
+        # 파트너/외부 사용자 + 중복 없음 → admin 승인
+        target_role = "admin"
+        escalation_level = 1
+        approval_status = "pending"
+    
+    # 대상 역할의 가용 사용자 찾기
+    selected = None
+    try:
+        approvers_resp = supabase.table("users") \
+            .select("id, name") \
+            .eq("approval_role", target_role) \
+            .execute()
+        approvers = approvers_resp.data or []
+        
+        # 가용한 사용자 우선
+        for approver in approvers:
+            try:
+                avail_resp = supabase.rpc("is_user_available", {"p_user_id": approver["id"]}).execute()
+                if avail_resp.data:
+                    selected = approver
+                    break
+            except Exception:
+                pass
+        
+        if not selected and approvers:
+            selected = approvers[0]
+        
+        # 대상 역할 사용자가 없으면 한 단계 위 (executive)
+        if not selected:
+            fallback_resp = supabase.table("users") \
+                .select("id, name") \
+                .eq("approval_role", "executive") \
+                .limit(1).execute()
+            if fallback_resp.data:
+                selected = fallback_resp.data[0]
+                target_role = "executive"
+                escalation_level = 3
+    except Exception as e:
+        print(f"[WARN] 승인자 찾기 실패: {e}")
+    
+    return {
+        "approval_status": approval_status,
+        "approval_required": True,
+        "assigned_to": selected["id"] if selected else None,
+        "assigned_to_name": selected["name"] if selected else None,
+        "assigned_role": target_role,
+        "escalation_level": escalation_level,
+        "auto_approve": False,
+        "is_direct_sales_account": False,
+    }
+
+
+def _create_opportunity_with_approval(form_data, user, duplicates=None, request_type=None):
+    """
+    승인 워크플로우와 함께 영업 기회 생성
+    
+    Args:
+        form_data: dict (등록 폼 데이터)
+        user: dict (현재 로그인 사용자)
+        duplicates: list (중복 의심 영업 기회들, None이면 자동 체크)
+        request_type: str (None이면 자동 판단: new/renewal/upsell/duplicate_review)
+    """
+    try:
+        # 중복 체크 (미리 받지 않았으면 여기서)
+        if duplicates is None:
+            duplicates = _check_duplicate_opp(
+                business_no=form_data.get("customer_business_no"),
+                customer_name=form_data.get("customer_name"),
+            )
+        
+        has_duplicates = len(duplicates) > 0
+        
+        # request_type 자동 판단 (전달 안 됐을 때)
+        if request_type is None:
+            request_type = _detect_request_type(
+                business_no=form_data.get("customer_business_no"),
+                customer_name=form_data.get("customer_name"),
+            )
+        
+        # 중복이 감지됐는데 request_type이 duplicate_review가 아닌 경우 강제 변경
+        if has_duplicates and request_type not in ("duplicate_review",):
+            request_type = "duplicate_review"
+        
+        # 승인 워크플로우 결정
+        approval_info = _determine_approval_workflow(user, request_type, has_duplicates)
+        
+        # opportunities INSERT 데이터
+        new_opp = {
+            **form_data,
+            "request_type": request_type,
+            "created_by": user.get("id"),
+            "assigned_sales_user_id": form_data.get("assigned_sales_user_id") or user.get("id"),
+            "primary_owner": "HQ" if not user.get("partner_id") else "PARTNER",
+            
+            # 승인 관련
+            "approval_status": approval_info["approval_status"],
+            "approval_required": approval_info["approval_required"],
+            "is_duplicate": has_duplicates,
+            "duplicate_of": duplicates[0]["id"] if duplicates else None,
+            "duplicate_check_at": datetime.now().isoformat(),
+            "escalation_level": approval_info["escalation_level"],
+            "escalated_to": approval_info["assigned_to"] if approval_info["escalation_level"] >= 2 else None,
+            "escalated_to_name": approval_info["assigned_to_name"] if approval_info["escalation_level"] >= 2 else None,
+            "escalated_at": datetime.now().isoformat() if approval_info["escalation_level"] >= 2 else None,
+            "escalation_reason": "중복 영업 기회 감지" if has_duplicates else None,
+        }
+        
+        # 자동 승인 시 즉시 적용
+        if approval_info["auto_approve"]:
+            new_opp["approved_by"] = user.get("id")
+            owner_label = "본부 admin" if user.get("role") == "admin" else "본부 영업사원"
+            new_opp["approved_by_name"] = f"{user.get('name')} ({owner_label} 자동승인 - Direct Sales Account)"
+            new_opp["approved_at"] = datetime.now().isoformat()
+        
+        # 상태: 일단 prospect (승인 대기여도 등록은 됨)
+        # 승인 대기 중인 건은 approval_status로 구분
+        new_opp["status"] = "prospect"
+        
+        # INSERT
+        opp_resp = supabase.table("opportunities").insert(new_opp).execute()
+        if not opp_resp.data:
+            return {"success": False, "error": "영업 기회 생성 실패"}
+        
+        opp_id = opp_resp.data[0]["id"]
+        
+        # status_log 기록
+        try:
+            supabase.table("opportunity_status_log").insert({
+                "opportunity_id": opp_id,
+                "old_status": None,
+                "new_status": "prospect",
+                "change_type": "initial_create",
+                "changed_by": user.get("id"),
+                "changed_by_name": user.get("name"),
+                "changed_by_role": user.get("role"),
+                "change_reason": f"영업 기회 신규 등록 ({_get_request_type_label(request_type)})",
+                "requires_approval": approval_info["approval_required"],
+                "approval_status": "auto_approved" if approval_info["auto_approve"] else "pending",
+            }).execute()
+        except Exception as e:
+            print(f"[WARN] status_log 기록 실패: {e}")
+        
+        # approval_log 기록
+        try:
+            request_notes = f"고객사: {form_data.get('customer_name')}, 등급: {form_data.get('license_tier')}, 좌석: {form_data.get('expected_seats')}석, 유형: {request_type}"
+            if approval_info.get("is_direct_sales_account"):
+                request_notes += " | Direct Sales Account"
+            
+            supabase.table("opportunity_approval_log").insert({
+                "opportunity_id": opp_id,
+                "approval_type": "duplicate_override" if has_duplicates else "registration",
+                "requested_by": user.get("id"),
+                "requested_by_name": user.get("name"),
+                "requested_by_role": user.get("role"),
+                "request_notes": request_notes,
+                "escalation_level": approval_info["escalation_level"],
+                "assigned_to": approval_info["assigned_to"],
+                "assigned_to_name": approval_info["assigned_to_name"],
+                "assigned_to_role": approval_info["assigned_role"],
+                "action": "approved" if approval_info["auto_approve"] else "pending",
+                "action_by": user.get("id") if approval_info["auto_approve"] else None,
+                "action_by_name": f"{user.get('name')} (Direct Sales Account 자동승인)" if approval_info["auto_approve"] else None,
+                "action_at": datetime.now().isoformat() if approval_info["auto_approve"] else None,
+                "action_notes": "본부 Direct Sales Account - 자동 승인" if approval_info["auto_approve"] else None,
+                "escalation_reason": "중복 영업 기회 감지" if has_duplicates else None,
+                "sla_target_hours": 24,
+            }).execute()
+        except Exception as e:
+            print(f"[WARN] approval_log 기록 실패: {e}")
+        
+        return {
+            "success": True,
+            "opp_id": opp_id,
+            "approval_info": approval_info,
+            "has_duplicates": has_duplicates,
+            "request_type": request_type,
+        }
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+def _approve_opportunity(opp_id, user):
+    """영업 기회 승인 처리"""
+    try:
+        # opportunities 업데이트
+        update_data = {
+            "approval_status": "approved",
+            "approved_by": user.get("id"),
+            "approved_by_name": user.get("name"),
+            "approved_at": datetime.now().isoformat(),
+        }
+        supabase.table("opportunities").update(update_data).eq("id", opp_id).execute()
+        
+        # approval_log 업데이트 (가장 최근 pending 건)
+        try:
+            log_resp = supabase.table("opportunity_approval_log") \
+                .select("id") \
+                .eq("opportunity_id", opp_id) \
+                .eq("action", "pending") \
+                .order("requested_at", desc=True) \
+                .limit(1).execute()
+            
+            if log_resp.data:
+                log_id = log_resp.data[0]["id"]
+                supabase.table("opportunity_approval_log").update({
+                    "action": "approved",
+                    "action_by": user.get("id"),
+                    "action_by_name": user.get("name"),
+                    "action_at": datetime.now().isoformat(),
+                    "action_notes": "승인 완료",
+                }).eq("id", log_id).execute()
+        except Exception as e:
+            print(f"[WARN] approval_log 업데이트 실패: {e}")
+        
+        # status_log 기록
+        try:
+            supabase.table("opportunity_status_log").insert({
+                "opportunity_id": opp_id,
+                "old_status": "prospect",
+                "new_status": "prospect",
+                "change_type": "approval",
+                "changed_by": user.get("id"),
+                "changed_by_name": user.get("name"),
+                "changed_by_role": user.get("role"),
+                "change_reason": "본부 승인 완료",
+                "requires_approval": False,
+                "approval_status": "approved",
+            }).execute()
+        except Exception as e:
+            print(f"[WARN] status_log 기록 실패: {e}")
+        
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def _reject_opportunity(opp_id, user, reason_code, notes):
+    """영업 기회 거절 처리"""
+    try:
+        update_data = {
+            "approval_status": "rejected",
+            "rejected_at": datetime.now().isoformat(),
+            "rejection_reason": notes or "사유 미입력",
+            "status": "closed_lost",  # 거절은 실주 처리
+        }
+        supabase.table("opportunities").update(update_data).eq("id", opp_id).execute()
+        
+        # approval_log 업데이트
+        try:
+            log_resp = supabase.table("opportunity_approval_log") \
+                .select("id") \
+                .eq("opportunity_id", opp_id) \
+                .eq("action", "pending") \
+                .order("requested_at", desc=True) \
+                .limit(1).execute()
+            
+            if log_resp.data:
+                log_id = log_resp.data[0]["id"]
+                supabase.table("opportunity_approval_log").update({
+                    "action": "rejected",
+                    "action_by": user.get("id"),
+                    "action_by_name": user.get("name"),
+                    "action_at": datetime.now().isoformat(),
+                    "rejection_reason_code": reason_code,
+                    "action_notes": notes or "거절 코멘트 없음",
+                }).eq("id", log_id).execute()
+        except Exception as e:
+            print(f"[WARN] approval_log 업데이트 실패: {e}")
+        
+        # status_log 기록
+        try:
+            supabase.table("opportunity_status_log").insert({
+                "opportunity_id": opp_id,
+                "old_status": "prospect",
+                "new_status": "closed_lost",
+                "change_type": "rejection",
+                "changed_by": user.get("id"),
+                "changed_by_name": user.get("name"),
+                "changed_by_role": user.get("role"),
+                "change_reason": f"본부 거절 ({reason_code}): {notes[:50] if notes else ''}",
+                "requires_approval": False,
+                "approval_status": "rejected",
+            }).execute()
+        except Exception as e:
+            print(f"[WARN] status_log 기록 실패: {e}")
+        
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def _render_duplicate_warning(duplicates, user):
+    """
+    중복 영업 기회 경고 - 사용자 역할에 따라 정보 노출 수준 다름
+    좋아요님 5/17 정책: 일반 사용자는 최소 정보만, 본부 admin은 전체 정보
+    """
+    is_hq_admin = (user.get("role") == "admin" and not user.get("partner_id"))
+    
+    st.warning(f"⚠️ **중복 가능성 감지**: 이미 등록된 영업 기회가 {len(duplicates)}건 있습니다.")
+    
+    for opp in duplicates:
+        with st.container(border=True):
+            # 등록 시작일 + 진행 기간 (모두에게 노출)
+            try:
+                from datetime import datetime as _dt
+                created_dt = _dt.fromisoformat(opp["created_at"].replace("Z", "+00:00")) if opp.get("created_at") else None
+                days_active = (datetime.now(created_dt.tzinfo).date() - created_dt.date()).days if created_dt else 0
+            except Exception:
+                created_dt = None
+                days_active = 0
+            
+            col_d1, col_d2 = st.columns([2, 1])
+            with col_d1:
+                st.markdown(f"**🏢 {opp.get('customer_name', '(이름 없음)')}**")
+                st.caption(f"📅 등록 시작: {opp['created_at'][:10] if opp.get('created_at') else '-'}")
+            with col_d2:
+                st.caption(f"⏱️ 진행 기간: **{days_active}일째**")
+            
+            if is_hq_admin:
+                # 본부 admin만 전체 정보 노출
+                col_a1, col_a2, col_a3 = st.columns(3)
+                with col_a1:
+                    st.caption(f"📊 상태: `{opp.get('status', '-')}`")
+                with col_a2:
+                    st.caption(f"📡 채널: {opp.get('origin_channel', '-')}")
+                with col_a3:
+                    st.caption(f"💰 예상: {int(opp.get('expected_amount') or 0):,}원")
+            else:
+                # 파트너/영업담당자: 보호 메시지
+                st.caption("ℹ️ 상세 정보(상태/담당자/채널/금액)는 본부 관리자만 확인 가능합니다.")
 def calc_employment_metrics(user_data, user_reports):
     """
     사용자의 계속고용 메트릭 계산
@@ -4814,8 +5614,20 @@ else:
         _action_card(ac8, "⚙️", "파트너 정보", "우리 회사 정보", "card_partner_info", "partner_info", "ac-slate")
 
         st.markdown("##### 👥 조직 관리 & 💼 Opportunity")
-        ac9, ac_op = st.columns(2)
+        # 신규 등록 요청 대기 건수 (배지용)
+        try:
+            _pending_count = supabase.table("opportunities") \
+                .select("id", count="exact") \
+                .in_("approval_status", ["pending", "escalated"]) \
+                .execute().count or 0
+        except Exception:
+            _pending_count = 0
+        _approval_desc = f"⚠️ {_pending_count}건 대기 중" if _pending_count > 0 else "승인 대기 영업 기회"
+        _approval_icon = "🚨" if _pending_count > 0 else "🔔"
+        
+        ac9, ac_approval, ac_op = st.columns(3)
         _action_card(ac9, "👥", "담당자 관리", "대표 지정·해제·비활성화", "card_partner_admins", "partner_admins", "ac-teal")
+        _action_card(ac_approval, _approval_icon, f"신규 등록 요청{(' (' + str(_pending_count) + ')') if _pending_count > 0 else ''}", _approval_desc, "card_approval_requests", "approval_requests", "ac-rose")
         _action_card(ac_op, "📊", "영업 파이프라인", "고객 발굴·계약 관리·Forecast", "card_sales_pipeline", "sales_pipeline", "ac-blue")
 
 
@@ -7146,6 +7958,217 @@ else:
 
 
 
+    # ==========================================
+    # 신규 등록 요청 페이지 (영업 거버넌스 v1.5)
+    # Created: 2026-05-17
+    # ==========================================
+    elif page == "approval_requests":
+        # ── 권한 체크 ──
+        user_approval_role = user.get("approval_role", "none")
+        is_hq_admin = (user.get("role") == "admin" and not user.get("partner_id"))
+        can_approve = is_hq_admin or user_approval_role in ("admin", "director", "executive")
+        
+        if not can_approve:
+            st.error("🚫 영업 기회 승인 권한이 없습니다. 본부 관리자에게 문의하세요.")
+            if st.button("← 대시보드로 돌아가기"):
+                go_to("home_landing"); st.rerun()
+            st.stop()
+        
+        # ── 헤더 ──
+        st.markdown("### 🔔 신규 등록 요청")
+        st.caption(f"본부 영업 거버넌스 — 외부 파트너/영업담당자가 등록한 영업 기회를 검토하고 승인합니다.")
+        
+        # ── 데이터 조회 ──
+        try:
+            # pending + escalated만 조회
+            pending_opps_resp = supabase.table("opportunities") \
+                .select("*") \
+                .in_("approval_status", ["pending", "escalated"]) \
+                .order("created_at", desc=False) \
+                .execute()
+            pending_opps = pending_opps_resp.data or []
+        except Exception as e:
+            st.error(f"데이터 조회 실패: {e}")
+            pending_opps = []
+        
+        # ── 요청 유형별 분류 ──
+        new_opps = [o for o in pending_opps if o.get("request_type") == "new"]
+        renewal_opps = [o for o in pending_opps if o.get("request_type") in ("renewal", "upsell")]
+        duplicate_opps = [o for o in pending_opps if o.get("request_type") == "duplicate_review" or o.get("is_duplicate") == True]
+        
+        # ── 요약 메트릭 ──
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        with col_m1:
+            st.metric("🔔 전체 대기", f"{len(pending_opps)}건")
+        with col_m2:
+            st.metric("🆕 신규", f"{len(new_opps)}건")
+        with col_m3:
+            st.metric("🔄 갱신/Upsell", f"{len(renewal_opps)}건")
+        with col_m4:
+            st.metric("⚠️ 중복 검토", f"{len(duplicate_opps)}건")
+        
+        if not pending_opps:
+            st.success("✅ 현재 대기 중인 신규 등록 요청이 없습니다.")
+            st.divider()
+            if st.button("← 대시보드로 돌아가기"):
+                go_to("home_landing"); st.rerun()
+            st.stop()
+        
+        st.divider()
+        
+        # ── 3개 탭 ──
+        tab_new, tab_renewal, tab_duplicate = st.tabs([
+            f"🆕 신규 ({len(new_opps)})",
+            f"🔄 갱신/Upsell ({len(renewal_opps)})",
+            f"⚠️ 중복 검토 ({len(duplicate_opps)})"
+        ])
+        
+        # ── 카드 렌더링 헬퍼 ──
+        def _render_approval_card(opp):
+            """승인 대기 영업 기회 카드 렌더링"""
+            request_type = opp.get("request_type", "new")
+            
+            # 배지
+            badge_map = {
+                "new": ("🆕", "신규", "#3b82f6"),
+                "renewal": ("🔄", "갱신", "#10b981"),
+                "upsell": ("⬆️", "Upsell", "#8b5cf6"),
+                "duplicate_review": ("⚠️", "중복 검토", "#f59e0b"),
+            }
+            icon, label, color = badge_map.get(request_type, ("📋", request_type, "#94a3b8"))
+            
+            # SLA 계산
+            from datetime import datetime as dt
+            try:
+                created = dt.fromisoformat(opp.get("created_at", "").replace("Z", "+00:00"))
+                now = dt.now(created.tzinfo) if created.tzinfo else dt.now()
+                elapsed_hours = (now - created).total_seconds() / 3600
+                sla_remaining = 24 - elapsed_hours
+                
+                if sla_remaining > 12:
+                    sla_color = "#10b981"  # green
+                    sla_label = f"⏱️ {sla_remaining:.1f}h 남음"
+                elif sla_remaining > 0:
+                    sla_color = "#f59e0b"  # amber
+                    sla_label = f"⏰ {sla_remaining:.1f}h 남음 (긴급)"
+                else:
+                    sla_color = "#dc2626"  # red
+                    sla_label = f"🔴 SLA 초과 ({abs(sla_remaining):.1f}h)"
+            except Exception:
+                sla_color = "#94a3b8"
+                sla_label = "⏱️ -"
+            
+            with st.container(border=True):
+                # 상단: 배지 + 고객사명 + SLA
+                col_h1, col_h2 = st.columns([3, 1])
+                with col_h1:
+                    st.markdown(f'<span style="background:{color};color:white;padding:3px 10px;border-radius:6px;font-size:0.78rem;font-weight:600;">{icon} {label}</span> &nbsp; <strong style="font-size:1.05rem;">{opp.get("customer_name", "-")}</strong>', unsafe_allow_html=True)
+                with col_h2:
+                    st.markdown(f'<div style="text-align:right;color:{sla_color};font-size:0.85rem;font-weight:600;">{sla_label}</div>', unsafe_allow_html=True)
+                
+                # 본문: 영업 정보
+                col_b1, col_b2, col_b3 = st.columns(3)
+                with col_b1:
+                    st.caption(f"📋 등급: **{opp.get('license_tier', '-')}**")
+                    st.caption(f"💺 좌석: **{opp.get('expected_seats', 0)}석**")
+                with col_b2:
+                    amount = opp.get("expected_amount") or 0
+                    st.caption(f"💰 예상 금액: **{int(amount):,}원**")
+                    st.caption(f"📊 상태: **{opp.get('status', '-')}**")
+                with col_b3:
+                    st.caption(f"📅 등록: **{str(opp.get('created_at', ''))[:10]}**")
+                    st.caption(f"👤 등록자: **{opp.get('assigned_sales_user_id', '-')[:8] if opp.get('assigned_sales_user_id') else '-'}**")
+                
+                # 중복 경고 (있을 시)
+                if opp.get("is_duplicate") and opp.get("duplicate_of"):
+                    st.warning(f"⚠️ 중복 의심: 기존 영업 기회({opp.get('duplicate_of', '')[:8]})와 동일 고객")
+                
+                # 액션 버튼
+                col_a1, col_a2, col_a3 = st.columns([1, 1, 1])
+                with col_a1:
+                    if st.button("✅ 승인", key=f"approve_{opp['id']}", type="primary", use_container_width=True):
+                        st.session_state[f"approve_confirm_{opp['id']}"] = True
+                with col_a2:
+                    if st.button("❌ 거절", key=f"reject_{opp['id']}", use_container_width=True):
+                        st.session_state[f"reject_modal_{opp['id']}"] = True
+                with col_a3:
+                    if st.button("📋 상세", key=f"detail_{opp['id']}", use_container_width=True):
+                        st.session_state.opportunity_detail_id = opp['id']
+                        go_to("opportunity_detail"); st.rerun()
+                
+                # 승인 확인
+                if st.session_state.get(f"approve_confirm_{opp['id']}"):
+                    st.info(f"✅ '{opp.get('customer_name')}' 영업 기회를 승인하시겠습니까?")
+                    col_y, col_n = st.columns(2)
+                    with col_y:
+                        if st.button("예, 승인합니다", key=f"approve_yes_{opp['id']}", type="primary", use_container_width=True):
+                            _result = _approve_opportunity(opp['id'], user)
+                            if _result.get("success"):
+                                st.success("✅ 승인 완료")
+                                st.session_state.pop(f"approve_confirm_{opp['id']}", None)
+                                st.rerun()
+                            else:
+                                st.error(f"❌ 승인 실패: {_result.get('error', '알 수 없는 오류')}")
+                    with col_n:
+                        if st.button("취소", key=f"approve_no_{opp['id']}", use_container_width=True):
+                            st.session_state.pop(f"approve_confirm_{opp['id']}", None)
+                            st.rerun()
+                
+                # 거절 모달
+                if st.session_state.get(f"reject_modal_{opp['id']}"):
+                    st.error(f"❌ '{opp.get('customer_name')}' 영업 기회 거절")
+                    reject_reason = st.selectbox(
+                        "거절 사유",
+                        options=["duplicate", "direct_account", "unqualified", "territory_conflict", "pricing_concern", "other"],
+                        format_func=lambda x: {
+                            "duplicate": "🔁 중복 (이미 진행 중)",
+                            "direct_account": "🏢 본부 Direct Account",
+                            "unqualified": "❌ 자격 미달",
+                            "territory_conflict": "🗺️ 영업 권역 충돌",
+                            "pricing_concern": "💰 가격 문제",
+                            "other": "📝 기타"
+                        }.get(x, x),
+                        key=f"reject_reason_{opp['id']}"
+                    )
+                    reject_notes = st.text_area("거절 코멘트", key=f"reject_notes_{opp['id']}", placeholder="간단한 거절 사유 코멘트")
+                    col_ry, col_rn = st.columns(2)
+                    with col_ry:
+                        if st.button("거절 처리", key=f"reject_yes_{opp['id']}", type="primary", use_container_width=True):
+                            _result = _reject_opportunity(opp['id'], user, reject_reason, reject_notes)
+                            if _result.get("success"):
+                                st.success("✅ 거절 처리 완료")
+                                st.session_state.pop(f"reject_modal_{opp['id']}", None)
+                                st.rerun()
+                            else:
+                                st.error(f"❌ 거절 실패: {_result.get('error', '알 수 없는 오류')}")
+                    with col_rn:
+                        if st.button("취소", key=f"reject_no_{opp['id']}", use_container_width=True):
+                            st.session_state.pop(f"reject_modal_{opp['id']}", None)
+                            st.rerun()
+        
+        # ── 탭 컨텐츠 ──
+        with tab_new:
+            if not new_opps:
+                st.info("📭 신규 영업 기회 대기 건이 없습니다.")
+            else:
+                for opp in new_opps:
+                    _render_approval_card(opp)
+        
+        with tab_renewal:
+            if not renewal_opps:
+                st.info("📭 갱신/Upsell 대기 건이 없습니다.")
+            else:
+                for opp in renewal_opps:
+                    _render_approval_card(opp)
+        
+        with tab_duplicate:
+            if not duplicate_opps:
+                st.info("📭 중복 검토 대기 건이 없습니다.")
+            else:
+                st.warning("⚠️ 중복 의심 영업 기회 — Director 검토 필요")
+                for opp in duplicate_opps:
+                    _render_approval_card(opp)
+
     elif page == "sales_pipeline":
         # ══════════════════════════════════════════════════════════════
         # 📊 영업 파이프라인 페이지 (Phase 3, 5/16 신규)
@@ -7178,9 +8201,26 @@ else:
             except Exception:
                 st.caption("🤝 파트너 — 인게이지된 영업 기회만 표시")
 
-        # ─── 영업 기회 데이터 조회 (권한별 RLS 자동 적용) ───
+        # ─── 영업 기회 데이터 조회 (영업 거버넌스 v1.6: 4-Layer 격리) ───
+        # 2026-05-17: 격리 버그 수정 — 파트너는 자사 영업만 조회 가능
+        # 백로그: 총판 계층(parent_partner_id), 유관기관(RELORG), Re-assign UI
         try:
-            opps_resp = supabase.table("opportunities").select("*").order("expected_close_date", desc=False).execute()
+            opps_query = supabase.table("opportunities").select("*")
+            
+            # Layer 1: 본부 admin/member → 전체 조회
+            if is_hq_sp:
+                pass  # 필터 없음
+            
+            # Layer 2-3: 파트너 admin (IND-P / DIR-P) → 자사 partner_id 영업만
+            elif is_partner_admin_sp:
+                opps_query = opps_query.eq("assigned_partner_id", user["partner_id"])
+            
+            # Layer 4: 다이렉트 영업담당자 → 본인 담당 건만
+            #   (백로그: primary_owner = 'HQ' + Re-assign UI 추가 시 확장)
+            else:
+                opps_query = opps_query.eq("assigned_sales_user_id", user["id"])
+            
+            opps_resp = opps_query.order("expected_close_date", desc=False).execute()
             all_opps = opps_resp.data or []
         except Exception as e:
             st.error(f"영업 기회 조회 실패: {e}")
@@ -7206,82 +8246,236 @@ else:
 
         st.divider()
 
-        # ─── 신규 등록 폼 (expander) ───
         with st.expander("➕ **신규 영업 기회 등록**", expanded=False):
-            with st.form(key="new_opp_form", clear_on_submit=True):
+            with st.form(key="new_opp_form", clear_on_submit=False):
+                st.markdown("##### 📋 기본 정보 (필수)")
                 col_f1, col_f2 = st.columns(2)
                 
                 with col_f1:
-                    new_customer_name = st.text_input("🏢 고객사명 *", placeholder="예: 서울특별시 ○○구청")
-                    new_customer_contact_name = st.text_input("👤 담당자명", placeholder="예: 김부장")
-                    new_customer_email = st.text_input("📧 이메일", placeholder="예: contact@example.com")
-                    new_customer_phone = st.text_input("📞 연락처", placeholder="예: 02-1234-5678")
+                    new_customer_name = st.text_input(
+                        "🏢 고객사명 *", 
+                        placeholder="예: 서울특별시 ○○구청",
+                        help="정식 명칭 입력"
+                    )
+                    new_business_no = st.text_input(
+                        "🆔 사업자등록번호",
+                        placeholder="예: 123-45-67890",
+                        help="중복 체크 기준 (선택 입력)"
+                    )
                 
                 with col_f2:
                     # 채널 선택 (권한별 제한)
                     if is_hq_sp:
-                        channel_options = ["드래곤아이즈다이렉트", "총판", "인다이렉트파트너", "직접계약파트너"]
+                        channel_options = ["드래곤아이즈다이렉트", "총판", "인다이렉트파트너", "직접계약파트너", "유관기관"]
                     else:
-                        # 파트너 admin은 본인 채널만
                         channel_options = [partner_channel_sp] if partner_channel_sp else ["직접계약파트너"]
                     
                     new_channel = st.selectbox("📡 채널 *", channel_options)
+                    
+                    # 본부 admin이고 채널이 총판/인다이렉트면 파트너 선택 가능
+                    new_assigned_partner_id = None
+                    if is_hq_sp and new_channel in ["총판", "인다이렉트파트너", "직접계약파트너"]:
+                        try:
+                            partners_resp = supabase.table("partners") \
+                                .select("id, name, business_channel") \
+                                .execute()
+                            partners_list = partners_resp.data or []
+                            if partners_list:
+                                partner_options = ["(직접 입력 - 파트너 미지정)"] + [
+                                    f"{p['name']}" for p in partners_list
+                                ]
+                                partner_choice = st.selectbox(
+                                    "🤝 파트너 (선택)",
+                                    range(len(partner_options)),
+                                    format_func=lambda i: partner_options[i],
+                                    help="해당 영업을 진행할 파트너 (없으면 직접 진행)"
+                                )
+                                if partner_choice > 0:
+                                    new_assigned_partner_id = partners_list[partner_choice - 1]["id"]
+                        except Exception:
+                            pass
+                
+                st.markdown("##### 👤 담당자 정보")
+                col_c1, col_c2 = st.columns(2)
+                with col_c1:
+                    new_customer_contact_name = st.text_input("담당자 성명", placeholder="예: 김부장")
+                    new_customer_contact_title = st.text_input("담당자 직책", placeholder="예: 기획팀장")
+                    new_customer_email = st.text_input("📧 이메일", placeholder="contact@example.com")
+                with col_c2:
+                    new_customer_phone = st.text_input("📞 연락처", placeholder="02-1234-5678")
+                    new_customer_fax = st.text_input("📠 FAX", placeholder="(선택)")
+                    new_customer_ceo_name = st.text_input("🧑‍💼 대표이사", placeholder="(선택)")
+                
+                st.markdown("##### 📊 영업 정보")
+                col_s1, col_s2 = st.columns(2)
+                with col_s1:
                     new_tier = st.selectbox("📦 라이선스 등급", ["Standard", "Pro", "Enterprise"])
                     new_seats = st.number_input("👥 예상 좌석 수", min_value=1, value=10, step=1)
-                    new_amount = st.number_input("💰 예상 금액 (net to DragonEyes, 원)", min_value=0, value=0, step=100000, format="%d")
-                
-                col_f3, col_f4 = st.columns(2)
-                with col_f3:
+                    new_amount = st.number_input(
+                        "💰 예상 금액 (net to DragonEyes, 원)",
+                        min_value=0, value=0, step=100000, format="%d"
+                    )
+                with col_s2:
                     new_probability = st.slider("📊 계약 확률 (%)", min_value=0, max_value=100, value=20, step=5)
-                with col_f4:
                     new_close_date = st.date_input("📅 예상 마감일", value=date.today() + timedelta(days=30))
+                    business_field_options = [
+                        "장애인고용지원", "시니어고용지원", "청년고용지원", 
+                        "여성고용지원", "사회복지일반", "지자체사업", "기타"
+                    ]
+                    new_business_field = st.selectbox("🏷️ 지원 사업 분야", business_field_options)
                 
-                new_notes = st.text_area("📝 메모 (선택)", placeholder="고객 발굴 경로, 특이사항 등")
+                st.markdown("##### 📝 추가 정보 (선택)")
+                new_customer_address = st.text_input("📍 주소", placeholder="예: 서울특별시 ○○구 ...")
+                new_notes = st.text_area("📝 메모 (Remark)", placeholder="고객 발굴 경로, 특이사항 등")
+                
+                st.markdown("---")
+                
+                # 등록 정책 안내 (본부 admin vs 외부)
+                _is_hq_admin = (user.get("role") == "admin" and not user.get("partner_id"))
+                if _is_hq_admin:
+                    st.info("✅ 본부 관리자 등록: **자동 승인**되어 즉시 영업 활동 가능합니다.")
+                else:
+                    st.info("⏳ 외부 사용자 등록: 본부 관리자의 **승인 후** 영업 활동이 가능합니다.")
                 
                 submitted = st.form_submit_button("✅ 등록", use_container_width=True, type="primary")
                 
                 if submitted:
                     if not new_customer_name:
-                        st.error("⚠️ 고객사명은 필수입니다")
+                        st.error("⚠️ 고객사명은 필수 입력 항목입니다")
                     else:
-                        try:
-                            # ─── 디버그: 어떤 ID로 INSERT 하는지 확인 ───
+                        # 사업자번호 정리 (하이픈 제거)
+                        clean_biz_no = new_business_no.replace("-", "").strip() if new_business_no else None
+                        
+                        # 중복 체크
+                        duplicates = _check_duplicate_opp(
+                            business_no=clean_biz_no,
+                            customer_name=new_customer_name.strip(),
+                        )
+                        
+                        # 중복 경고 표시 (있으면)
+                        if duplicates:
+                            _render_duplicate_warning(duplicates, user)
+                            st.warning("⚠️ 위 영업 기회와 중복 가능성이 있어 **Director 검토 후 등록 처리**됩니다.")
+                        
+                        # 폼 데이터 정리
+                        form_data = {
+                            "customer_name": new_customer_name.strip(),
+                            "customer_business_no": clean_biz_no,
+                            "customer_contact_name": new_customer_contact_name or None,
+                            "customer_contact_title": new_customer_contact_title or None,
+                            "customer_contact_email": new_customer_email or None,
+                            "customer_contact_phone": new_customer_phone or None,
+                            "customer_fax": new_customer_fax or None,
+                            "customer_ceo_name": new_customer_ceo_name or None,
+                            "customer_address": new_customer_address or None,
+                            "business_field": new_business_field,
+                            "origin_channel": new_channel,
+                            "license_tier": new_tier,
+                            "expected_seats": int(new_seats),
+                            "expected_amount": float(new_amount),
+                            "win_probability": float(new_probability),
+                            "expected_close_date": new_close_date.isoformat(),
+                            "notes": new_notes or None,
+                            "assigned_partner_id": new_assigned_partner_id,
+                        }
+                        
+                        # 영업 기회 생성 + 승인 워크플로우
+                        with st.spinner("영업 기회 등록 중..."):
+                            result = _create_opportunity_with_approval(
+                                form_data=form_data,
+                                user=user,
+                                duplicates=duplicates,
+                            )
+                        
+                        if result["success"]:
+                            approval_info = result["approval_info"]
                             
-                            new_opp_data = {
-                                "customer_name": new_customer_name,
-                                "customer_contact_name": new_customer_contact_name or None,
-                                "customer_contact_email": new_customer_email or None,
-                                "customer_contact_phone": new_customer_phone or None,
-                                "origin_channel": new_channel,
-                                "primary_owner": "HQ" if is_hq_sp else "PARTNER",
-                                "license_tier": new_tier,
-                                "expected_seats": int(new_seats),
-                                "expected_amount": float(new_amount),
-                                "win_probability": float(new_probability),
-                                "expected_close_date": new_close_date.isoformat(),
-                                "status": "prospect",
-                                "created_by": None,  # 임시 우회: FK 에러 회피
-                                "notes": new_notes or None,
-                                "assigned_sales_user_id": None,  # 임시 우회: FK 에러 회피
-                            }
-                            supabase.table("opportunities").insert(new_opp_data).execute()
-                            st.success(f"✅ 영업 기회 등록 완료: {new_customer_name}")
+                            if approval_info["auto_approve"]:
+                                st.success(f"""
+                                🎉 영업 기회 등록 완료!
+                                
+                                - 고객사: **{new_customer_name}**
+                                - 등급: {new_tier} {new_seats}석
+                                - 상태: ✅ **자동 승인** (본부 관리자 등록)
+                                - 활동 가능: 즉시
+                                """)
+                                st.balloons()
+                            else:
+                                st.warning(f"""
+                                ⏳ 영업 기회 등록 완료 — 승인 대기 중
+                                
+                                - 고객사: **{new_customer_name}**
+                                - 등급: {new_tier} {new_seats}석
+                                - 상태: ⏳ **승인 대기 중**
+                                - 승인 담당자: **{approval_info['assigned_to_name'] or '(미지정)'}** ({approval_info['assigned_role']})
+                                - 에스컬레이션 단계: Level {approval_info['escalation_level']}
+                                {'- ⚠️ 중복 영업 기회 감지로 Director 검토 필요' if result['has_duplicates'] else ''}
+                                
+                                승인 후 영업 활동이 시작됩니다.
+                                """)
+                            
+                            import time as _time
+                            _time.sleep(3)
                             st.rerun()
-                        except Exception as e:
-                            st.error(f"❌ 등록 실패: {e}")
+                        else:
+                            st.error(f"❌ 등록 실패: {result['error']}")
 
         st.divider()
 
         # ─── 필터 + 정렬 컨트롤 ───
+        # ─── 필터 + 정렬 컨트롤 ───
+        # 상태별 카운트 미리 계산 (필터 라벨용)
+        _status_options = ["prospect", "qualified", "proposal", "negotiation",
+                           "contract", "closed_won", "closed_lost", "contracted"]
+        _status_counts = {s: sum(1 for o in all_opps if o.get("status") == s) for s in _status_options}
+        _total_count = len(all_opps)
+
+        # 상태별 미니 메트릭 (한눈에 파이프라인 건강도)
+        _m1, _m2, _m3, _m4, _m5, _m6, _m7 = st.columns(7)
+        with _m1:
+            st.metric("📋 전체", f"{_total_count}건")
+        with _m2:
+            _active = _status_counts['prospect'] + _status_counts['qualified'] + _status_counts['proposal'] + _status_counts['negotiation'] + _status_counts['contract']
+            st.metric("🎯 진행중", f"{_active}건")
+        with _m3:
+            st.metric("✅ 수주", f"{_status_counts['closed_won']}건")
+        with _m4:
+            st.metric("📝 계약완료", f"{_status_counts['contracted']}건")
+        with _m5:
+            st.metric("❌ 실주", f"{_status_counts['closed_lost']}건")
+        with _m6:
+            _qualified = _status_counts['qualified'] + _status_counts['proposal']
+            st.metric("🔍 검증중", f"{_qualified}건")
+        with _m7:
+            _final = _status_counts['negotiation'] + _status_counts['contract']
+            st.metric("🤝 협상중", f"{_final}건")
+
+        st.markdown("")
+
         col_filter1, col_filter2, col_filter3 = st.columns(3)
         with col_filter1:
             min_prob = st.slider("📊 최소 계약 확률 (%)", 0, 100, 0, 10, key="sp_min_prob")
         with col_filter2:
-            status_filter = st.multiselect(
+            # 옵션 라벨에 카운트 포함 (예: "prospect (3)")
+            _status_options_with_count = [f"{s} ({_status_counts[s]})" for s in _status_options]
+            _status_label_to_key = {f"{s} ({_status_counts[s]})": s for s in _status_options}
+
+            # 'all' 옵션 추가 (기본 선택)
+            _all_option = f"all ({_total_count})"
+            _filter_options_full = [_all_option] + _status_options_with_count
+
+            _selected_labels = st.multiselect(
                 "🎯 상태 필터",
-                ["prospect", "qualified", "proposal", "negotiation", "contract", "closed_won", "closed_lost"],
-                default=["prospect", "qualified", "proposal", "negotiation", "contract"]
+                _filter_options_full,
+                default=[_all_option],
+                help="'all' 선택 시 모든 상태 표시. 특정 상태만 보려면 'all' 제거 후 선택."
             )
+
+            # 'all' 처리: 'all'이 선택되어 있으면 전체 표시
+            if _all_option in _selected_labels:
+                status_filter = _status_options[:]
+            else:
+                status_filter = [_status_label_to_key[lbl] for lbl in _selected_labels if lbl in _status_label_to_key]
         with col_filter3:
             sort_by = st.selectbox("📑 정렬", ["확률 높은 순", "마감일 가까운 순", "금액 높은 순", "최신 등록 순"])
 
@@ -7752,6 +8946,44 @@ else:
                 st.rerun()
             except Exception as e:
                 st.error(f"❌ 저장 실패: {e}")
+
+
+        # ===== Phase 7L Part 4: 계약 생성 섹션 =====
+        st.markdown("---")
+        opp_status = opp.get("status", "")
+
+        # 이미 계약이 생성되어 있는지 확인
+        try:
+            existing_contracts = supabase.table("contracts") \
+                .select("id, contract_no, contract_amount, contract_status, contract_effective_from, contract_effective_to, seat_count, tier_code") \
+                .eq("opportunity_id", opp_id).execute().data
+        except Exception:
+            existing_contracts = []
+
+        if existing_contracts:
+            st.markdown("### ✅ 생성된 계약")
+            for ct in existing_contracts:
+                with st.container(border=True):
+                    col_c1, col_c2, col_c3 = st.columns([2, 2, 1])
+                    with col_c1:
+                        st.markdown(f"**📝 계약 번호**: `{ct.get('contract_no', '-')}`")
+                        st.caption(f"등급: {ct.get('tier_code', '-')} | 좌석: {ct.get('seat_count', '-')}석")
+                    with col_c2:
+                        amount = ct.get("contract_amount") or 0
+                        st.markdown(f"**💰 계약 금액**: {int(amount):,}원")
+                        eff_from = (ct.get('contract_effective_from') or '-')[:10]
+                        eff_to = (ct.get('contract_effective_to') or '-')[:10]
+                        st.caption(f"기간: {eff_from} ~ {eff_to}")
+                    with col_c3:
+                        status_color = {"active": "#10b981", "pending": "#f59e0b", "terminated": "#ef4444"}.get(ct.get("contract_status", "active"), "#94a3b8")
+                        st.markdown(f'<span style="background:{status_color};color:white;padding:4px 10px;border-radius:6px;font-size:0.85rem;">{ct.get("contract_status", "active")}</span>', unsafe_allow_html=True)
+        elif opp_status == "closed_won":
+            st.markdown("### 💰 계약 생성")
+            st.info("📝 영업이 수주(closed_won) 단계입니다. 계약을 생성해주세요.")
+            _render_contract_creation_form(opp, user)
+        elif opp_status in ("prospect", "qualified", "proposal", "negotiation"):
+            st.markdown("### 💰 계약 생성")
+            st.caption(f"📌 영업 기회를 '수주(closed_won)' 상태로 변경하면 계약 생성이 가능합니다. (현재 상태: {opp_status})")
 
     elif page == "home_landing":
         lang = st.session_state.get("lang", "ko")
