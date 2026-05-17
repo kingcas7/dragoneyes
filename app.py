@@ -5614,20 +5614,30 @@ else:
         _action_card(ac8, "⚙️", "파트너 정보", "우리 회사 정보", "card_partner_info", "partner_info", "ac-slate")
 
         st.markdown("##### 👥 조직 관리 & 💼 Opportunity")
-        # 신규 등록 요청 대기 건수 (배지용)
-        try:
-            _pending_count = supabase.table("opportunities") \
-                .select("id", count="exact") \
-                .in_("approval_status", ["pending", "escalated"]) \
-                .execute().count or 0
-        except Exception:
-            _pending_count = 0
+        # 🔔 신규 등록 요청 카드 — 본부(드래곤아이즈) 직원 전용 (2026-05-17 수정)
+        #  승인/거절 워크플로우는 본부 권한이므로 파트너 대시보드에서는 숨김
+        _show_approval_card = not user.get("partner_id")
+
+        _pending_count = 0
+        if _show_approval_card:
+            # 신규 등록 요청 대기 건수 (배지용) — 본부 직원에게만 조회
+            try:
+                _pending_count = supabase.table("opportunities") \
+                    .select("id", count="exact") \
+                    .in_("approval_status", ["pending", "escalated"]) \
+                    .execute().count or 0
+            except Exception:
+                _pending_count = 0
         _approval_desc = f"⚠️ {_pending_count}건 대기 중" if _pending_count > 0 else "승인 대기 영업 기회"
         _approval_icon = "🚨" if _pending_count > 0 else "🔔"
-        
-        ac9, ac_approval, ac_op = st.columns(3)
+
+        if _show_approval_card:
+            ac9, ac_approval, ac_op = st.columns(3)
+        else:
+            ac9, ac_op = st.columns(2)
         _action_card(ac9, "👥", "담당자 관리", "대표 지정·해제·비활성화", "card_partner_admins", "partner_admins", "ac-teal")
-        _action_card(ac_approval, _approval_icon, f"신규 등록 요청{(' (' + str(_pending_count) + ')') if _pending_count > 0 else ''}", _approval_desc, "card_approval_requests", "approval_requests", "ac-rose")
+        if _show_approval_card:
+            _action_card(ac_approval, _approval_icon, f"신규 등록 요청{(' (' + str(_pending_count) + ')') if _pending_count > 0 else ''}", _approval_desc, "card_approval_requests", "approval_requests", "ac-rose")
         _action_card(ac_op, "📊", "영업 파이프라인", "고객 발굴·계약 관리·Forecast", "card_sales_pipeline", "sales_pipeline", "ac-blue")
 
 
@@ -8011,7 +8021,7 @@ else:
             st.success("✅ 현재 대기 중인 신규 등록 요청이 없습니다.")
             st.divider()
             if st.button("← 대시보드로 돌아가기"):
-                go_to("home_landing"); st.rerun()
+                go_to("agency_dashboard"); st.rerun()
             st.stop()
         
         st.divider()
@@ -8221,10 +8231,20 @@ else:
                 opps_query = opps_query.eq("assigned_sales_user_id", user["id"])
             
             opps_resp = opps_query.order("expected_close_date", desc=False).execute()
-            all_opps = opps_resp.data or []
+            _all_opps_raw = opps_resp.data or []
+            # ─── 승인 상태별 분리 (영업 거버넌스 v1.6 Step D, 2026-05-17) ───
+            #  메인 파이프라인: approved / auto_approved (+ 레거시 NULL = 승인 간주)
+            #  별도 섹션: pending / escalated  |  rejected는 파이프라인에서 제외
+            _APPROVED_STATES = ("approved", "auto_approved")
+            _PENDING_STATES = ("pending", "escalated")
+            all_opps = [o for o in _all_opps_raw
+                        if (o.get("approval_status") or "approved") in _APPROVED_STATES]
+            pending_opps = [o for o in _all_opps_raw
+                            if (o.get("approval_status") or "") in _PENDING_STATES]
         except Exception as e:
             st.error(f"영업 기회 조회 실패: {e}")
             all_opps = []
+            pending_opps = []
 
         # ─── 통계 카드 ───
         total_count = len(all_opps)
@@ -8552,6 +8572,32 @@ else:
         else:
             # 파트너 admin은 본인 채널만 (RLS로 이미 필터됨)
             _render_opp_list(filtered_opps, "내 영업 기회")
+
+        # ─── ⏳ 본부 승인 대기 건 (별도 섹션, 영업 거버넌스 v1.6 Step D) ───
+        #  메인 파이프라인과 분리 — 승인 후 정식 반영됨
+        if pending_opps:
+            st.markdown("")
+            with st.expander(f"⏳ **본부 승인 대기 중** ({len(pending_opps)}건)", expanded=False):
+                st.caption("아래 영업 기회는 본부 관리자 승인 후 파이프라인 통계·목록에 정식 반영됩니다.")
+                for _popp in pending_opps:
+                    _ps = _popp.get("approval_status")
+                    _ps_label = "🔺 에스컬레이션 검토" if _ps == "escalated" else "⏳ 승인 대기"
+                    _pamt = float(_popp.get("expected_amount") or 0)
+                    _pamt_str = (f"₩{_pamt/100000000:.2f}억" if _pamt >= 100000000
+                                 else (f"₩{_pamt/10000:.0f}만" if _pamt >= 10000 else f"₩{_pamt:.0f}"))
+                    with st.container(border=True):
+                        _pc1, _pc2 = st.columns([4, 1])
+                        with _pc1:
+                            st.markdown(f"**🏢 {_popp.get('customer_name', '?')}**  ·  {_ps_label}")
+                            st.caption(
+                                f"📡 {_popp.get('origin_channel', '?')} · "
+                                f"📦 {_popp.get('license_tier', '?')} · "
+                                f"👥 {_popp.get('expected_seats', 0)}석 · 💰 {_pamt_str}"
+                            )
+                        with _pc2:
+                            if st.button("📂", key=f"pending_opp_detail_{_popp['id']}", help="상세 보기"):
+                                st.session_state["selected_opp_id"] = _popp["id"]
+                                go_to("opportunity_detail"); st.rerun()
 
         st.divider()
 
