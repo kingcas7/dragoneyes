@@ -503,7 +503,7 @@ CREATE TABLE public.opportunity_change_log (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     opportunity_id uuid NOT NULL,
     change_type text NOT NULL,
-    changed_by uuid NOT NULL,
+    changed_by uuid,
     changed_at timestamp with time zone DEFAULT now(),
     old_value jsonb,
     new_value jsonb,
