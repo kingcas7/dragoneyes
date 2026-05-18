@@ -7884,14 +7884,166 @@ else:
 
     elif page == "report_stats":
         # ══════════════════════════════════════════════════════════════
-        # 📊 통계 페이지 — 모니터링 분석 통계 (2026-05-18)
-        #   KPI·일별 트렌드·검색 섹터×항목 매트릭스. 일배치 집계 인프라
-        #   구축 후 제공. ※ 근무일지·제출 서류는 [공단 서류 대행]에서 발급.
+        # 📊 모니터링 통계 페이지 (2026-05-18 구현)
+        #   reports 실시간 집계 — 위험 카테고리·심각도·섹터×항목 매트릭스·
+        #   일별 트렌드·Top 키워드. 권한별 범위 스코핑.
+        #   ※ 일배치(pg_cron) 캐싱은 데이터 증가 시 추가 (페이지 코드 불변)
         # ══════════════════════════════════════════════════════════════
-        st.markdown("### 📊 통계")
-        st.info("🚧 모니터링 통계(KPI · 일별 트렌드 · 검색 섹터×항목 매트릭스)는 "
-                "일배치 집계 인프라 구축 후 제공됩니다.")
-        st.caption("📋 근무일지·고용지원금 제출 서류는 **[공단 서류 대행]** 메뉴에서 발급하세요.")
+        st.markdown("### 📊 모니터링 통계")
+        st.caption("📋 근무일지·고용지원금 제출 서류는 [공단 서류 대행] 메뉴에서 발급하세요.")
+        _u_ms = st.session_state.user or {}
+        _role_ms = get_user_role(_u_ms)
+        _is_hq_ms = (_role_ms in ("superadmin", "admin", "member")) and not _u_ms.get("partner_id")
+        _is_partner_ms = bool(_u_ms.get("partner_id"))
+        _is_tenant_admin_ms = bool(_u_ms.get("is_tenant_admin")) or _role_ms == "tenant_admin"
+
+        _ms_period = st.selectbox("기간", ["최근 7일", "최근 30일", "이번 달", "지난 달", "전체"],
+                                  index=1, key="ms_period")
+        _today = date.today()
+        if _ms_period == "최근 7일":
+            _ms_start = (_today - timedelta(days=6)).isoformat()
+            _ms_end = (_today + timedelta(days=1)).isoformat()
+        elif _ms_period == "최근 30일":
+            _ms_start = (_today - timedelta(days=29)).isoformat()
+            _ms_end = (_today + timedelta(days=1)).isoformat()
+        elif _ms_period == "이번 달":
+            _ms_start = _today.replace(day=1).isoformat()
+            _ms_end = (_today + timedelta(days=1)).isoformat()
+        elif _ms_period == "지난 달":
+            _fm = _today.replace(day=1)
+            _ms_start = (_fm - timedelta(days=1)).replace(day=1).isoformat()
+            _ms_end = _fm.isoformat()
+        else:
+            _ms_start, _ms_end = "2000-01-01", (_today + timedelta(days=1)).isoformat()
+
+        # 권한 범위 (None = 본부 전체)
+        _scope_uids = None
+        try:
+            if _is_hq_ms:
+                _scope_uids = None
+            elif _is_partner_ms:
+                _scope_uids = []
+                for _tn in (get_agency_tenants(_u_ms["id"]) or []):
+                    _scope_uids.extend([x["id"] for x in (get_tenant_users(_tn["id"]) or [])])
+            elif _is_tenant_admin_ms and _u_ms.get("tenant_id"):
+                _scope_uids = [x["id"] for x in (get_tenant_users(_u_ms["tenant_id"]) or [])]
+            else:
+                _scope_uids = [_u_ms.get("id")]
+        except Exception:
+            _scope_uids = [_u_ms.get("id")]
+
+        try:
+            _q_ms = supabase.table("reports").select(
+                "user_id,created_at,severity,category,risk_category,platform") \
+                .gte("created_at", _ms_start).lt("created_at", _ms_end)
+            if _scope_uids is not None:
+                _reps_ms = (_q_ms.in_("user_id", _scope_uids).execute().data or []) if _scope_uids else []
+            else:
+                _reps_ms = _q_ms.execute().data or []
+        except Exception as _e_ms:
+            st.error(f"통계 조회 실패: {str(_e_ms)[:80]}")
+            _reps_ms = []
+
+        def _cat_of(_r):
+            return ((_r.get("category") or _r.get("risk_category") or "미분류").strip()
+                    or "미분류")
+
+        st.divider()
+        if not _reps_ms:
+            st.info(f"📭 {_ms_period} 기간에 분석 기록이 없습니다.")
+        else:
+            _total_ms = len(_reps_ms)
+            _risk_ms = len([r for r in _reps_ms if (r.get("severity") or 0) >= 4])
+            _sevs_ms = [int(r.get("severity") or 0) for r in _reps_ms]
+            _avg_sev = round(sum(_sevs_ms) / len(_sevs_ms), 2) if _sevs_ms else 0
+            _analysts = len({r.get("user_id") for r in _reps_ms if r.get("user_id")})
+
+            _km1, _km2, _km3, _km4 = st.columns(4)
+            _km1.metric("총 분석", f"{_total_ms}건")
+            _km2.metric("위험 발견", f"{_risk_ms}건", help="심각도 4 이상")
+            _km3.metric("평균 심각도", f"{_avg_sev}")
+            _km4.metric("분석 인원", f"{_analysts}명")
+
+            # ─── 위험 카테고리 분포 (촘촘) ───
+            st.divider()
+            st.markdown("#### 🏷️ 위험 카테고리 분포")
+            _cat_cnt = {}
+            for r in _reps_ms:
+                _c = _cat_of(r)
+                _cat_cnt[_c] = _cat_cnt.get(_c, 0) + 1
+            _cat_sorted = sorted(_cat_cnt.items(), key=lambda x: -x[1])
+            for _c, _n in _cat_sorted:
+                _pct = round(_n * 100 / _total_ms)
+                st.markdown(f"**{_c}** — {_n}건 ({_pct}%)")
+                st.progress(min(_pct, 100) / 100)
+
+            # ─── 심각도 분포 ───
+            st.divider()
+            st.markdown("#### 🔥 심각도 분포")
+            _sev_ic = {1: "✅", 2: "🟡", 3: "🟠", 4: "🔴", 5: "🚨"}
+            _sev_cols = st.columns(5)
+            for _s in range(1, 6):
+                _sc = len([r for r in _reps_ms if int(r.get("severity") or 0) == _s])
+                _sev_cols[_s - 1].metric(f"{_sev_ic[_s]} Lv.{_s}", f"{_sc}건")
+
+            # ─── 검색 섹터 × 위험 항목 매트릭스 ───
+            st.divider()
+            st.markdown("#### 🧭 검색 섹터(플랫폼) × 위험 항목(분류) 매트릭스")
+            _platforms_ms = sorted({(r.get("platform") or "기타") for r in _reps_ms})
+            _matrix_ms = []
+            for _c, _n in _cat_sorted:
+                _mrow = {"위험 항목": _c}
+                for _p in _platforms_ms:
+                    _mrow[_p] = len([r for r in _reps_ms
+                                     if _cat_of(r) == _c and (r.get("platform") or "기타") == _p])
+                _mrow["합계"] = _n
+                _matrix_ms.append(_mrow)
+            st.dataframe(_matrix_ms, use_container_width=True, hide_index=True)
+
+            # ─── 일별 트렌드 ───
+            st.divider()
+            st.markdown("#### 📈 일별 트렌드")
+            _by_day_ms = {}
+            for r in _reps_ms:
+                _d = str(r.get("created_at") or "")[:10]
+                _by_day_ms.setdefault(_d, {"분석": 0, "위험": 0})
+                _by_day_ms[_d]["분석"] += 1
+                if (r.get("severity") or 0) >= 4:
+                    _by_day_ms[_d]["위험"] += 1
+            _trend_ms = [{"일자": _d, "분석 건수": _by_day_ms[_d]["분석"],
+                          "위험 발견": _by_day_ms[_d]["위험"]} for _d in sorted(_by_day_ms)]
+            st.dataframe(_trend_ms, use_container_width=True, hide_index=True)
+
+            # ─── Top 위험 키워드 (학습 키워드) ───
+            st.divider()
+            st.markdown("#### 🔑 Top 위험 키워드 (학습 키워드)")
+            try:
+                _kw_ms = supabase.table("learned_keywords").select(
+                    "keyword,category,severity,use_count") \
+                    .order("use_count", desc=True).limit(20).execute().data or []
+            except Exception:
+                _kw_ms = []
+            if _kw_ms:
+                st.dataframe([{"키워드": k.get("keyword", ""), "분류": k.get("category", ""),
+                               "심각도": k.get("severity", 0), "사용횟수": k.get("use_count", 0)}
+                              for k in _kw_ms], use_container_width=True, hide_index=True)
+            else:
+                st.caption("학습된 키워드가 아직 없습니다.")
+
+            # ─── 엑셀 다운로드 (섹터×항목 매트릭스) ───
+            st.divider()
+            render_excel_download(
+                f"📥 통계 요약 엑셀 받기 ({_ms_period})",
+                _matrix_ms,
+                resource_type="monitoring_stats",
+                resource_label=f"모니터링 통계 ({_ms_period})",
+                file_basename=f"모니터링통계_{_ms_period}",
+                user=user,
+                scope_description=f"{_ms_period} · 총 {_total_ms}건 · 위험 {_risk_ms}건",
+                key="xlsx_monitoring_stats",
+                sheet_name="섹터x항목",
+            )
+
         st.divider()
         if st.button("⬅️ 대시보드로 돌아가기", key="back_report_stats"):
             go_home(); st.rerun()
