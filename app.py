@@ -7883,11 +7883,180 @@ else:
             go_to("agency_dashboard"); st.rerun()
 
     elif page == "report_stats":
-        st.markdown("### 📊 보고서 통계")
-        st.info("🚧 준비 중인 기능입니다. 곧 만나보실 수 있습니다.")
-        st.caption("월간 활동 리포트와 권한별 맞춤 통계를 제공합니다.")
+        # ══════════════════════════════════════════════════════════════
+        # 📊 통계 페이지 (2026-05-18 구현)
+        #   1차: 개별 업무일지 — 장애인·노인 일자리 등 고용지원금/장려금
+        #        신청용 근무일지(일별·월별, 개인·고객사) 생성·엑셀·출력
+        #   2차(예정): 모니터링 통계 — 일배치 집계 KPI·트렌드·매트릭스
+        # ══════════════════════════════════════════════════════════════
+        st.markdown("### 📊 통계")
+        _u_rs = st.session_state.user or {}
+        _role_rs = get_user_role(_u_rs)
+        _is_hq_rs = (_role_rs in ("superadmin", "admin", "member")) and not _u_rs.get("partner_id")
+        _is_partner_rs = bool(_u_rs.get("partner_id"))
+        _is_tenant_admin_rs = bool(_u_rs.get("is_tenant_admin")) or _role_rs == "tenant_admin"
+
+        _rs_section = st.radio(
+            "통계 메뉴", ["📋 개별 업무일지", "📈 모니터링 통계"],
+            horizontal=True, key="rs_section", label_visibility="collapsed"
+        )
+
+        if _rs_section.startswith("📈"):
+            st.info("🚧 모니터링 통계(KPI·일별 트렌드·검색 섹터×항목 매트릭스)는 "
+                    "일배치 집계 인프라 구축 후 제공됩니다. 현재는 개별 업무일지를 이용해주세요.")
+        else:
+            st.caption("📋 장애인·노인 일자리 등 **고용지원금·장려금 신청용 근무일지**를 "
+                       "생성·엑셀 다운로드·출력합니다. 과거 이력도 선택해 출력할 수 있습니다.")
+            st.divider()
+
+            # ─── 대상 후보 구성 (권한 범위) ───
+            _cand_users, _cand_tenants = [], []
+            try:
+                if _is_hq_rs:
+                    _cand_users = supabase.table("users").select(
+                        "id,name,email,tenant_id").is_("deleted_at", "null") \
+                        .order("name").execute().data or []
+                    _cand_tenants = get_all_tenants() or []
+                elif _is_partner_rs:
+                    _cand_tenants = get_agency_tenants(_u_rs["id"]) or []
+                    for _tn in _cand_tenants:
+                        _cand_users.extend(get_tenant_users(_tn["id"]) or [])
+                elif _is_tenant_admin_rs and _u_rs.get("tenant_id"):
+                    _cand_tenants = [t for t in (get_all_tenants() or [])
+                                     if t["id"] == _u_rs.get("tenant_id")]
+                    _cand_users = get_tenant_users(_u_rs["tenant_id"]) or []
+                else:
+                    _cand_users = [_u_rs]  # 일반 사용자: 본인만
+            except Exception as _e_rs:
+                st.error(f"대상 목록 조회 실패: {str(_e_rs)[:80]}")
+
+            # ─── 조회 조건 ───
+            _rc1, _rc2 = st.columns(2)
+            with _rc1:
+                _target_kind = st.radio("대상 유형", ["👤 개인별", "🏢 고객사별"],
+                                        horizontal=True, key="rs_target_kind",
+                                        disabled=(not _cand_tenants))
+            with _rc2:
+                _period_kind = st.radio("기간 단위", ["일별", "월별"],
+                                        horizontal=True, key="rs_period_kind")
+
+            _sel_user, _sel_tenant = None, None
+            if _target_kind.startswith("👤"):
+                if not _cand_users:
+                    st.info("조회 가능한 근무자가 없습니다.")
+                else:
+                    _uopts = {f'{x.get("name","?")} ({x.get("email","")})': x
+                              for x in _cand_users}
+                    _sel_user = _uopts[st.selectbox("근무자 선택", list(_uopts.keys()),
+                                                    key="rs_user_sel")]
+            else:
+                if not _cand_tenants:
+                    st.info("조회 가능한 고객사가 없습니다.")
+                else:
+                    _topts = {x.get("name", "?"): x for x in _cand_tenants}
+                    _sel_tenant = _topts[st.selectbox("고객사 선택", list(_topts.keys()),
+                                                      key="rs_tenant_sel")]
+
+            if _period_kind == "일별":
+                _sel_date = st.date_input("날짜 선택", value=date.today(), key="rs_date")
+                _range_start = _sel_date.isoformat()
+                _range_end = (_sel_date + timedelta(days=1)).isoformat()
+                _period_label = _sel_date.isoformat()
+            else:
+                _mc1, _mc2 = st.columns(2)
+                _yr = _mc1.selectbox("년", list(range(date.today().year,
+                                                      date.today().year - 4, -1)), key="rs_year")
+                _mo = _mc2.selectbox("월", list(range(1, 13)),
+                                     index=date.today().month - 1, key="rs_month")
+                _range_start = f"{_yr:04d}-{_mo:02d}-01"
+                _range_end = (f"{_yr+1:04d}-01-01" if _mo == 12
+                              else f"{_yr:04d}-{_mo+1:02d}-01")
+                _period_label = f"{_yr}년 {_mo}월"
+
+            if st.button("📋 근무일지 생성", type="primary", key="rs_generate"):
+                st.session_state["rs_do_generate"] = True
+
+            if st.session_state.get("rs_do_generate"):
+                _target_uids, _target_name, _uid_name = [], "", {}
+                if _sel_user:
+                    _target_uids = [_sel_user["id"]]
+                    _target_name = _sel_user.get("name", "?")
+                elif _sel_tenant:
+                    _tn_users = get_tenant_users(_sel_tenant["id"]) or []
+                    _target_uids = [x["id"] for x in _tn_users]
+                    _target_name = _sel_tenant.get("name", "?")
+                    _uid_name = {x["id"]: x.get("name", "?") for x in _tn_users}
+
+                if not _target_uids:
+                    st.warning("대상을 선택해주세요.")
+                else:
+                    try:
+                        _rep = supabase.table("reports").select(
+                            "user_id,created_at,severity,category,platform,content") \
+                            .in_("user_id", _target_uids) \
+                            .gte("created_at", _range_start).lt("created_at", _range_end) \
+                            .order("created_at", desc=False).execute().data or []
+                    except Exception as _e_rep:
+                        st.error(f"근무 기록 조회 실패: {str(_e_rep)[:80]}")
+                        _rep = []
+
+                    st.divider()
+                    _risk_cnt = len([r for r in _rep if (r.get("severity") or 0) >= 4])
+                    st.markdown(f"#### 📋 {'월간' if _period_kind=='월별' else '일일'} 근무일지")
+                    st.markdown(
+                        f"**대상:** {_target_name} 　|　 **기간:** {_period_label} 　|　 "
+                        f"**총 분석 {len(_rep)}건 · 위험 발견 {_risk_cnt}건**"
+                    )
+
+                    if not _rep:
+                        st.info("해당 기간에 근무(분석) 기록이 없습니다.")
+                    else:
+                        if _period_kind == "일별":
+                            _wl_rows = [{
+                                "시각": str(_r.get("created_at") or "")[11:16],
+                                "근무자": (_uid_name.get(_r["user_id"], "?")
+                                          if _sel_tenant else _target_name),
+                                "플랫폼": _r.get("platform", "") or "",
+                                "분류": _r.get("category", "") or "",
+                                "심각도": _r.get("severity", 0) or 0,
+                                "분석내용": str(_r.get("content") or "")[:60],
+                            } for _r in _rep]
+                        else:
+                            _by_day = {}
+                            for _r in _rep:
+                                _by_day.setdefault(
+                                    str(_r.get("created_at") or "")[:10], []).append(_r)
+                            _wl_rows = []
+                            for _d in sorted(_by_day.keys()):
+                                _drs = _by_day[_d]
+                                _cats = {}
+                                for _x in _drs:
+                                    _c = _x.get("category") or "미분류"
+                                    _cats[_c] = _cats.get(_c, 0) + 1
+                                _wl_rows.append({
+                                    "일자": _d,
+                                    "분석건수": len(_drs),
+                                    "위험발견": len([x for x in _drs
+                                                   if (x.get("severity") or 0) >= 4]),
+                                    "주요분류": (max(_cats, key=_cats.get) if _cats else "-"),
+                                })
+                        st.dataframe(_wl_rows, use_container_width=True, hide_index=True)
+                        st.caption("🖨 출력: 브라우저 인쇄(⌘P) 또는 아래 엑셀 다운로드 후 인쇄")
+                        render_excel_download(
+                            f"📥 근무일지 엑셀 받기 ({_target_name} · {_period_label})",
+                            _wl_rows,
+                            resource_type="work_log",
+                            resource_label=f"근무일지 ({_target_name} · {_period_label})",
+                            file_basename=f"근무일지_{_target_name}_{_period_label}",
+                            user=user,
+                            scope_description=f"{_target_name} · {_period_label} · {len(_rep)}건",
+                            key="xlsx_work_log",
+                            sheet_name="근무일지",
+                        )
+
+        st.divider()
         if st.button("⬅️ 대시보드로 돌아가기", key="back_report_stats"):
-            go_to("agency_dashboard"); st.rerun()
+            go_home(); st.rerun()
 
     elif page == "doc_agency":
         st.markdown("### 📑 공단 서류 대행")
