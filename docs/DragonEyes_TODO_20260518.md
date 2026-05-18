@@ -17,9 +17,10 @@
 
 ### 추천순서 1~5 (5/18)
 - **1. closed_lost 이력 표시** — 신규 등록 시 "과거 실주 이력" 안내 · `7735f46`
-- **2. 엑셀 출력 에픽 6종** — `5ad1af0`·`bd3dde9`·`1f9b111`·`a70c63a`
+- **2. 엑셀 출력 에픽 6종 + 파트너 영역** — `5ad1af0`·`bd3dde9`·`1f9b111`·`a70c63a`·`77e6550`
   - 공통 헬퍼 `render_excel_download()` + #1 영업 파이프라인 / #2 전체 파트너 명단 /
     #3·#6 사용자 명단(본부·파트너·고객 자동 스코핑) / #4 산하 대리점 / #5 담당 고객사
+  - 추가: 파트너 정보(단일 파트너) · 담당자 관리(담당자 명단) 페이지 다운로드
 - **3. approval_requests 복귀 버튼** — 대기 건 있을 때도 노출 · `698d827`
 - **4. SQL phase 중복 정리** — With Claude SQL을 `docs/sql/_legacy_2026-05-11/`로 아카이브 · `ba8c755`
 - **5. 트리거 중복 검토** — 검토 완료. **결론: 현행 유지** (트리거가 `updated_at`
@@ -62,6 +63,7 @@
 | 9 | 격리 백로그 — 총판 계층(`parent_partner_id`) · 유관기관(RELORG) 격리 · 영업기회 Re-assign UI |
 | 10 | 라우팅 시스템 전면 리팩토링 (TODO 항목 J) |
 | 11 | 보안 — Supabase publishable 키 전환 + Naver Client Secret 회전 (TODO 항목 M) |
+| 13 | **stub 페이지 구현** — `support_request`(Support Request) · `license_status`(라이선스 현황) · `customer_management`(고객사 관리) 모두 "🚧 준비 중" 빈 페이지. 구현 시 엑셀 다운로드 함께 추가 ("모두 엑셀로" 방침) |
 
 ---
 
