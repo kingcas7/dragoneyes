@@ -7948,7 +7948,53 @@ else:
         except Exception as e:
             st.error(f"조회 오류: {str(e)[:100]}")
             st.stop()
-        
+
+        # ─── 📥 이 파트너 정보 엑셀 다운로드 (단일 파트너, 2026-05-18) ───
+        with st.expander("📥 이 파트너 정보 엑셀 다운로드", expanded=False):
+            _pi_types = []
+            if partner_pi.get("is_distributor"): _pi_types.append("총판")
+            if partner_pi.get("is_reseller"): _pi_types.append("대리점")
+            if partner_pi.get("is_related_org"): _pi_types.append("유관기관")
+            _pi_contracts = []
+            if partner_pi.get("has_sales_contract"): _pi_contracts.append("판매")
+            if partner_pi.get("has_customer_contract"): _pi_contracts.append("고객")
+            if partner_pi.get("has_org_admin_contract"): _pi_contracts.append("유관기관")
+            _pi_parent = ""
+            if partner_pi.get("parent_partner_id"):
+                try:
+                    _pp = supabase.table("partners").select("name").eq(
+                        "id", partner_pi["parent_partner_id"]).execute().data or []
+                    _pi_parent = _pp[0]["name"] if _pp else ""
+                except Exception:
+                    _pi_parent = ""
+            _pi_row = [{
+                "파트너명": partner_pi.get("name", ""),
+                "유형": " · ".join(_pi_types) or "미분류",
+                "상위총판": _pi_parent or "-",
+                "사업자번호": partner_pi.get("business_number", "") or "",
+                "대표이사": partner_pi.get("representative_name", "") or "",
+                "대표전화": partner_pi.get("phone", "") or "",
+                "대표이메일": partner_pi.get("email", "") or "",
+                "주소": partner_pi.get("address", "") or "",
+                "비즈니스채널": partner_pi.get("business_channel", "") or "",
+                "보유계약": " · ".join(_pi_contracts) or "없음",
+                "담당자이름": partner_pi.get("admin_name", "") or "",
+                "담당자직책": partner_pi.get("admin_title", "") or "",
+                "담당자연락처": partner_pi.get("admin_phone", "") or "",
+                "상태": "종료" if partner_pi.get("terminated_at") else "활성",
+            }]
+            render_excel_download(
+                f"⚙️ {partner_pi.get('name', '파트너')} 정보 엑셀 받기",
+                _pi_row,
+                resource_type="partner_info",
+                resource_label=f"파트너 정보 ({partner_pi.get('name', '')})",
+                file_basename=f"파트너정보_{partner_pi.get('name', '')}",
+                user=user,
+                scope_description=f"파트너 1건 ({partner_pi.get('name', '')})",
+                key=f"xlsx_partner_info_{target_partner_id}",
+                sheet_name="파트너정보",
+            )
+
         # ─── 정보 표시 (수정 불가, 본부 권한) ───
         st.markdown("##### 🔒 파트너 분류 및 계약 정보 (본부 관리)")
         info_col1, info_col2, info_col3 = st.columns(3)
@@ -8090,6 +8136,26 @@ else:
             if st.button("⬅️ 대시보드로", key="back_pa_empty"):
                 go_to("agency_dashboard"); st.rerun()
             st.stop()
+
+        # ─── 📥 담당자 명단 엑셀 다운로드 (2026-05-18) ───
+        with st.expander(f"📥 담당자 명단 엑셀 다운로드 ({len(_admins_pa)}명)", expanded=False):
+            _pa_rows = [{
+                "담당자명": _a.get("name", "") or "",
+                "이메일": _a.get("email", "") or "",
+                "대표여부": "대표" if _a.get("is_partner_primary") else "",
+                "상태": "비활성" if (_a.get("status") == "inactive") else "활성",
+            } for _a in _admins_pa]
+            render_excel_download(
+                f"👥 {partner_name_pa} 담당자 명단 엑셀 받기 ({len(_pa_rows)}명)",
+                _pa_rows,
+                resource_type="partner_admins",
+                resource_label=f"담당자 명단 ({partner_name_pa})",
+                file_basename=f"담당자명단_{partner_name_pa}",
+                user=user,
+                scope_description=f"{partner_name_pa} 담당자 {len(_pa_rows)}명",
+                key=f"xlsx_partner_admins_{target_partner_id_pa}",
+                sheet_name="담당자명단",
+            )
 
         # 대표 우선 정렬
         _admins_pa_sorted = sorted(_admins_pa, key=lambda x: (not x.get("is_partner_primary"), x["name"]))
