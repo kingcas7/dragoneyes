@@ -8401,6 +8401,12 @@ else:
                 for opp in duplicate_opps:
                     _render_approval_card(opp)
 
+        # 하단 복귀 버튼 (대기 건이 있을 때도 노출되도록, 2026-05-18)
+        st.divider()
+        if st.button("← 대시보드로 돌아가기", key="back_approval_to_dash",
+                     use_container_width=True):
+            go_to("agency_dashboard"); st.rerun()
+
     elif page == "sales_pipeline":
         # ══════════════════════════════════════════════════════════════
         # 📊 영업 파이프라인 페이지 (Phase 3, 5/16 신규)
