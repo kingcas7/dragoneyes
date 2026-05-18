@@ -7884,32 +7884,51 @@ else:
 
     elif page == "report_stats":
         # ══════════════════════════════════════════════════════════════
-        # 📊 통계 페이지 (2026-05-18 구현)
-        #   1차: 개별 업무일지 — 장애인·노인 일자리 등 고용지원금/장려금
-        #        신청용 근무일지(일별·월별, 개인·고객사) 생성·엑셀·출력
-        #   2차(예정): 모니터링 통계 — 일배치 집계 KPI·트렌드·매트릭스
+        # 📊 통계 페이지 — 모니터링 분석 통계 (2026-05-18)
+        #   KPI·일별 트렌드·검색 섹터×항목 매트릭스. 일배치 집계 인프라
+        #   구축 후 제공. ※ 근무일지·제출 서류는 [공단 서류 대행]에서 발급.
         # ══════════════════════════════════════════════════════════════
         st.markdown("### 📊 통계")
-        _u_rs = st.session_state.user or {}
-        _role_rs = get_user_role(_u_rs)
-        _is_hq_rs = (_role_rs in ("superadmin", "admin", "member")) and not _u_rs.get("partner_id")
-        _is_partner_rs = bool(_u_rs.get("partner_id"))
-        _is_tenant_admin_rs = bool(_u_rs.get("is_tenant_admin")) or _role_rs == "tenant_admin"
+        st.info("🚧 모니터링 통계(KPI · 일별 트렌드 · 검색 섹터×항목 매트릭스)는 "
+                "일배치 집계 인프라 구축 후 제공됩니다.")
+        st.caption("📋 근무일지·고용지원금 제출 서류는 **[공단 서류 대행]** 메뉴에서 발급하세요.")
+        st.divider()
+        if st.button("⬅️ 대시보드로 돌아가기", key="back_report_stats"):
+            go_home(); st.rerun()
 
-        _rs_section = st.radio(
-            "통계 메뉴", ["📋 개별 업무일지", "📈 모니터링 통계"],
-            horizontal=True, key="rs_section", label_visibility="collapsed"
-        )
+    elif page == "doc_agency":
+        # ══════════════════════════════════════════════════════════════
+        # 📑 서류 발급 허브 (공단 서류 대행) — 2026-05-18 구현
+        #   고용지원금·장려금 신청용 제출 서류 발급. 확장 구조 —
+        #   _doc_types에 항목 추가 + 아래 렌더 분기 추가로 새 서류 확장.
+        # ══════════════════════════════════════════════════════════════
+        st.markdown("### 📑 공단 서류 대행")
+        st.caption("장애인·노인 일자리 등 **고용지원금·장려금 신청용 제출 서류**를 "
+                   "생성·엑셀 다운로드·출력합니다. 과거 이력도 선택해 발급할 수 있습니다.")
 
-        if _rs_section.startswith("📈"):
-            st.info("🚧 모니터링 통계(KPI·일별 트렌드·검색 섹터×항목 매트릭스)는 "
-                    "일배치 집계 인프라 구축 후 제공됩니다. 현재는 개별 업무일지를 이용해주세요.")
-        else:
-            st.caption("📋 장애인·노인 일자리 등 **고용지원금·장려금 신청용 근무일지**를 "
-                       "생성·엑셀 다운로드·출력합니다. 과거 이력도 선택해 출력할 수 있습니다.")
-            st.divider()
+        # ─── 발급 가능한 서류 종류 (확장 지점: 항목 추가 + 아래 렌더 분기 추가) ───
+        _doc_types = [
+            {"key": "work_log", "label": "📋 근무일지 (일별·월별)", "ready": True},
+            {"key": "pension_monthly", "label": "📄 공단 월별 제출 서류", "ready": False},
+        ]
+        _doc_labels = [d["label"] + ("" if d["ready"] else " — 준비 중")
+                       for d in _doc_types]
+        _picked = _doc_types[_doc_labels.index(
+            st.selectbox("발급할 서류 선택", _doc_labels, key="doc_type_pick"))]
+        st.divider()
 
-            # ─── 대상 후보 구성 (권한 범위) ───
+        if not _picked["ready"]:
+            st.info("🚧 준비 중인 서류입니다. 추후 제공됩니다.")
+
+        elif _picked["key"] == "work_log":
+            # ─── 📋 근무일지 — 고용지원금/장려금 신청용 (일별·월별, 개인·고객사) ───
+            _u_rs = st.session_state.user or {}
+            _role_rs = get_user_role(_u_rs)
+            _is_hq_rs = (_role_rs in ("superadmin", "admin", "member")) and not _u_rs.get("partner_id")
+            _is_partner_rs = bool(_u_rs.get("partner_id"))
+            _is_tenant_admin_rs = bool(_u_rs.get("is_tenant_admin")) or _role_rs == "tenant_admin"
+
+            # 대상 후보 구성 (권한 범위)
             _cand_users, _cand_tenants = [], []
             try:
                 if _is_hq_rs:
@@ -7930,15 +7949,14 @@ else:
             except Exception as _e_rs:
                 st.error(f"대상 목록 조회 실패: {str(_e_rs)[:80]}")
 
-            # ─── 조회 조건 ───
             _rc1, _rc2 = st.columns(2)
             with _rc1:
                 _target_kind = st.radio("대상 유형", ["👤 개인별", "🏢 고객사별"],
-                                        horizontal=True, key="rs_target_kind",
+                                        horizontal=True, key="wl_target_kind",
                                         disabled=(not _cand_tenants))
             with _rc2:
                 _period_kind = st.radio("기간 단위", ["일별", "월별"],
-                                        horizontal=True, key="rs_period_kind")
+                                        horizontal=True, key="wl_period_kind")
 
             _sel_user, _sel_tenant = None, None
             if _target_kind.startswith("👤"):
@@ -7948,35 +7966,35 @@ else:
                     _uopts = {f'{x.get("name","?")} ({x.get("email","")})': x
                               for x in _cand_users}
                     _sel_user = _uopts[st.selectbox("근무자 선택", list(_uopts.keys()),
-                                                    key="rs_user_sel")]
+                                                    key="wl_user_sel")]
             else:
                 if not _cand_tenants:
                     st.info("조회 가능한 고객사가 없습니다.")
                 else:
                     _topts = {x.get("name", "?"): x for x in _cand_tenants}
                     _sel_tenant = _topts[st.selectbox("고객사 선택", list(_topts.keys()),
-                                                      key="rs_tenant_sel")]
+                                                      key="wl_tenant_sel")]
 
             if _period_kind == "일별":
-                _sel_date = st.date_input("날짜 선택", value=date.today(), key="rs_date")
+                _sel_date = st.date_input("날짜 선택", value=date.today(), key="wl_date")
                 _range_start = _sel_date.isoformat()
                 _range_end = (_sel_date + timedelta(days=1)).isoformat()
                 _period_label = _sel_date.isoformat()
             else:
                 _mc1, _mc2 = st.columns(2)
                 _yr = _mc1.selectbox("년", list(range(date.today().year,
-                                                      date.today().year - 4, -1)), key="rs_year")
+                                                      date.today().year - 4, -1)), key="wl_year")
                 _mo = _mc2.selectbox("월", list(range(1, 13)),
-                                     index=date.today().month - 1, key="rs_month")
+                                     index=date.today().month - 1, key="wl_month")
                 _range_start = f"{_yr:04d}-{_mo:02d}-01"
                 _range_end = (f"{_yr+1:04d}-01-01" if _mo == 12
                               else f"{_yr:04d}-{_mo+1:02d}-01")
                 _period_label = f"{_yr}년 {_mo}월"
 
-            if st.button("📋 근무일지 생성", type="primary", key="rs_generate"):
-                st.session_state["rs_do_generate"] = True
+            if st.button("📋 근무일지 생성", type="primary", key="wl_generate"):
+                st.session_state["wl_do_generate"] = True
 
-            if st.session_state.get("rs_do_generate"):
+            if st.session_state.get("wl_do_generate"):
                 _target_uids, _target_name, _uid_name = [], "", {}
                 if _sel_user:
                     _target_uids = [_sel_user["id"]]
@@ -8055,15 +8073,8 @@ else:
                         )
 
         st.divider()
-        if st.button("⬅️ 대시보드로 돌아가기", key="back_report_stats"):
-            go_home(); st.rerun()
-
-    elif page == "doc_agency":
-        st.markdown("### 📑 공단 서류 대행")
-        st.info("🚧 준비 중인 기능입니다. 곧 만나보실 수 있습니다.")
-        st.caption("한국장애인고용공단 매월 제출 서류를 자동 생성합니다.")
         if st.button("⬅️ 대시보드로 돌아가기", key="back_doc_agency"):
-            go_to("agency_dashboard"); st.rerun()
+            go_home(); st.rerun()
 
     elif page == "support_request":
         st.markdown("### 📨 Support Request")
