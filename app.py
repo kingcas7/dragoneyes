@@ -7416,7 +7416,7 @@ else:
             try:
                 _q = supabase.table("users").select(
                     "id,email,name,role,phone,guardian_name,guardian_phone,"
-                    "status,resigned_at,agency_id,partner_id,created_at"
+                    "status,resigned_at,agency_id,partner_id,tenant_id,created_at"
                 ).is_("deleted_at", "null")
                 # 본부 admin이 아니면 본인 파트너 소속만 필터링
                 if not _is_hq_admin and _agency_id:
@@ -7433,6 +7433,71 @@ else:
             _c1.metric("재직", len(_active))
             _c2.metric("퇴사", len(_resigned))
             _c3.metric("전체", len(_all_users))
+
+            # ─── 📥 사용자 명단 엑셀 (엑셀 에픽 #3·#6, 2026-05-18) ───
+            #  _all_users는 권한별로 이미 스코핑됨(본부=전체 / 파트너=자사 / 고객=자사)
+            #  → 이 버튼 하나가 #3(본부 그룹별)·#6(고객 자기 사용자)을 동시 충족
+            with st.expander(f"📥 사용자 명단 엑셀 다운로드 ({len(_all_users)}명)", expanded=False):
+                try:
+                    _ptype_map = {}
+                    for _p in (supabase.table("partners").select(
+                            "id,name,is_distributor,is_reseller,is_related_org")
+                            .execute().data or []):
+                        _t = []
+                        if _p.get("is_distributor"): _t.append("총판")
+                        if _p.get("is_reseller"): _t.append("대리점")
+                        if _p.get("is_related_org"): _t.append("유관기관")
+                        _ptype_map[_p["id"]] = {"name": _p.get("name", ""),
+                                                "group": " · ".join(_t) or "파트너사"}
+                    _tn_map = {}
+                    try:
+                        for _t in (get_all_tenants() or []):
+                            _tn_map[_t["id"]] = _t.get("name", "")
+                    except Exception:
+                        pass
+                    _role_ko = {"user": "일반회원", "admin": "관리자", "agency": "파트너사",
+                                "super_admin": "본부관리자", "agency_admin": "파트너관리자",
+                                "member": "관리자"}
+                    _u_rows = []
+                    for _u in _all_users:
+                        _pid = _u.get("partner_id") or _u.get("agency_id")
+                        if _pid and _pid in _ptype_map:
+                            _grp = _ptype_map[_pid]["group"]
+                            _belong = _ptype_map[_pid]["name"]
+                        elif _u.get("tenant_id"):
+                            _grp = "고객사"
+                            _belong = _tn_map.get(_u.get("tenant_id"), "")
+                        else:
+                            _grp = "본부"
+                            _belong = "드래곤아이즈 본부"
+                        _u_rows.append({
+                            "가입그룹": _grp,
+                            "소속": _belong or "-",
+                            "구분": _role_ko.get(_u.get("role"), _u.get("role") or "-"),
+                            "이름": _u.get("name") or "",
+                            "이메일": _u.get("email") or "",
+                            "연락처": _u.get("phone") or "",
+                            "보호자성명": _u.get("guardian_name") or "",
+                            "보호자연락처": _u.get("guardian_phone") or "",
+                            "상태": "퇴사" if (_u.get("status") == "resigned") else "재직",
+                            "가입일": str(_u.get("created_at") or "")[:10],
+                        })
+                    _u_rows.sort(key=lambda r: (r["가입그룹"], r["소속"], r["이름"]))
+                    _scope_lbl = "전체 사용자" if _is_hq_admin else "소속 사용자"
+                    render_excel_download(
+                        f"👥 사용자 명단 엑셀 받기 ({len(_u_rows)}명)",
+                        _u_rows,
+                        resource_type="user_list",
+                        resource_label=f"사용자 명단 ({_scope_lbl})",
+                        file_basename="사용자명단",
+                        user=user,
+                        scope_description=f"{_scope_lbl} {len(_u_rows)}명",
+                        scope_user_ids=[u.get("id") for u in _all_users if u.get("id")],
+                        key="xlsx_user_list",
+                        sheet_name="사용자명단",
+                    )
+                except Exception as _e_ul:
+                    st.caption(f"엑셀 준비 실패: {str(_e_ul)[:80]}")
 
             _tab_active, _tab_resigned, _tab_new = st.tabs(
                 [f"재직 ({len(_active)})", f"퇴사 ({len(_resigned)})", "신규 등록"]
