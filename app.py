@@ -1549,6 +1549,56 @@ def get_download_logs_for_user(viewer):
         return []
 
 
+def render_excel_download(label, rows, *, resource_type, resource_label,
+                          file_basename, user, scope_description="",
+                          scope_tenant_ids=None, scope_user_ids=None,
+                          key=None, sheet_name="Sheet1"):
+    """DataFrame(rows)을 엑셀로 내려받는 버튼 + 감사로그(log_download) 일괄 처리.
+
+    엑셀 출력 에픽(2026-05-18) 공통 헬퍼 — 영업 파이프라인·파트너 명단·
+    그룹별 사용자 등 모든 엑셀 출력을 이 함수 하나로 통일한다.
+
+    rows: list[dict] 또는 pandas.DataFrame
+    """
+    import io as _io
+    try:
+        _df = rows if hasattr(rows, "to_excel") else pd.DataFrame(rows or [])
+    except Exception as _e:
+        st.caption(f"엑셀 데이터 준비 실패: {str(_e)[:80]}")
+        return
+    if _df is None or len(_df) == 0:
+        st.caption(f"📭 {resource_label} — 내보낼 데이터가 없습니다.")
+        return
+    _today = date.today().strftime("%Y%m%d")
+    _fname = f"DragonEyes_{file_basename}_{_today}.xlsx"
+    try:
+        _buf = _io.BytesIO()
+        with pd.ExcelWriter(_buf, engine="openpyxl") as _wr:
+            _df.to_excel(_wr, index=False, sheet_name=str(sheet_name)[:31])
+        _buf.seek(0)
+        if st.download_button(
+            label,
+            data=_buf.getvalue(),
+            file_name=_fname,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+            key=key or f"xlsx_dl_{resource_type}",
+        ):
+            log_download(
+                user=user,
+                resource_type=resource_type,
+                resource_label=resource_label,
+                file_format="xlsx",
+                file_name=_fname,
+                scope_description=scope_description,
+                record_count=len(_df),
+                scope_tenant_ids=scope_tenant_ids,
+                scope_user_ids=scope_user_ids,
+            )
+    except Exception as _e:
+        st.caption(f"엑셀 생성 실패: {str(_e)[:80]}")
+
+
 # ── 파트너관리자 헬퍼 함수 ──
 @st.cache_data(ttl=60, show_spinner=False)
 def get_agency_tenants(agency_user_id):
@@ -8575,6 +8625,59 @@ else:
             filtered_opps.sort(key=lambda x: float(x.get("expected_amount") or 0), reverse=True)
         else:  # 최신 등록 순
             filtered_opps.sort(key=lambda x: x.get("created_at") or "", reverse=True)
+
+        # ─── 📥 엑셀 다운로드 (엑셀 출력 에픽 #1, 2026-05-18) ───
+        #  현재 필터/정렬된 영업 기회 목록을 엑셀로. 권한 범위는 위 4-Layer 격리 그대로 적용됨.
+        with st.expander(f"📥 엑셀 다운로드 — 현재 목록 {len(filtered_opps)}건", expanded=False):
+            try:
+                _exp_ids = [o["id"] for o in filtered_opps if o.get("id")]
+                _act_map = {}
+                if _exp_ids:
+                    _acts = supabase.table("opportunity_activities") \
+                        .select("opportunity_id, activity_type, activity_date, title") \
+                        .in_("opportunity_id", _exp_ids) \
+                        .order("activity_date", desc=False).execute().data or []
+                    _act_ko = {"meeting": "미팅", "call": "통화", "email": "이메일",
+                               "visit": "방문", "proposal_sent": "제안서발송",
+                               "contract_sent": "계약서발송", "demo": "데모", "other": "기타"}
+                    for _a in _acts:
+                        _line = (f"{str(_a.get('activity_date') or '')[:10]} "
+                                 f"[{_act_ko.get(_a.get('activity_type'), '기타')}] "
+                                 f"{_a.get('title', '')}")
+                        _act_map.setdefault(_a.get("opportunity_id"), []).append(_line)
+                _opp_rows = []
+                for _o in filtered_opps:
+                    _acts_o = _act_map.get(_o.get("id"), [])
+                    _opp_rows.append({
+                        "고객사": _o.get("customer_name", ""),
+                        "채널": _o.get("origin_channel", ""),
+                        "라이선스등급": _o.get("license_tier", ""),
+                        "예상좌석수": _o.get("expected_seats") or 0,
+                        "예상금액(원)": float(_o.get("expected_amount") or 0),
+                        "계약확률(%)": float(_o.get("win_probability") or 0),
+                        "진행상태": _o.get("status", ""),
+                        "승인상태": _o.get("approval_status", ""),
+                        "예상마감일": _o.get("expected_close_date", ""),
+                        "등록일": str(_o.get("created_at") or "")[:10],
+                        "담당자성명": _o.get("customer_contact_name", ""),
+                        "연락처": _o.get("customer_contact_phone", ""),
+                        "영업메모": _o.get("notes") or "",
+                        "영업활동수": len(_acts_o),
+                        "영업활동요약": " / ".join(_acts_o),
+                    })
+                render_excel_download(
+                    f"📊 영업 파이프라인 엑셀 받기 ({len(_opp_rows)}건)",
+                    _opp_rows,
+                    resource_type="sales_pipeline",
+                    resource_label="영업 파이프라인 (영업 기회 목록)",
+                    file_basename="영업파이프라인",
+                    user=user,
+                    scope_description=f"{len(_opp_rows)}건 · {'본부 전체' if is_hq_sp else (partner_name_sp or '파트너')}",
+                    key="xlsx_sales_pipeline",
+                    sheet_name="영업파이프라인",
+                )
+            except Exception as _e_exp:
+                st.caption(f"엑셀 준비 실패: {str(_e_exp)[:80]}")
 
         # ─── 채널별 탭 (본부만, 파트너는 본인 채널만) ───
         def _render_opp_list(opps_list, tab_label):
