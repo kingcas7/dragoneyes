@@ -11585,6 +11585,53 @@ else:
                             "is_primary": _u.get("is_partner_primary", False),
                         })
 
+                    # ─── 📥 전체 파트너 명단 엑셀 (엑셀 에픽 #2, 2026-05-18) ───
+                    with st.expander(f"📥 전체 파트너 명단 엑셀 다운로드 ({len(all_agencies)}개)", expanded=False):
+                        try:
+                            _pname_map = {p["id"]: p.get("name", "") for p in all_agencies}
+                            _pc_all = supabase.table("partner_customers").select("partner_id").execute().data or []
+                            _pc_count = {}
+                            for _pc in _pc_all:
+                                _pc_count[_pc["partner_id"]] = _pc_count.get(_pc["partner_id"], 0) + 1
+                            _ptn_rows = []
+                            for _p in all_agencies:
+                                _types = []
+                                if _p.get("is_distributor"): _types.append("총판")
+                                if _p.get("is_reseller"): _types.append("대리점")
+                                if _p.get("is_related_org"): _types.append("유관기관")
+                                _contracts = []
+                                if _p.get("has_sales_contract"): _contracts.append("판매")
+                                if _p.get("has_customer_contract"): _contracts.append("고객")
+                                if _p.get("has_org_admin_contract"): _contracts.append("유관기관")
+                                _ptn_rows.append({
+                                    "파트너명": _p.get("name", ""),
+                                    "유형": " · ".join(_types) or "-",
+                                    "상위총판": _pname_map.get(_p.get("parent_partner_id"), "") or "-",
+                                    "사업자번호": _p.get("business_number", "") or "",
+                                    "대표이사": _p.get("representative_name", "") or "",
+                                    "연락처": _p.get("phone", "") or "",
+                                    "이메일": _p.get("email", "") or "",
+                                    "주소": _p.get("address", "") or "",
+                                    "비즈니스채널": _p.get("business_channel", "") or "",
+                                    "보유계약": " · ".join(_contracts) or "-",
+                                    "담당업체수": _pc_count.get(_p["id"], 0),
+                                    "담당자수": len(partner_admin_map.get(_p["id"], [])),
+                                    "상태": "종료" if _p.get("terminated_at") else "활성",
+                                })
+                            render_excel_download(
+                                f"🤝 전체 파트너 명단 엑셀 받기 ({len(_ptn_rows)}개)",
+                                _ptn_rows,
+                                resource_type="partner_list",
+                                resource_label="전체 파트너 명단",
+                                file_basename="전체파트너명단",
+                                user=user,
+                                scope_description=f"전체 파트너 {len(_ptn_rows)}개 (본부)",
+                                key="xlsx_partner_list",
+                                sheet_name="파트너명단",
+                            )
+                        except Exception as _e_pl:
+                            st.caption(f"엑셀 준비 실패: {str(_e_pl)[:80]}")
+
                     if not all_agencies:
                         st.info("등록된 파트너관리자가 없습니다.")
                     else:
