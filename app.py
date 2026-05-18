@@ -8058,15 +8058,36 @@ else:
         st.caption("장애인·노인 일자리 등 **고용지원금·장려금 신청용 제출 서류**를 "
                    "생성·엑셀 다운로드·출력합니다. 과거 이력도 선택해 발급할 수 있습니다.")
 
-        # ─── 발급 가능한 서류 종류 (확장 지점: 항목 추가 + 아래 렌더 분기 추가) ───
-        _doc_types = [
-            {"key": "work_log", "label": "📋 근무일지 (일별·월별)", "ready": True},
-            {"key": "pension_monthly", "label": "📄 공단 월별 제출 서류", "ready": False},
+        # ─── 기관별 서류 양식 등록부 (확장 지점) ───────────────────────
+        #  ▸ 새 기관 추가     : _doc_registry에 {"agency":..., "docs":[...]} 블록 추가
+        #  ▸ 새 양식 추가     : 해당 기관 docs에 {"key":..., "label":..., "ready":...} 추가
+        #  ▸ 양식 생성 로직   : 아래 렌더 분기에 `elif _picked["key"] == "..."` 추가
+        #  → 향후 어떤 공단/기관 공문 형식이든 등록부 수정만으로 메뉴에 노출됨
+        _doc_registry = [
+            {"agency": "🐉 드래곤아이즈", "docs": [
+                {"key": "work_log", "label": "📋 근무일지 (일별·월별)", "ready": True},
+            ]},
+            {"agency": "한국장애인고용공단", "docs": [
+                {"key": "kead_monthly", "label": "📄 월별 근무상황부", "ready": False},
+                {"key": "kead_subsidy", "label": "📄 고용장려금 신청 첨부서류", "ready": False},
+            ]},
+            {"agency": "노인인력개발원", "docs": [
+                {"key": "senior_activity", "label": "📄 월별 활동일지", "ready": False},
+            ]},
+            {"agency": "지자체 (자치단체)", "docs": [
+                {"key": "local_gov_subsidy", "label": "📄 일자리지원금 제출 서류", "ready": False},
+            ]},
         ]
+        _dc1, _dc2 = st.columns(2)
+        with _dc1:
+            _sel_ag = st.selectbox("기관 선택", [g["agency"] for g in _doc_registry],
+                                   key="doc_agency_pick")
+        _ag_block = next(g for g in _doc_registry if g["agency"] == _sel_ag)
         _doc_labels = [d["label"] + ("" if d["ready"] else " — 준비 중")
-                       for d in _doc_types]
-        _picked = _doc_types[_doc_labels.index(
-            st.selectbox("발급할 서류 선택", _doc_labels, key="doc_type_pick"))]
+                       for d in _ag_block["docs"]]
+        with _dc2:
+            _picked = _ag_block["docs"][_doc_labels.index(
+                st.selectbox("서류 양식 선택", _doc_labels, key="doc_type_pick"))]
         st.divider()
 
         if not _picked["ready"]:
