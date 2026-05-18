@@ -5773,6 +5773,78 @@ else:
             sc5.metric("🗓️ 이번달 보고서", f"{total_month}건")
             st.divider()
 
+            # ─── 📥 명단 엑셀 다운로드 (엑셀 에픽 #4·#5, 2026-05-18) ───
+            #  #5 담당 고객사 명단(모든 파트너) + #4 산하 대리점 명단(총판만)
+            with st.expander("📥 명단 엑셀 다운로드", expanded=False):
+                # 고객사별 사용자수 (이미 로드된 all_tenant_users 재사용)
+                _tu_count = {}
+                for _tu in all_tenant_users:
+                    _tk = _tu.get("tenant_id")
+                    if _tk:
+                        _tu_count[_tk] = _tu_count.get(_tk, 0) + 1
+                _cust_rows = []
+                for _tn in my_tenants:
+                    _cust_rows.append({
+                        "고객사명": _tn.get("name", ""),
+                        "사업자번호": _tn.get("business_number") or _tn.get("business_no") or "",
+                        "대표": _tn.get("representative_name", "") or "",
+                        "연락처": _tn.get("phone", "") or "",
+                        "주소": _tn.get("address", "") or "",
+                        "사용자수": _tu_count.get(_tn.get("id"), 0),
+                    })
+                render_excel_download(
+                    f"🏢 담당 고객사 명단 엑셀 받기 ({len(_cust_rows)}개)",
+                    _cust_rows,
+                    resource_type="partner_customer_list",
+                    resource_label="담당 고객사 명단",
+                    file_basename="담당고객사명단",
+                    user=user,
+                    scope_description=f"담당 고객사 {len(_cust_rows)}개",
+                    scope_tenant_ids=[t.get("id") for t in my_tenants if t.get("id")],
+                    key="xlsx_partner_customers",
+                    sheet_name="고객사명단",
+                )
+                # #4: 총판이면 산하 대리점 명단도
+                _my_pid = user.get("partner_id") or user.get("agency_id")
+                _resellers = []
+                if _my_pid:
+                    try:
+                        _resellers = supabase.table("partners").select(
+                            "id,name,business_number,representative_name,phone,email,"
+                            "address,is_reseller,is_related_org,terminated_at"
+                        ).eq("parent_partner_id", _my_pid).execute().data or []
+                    except Exception:
+                        _resellers = []
+                if _resellers:
+                    st.divider()
+                    st.caption("🤝 산하 대리점 — 본 총판에 소속된 대리점 목록")
+                    _rs_rows = []
+                    for _r in _resellers:
+                        _rt = []
+                        if _r.get("is_reseller"): _rt.append("대리점")
+                        if _r.get("is_related_org"): _rt.append("유관기관")
+                        _rs_rows.append({
+                            "대리점명": _r.get("name", ""),
+                            "유형": " · ".join(_rt) or "대리점",
+                            "사업자번호": _r.get("business_number", "") or "",
+                            "대표": _r.get("representative_name", "") or "",
+                            "연락처": _r.get("phone", "") or "",
+                            "이메일": _r.get("email", "") or "",
+                            "주소": _r.get("address", "") or "",
+                            "상태": "종료" if _r.get("terminated_at") else "활성",
+                        })
+                    render_excel_download(
+                        f"🤝 산하 대리점 명단 엑셀 받기 ({len(_rs_rows)}개)",
+                        _rs_rows,
+                        resource_type="distributor_reseller_list",
+                        resource_label="산하 대리점 명단",
+                        file_basename="산하대리점명단",
+                        user=user,
+                        scope_description=f"산하 대리점 {len(_rs_rows)}개",
+                        key="xlsx_distributor_resellers",
+                        sheet_name="대리점명단",
+                    )
+
             # ── 현황 필터 탭 ──
             filter_tab1, filter_tab2, filter_tab3, filter_tab4, filter_tab5 = st.tabs([
                 "📋 전체 현황", "⚠️ 일일 50% 미만", "✅ 일일 50% 이상", "📊 달성률별 그룹", "📅 캘린더 현황"
