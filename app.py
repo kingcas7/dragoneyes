@@ -2476,8 +2476,43 @@ def _check_duplicate_opp(business_no=None, customer_name=None, exclude_id=None):
         
     except Exception as e:
         print(f"[WARN] 중복 체크 실패: {e}")
-    
+
     return duplicates
+
+
+def _check_closed_lost_history(business_no=None, customer_name=None):
+    """과거 실주(closed_lost) 영업 기회 조회 (2026-05-18 신규).
+
+    하드 중복(_check_duplicate_opp)과는 별개 — Director 검토로 보내지 않고,
+    신규 등록은 정상 진행하되 '과거 실주 이력 있음'을 등록 시 안내하기 위함.
+    드래곤아이즈 영업 담당자가 기존 영업 내용을 검토하도록 유도한다.
+    """
+    history = []
+    _cols = "id, customer_name, created_at, closed_at, expected_amount, origin_channel, license_tier"
+    try:
+        if business_no and len(str(business_no).strip()) > 0:
+            clean_biz = str(business_no).replace("-", "").strip()
+            resp = supabase.table("opportunities") \
+                .select(_cols) \
+                .eq("customer_business_no", clean_biz) \
+                .eq("status", "closed_lost") \
+                .order("closed_at", desc=True) \
+                .execute()
+            history.extend(resp.data or [])
+
+        # 사업자번호 매칭이 없을 때만 고객사명으로 보조 조회
+        if not history and customer_name and len(str(customer_name).strip()) > 0:
+            resp = supabase.table("opportunities") \
+                .select(_cols) \
+                .eq("customer_name", customer_name.strip()) \
+                .eq("status", "closed_lost") \
+                .order("closed_at", desc=True) \
+                .execute()
+            history.extend(resp.data or [])
+    except Exception as e:
+        print(f"[WARN] closed_lost 이력 조회 실패: {e}")
+
+    return history
 
 
 def _determine_approval_workflow(user, request_type, has_duplicates):
@@ -8376,7 +8411,32 @@ else:
                         if duplicates:
                             _render_duplicate_warning(duplicates, user)
                             st.warning("⚠️ 위 영업 기회와 중복 가능성이 있어 **Director 검토 후 등록 처리**됩니다.")
-                        
+
+                        # 과거 실주(closed_lost) 이력 안내 (2026-05-18)
+                        #  하드 중복과 별개 — 신규 등록은 정상 진행, 정보성 표시만
+                        _closed_lost_hist = _check_closed_lost_history(
+                            business_no=clean_biz_no,
+                            customer_name=new_customer_name.strip(),
+                        )
+                        if _closed_lost_hist:
+                            st.warning(
+                                f"🔁 **중복 (Closed_lost)** — 이 고객사는 과거 "
+                                f"**실주(closed_lost) 이력 {len(_closed_lost_hist)}건**이 있습니다. "
+                                "신규 영업으로 정상 등록되지만, 드래곤아이즈 영업 담당자는 "
+                                "**기존 영업 내용을 먼저 검토**하시기 바랍니다."
+                            )
+                            for _h in _closed_lost_hist:
+                                _hamt = float(_h.get("expected_amount") or 0)
+                                _hamt_str = (f"₩{_hamt/100000000:.2f}억" if _hamt >= 100000000
+                                             else (f"₩{_hamt/10000:.0f}만" if _hamt >= 10000
+                                                   else f"₩{_hamt:.0f}"))
+                                _hclosed = str(_h.get("closed_at") or _h.get("created_at") or "")[:10]
+                                st.caption(
+                                    f"　• 과거 실주건 · 채널 {_h.get('origin_channel', '?')} · "
+                                    f"{_h.get('license_tier', '?')} · {_hamt_str} · "
+                                    f"실주시점 {_hclosed or '미상'}"
+                                )
+
                         # 폼 데이터 정리
                         form_data = {
                             "customer_name": new_customer_name.strip(),
