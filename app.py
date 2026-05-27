@@ -8326,6 +8326,211 @@ else:
         if st.button("⬅️ 대시보드로 돌아가기", key="back_support"):
             go_to("agency_dashboard"); st.rerun()
 
+    elif page == "partner_register":
+        # ══════════════════════════════════════════════════════════════
+        # ➕ 신규 파트너 등록 전용 페이지 (2026-05-27)
+        #   관리자 콘솔 expander에서 분리. 파일 업로드 시 admin st.tabs가
+        #   첫 탭으로 리셋되고 스크롤이 최상단으로 가는 문제를 회피하기 위함.
+        #   AI 자동채움 + 풀필드(회사·유형·결제·정산) + 사용자 연결.
+        # ══════════════════════════════════════════════════════════════
+        if not (is_superadmin(user) or
+                (user.get("role") == "admin" and not user.get("partner_id"))):
+            st.error("🚫 본부 관리자 전용 페이지입니다.")
+            if st.button("🏠 홈으로", key="pr_back_home_err"):
+                go_home(); st.rerun()
+            st.stop()
+
+        _hc1, _hc2 = st.columns([5, 1])
+        with _hc1:
+            st.markdown("### ➕ 신규 파트너 등록")
+            st.caption("AI 서류 자동채움 지원 · 결제·정산 필드 포함")
+        with _hc2:
+            if st.button("← 관리자 콘솔", key="pr_back_admin", use_container_width=True):
+                go_to("home"); st.rerun()
+        st.divider()
+
+        # ─── 📤 AI 서류 자동채움 (선택) ───
+        st.markdown("##### 📤 서류 업로드로 자동 채움 (선택)")
+        st.caption("사업자등록증·신분증·PDF·이미지 → Claude AI가 파트너 정보를 추출해 아래 폼을 자동 채웁니다.")
+        _np_files = st.file_uploader(
+            "서류 업로드 (여러 개 가능 · PDF·이미지)",
+            accept_multiple_files=True,
+            type=["pdf", "png", "jpg", "jpeg", "webp"],
+            key="np_files",
+        )
+        if st.button("🤖 AI로 자동 채움", key="np_parse_btn", type="primary"):
+            _files_to_parse = _np_files or st.session_state.get("np_files")
+            if not _files_to_parse:
+                st.warning("⚠️ 먼저 서류 파일을 업로드해주세요 (PDF·이미지).")
+            else:
+                with st.spinner("📄 서류 분석 중 (Claude vision)..."):
+                    _parsed = _parse_partner_documents(_files_to_parse)
+                if _parsed.get("error"):
+                    st.error(f"파싱 실패: {_parsed['error']}")
+                else:
+                    _filled = []
+                    for _k, _v in _parsed.items():
+                        if _v not in (None, ""):
+                            st.session_state[f"np_{_k}"] = str(_v)
+                            _filled.append(_k)
+                    st.success(f"✅ AI 자동 채움 완료 — 추출 필드: "
+                               f"{', '.join(_filled) if _filled else '없음'}")
+                    if _filled:
+                        st.rerun()
+
+        st.divider()
+        st.markdown("##### 📋 파트너 정보 (자동채움 결과 확인·수정 후 등록)")
+
+        with st.form(key="new_partner_form_page", clear_on_submit=False):
+            np1, np2 = st.columns(2)
+            with np1:
+                np_name = st.text_input("상호 *", key="np_name")
+                np_biz = st.text_input("사업자등록번호", key="np_biz",
+                                       placeholder="숫자만 또는 하이픈 포함")
+                np_rep = st.text_input("대표이사", key="np_rep")
+                np_phone = st.text_input("대표전화", key="np_phone")
+                np_email = st.text_input("대표 이메일", key="np_email")
+            with np2:
+                np_addr = st.text_input("주소", key="np_addr")
+                np_status = st.selectbox(
+                    "파트너십 상태",
+                    ["pilot", "active", "suspended"],
+                    format_func=lambda x: {"pilot": "🟡 시범",
+                                           "active": "🟢 정상",
+                                           "suspended": "🔴 정지"}.get(x, x),
+                    key="np_status",
+                )
+                np_an = st.text_input("담당자 이름", key="np_an")
+                np_at = st.text_input("담당자 직책", key="np_at",
+                                      placeholder="예: 영업팀장")
+                np_ap = st.text_input("담당자 연락처", key="np_ap")
+
+            st.markdown("##### 파트너 유형 (복수 선택)")
+            tc1, tc2, tc3 = st.columns(3)
+            np_is_dist = tc1.checkbox("총판", key="np_is_dist")
+            np_is_res = tc2.checkbox("대리점", key="np_is_res")
+            np_is_ro = tc3.checkbox("유관기관", key="np_is_ro")
+
+            np_parent = None
+            _distributors_np = [p for p in (get_all_agencies() or [])
+                                if p.get("is_distributor")]
+            if _distributors_np:
+                _dopts_np = {"(없음 / 독립)": None}
+                for _d in _distributors_np:
+                    _dopts_np[_d["name"]] = _d["id"]
+                np_parent = _dopts_np[st.selectbox(
+                    "상위 총판 (대리점인 경우 선택)",
+                    list(_dopts_np.keys()), key="np_parent")]
+
+            st.markdown("##### 💰 결제·정산 (※ v16_fix02 SQL 적용 후 저장됨)")
+            fc1, fc2, fc3 = st.columns(3)
+            np_bank = fc1.text_input("은행명", key="np_bank")
+            np_account = fc2.text_input("계좌번호", key="np_account")
+            np_holder = fc3.text_input("예금주", key="np_holder")
+            ff1, ff2 = st.columns(2)
+            np_sysfee = ff1.number_input(
+                "드래곤아이즈 시스템 사용료 (월, 원)",
+                min_value=0, value=0, step=10000, key="np_sysfee")
+            np_outstanding = ff2.number_input(
+                "초기 미수금 (원)", min_value=0, value=0,
+                step=10000, key="np_outstanding",
+                help="라이선스 발주대금 미입금 합계 (수동 초기치)")
+
+            st.markdown("##### 👤 사용자 연결 (선택)")
+            _all_link_users_np = supabase.table("users").select(
+                "id,name,email,partner_id").is_("deleted_at", "null") \
+                .order("name").execute().data or []
+            _link_opts_np = {"(연결 안 함 — 나중에)": None}
+            for _lu in _all_link_users_np:
+                _busy = "  ⚠️ 이미 파트너 소속" if _lu.get("partner_id") else ""
+                _link_opts_np[f'{_lu.get("name","?")} ({_lu.get("email","")}){_busy}'] = _lu["id"]
+            np_link_uid = _link_opts_np[st.selectbox(
+                "이 파트너의 admin으로 연결할 기존 사용자",
+                list(_link_opts_np.keys()), key="np_link_user")]
+
+            st.caption("⚠️ 결제·정산 필드는 v16_fix02 SQL 적용 후 저장됩니다. "
+                       "등록 후 [파트너 정보]에서 모든 항목 수정 가능.")
+            np_submit = st.form_submit_button(
+                "✅ 신규 파트너 등록", type="primary",
+                use_container_width=True)
+
+            if np_submit:
+                if not (np_name or "").strip():
+                    st.error("⚠️ 상호는 필수 입력 항목입니다.")
+                elif not (np_is_dist or np_is_res or np_is_ro):
+                    st.error("⚠️ 파트너 유형을 최소 1개 선택해주세요.")
+                else:
+                    try:
+                        _clean_biz = (np_biz or "").replace("-", "").strip() or None
+                        _new_partner = {
+                            "name": np_name.strip(),
+                            "business_number": _clean_biz,
+                            "representative_name": (np_rep or "").strip() or None,
+                            "phone": (np_phone or "").strip() or None,
+                            "email": (np_email or "").strip() or None,
+                            "address": (np_addr or "").strip() or None,
+                            "is_distributor": np_is_dist,
+                            "is_reseller": np_is_res,
+                            "is_related_org": np_is_ro,
+                            "parent_partner_id": np_parent,
+                            "partnership_status": np_status,
+                            "admin_name": (np_an or "").strip() or None,
+                            "admin_title": (np_at or "").strip() or None,
+                            "admin_phone": (np_ap or "").strip() or None,
+                        }
+                        _fin_cols = {
+                            "bank_name": (np_bank or "").strip() or None,
+                            "account_number": (np_account or "").strip() or None,
+                            "account_holder": (np_holder or "").strip() or None,
+                            "system_fee_monthly": float(np_sysfee or 0),
+                            "outstanding_balance": float(np_outstanding or 0),
+                        }
+                        _new_partner.update(_fin_cols)
+                        try:
+                            _ins = supabase.table("partners").insert(_new_partner).execute()
+                        except Exception as _e_col:
+                            _base_only = {k: v for k, v in _new_partner.items()
+                                          if k not in _fin_cols}
+                            _ins = supabase.table("partners").insert(_base_only).execute()
+                            st.warning(
+                                "⚠️ 결제·정산 컬럼 INSERT 실패 → 기본 정보만 저장됨. "
+                                "`v16_fix02` SQL 적용 후 [파트너 정보]에서 다시 입력해주세요. "
+                                f"({str(_e_col)[:80]})"
+                            )
+                        if not _ins.data:
+                            st.error("❌ 파트너 등록 실패: 응답 데이터 없음")
+                        else:
+                            _new_pid = _ins.data[0]["id"]
+                            _types_lbl = "·".join([n for n, b in [
+                                ("총판", np_is_dist), ("대리점", np_is_res),
+                                ("유관기관", np_is_ro)] if b])
+                            st.success(f"✅ 파트너 등록 완료: **{np_name}** ({_types_lbl})")
+                            if np_link_uid:
+                                try:
+                                    supabase.table("users").update({
+                                        "partner_id": _new_pid,
+                                        "role": "admin",
+                                        "is_partner_primary": True,
+                                    }).eq("id", np_link_uid).execute()
+                                    st.success("✅ 사용자 연결 완료 (partner admin)")
+                                except Exception as _e_link:
+                                    st.warning(f"파트너는 등록됐으나 사용자 연결 실패: {str(_e_link)[:80]}")
+                            try:
+                                st.cache_data.clear()
+                            except Exception:
+                                pass
+                            for _k in list(st.session_state.keys()):
+                                if _k.startswith("np_") and _k != "np_files":
+                                    try:
+                                        del st.session_state[_k]
+                                    except Exception:
+                                        pass
+                            import time as _t_np
+                            _t_np.sleep(2)
+                            go_to("home"); st.rerun()
+                    except Exception as _e_np:
+                        st.error(f"❌ 등록 실패: {str(_e_np)[:200]}")
+
     elif page == "partner_info":
         # ══════════════════════════════════════════════════════════════
         # ⚙️ 파트너 정보 페이지 (5/14 구현, Phase 5-4)
@@ -12229,197 +12434,12 @@ else:
                     st.subheader("🤝 파트너관리자(Agency) 관리")
                     st.caption("컨설팅 업체 또는 에이전시를 파트너관리자로 등록하고 담당 업체를 배정합니다.")
 
-                    # ══════════════════════════════════════════════
-                    # 신규 파트너 등록 (2026-05-18) — AI 자동채움 + 풀필드 + 결제·정산
-                    # ══════════════════════════════════════════════
-                    with st.expander("➕ 신규 파트너 등록 (AI 서류 자동채움 지원)", expanded=False):
-                        # ─── 📤 AI 서류 자동채움 (선택) ───
-                        st.markdown("###### 📤 서류 업로드로 자동 채움 (선택)")
-                        st.caption("사업자등록증·신분증·PDF·이미지 → Claude AI가 파트너 정보를 추출해 아래 폼을 자동 채웁니다.")
-                        _np_files = st.file_uploader(
-                            "서류 업로드 (여러 개 가능 · PDF·이미지)",
-                            accept_multiple_files=True,
-                            type=["pdf", "png", "jpg", "jpeg", "webp"],
-                            key="np_files",
-                        )
-                        # disabled 제거 — Streamlit 상태 문제 회피, 클릭 후 검증
-                        if st.button("🤖 AI로 자동 채움", key="np_parse_btn",
-                                     type="primary"):
-                            # session_state 직접 조회 (return value 신뢰성 보완)
-                            _files_to_parse = _np_files or st.session_state.get("np_files")
-                            if not _files_to_parse:
-                                st.warning("⚠️ 먼저 서류 파일을 업로드해주세요 (PDF·이미지).")
-                            else:
-                                with st.spinner("📄 서류 분석 중 (Claude vision)..."):
-                                    _parsed = _parse_partner_documents(_files_to_parse)
-                                if _parsed.get("error"):
-                                    st.error(f"파싱 실패: {_parsed['error']}")
-                                else:
-                                    _filled = []
-                                    for _k, _v in _parsed.items():
-                                        if _v not in (None, ""):
-                                            st.session_state[f"np_{_k}"] = str(_v)
-                                            _filled.append(_k)
-                                    st.success(f"✅ AI 자동 채움 완료 — 추출 필드: "
-                                               f"{', '.join(_filled) if _filled else '없음'}")
-                                    if _filled:
-                                        st.rerun()
-
-                        st.divider()
-                        st.markdown("###### 📋 파트너 정보 (자동채움 결과 확인·수정 후 등록)")
-
-                        with st.form(key="new_partner_form", clear_on_submit=False):
-                            np1, np2 = st.columns(2)
-                            with np1:
-                                np_name = st.text_input("상호 *", key="np_name")
-                                np_biz = st.text_input("사업자등록번호", key="np_biz",
-                                                       placeholder="숫자만 또는 하이픈 포함")
-                                np_rep = st.text_input("대표이사", key="np_rep")
-                                np_phone = st.text_input("대표전화", key="np_phone")
-                                np_email = st.text_input("대표 이메일", key="np_email")
-                            with np2:
-                                np_addr = st.text_input("주소", key="np_addr")
-                                np_status = st.selectbox(
-                                    "파트너십 상태",
-                                    ["pilot", "active", "suspended"],
-                                    format_func=lambda x: {"pilot": "🟡 시범",
-                                                           "active": "🟢 정상",
-                                                           "suspended": "🔴 정지"}.get(x, x),
-                                    key="np_status",
-                                )
-                                np_an = st.text_input("담당자 이름", key="np_an")
-                                np_at = st.text_input("담당자 직책", key="np_at",
-                                                      placeholder="예: 영업팀장")
-                                np_ap = st.text_input("담당자 연락처", key="np_ap")
-
-                            st.markdown("###### 파트너 유형 (복수 선택)")
-                            tc1, tc2, tc3 = st.columns(3)
-                            np_is_dist = tc1.checkbox("총판", key="np_is_dist")
-                            np_is_res = tc2.checkbox("대리점", key="np_is_res")
-                            np_is_ro = tc3.checkbox("유관기관", key="np_is_ro")
-
-                            # 상위 총판 (대리점인 경우)
-                            np_parent = None
-                            _distributors_np = [p for p in (get_all_agencies() or [])
-                                                if p.get("is_distributor")]
-                            if _distributors_np:
-                                _dopts_np = {"(없음 / 독립)": None}
-                                for _d in _distributors_np:
-                                    _dopts_np[_d["name"]] = _d["id"]
-                                np_parent = _dopts_np[st.selectbox(
-                                    "상위 총판 (대리점인 경우 선택)",
-                                    list(_dopts_np.keys()), key="np_parent")]
-
-                            st.markdown("###### 💰 결제·정산 (※ DB 컬럼 추가 SQL 실행 후 저장됨)")
-                            fc1, fc2, fc3 = st.columns(3)
-                            np_bank = fc1.text_input("은행명", key="np_bank")
-                            np_account = fc2.text_input("계좌번호", key="np_account")
-                            np_holder = fc3.text_input("예금주", key="np_holder")
-                            ff1, ff2 = st.columns(2)
-                            np_sysfee = ff1.number_input(
-                                "드래곤아이즈 시스템 사용료 (월, 원)",
-                                min_value=0, value=0, step=10000, key="np_sysfee")
-                            np_outstanding = ff2.number_input(
-                                "초기 미수금 (원)", min_value=0, value=0,
-                                step=10000, key="np_outstanding",
-                                help="라이선스 발주대금 미입금 합계 (수동 초기치)")
-
-                            st.markdown("###### 👤 사용자 연결 (선택)")
-                            _all_link_users_np = supabase.table("users").select(
-                                "id,name,email,partner_id").is_("deleted_at", "null") \
-                                .order("name").execute().data or []
-                            _link_opts_np = {"(연결 안 함 — 나중에)": None}
-                            for _lu in _all_link_users_np:
-                                _busy = "  ⚠️ 이미 파트너 소속" if _lu.get("partner_id") else ""
-                                _link_opts_np[f'{_lu.get("name","?")} ({_lu.get("email","")}){_busy}'] = _lu["id"]
-                            np_link_uid = _link_opts_np[st.selectbox(
-                                "이 파트너의 admin으로 연결할 기존 사용자",
-                                list(_link_opts_np.keys()), key="np_link_user")]
-
-                            st.caption("⚠️ 결제·정산 필드는 `docs/sql/v16_fix02_partner_financial_columns.sql` "
-                                       "실행 후 저장됩니다. 등록 후 [파트너 정보] 페이지에서 모든 항목 수정 가능.")
-                            np_submit = st.form_submit_button(
-                                "✅ 신규 파트너 등록", type="primary",
-                                use_container_width=True)
-
-                            if np_submit:
-                                if not (np_name or "").strip():
-                                    st.error("⚠️ 상호는 필수 입력 항목입니다.")
-                                elif not (np_is_dist or np_is_res or np_is_ro):
-                                    st.error("⚠️ 파트너 유형을 최소 1개 선택해주세요.")
-                                else:
-                                    try:
-                                        _clean_biz = (np_biz or "").replace("-", "").strip() or None
-                                        _new_partner = {
-                                            "name": np_name.strip(),
-                                            "business_number": _clean_biz,
-                                            "representative_name": (np_rep or "").strip() or None,
-                                            "phone": (np_phone or "").strip() or None,
-                                            "email": (np_email or "").strip() or None,
-                                            "address": (np_addr or "").strip() or None,
-                                            "is_distributor": np_is_dist,
-                                            "is_reseller": np_is_res,
-                                            "is_related_org": np_is_ro,
-                                            "parent_partner_id": np_parent,
-                                            "partnership_status": np_status,
-                                            "admin_name": (np_an or "").strip() or None,
-                                            "admin_title": (np_at or "").strip() or None,
-                                            "admin_phone": (np_ap or "").strip() or None,
-                                        }
-                                        _fin_cols = {
-                                            "bank_name": (np_bank or "").strip() or None,
-                                            "account_number": (np_account or "").strip() or None,
-                                            "account_holder": (np_holder or "").strip() or None,
-                                            "system_fee_monthly": float(np_sysfee or 0),
-                                            "outstanding_balance": float(np_outstanding or 0),
-                                        }
-                                        _new_partner.update(_fin_cols)
-                                        try:
-                                            _ins = supabase.table("partners").insert(_new_partner).execute()
-                                        except Exception as _e_col:
-                                            # 결제 컬럼 미적용(v16_fix02 SQL 미실행) 등 → 기본정보만 재시도
-                                            _base_only = {k: v for k, v in _new_partner.items()
-                                                          if k not in _fin_cols}
-                                            _ins = supabase.table("partners").insert(_base_only).execute()
-                                            st.warning(
-                                                "⚠️ 결제·정산 컬럼 INSERT 실패 → 기본 정보만 저장됨. "
-                                                "`v16_fix02` SQL 적용 후 [파트너 정보]에서 다시 입력해주세요. "
-                                                f"({str(_e_col)[:80]})"
-                                            )
-                                        if not _ins.data:
-                                            st.error("❌ 파트너 등록 실패: 응답 데이터 없음")
-                                        else:
-                                            _new_pid = _ins.data[0]["id"]
-                                            _types_lbl = "·".join([n for n, b in [
-                                                ("총판", np_is_dist), ("대리점", np_is_res),
-                                                ("유관기관", np_is_ro)] if b])
-                                            st.success(f"✅ 파트너 등록 완료: **{np_name}** ({_types_lbl})")
-                                            if np_link_uid:
-                                                try:
-                                                    supabase.table("users").update({
-                                                        "partner_id": _new_pid,
-                                                        "role": "admin",
-                                                        "is_partner_primary": True,
-                                                    }).eq("id", np_link_uid).execute()
-                                                    st.success("✅ 사용자 연결 완료 (partner admin)")
-                                                except Exception as _e_link:
-                                                    st.warning(f"파트너 등록은 완료됐으나 사용자 연결 실패: {str(_e_link)[:80]}")
-                                            # 캐시·폼 입력값 초기화
-                                            try:
-                                                st.cache_data.clear()
-                                            except Exception:
-                                                pass
-                                            for _k in list(st.session_state.keys()):
-                                                if _k.startswith("np_") and _k != "np_files":
-                                                    try:
-                                                        del st.session_state[_k]
-                                                    except Exception:
-                                                        pass
-                                            import time as _t_np
-                                            _t_np.sleep(2)
-                                            st.rerun()
-                                    except Exception as _e_np:
-                                        st.error(f"❌ 등록 실패: {str(_e_np)[:200]}")
+                    # 신규 파트너 등록 — 전용 페이지로 분리 (2026-05-27)
+                    #   admin st.tabs 안에서 파일 업로드 시 탭/스크롤 리셋 문제 회피
+                    if st.button("➕ 신규 파트너 등록 (AI 서류 자동채움 지원)",
+                                 type="primary", key="goto_partner_register",
+                                 use_container_width=True):
+                        go_to("partner_register"); st.rerun()
 
                     # 파트너관리자 목록
                     all_agencies = get_all_agencies()
