@@ -7767,8 +7767,20 @@ else:
                     _new_phone = st.text_input("연락처", key="new_phone")
                     _new_gname = st.text_input("보호자 성명", key="new_gname")
                     _new_gphone = st.text_input("보호자 연락처", key="new_gphone")
-                    _new_org = st.text_input("소속 단체/기관 (선택)", key="new_org",
-                                             help="추후 related_organizations 매핑 예정")
+                    # 소속 자동 결정 안내 — partner_id/agency_id가 등록자 기준 자동 지정됨
+                    # (기존 '소속 단체/기관' 텍스트 입력은 저장 안 되는 placeholder라 제거, 2026-05-27)
+                    if _is_hq_admin:
+                        st.info("🏢 **본부 자동 지정** — 등록되는 사용자는 드래곤아이즈 본부 소속(partner_id·agency_id·tenant_id 모두 NULL)으로 저장됩니다.")
+                    elif _agency_id:
+                        _ag_name_um = ""
+                        try:
+                            _ag_r_um = supabase.table("partners").select("name").eq(
+                                "id", _agency_id).execute().data or []
+                            if _ag_r_um:
+                                _ag_name_um = _ag_r_um[0].get("name", "")
+                        except Exception:
+                            pass
+                        st.info(f"🤝 **{_ag_name_um or '소속 파트너'}** 자동 지정 — 등록되는 사용자는 이 파트너 소속으로 저장됩니다.")
 
                     # 본부 admin 전용: Auth 계정 동시 생성 옵션 (2026-05-27)
                     _new_create_auth = False
