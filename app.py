@@ -8831,6 +8831,123 @@ else:
                         st.error(f"저장 오류: {str(e)[:150]}")
         
         st.divider()
+
+        # ─── 👤 이 파트너의 admin 사용자 관리 (2026-05-27) ───
+        st.markdown("##### 👤 이 파트너의 admin 사용자")
+        try:
+            _pi_admins = supabase.table("users").select(
+                "id,name,email,role,is_partner_primary,status"
+            ).eq("partner_id", target_partner_id).eq("role", "admin") \
+                .is_("deleted_at", "null").order("name").execute().data or []
+        except Exception:
+            _pi_admins = []
+
+        if _pi_admins:
+            for _a in _pi_admins:
+                _pri = "⭐ 대표" if _a.get("is_partner_primary") else ""
+                _st = "🟢 활성" if (_a.get("status") or "active") == "active" else "🔴 비활성"
+                st.caption(f"• **{_a.get('name','?')}** ({_a.get('email','')}) — {_pri} {_st}")
+        else:
+            st.caption("📭 이 파트너에 연결된 admin 사용자가 없습니다.")
+
+        with st.form(key=f"pi_admin_form_{target_partner_id}", clear_on_submit=True):
+            _pi_admin_mode = st.radio(
+                "추가 방식",
+                ["🔗 기존 사용자 연결",
+                 "🆕 신규 admin 사용자 생성 (Supabase Auth 포함)"],
+                key=f"pi_admin_mode_{target_partner_id}",
+                label_visibility="collapsed",
+            )
+
+            # 🔗 기존 사용자 selectbox (항상 렌더, '기존 연결' 모드에서만 사용)
+            _pi_all_users = supabase.table("users").select(
+                "id,name,email,partner_id").is_("deleted_at", "null") \
+                .order("name").execute().data or []
+            _pi_link_opts = {"(선택)": None}
+            for _u_lu in _pi_all_users:
+                _busy = ("  ⚠️ 이미 다른 파트너 소속"
+                         if (_u_lu.get("partner_id")
+                             and _u_lu.get("partner_id") != target_partner_id) else "")
+                _pi_link_opts[f'{_u_lu.get("name","?")} ({_u_lu.get("email","")}){_busy}'] = _u_lu["id"]
+            _pi_link_uid = _pi_link_opts[st.selectbox(
+                "🔗 기존 사용자 (위 옵션 '기존 사용자 연결' 선택 시 사용)",
+                list(_pi_link_opts.keys()),
+                key=f"pi_link_user_{target_partner_id}")]
+
+            # 🆕 신규 admin 입력 (항상 렌더, '신규 생성' 모드에서만 사용)
+            st.caption("🆕 아래 입력은 '신규 admin 사용자 생성' 모드일 때 사용됩니다.")
+            _pic1, _pic2 = st.columns(2)
+            with _pic1:
+                _pi_new_email = st.text_input(
+                    "이메일", key=f"pi_new_admin_email_{target_partner_id}",
+                    placeholder="user@company.com")
+                _pi_new_name = st.text_input(
+                    "이름", key=f"pi_new_admin_name_{target_partner_id}")
+            with _pic2:
+                _pi_new_phone = st.text_input(
+                    "연락처", key=f"pi_new_admin_phone_{target_partner_id}",
+                    placeholder="010-0000-0000")
+                _pi_new_pw = st.text_input(
+                    "임시 비밀번호 (비우면 자동 생성)",
+                    type="password", key=f"pi_new_admin_pw_{target_partner_id}")
+
+            _pi_admin_submit = st.form_submit_button(
+                "👤 admin 사용자 추가", type="primary", use_container_width=True)
+
+            if _pi_admin_submit:
+                _is_first_admin = (len(_pi_admins) == 0)
+                if _pi_admin_mode.startswith("🔗"):
+                    if not _pi_link_uid:
+                        st.warning("⚠️ 연결할 기존 사용자를 선택해주세요.")
+                    else:
+                        try:
+                            supabase.table("users").update({
+                                "partner_id": target_partner_id,
+                                "role": "admin",
+                                "is_partner_primary": _is_first_admin,
+                            }).eq("id", _pi_link_uid).execute()
+                            st.success("✅ 기존 사용자 연결 완료 (partner admin)")
+                            st.rerun()
+                        except Exception as _e_link2:
+                            st.error(f"❌ 사용자 연결 실패: {str(_e_link2)[:200]}")
+                else:  # 🆕 신규 생성
+                    _email = (_pi_new_email or "").strip()
+                    _name = (_pi_new_name or "").strip()
+                    if not _email or not _name:
+                        st.warning("⚠️ 신규 admin: 이메일·이름은 필수입니다.")
+                    else:
+                        import secrets as _sec2, string as _strm2
+                        _pwd = ((_pi_new_pw or "").strip()
+                                or "".join(_sec2.choice(_strm2.ascii_letters + _strm2.digits + "!@#$") for _ in range(14)))
+                        try:
+                            _auth_resp = supabase.auth.admin.create_user({
+                                "email": _email,
+                                "password": _pwd,
+                                "email_confirm": True,
+                                "user_metadata": {"name": _name},
+                            })
+                            _new_auth_uid = (_auth_resp.user.id
+                                             if getattr(_auth_resp, "user", None) else None)
+                            if not _new_auth_uid:
+                                st.error("❌ Auth 응답에 사용자 ID가 없음.")
+                            else:
+                                supabase.table("users").insert({
+                                    "id": _new_auth_uid,
+                                    "email": _email,
+                                    "name": _name,
+                                    "phone": (_pi_new_phone or "").strip() or None,
+                                    "role": "admin",
+                                    "partner_id": target_partner_id,
+                                    "is_partner_primary": _is_first_admin,
+                                    "status": "active",
+                                }).execute()
+                                st.success(f"✅ 신규 admin '{_name}' 생성 완료 (Auth + users)")
+                                st.info(f"🔑 임시 비밀번호: `{_pwd}` — 사용자에게 **안전한 채널**로 전달, 첫 로그인 후 변경 안내해주세요.")
+                        except Exception as _e_cr2:
+                            st.error(f"❌ Auth 사용자 생성 실패: {str(_e_cr2)[:200]}")
+                            st.caption("ℹ️ SUPABASE_KEY가 service_role 키가 아니면 admin.create_user 실패. .env 확인 또는 수동 절차로 진행.")
+
+        st.divider()
         if st.button("⬅️ 대시보드로 돌아가기", key="back_partner_info"):
             go_to("agency_dashboard"); st.rerun()
 
