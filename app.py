@@ -7742,9 +7742,26 @@ else:
 
                 if _reg_mode == "단일 등록":
                     st.markdown("##### 신규 사용자 등록")
-                    st.caption("라이선스 신청서 양식 ④번 항목과 동일")
-                    _new_role = st.selectbox("구분", ["user", "admin"],
+                    if _is_hq_admin:
+                        st.caption("본부 관리자 모드 — role_v2(중간관리자=director 등) + Auth 계정 동시 생성 가능")
+                    else:
+                        st.caption("라이선스 신청서 양식 ④번 항목과 동일")
+                    _new_role = st.selectbox("구분 (role)", ["user", "admin"],
                                              format_func=lambda x: _ROLE_LABEL.get(x, x), key="new_role")
+
+                    # 본부 admin 전용: role_v2 (직급) 선택 (2026-05-27)
+                    _new_role_v2 = None
+                    if _is_hq_admin:
+                        _rv2_opts = ["(기본 — role 그대로)", "user", "member", "admin",
+                                     "director", "director_2", "director_3", "director_4",
+                                     "group_leader", "group_leader_2", "group_leader_3", "group_leader_4",
+                                     "super_admin"]
+                        _rv2_pick = st.selectbox(
+                            "세부 직급 role_v2 — 본부 직급",
+                            _rv2_opts, index=0, key="new_role_v2",
+                            help="중간관리자(나에게 보고)는 'director' 선택")
+                        _new_role_v2 = None if _rv2_pick.startswith("(기본") else _rv2_pick
+
                     _new_name = st.text_input("이름 *", key="new_name")
                     _new_email = st.text_input("이메일 *", key="new_email")
                     _new_phone = st.text_input("연락처", key="new_phone")
@@ -7753,11 +7770,51 @@ else:
                     _new_org = st.text_input("소속 단체/기관 (선택)", key="new_org",
                                              help="추후 related_organizations 매핑 예정")
 
+                    # 본부 admin 전용: Auth 계정 동시 생성 옵션 (2026-05-27)
+                    _new_create_auth = False
+                    _new_temp_pw = ""
+                    if _is_hq_admin:
+                        _new_create_auth = st.checkbox(
+                            "🔑 Supabase Auth 계정도 함께 생성 (로그인 가능하게 — 권장)",
+                            value=True, key="new_create_auth")
+                        if _new_create_auth:
+                            _new_temp_pw = st.text_input(
+                                "임시 비밀번호 (비우면 자동 생성)",
+                                type="password", key="new_temp_pw")
+
                     if st.button("✅ 등록", type="primary", key="new_submit"):
                         if not _new_name or not _new_email:
                             st.error("이름과 이메일은 필수입니다.")
                         else:
                             try:
+                                # 본부 admin + Auth 생성 옵션 → Auth user 먼저
+                                _user_id_new = None
+                                _pwd_displayed = None
+                                if _new_create_auth and _is_hq_admin:
+                                    import secrets as _sec5, string as _strm5
+                                    _pwd_final = ((_new_temp_pw or "").strip()
+                                                  or "".join(_sec5.choice(_strm5.ascii_letters + _strm5.digits + "!@#$") for _ in range(14)))
+                                    if len(_pwd_final) < 6:
+                                        st.error("⚠️ 비밀번호는 최소 6자 이상이어야 합니다.")
+                                        st.stop()
+                                    try:
+                                        _auth_r = sb_admin().auth.admin.create_user({
+                                            "email": _new_email,
+                                            "password": _pwd_final,
+                                            "email_confirm": True,
+                                            "user_metadata": {"name": _new_name},
+                                        })
+                                        _user_id_new = (_auth_r.user.id
+                                                        if getattr(_auth_r, "user", None) else None)
+                                        if not _user_id_new:
+                                            st.error("❌ Auth 응답에 사용자 ID가 없음.")
+                                            st.stop()
+                                        _pwd_displayed = _pwd_final
+                                    except Exception as _e_auth:
+                                        st.error(f"❌ Auth 생성 실패: {str(_e_auth)[:200]}")
+                                        st.caption("ℹ️ SUPABASE_SERVICE_ROLE_KEY 누락 또는 이메일 중복 가능. .env 확인 또는 Dashboard 수동.")
+                                        st.stop()
+
                                 _payload = {
                                     "name": _new_name,
                                     "email": _new_email,
@@ -7769,9 +7826,18 @@ else:
                                     "agency_id": _agency_id,
                                     "partner_id": _agency_id,  # Phase 3 듀얼 라이트
                                 }
+                                if _user_id_new:
+                                    _payload["id"] = _user_id_new
+                                if _new_role_v2:
+                                    _payload["role_v2"] = _new_role_v2
+
                                 supabase.table("users").insert(_payload).execute()
-                                st.success(f"{_new_name} 등록 완료")
-                                st.rerun()
+                                st.success(f"✅ {_new_name} 등록 완료"
+                                           + (f" (직급: {_new_role_v2})" if _new_role_v2 else ""))
+                                if _pwd_displayed:
+                                    st.info(f"🔑 임시 비밀번호: `{_pwd_displayed}` — **안전한 채널**로 전달, 첫 로그인 후 변경 안내해주세요.")
+                                else:
+                                    st.rerun()
                             except Exception as _e:
                                 st.error(f"등록 실패: {_e}")
 
