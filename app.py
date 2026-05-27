@@ -3251,7 +3251,14 @@ def _parse_partner_documents(files):
             return {"error": "파일이 없습니다"}
         _blocks = []
         for _f in files:
+            # rerun 시 stream 위치 문제 방지
+            try:
+                _f.seek(0)
+            except Exception:
+                pass
             _bytes = _f.read()
+            if not _bytes:
+                continue
             _b64 = base64.standard_b64encode(_bytes).decode("utf-8")
             _mime = (_f.type or "").lower()
             if _mime == "application/pdf":
@@ -12235,22 +12242,28 @@ else:
                             type=["pdf", "png", "jpg", "jpeg", "webp"],
                             key="np_files",
                         )
-                        if st.button("🤖 AI로 자동 채움", disabled=(not _np_files),
-                                     key="np_parse_btn"):
-                            with st.spinner("📄 서류 분석 중 (Claude vision)..."):
-                                _parsed = _parse_partner_documents(_np_files)
-                            if _parsed.get("error"):
-                                st.error(f"파싱 실패: {_parsed['error']}")
+                        # disabled 제거 — Streamlit 상태 문제 회피, 클릭 후 검증
+                        if st.button("🤖 AI로 자동 채움", key="np_parse_btn",
+                                     type="primary"):
+                            # session_state 직접 조회 (return value 신뢰성 보완)
+                            _files_to_parse = _np_files or st.session_state.get("np_files")
+                            if not _files_to_parse:
+                                st.warning("⚠️ 먼저 서류 파일을 업로드해주세요 (PDF·이미지).")
                             else:
-                                _filled = []
-                                for _k, _v in _parsed.items():
-                                    if _v not in (None, ""):
-                                        st.session_state[f"np_{_k}"] = str(_v)
-                                        _filled.append(_k)
-                                st.success(f"✅ AI 자동 채움 완료 — 추출 필드: "
-                                           f"{', '.join(_filled) if _filled else '없음'}")
-                                if _filled:
-                                    st.rerun()
+                                with st.spinner("📄 서류 분석 중 (Claude vision)..."):
+                                    _parsed = _parse_partner_documents(_files_to_parse)
+                                if _parsed.get("error"):
+                                    st.error(f"파싱 실패: {_parsed['error']}")
+                                else:
+                                    _filled = []
+                                    for _k, _v in _parsed.items():
+                                        if _v not in (None, ""):
+                                            st.session_state[f"np_{_k}"] = str(_v)
+                                            _filled.append(_k)
+                                    st.success(f"✅ AI 자동 채움 완료 — 추출 필드: "
+                                               f"{', '.join(_filled) if _filled else '없음'}")
+                                    if _filled:
+                                        st.rerun()
 
                         st.divider()
                         st.markdown("###### 📋 파트너 정보 (자동채움 결과 확인·수정 후 등록)")
