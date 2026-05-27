@@ -8436,17 +8436,40 @@ else:
                 step=10000, key="np_outstanding",
                 help="라이선스 발주대금 미입금 합계 (수동 초기치)")
 
-            st.markdown("##### 👤 사용자 연결 (선택)")
+            st.markdown("##### 👤 파트너 admin 사용자 연결 (선택)")
+            _user_link_mode = st.radio(
+                "연결 방식",
+                ["📭 연결 안 함 — 나중에",
+                 "🔗 기존 사용자 연결",
+                 "🆕 신규 admin 사용자 생성 (Supabase Auth 포함)"],
+                key="np_user_link_mode",
+                label_visibility="collapsed",
+            )
+
+            # 🔗 기존 사용자 연결용 selectbox (모드 무관 항상 렌더 — 모드가 '기존'일 때만 사용됨)
             _all_link_users_np = supabase.table("users").select(
                 "id,name,email,partner_id").is_("deleted_at", "null") \
                 .order("name").execute().data or []
-            _link_opts_np = {"(연결 안 함 — 나중에)": None}
+            _link_opts_np = {"(선택)": None}
             for _lu in _all_link_users_np:
                 _busy = "  ⚠️ 이미 파트너 소속" if _lu.get("partner_id") else ""
                 _link_opts_np[f'{_lu.get("name","?")} ({_lu.get("email","")}){_busy}'] = _lu["id"]
             np_link_uid = _link_opts_np[st.selectbox(
-                "이 파트너의 admin으로 연결할 기존 사용자",
-                list(_link_opts_np.keys()), key="np_link_user")]
+                "🔗 기존 사용자 (위 옵션 '기존 사용자 연결' 선택 시 사용)",
+                list(_link_opts_np.keys()), key="np_link_user_sel")]
+
+            # 🆕 신규 admin 생성용 inputs (모드 무관 항상 렌더 — 모드가 '신규'일 때만 사용됨)
+            st.caption("🆕 아래 입력은 '신규 admin 사용자 생성' 모드일 때 사용됩니다.")
+            _nac1, _nac2 = st.columns(2)
+            with _nac1:
+                np_new_admin_email = st.text_input("이메일", key="np_new_admin_email",
+                                                    placeholder="user@company.com")
+                np_new_admin_name = st.text_input("이름", key="np_new_admin_name")
+            with _nac2:
+                np_new_admin_phone = st.text_input("연락처", key="np_new_admin_phone",
+                                                    placeholder="010-0000-0000")
+                np_new_admin_pw = st.text_input("임시 비밀번호 (비우면 자동 생성)",
+                                                 type="password", key="np_new_admin_pw")
 
             st.caption("⚠️ 결제·정산 필드는 v16_fix02 SQL 적용 후 저장됩니다. "
                        "등록 후 [파트너 정보]에서 모든 항목 수정 가능.")
@@ -8512,16 +8535,54 @@ else:
                                 ("총판", np_is_dist), ("대리점", np_is_res),
                                 ("유관기관", np_is_ro)] if b])
                             st.success(f"✅ 파트너 등록 완료: **{np_name}** ({_types_lbl})")
-                            if np_link_uid:
+                            # 사용자 연결 — 라디오 모드별 분기 (2026-05-27)
+                            _ulm = _user_link_mode or ""
+                            if _ulm.startswith("🔗") and np_link_uid:
                                 try:
                                     supabase.table("users").update({
                                         "partner_id": _new_pid,
                                         "role": "admin",
                                         "is_partner_primary": True,
                                     }).eq("id", np_link_uid).execute()
-                                    st.success("✅ 사용자 연결 완료 (partner admin)")
+                                    st.success("✅ 기존 사용자 연결 완료 (partner admin)")
                                 except Exception as _e_link:
                                     st.warning(f"파트너는 등록됐으나 사용자 연결 실패: {str(_e_link)[:80]}")
+                            elif _ulm.startswith("🆕"):
+                                _email_na = (np_new_admin_email or "").strip()
+                                _name_na = (np_new_admin_name or "").strip()
+                                if not _email_na or not _name_na:
+                                    st.warning("⚠️ 신규 admin: 이메일·이름은 필수입니다. 파트너만 등록되고 admin 사용자는 생성되지 않았습니다. 사용자 관리에서 별도 처리해주세요.")
+                                else:
+                                    import secrets as _sec, string as _strm
+                                    _pwd = ((np_new_admin_pw or "").strip()
+                                            or "".join(_sec.choice(_strm.ascii_letters + _strm.digits + "!@#$") for _ in range(14)))
+                                    try:
+                                        _auth_resp = supabase.auth.admin.create_user({
+                                            "email": _email_na,
+                                            "password": _pwd,
+                                            "email_confirm": True,
+                                            "user_metadata": {"name": _name_na},
+                                        })
+                                        _new_auth_uid = (_auth_resp.user.id
+                                                         if getattr(_auth_resp, "user", None) else None)
+                                        if not _new_auth_uid:
+                                            st.error("❌ Auth 응답에 사용자 ID가 없음. 사용자 생성 실패.")
+                                        else:
+                                            supabase.table("users").insert({
+                                                "id": _new_auth_uid,
+                                                "email": _email_na,
+                                                "name": _name_na,
+                                                "phone": (np_new_admin_phone or "").strip() or None,
+                                                "role": "admin",
+                                                "partner_id": _new_pid,
+                                                "is_partner_primary": True,
+                                                "status": "active",
+                                            }).execute()
+                                            st.success(f"✅ 신규 admin '{_name_na}' 생성 완료 (Auth + users)")
+                                            st.info(f"🔑 임시 비밀번호: `{_pwd}` — 사용자에게 **안전한 채널로 전달**, 첫 로그인 후 변경하도록 안내해주세요.")
+                                    except Exception as _e_create:
+                                        st.error(f"❌ Auth 사용자 생성 실패: {str(_e_create)[:200]}")
+                                        st.caption("ℹ️ SUPABASE_KEY가 service_role 키가 아니면 admin.create_user가 실패합니다. .env 확인 또는 수동 절차로 진행해주세요.")
                             try:
                                 st.cache_data.clear()
                             except Exception:
