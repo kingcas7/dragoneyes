@@ -8624,9 +8624,18 @@ else:
                 st.stop()
             
             pi_partner_options = {p["name"]: p["id"] for p in all_partners_pi}
+            # admin_tab10에서 사전 선택된 파트너가 있으면 기본값 (2026-05-27)
+            _preselected_pi_pid = st.session_state.pop("selected_partner_for_info", None)
+            _pi_default_index = 0
+            if _preselected_pi_pid:
+                _pi_id_to_name = {p["id"]: p["name"] for p in all_partners_pi}
+                _pi_pre_name = _pi_id_to_name.get(_preselected_pi_pid)
+                if _pi_pre_name and _pi_pre_name in pi_partner_options:
+                    _pi_default_index = list(pi_partner_options.keys()).index(_pi_pre_name)
             pi_selected_name = st.selectbox(
                 "🏢 파트너 선택 (본부 시스템관리자 전용)",
                 list(pi_partner_options.keys()),
+                index=_pi_default_index,
                 help="본부에서 모든 파트너 정보를 조회·수정할 수 있습니다."
             )
             target_partner_id = pi_partner_options[pi_selected_name]
@@ -12618,7 +12627,19 @@ else:
                                                  use_container_width=True):
                                         st.session_state["selected_partner_for_admins"] = agency["id"]
                                         go_to("partner_admins"); st.rerun()
-                                
+
+                                # ✏️ 파트너 정보 수정 (2026-05-27) — partner_info 페이지로 이동
+                                _pi_col1, _pi_col2 = st.columns([3, 1])
+                                with _pi_col1:
+                                    st.markdown("**✏️ 파트너 정보 수정**")
+                                    st.caption("회사정보·담당자·결제계좌·시스템 사용료·미수금 등 수정")
+                                with _pi_col2:
+                                    if st.button("정보 수정 →", key=f"goto_pi_t10_{agency['id']}",
+                                                 help=f"{agency['name']} 정보 수정 페이지로 이동",
+                                                 use_container_width=True):
+                                        st.session_state["selected_partner_for_info"] = agency["id"]
+                                        go_to("partner_info"); st.rerun()
+
                                 # 담당 업체 배정
                                 st.divider()
                                 st.markdown("**🏢 담당 업체 배정**")
