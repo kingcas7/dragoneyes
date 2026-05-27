@@ -8473,6 +8473,13 @@ else:
                             "is_reseller": np_is_res,
                             "is_related_org": np_is_ro,
                             "parent_partner_id": np_parent,
+                            # business_channel NOT NULL — 유형에서 자동 도출 (2026-05-27 fix)
+                            "business_channel": (
+                                "distributor" if np_is_dist
+                                else "reseller" if np_is_res
+                                else "related_org" if np_is_ro
+                                else "direct_partnership"
+                            ),
                             "partnership_status": np_status,
                             "admin_name": (np_an or "").strip() or None,
                             "admin_title": (np_at or "").strip() or None,
