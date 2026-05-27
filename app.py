@@ -22,6 +22,31 @@ load_dotenv()
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 youtube = build("youtube", "v3", developerKey=os.getenv("YOUTUBE_API_KEY"))
 supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
+
+# ─── 관리자 전용(service_role) 클라이언트 ─────────────────────────
+#  SUPABASE_KEY는 일반적으로 anon 키 — auth.admin.* 등 일부 엔드포인트는
+#  service_role 키가 필요하다. SUPABASE_SERVICE_ROLE_KEY가 .env에 있으면
+#  별도 클라이언트로 캐싱하고, 없으면 일반 supabase 폴백(실패 가능).
+_sb_admin_cached = None
+def sb_admin():
+    """관리자 작업 전용 Supabase 클라이언트 (auth.admin.create_user 등).
+
+    .env에 SUPABASE_SERVICE_ROLE_KEY가 설정돼 있으면 service_role 키로 만든
+    별도 클라이언트를 캐싱·반환. 없으면 anon 클라이언트 폴백 (admin 엔드포인트
+    호출 시 'requires a valid Bearer token' 에러 발생할 수 있음).
+    """
+    global _sb_admin_cached
+    if _sb_admin_cached is not None:
+        return _sb_admin_cached
+    _srk = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    if _srk:
+        try:
+            _sb_admin_cached = create_client(os.getenv("SUPABASE_URL"), _srk)
+        except Exception:
+            _sb_admin_cached = supabase
+    else:
+        _sb_admin_cached = supabase
+    return _sb_admin_cached
 # ════════════════════════════════════════════════════════════════════
 # Phase 3 마이그레이션 헬퍼 (5/10 추가)
 # 듀얼 리드: partner_id 우선, agency_id 폴백
@@ -8557,7 +8582,7 @@ else:
                                     _pwd = ((np_new_admin_pw or "").strip()
                                             or "".join(_sec.choice(_strm.ascii_letters + _strm.digits + "!@#$") for _ in range(14)))
                                     try:
-                                        _auth_resp = supabase.auth.admin.create_user({
+                                        _auth_resp = sb_admin().auth.admin.create_user({
                                             "email": _email_na,
                                             "password": _pwd,
                                             "email_confirm": True,
@@ -8920,7 +8945,7 @@ else:
                         _pwd = ((_pi_new_pw or "").strip()
                                 or "".join(_sec2.choice(_strm2.ascii_letters + _strm2.digits + "!@#$") for _ in range(14)))
                         try:
-                            _auth_resp = supabase.auth.admin.create_user({
+                            _auth_resp = sb_admin().auth.admin.create_user({
                                 "email": _email,
                                 "password": _pwd,
                                 "email_confirm": True,
