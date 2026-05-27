@@ -8871,7 +8871,45 @@ else:
             for _a in _pi_admins:
                 _pri = "⭐ 대표" if _a.get("is_partner_primary") else ""
                 _st = "🟢 활성" if (_a.get("status") or "active") == "active" else "🔴 비활성"
-                st.caption(f"• **{_a.get('name','?')}** ({_a.get('email','')}) — {_pri} {_st}")
+                _ac1, _ac2 = st.columns([5, 1])
+                with _ac1:
+                    st.caption(f"• **{_a.get('name','?')}** ({_a.get('email','')}) — {_pri} {_st}")
+                with _ac2:
+                    if st.button("🔑 비번 재설정", key=f"pwreset_{_a['id']}",
+                                 use_container_width=True):
+                        st.session_state[f"show_pwreset_{_a['id']}"] = True
+
+                # 비밀번호 재설정 패널 (버튼 누르면 표시)
+                if st.session_state.get(f"show_pwreset_{_a['id']}"):
+                    with st.container(border=True):
+                        st.markdown(f"🔑 **{_a.get('name','?')} 비밀번호 재설정**")
+                        _new_pw_in = st.text_input(
+                            "새 임시 비밀번호 (비우면 14자 자동 생성)",
+                            type="password", key=f"newpw_in_{_a['id']}")
+                        _bcol1, _bcol2 = st.columns(2)
+                        with _bcol1:
+                            if st.button("✅ 재설정 실행", key=f"do_pwreset_{_a['id']}",
+                                         type="primary", use_container_width=True):
+                                try:
+                                    import secrets as _sec3, string as _strm3
+                                    _pwd_new = ((_new_pw_in or "").strip()
+                                                or "".join(_sec3.choice(_strm3.ascii_letters + _strm3.digits + "!@#$") for _ in range(14)))
+                                    if len(_pwd_new) < 6:
+                                        st.error("⚠️ 비밀번호는 최소 6자 이상이어야 합니다.")
+                                    else:
+                                        sb_admin().auth.admin.update_user_by_id(
+                                            _a["id"], {"password": _pwd_new})
+                                        st.success(f"✅ {_a.get('name')} 비밀번호 재설정 완료")
+                                        st.info(f"🔑 새 임시 비밀번호: `{_pwd_new}` — **안전한 채널**로 전달, 첫 로그인 후 변경 안내")
+                                        st.session_state.pop(f"show_pwreset_{_a['id']}", None)
+                                except Exception as _e_pw:
+                                    st.error(f"❌ 재설정 실패: {str(_e_pw)[:200]}")
+                                    st.caption("ℹ️ SUPABASE_SERVICE_ROLE_KEY 누락 또는 키 문제 가능. .env 확인.")
+                        with _bcol2:
+                            if st.button("취소", key=f"cancel_pwreset_{_a['id']}",
+                                         use_container_width=True):
+                                st.session_state.pop(f"show_pwreset_{_a['id']}", None)
+                                st.rerun()
         else:
             st.caption("📭 이 파트너에 연결된 admin 사용자가 없습니다.")
 
