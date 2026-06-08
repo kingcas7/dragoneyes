@@ -665,6 +665,143 @@ def _a11y_render_floating_mic():
                 return true;
             };
 
+            // ══════════════════════════════════════════════════════════
+            // 🎬 모니터링 워크플로우 자동화
+            // ══════════════════════════════════════════════════════════
+            // "모니터링 시작" → 첫 번째 항목 자동 열기
+            // 시청 후 "보고서 작성" → 같은 항목 작성 폼 (현재 인덱스 인지)
+            // "보고서 제출" → 제출 + "다음 모니터링" 안내
+            // "다음 모니터링" → 다음 항목 열기 (인덱스 +1)
+            // "모니터링 종료" → 인덱스 리셋
+            w.__a11yMonitoringIdx = (typeof w.__a11yMonitoringIdx === 'number') ? w.__a11yMonitoringIdx : -1;
+
+            const _getMonitoringOpenButtons = function() {
+                // "▶ 열기", "분석", "보기" 등 모니터링 시작용 버튼
+                return Array.from(w.document.querySelectorAll('button, a'))
+                    .filter(b => {
+                        const t = (b.innerText || '').trim();
+                        if (!t || !b.offsetParent) return false;
+                        return (t.indexOf('열기') >= 0 || t.indexOf('분석') >= 0 ||
+                                t.indexOf('보기') >= 0 || t.toLowerCase().indexOf('open') >= 0)
+                               && t.length < 30;
+                    });
+            };
+
+            const _getReportWriteButtons = function() {
+                return Array.from(w.document.querySelectorAll('button, a'))
+                    .filter(b => {
+                        const t = (b.innerText || '').trim();
+                        return t && t.indexOf('작성') >= 0 && b.offsetParent !== null && t.length < 30;
+                    });
+            };
+
+            const _extractItemTitle = function(btn) {
+                try {
+                    let parent = btn.closest('[data-testid="stHorizontalBlock"]') ||
+                                 btn.closest('div[data-testid]') ||
+                                 btn.closest('div');
+                    if (!parent) return '';
+                    const fullText = (parent.innerText || '').replace(/\\s+/g, ' ').trim();
+                    return fullText.substring(0, 80);
+                } catch(_) { return ''; }
+            };
+
+            const _startMonitoring = function() {
+                const openBtns = _getMonitoringOpenButtons();
+                if (openBtns.length === 0) {
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak("이 페이지에 모니터링 가능한 항목이 없습니다. 탐색 히스토리 또는 드래곤아이즈 추천 페이지로 이동해주세요.");
+                    showDiag('<b>⚠️ 모니터링 항목 없음</b><br>현재 페이지에 열기/분석 버튼 없음', 6000);
+                    return true;
+                }
+                w.__a11yMonitoringIdx = 0;
+                const btn = openBtns[0];
+                const title = _extractItemTitle(btn);
+                if (w._dragoneyesSpeak) {
+                    w._dragoneyesSpeak("총 " + openBtns.length + "개 항목 중 첫 번째 모니터링을 시작합니다. " +
+                        (title ? title + ". " : "") +
+                        "시청 후 보고서 작성이라고 말씀하세요.");
+                }
+                showDiag('<b>🎬 모니터링 시작 — 1 / ' + openBtns.length + '</b><br>' +
+                    (title || '제목 추출 실패') +
+                    '<br><br><b>다음 명령:</b> 보고서 작성, 다음 모니터링, 모니터링 종료', 10000);
+                setTimeout(function() { try { btn.click(); } catch(_) {} }, 2000);
+                return true;
+            };
+
+            const _nextMonitoring = function() {
+                const openBtns = _getMonitoringOpenButtons();
+                const newIdx = (w.__a11yMonitoringIdx || 0) + 1;
+                if (openBtns.length === 0) {
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak("모니터링 가능한 항목이 없습니다.");
+                    return true;
+                }
+                if (newIdx >= openBtns.length) {
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak("모든 항목을 완료했습니다. 수고하셨습니다.");
+                    showDiag('<b>🎉 모든 모니터링 완료</b><br>' + openBtns.length + ' / ' + openBtns.length, 8000);
+                    w.__a11yMonitoringIdx = -1;
+                    return true;
+                }
+                w.__a11yMonitoringIdx = newIdx;
+                const btn = openBtns[newIdx];
+                const title = _extractItemTitle(btn);
+                if (w._dragoneyesSpeak) {
+                    w._dragoneyesSpeak((newIdx + 1) + "번째 항목 모니터링을 시작합니다. " + (title ? title : ""));
+                }
+                showDiag('<b>🎬 모니터링 ' + (newIdx + 1) + ' / ' + openBtns.length + '</b><br>' +
+                    (title || '제목 추출 실패'), 8000);
+                setTimeout(function() { try { btn.click(); } catch(_) {} }, 2000);
+                return true;
+            };
+
+            const _writeReportContextual = function() {
+                const writeBtns = _getReportWriteButtons();
+                const idx = w.__a11yMonitoringIdx;
+                let targetBtn = null;
+                let isContextual = false;
+                if (idx !== undefined && idx >= 0 && idx < writeBtns.length) {
+                    targetBtn = writeBtns[idx];
+                    isContextual = true;
+                } else if (writeBtns.length > 0) {
+                    targetBtn = writeBtns[0];
+                }
+                if (!targetBtn) {
+                    return clickAndSpeak(findVisibleButton(['보고서작성', '보고서폼', '작성']), '보고서 작성');
+                }
+                if (w._dragoneyesSpeak) {
+                    w._dragoneyesSpeak(
+                        isContextual
+                            ? (idx + 1) + "번째 항목 보고서 작성으로 이동합니다."
+                            : "보고서 작성을 시작합니다."
+                    );
+                }
+                showDiag('<b>📝 보고서 작성 ' + (isContextual ? '(' + (idx+1) + '번째 항목)' : '') + '</b>', 5000);
+                setTimeout(function() { try { targetBtn.click(); } catch(_) {} }, 1500);
+                return true;
+            };
+
+            const _submitReportWithNextHint = function() {
+                const submitBtn = findVisibleButton(['제출', 'submit', '저장']);
+                if (!submitBtn) {
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak("제출 버튼을 찾을 수 없습니다.");
+                    return true;
+                }
+                const idx = w.__a11yMonitoringIdx;
+                if (w._dragoneyesSpeak) {
+                    w._dragoneyesSpeak(
+                        "보고서를 제출합니다. " +
+                        (idx >= 0 ? (idx + 1) + "번째 항목 모니터링 1건이 완료되었습니다. " : "") +
+                        "다음 항목을 진행하려면, 다음 모니터링이라고 말씀하세요."
+                    );
+                }
+                showDiag('<b>✅ 보고서 제출</b><br>다음 명령: 다음 모니터링, 모니터링 종료', 8000);
+                setTimeout(function() { try { submitBtn.click(); } catch(_) {} }, 2500);
+                return true;
+            };
+
+            // 전역 노출 (디버깅·외부 호출용)
+            w._dragoneyesStartMonitoring = _startMonitoring;
+            w._dragoneyesNextMonitoring = _nextMonitoring;
+
             // ── 메뉴 매칭 — 확장 매핑 + 페이지 이동 + 워크플로우 ──
             const tryMatchCommand = function(cmd) {
                 const n = cmd.replace(/\\s+/g, '').toLowerCase();
@@ -741,6 +878,7 @@ def _a11y_render_floating_mic():
                         "메뉴 이동: 홈, 통계, 업무, 모니터링, 파트너, 관리자, 사용자, 보고서. " +
                         "분석 시작: 텍스트 분석, 유튜브 분석, 네이버 분석, 추천 리스트. " +
                         "추천 카테고리: 일반, 로블록스, 마인크래프트, 도박. " +
+                        "모니터링 워크플로우: 모니터링 시작, 다음 모니터링, 모니터링 종료. " +
                         "보고서: 보고서 작성, 보고서 제출, 보고서 목록. " +
                         "기타: 드래곤파더, 다음, 이전, 확인, 취소, 닫기, 새로고침, 중지.";
                     if (w._dragoneyesSpeak) w._dragoneyesSpeak(help);
@@ -784,12 +922,33 @@ def _a11y_render_floating_mic():
                     );
                 }
 
-                // ════════ 보고서 워크플로우 ════════
+                // ════════ 🎬 모니터링 워크플로우 자동화 ════════
+                // "모니터링 시작" / "시작" / "첫번째"
+                if (n.indexOf('모니터링시작') >= 0 ||
+                    (n.indexOf('모니터링') >= 0 && n.indexOf('시작') >= 0) ||
+                    n.indexOf('첫번째항목') >= 0 || n.indexOf('첫항목') >= 0) {
+                    return _startMonitoring();
+                }
+                // "다음 모니터링" / "다음 항목"
+                if (n.indexOf('다음모니터링') >= 0 || n.indexOf('다음항목') >= 0 ||
+                    (n.indexOf('다음') >= 0 && (n.indexOf('모니터링') >= 0 || n.indexOf('영상') >= 0))) {
+                    return _nextMonitoring();
+                }
+                // "모니터링 종료" / "모니터링 끝"
+                if (n.indexOf('모니터링종료') >= 0 || n.indexOf('모니터링끝') >= 0 ||
+                    n.indexOf('모니터링중단') >= 0) {
+                    w.__a11yMonitoringIdx = -1;
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak("모니터링 세션을 종료합니다.");
+                    showDiag('<b>🛑 모니터링 종료</b>', 4000);
+                    return true;
+                }
+
+                // ════════ 보고서 워크플로우 (컨텍스트 인식) ════════
                 if (n.indexOf('보고서제출') >= 0 || n.indexOf('제출') >= 0) {
-                    return clickAndSpeak(findVisibleButton(['제출', 'submit', '저장']), '보고서 제출');
+                    return _submitReportWithNextHint();
                 }
                 if (n.indexOf('보고서작성') >= 0 || (n.indexOf('보고서') >= 0 && n.indexOf('작성') >= 0)) {
-                    return clickAndSpeak(findVisibleButton(['보고서작성', '보고서폼', '작성']), '보고서 작성');
+                    return _writeReportContextual();
                 }
                 if (n.indexOf('보고서목록') >= 0 || (n.indexOf('보고서') >= 0 && n.indexOf('목록') >= 0)) {
                     return clickAndSpeak(findVisibleButton(['보고서목록', '보고서']), '보고서 목록');
