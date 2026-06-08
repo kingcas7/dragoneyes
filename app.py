@@ -125,49 +125,142 @@ def _a11y_aria_landmark(label):
 
 
 def _a11y_inject_shortcuts():
-    """Alt+A/M/H 키보드 단축키 + 부모 컨텍스트에 _dragoneyesSpeak 등록."""
+    """호버·포커스·단축키 통합 음성 안내 + 부모 컨텍스트에 _dragoneyesSpeak 등록.
+
+    - 마우스 호버 (0.5초 정지) → 항목 음성 안내
+    - Tab 포커스 → 항목 음성 안내 (즉시)
+    - Alt+숫자(1~9) → N번째 주요 버튼 클릭 + 음성
+    - Alt+A: 음성 토글로 이동
+    - Alt+M: 메인 콘텐츠로 이동
+    - Alt+H: 도움말 음성 안내 (전체 단축키 소개)
+    """
+    _voice_on = bool(st.session_state.get("voice_guide_enabled", False))
+    _voice_lang = str(st.session_state.get("voice_lang", "ko-KR"))
+    _voice_speed = float(st.session_state.get("voice_speed", 1.0))
+    js_on = _a11y_json.dumps(_voice_on)
+    js_lang = _a11y_json.dumps(_voice_lang)
     _a11y_components.html(
-        """
+        f"""
         <script>
-        (function() {
-            try {
+        (function() {{
+            try {{
                 const w = window.parent || window;
+                // ── 매 페이지 로드 시 ON/OFF·언어·속도 동기화 (listener는 1회 등록) ──
+                w.__a11yEnabled = {js_on};
+                w.__a11yLang = {js_lang};
+                w.__a11ySpeed = {_voice_speed};
+
                 if (w.__a11yShortcutsInstalled) return;
                 w.__a11yShortcutsInstalled = true;
-                // 부모 컨텍스트에 speak 함수 등록 (iframe sandbox 회피)
-                w._dragoneyesSpeak = function(text, lang, rate, interrupt) {
-                    try {
+
+                // ── 부모 컨텍스트에 speak 함수 등록 (iframe sandbox 회피) ──
+                w._dragoneyesSpeak = function(text, lang, rate, interrupt) {{
+                    try {{
                         if (!('speechSynthesis' in w)) return;
-                        if (interrupt !== false) { w.speechSynthesis.cancel(); }
+                        if (interrupt !== false) {{ w.speechSynthesis.cancel(); }}
                         const u = new w.SpeechSynthesisUtterance(text);
-                        u.lang = lang || 'ko-KR';
-                        u.rate = (typeof rate === 'number' && rate > 0) ? rate : 1.0;
+                        u.lang = lang || w.__a11yLang || 'ko-KR';
+                        u.rate = (typeof rate === 'number' && rate > 0) ? rate : (w.__a11ySpeed || 1.0);
                         u.pitch = 1.0; u.volume = 1.0;
                         w.speechSynthesis.speak(u);
-                    } catch (e) { console.error('DragonEyes TTS error:', e); }
-                };
-                w.document.addEventListener('keydown', function(e) {
+                    }} catch (e) {{ console.error('DragonEyes TTS error:', e); }}
+                }};
+
+                // ── 호버·포커스 공통: 텍스트 추출 + 디바운스 ──
+                let _hoverTimer = null;
+                let _lastText = null;
+                let _lastTextTime = 0;
+                const _extractText = (el) => {{
+                    if (!el) return '';
+                    let t = el.innerText || el.textContent || '';
+                    if (!t.trim()) t = el.getAttribute('aria-label') || el.getAttribute('placeholder') || el.getAttribute('title') || '';
+                    return t.trim().replace(/\\s+/g, ' ').substring(0, 120);
+                }};
+                const _speakIfNew = (text, debounceMs) => {{
+                    if (!text) return;
+                    if (text === _lastText && Date.now() - _lastTextTime < (debounceMs || 1500)) return;
+                    w._dragoneyesSpeak(text);
+                    _lastText = text;
+                    _lastTextTime = Date.now();
+                }};
+
+                // ── 호버 음성 안내 (0.5초 정지 후 발화) ──
+                w.document.addEventListener('mouseover', (e) => {{
+                    if (!w.__a11yEnabled) return;
+                    clearTimeout(_hoverTimer);
+                    const el = e.target.closest(
+                        'button, a, [role="button"], input, textarea, select, ' +
+                        'label[data-baseweb="checkbox"], [data-baseweb="select"], ' +
+                        '[data-testid*="stMetric"], [data-testid*="stTabs"] button'
+                    );
+                    if (!el) return;
+                    const text = _extractText(el);
+                    if (!text) return;
+                    _hoverTimer = setTimeout(() => _speakIfNew(text, 1500), 500);
+                }}, true);
+                w.document.addEventListener('mouseout', () => clearTimeout(_hoverTimer), true);
+
+                // ── 포커스 음성 안내 (Tab 이동 시 즉시) ──
+                w.document.addEventListener('focusin', (e) => {{
+                    if (!w.__a11yEnabled) return;
+                    const text = _extractText(e.target);
+                    if (text) _speakIfNew(text, 800);
+                }}, true);
+
+                // ── 키보드 단축키 ──
+                w.document.addEventListener('keydown', function(e) {{
                     if (!e.altKey) return;
                     const key = (e.key || '').toLowerCase();
-                    if (key === 'a') {
+
+                    if (key === 'a') {{
+                        // 음성 토글로 포커스 이동
                         const tg = w.document.querySelector('[aria-label*="음성"], [data-testid*="stToggle"]')
                             || w.document.querySelector('label[data-baseweb="checkbox"]');
-                        if (tg) {
-                            tg.scrollIntoView({block:'center', behavior:'smooth'});
+                        if (tg) {{
+                            tg.scrollIntoView({{block:'center', behavior:'smooth'}});
                             const f = tg.querySelector('input, button') || tg;
-                            try { f.focus(); } catch (_) {}
-                        }
+                            try {{ f.focus(); }} catch (_) {{}}
+                        }}
                         e.preventDefault();
-                    } else if (key === 'm') {
+                    }} else if (key === 'm') {{
+                        // 메인 콘텐츠로 이동
                         const main = w.document.querySelector('[role="main"], main, [data-testid="stMain"]');
-                        if (main) main.scrollIntoView({block:'start', behavior:'smooth'});
+                        if (main) main.scrollIntoView({{block:'start', behavior:'smooth'}});
                         e.preventDefault();
-                    } else if (key === 'h') {
+                    }} else if (key === 'h') {{
+                        // 도움말 음성 안내
+                        if (w.__a11yEnabled) {{
+                            w._dragoneyesSpeak(
+                                "도움말입니다. 단축키 안내. " +
+                                "Alt 더하기 A는 음성 토글로 이동. " +
+                                "Alt 더하기 M은 메인 콘텐츠로 이동. " +
+                                "Alt 더하기 숫자 1부터 9는 페이지 내 주요 메뉴 빠른 이동. " +
+                                "마우스를 메뉴에 0.5초 이상 올려놓으면 해당 메뉴를 읽어드립니다. " +
+                                "Tab 키로 항목을 순차 이동하실 수도 있습니다."
+                            );
+                        }}
                         e.preventDefault();
-                    }
-                }, true);
-            } catch (e) { console.error('DragonEyes shortcuts inject error:', e); }
-        })();
+                    }} else if (key >= '1' && key <= '9') {{
+                        // Alt+1~9: 페이지 내 N번째 주요 보이는 버튼 클릭 + 음성
+                        const idx = parseInt(key, 10) - 1;
+                        const allBtns = Array.from(w.document.querySelectorAll(
+                            'button:not([aria-hidden="true"]), a[href]'
+                        )).filter(b => {{
+                            const t = (b.innerText || '').trim();
+                            return t.length > 0 && t.length < 60 && b.offsetParent !== null;
+                        }});
+                        if (allBtns[idx]) {{
+                            const text = (allBtns[idx].innerText || '').trim().substring(0, 80);
+                            if (w.__a11yEnabled) {{
+                                w._dragoneyesSpeak("메뉴 " + (idx+1) + "번, " + text);
+                            }}
+                            setTimeout(() => {{ try {{ allBtns[idx].click(); }} catch (_) {{}} }}, 200);
+                            e.preventDefault();
+                        }}
+                    }}
+                }}, true);
+            }} catch (e) {{ console.error('DragonEyes shortcuts inject error:', e); }}
+        }})();
         </script>
         """,
         height=0,
