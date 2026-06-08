@@ -207,13 +207,24 @@ def _a11y_inject_shortcuts():
                     if (text) _speakIfNew(text, 800);
                 }}, true);
 
-                // ── 키보드 단축키 ──
+                // ── 키보드 단축키 (Mac/Windows 호환) ──
+                //   Mac에서 Option+A는 e.key가 'å'로 변환되므로 e.code 우선 사용.
+                //   e.code는 물리적 키 위치 기반이라 OS 무관.
                 w.document.addEventListener('keydown', function(e) {{
                     if (!e.altKey) return;
+                    const code = e.code || '';
                     const key = (e.key || '').toLowerCase();
+                    const isA = code === 'KeyA' || key === 'a' || key === 'å';
+                    const isM = code === 'KeyM' || key === 'm' || key === 'µ';
+                    const isH = code === 'KeyH' || key === 'h' || key === '˙';
+                    // Digit1~9 / Numpad1~9
+                    let digit = 0;
+                    if (code.startsWith('Digit')) digit = parseInt(code.slice(5), 10);
+                    else if (code.startsWith('Numpad')) digit = parseInt(code.slice(6), 10);
+                    else if (key >= '1' && key <= '9') digit = parseInt(key, 10);
 
-                    if (key === 'a') {{
-                        // 음성 토글로 포커스 이동
+                    if (isA) {{
+                        // Alt/Option+A: 음성 토글로 포커스 이동
                         const tg = w.document.querySelector('[aria-label*="음성"], [data-testid*="stToggle"]')
                             || w.document.querySelector('label[data-baseweb="checkbox"]');
                         if (tg) {{
@@ -222,27 +233,28 @@ def _a11y_inject_shortcuts():
                             try {{ f.focus(); }} catch (_) {{}}
                         }}
                         e.preventDefault();
-                    }} else if (key === 'm') {{
-                        // 메인 콘텐츠로 이동
+                    }} else if (isM) {{
+                        // Alt/Option+M: 메인 콘텐츠로 이동
                         const main = w.document.querySelector('[role="main"], main, [data-testid="stMain"]');
                         if (main) main.scrollIntoView({{block:'start', behavior:'smooth'}});
                         e.preventDefault();
-                    }} else if (key === 'h') {{
-                        // 도움말 음성 안내
+                    }} else if (isH) {{
+                        // Alt/Option+H: 도움말 음성 안내
                         if (w.__a11yEnabled) {{
+                            const altName = (navigator.platform.indexOf('Mac') >= 0) ? 'Option' : 'Alt';
                             w._dragoneyesSpeak(
                                 "도움말입니다. 단축키 안내. " +
-                                "Alt 더하기 A는 음성 토글로 이동. " +
-                                "Alt 더하기 M은 메인 콘텐츠로 이동. " +
-                                "Alt 더하기 숫자 1부터 9는 페이지 내 주요 메뉴 빠른 이동. " +
+                                altName + " 더하기 A는 음성 토글로 이동. " +
+                                altName + " 더하기 M은 메인 콘텐츠로 이동. " +
+                                altName + " 더하기 숫자 1부터 9는 페이지 내 주요 메뉴 빠른 이동. " +
                                 "마우스를 메뉴에 0.5초 이상 올려놓으면 해당 메뉴를 읽어드립니다. " +
                                 "Tab 키로 항목을 순차 이동하실 수도 있습니다."
                             );
                         }}
                         e.preventDefault();
-                    }} else if (key >= '1' && key <= '9') {{
-                        // Alt+1~9: 페이지 내 N번째 주요 보이는 버튼 클릭 + 음성
-                        const idx = parseInt(key, 10) - 1;
+                    }} else if (digit >= 1 && digit <= 9) {{
+                        // Alt/Option+1~9: N번째 주요 보이는 버튼 클릭 + 음성
+                        const idx = digit - 1;
                         const allBtns = Array.from(w.document.querySelectorAll(
                             'button:not([aria-hidden="true"]), a[href]'
                         )).filter(b => {{
@@ -252,7 +264,7 @@ def _a11y_inject_shortcuts():
                         if (allBtns[idx]) {{
                             const text = (allBtns[idx].innerText || '').trim().substring(0, 80);
                             if (w.__a11yEnabled) {{
-                                w._dragoneyesSpeak("메뉴 " + (idx+1) + "번, " + text);
+                                w._dragoneyesSpeak("메뉴 " + digit + "번, " + text);
                             }}
                             setTimeout(() => {{ try {{ allBtns[idx].click(); }} catch (_) {{}} }}, 200);
                             e.preventDefault();
