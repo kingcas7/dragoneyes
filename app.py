@@ -213,7 +213,36 @@ def _a11y_inject_shortcuts():
                 //   Mac: Control(⌃) + Shift + 키 / Windows: Ctrl + Shift + 키
                 //   listener를 window·document 다중 등록 → Streamlit 가로채기 회피
                 const _a11yKeyHandler = function(e) {{
-                    // Ctrl + Shift 조합만 처리 (Alt/Option 사용 안 함)
+                    // ── 마이크 토글 — 백틱(`) 단독 또는 Cmd+Shift+M / Ctrl+Shift+M ──
+                    //   입력 필드에 포커스 있으면 무시 (텍스트 입력 방해 X)
+                    const target = e.target;
+                    const isInput = target && (
+                        target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' ||
+                        target.isContentEditable || target.getAttribute('role') === 'textbox'
+                    );
+                    const codeAll = e.code || '';
+                    const keyAll = e.key || '';
+
+                    // 백틱(`) 단독 — 입력 필드 외에서만
+                    if (!isInput && !e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey &&
+                        (codeAll === 'Backquote' || keyAll === '`')) {{
+                        if (w._dragoneyesToggleListening) {{
+                            w._dragoneyesToggleListening();
+                            e.preventDefault();
+                        }}
+                        return;
+                    }}
+                    // Cmd+Shift+M (Mac) / Ctrl+Shift+M (Win) — 입력 필드에서도 작동
+                    if ((e.metaKey || e.ctrlKey) && e.shiftKey &&
+                        (codeAll === 'KeyM' || keyAll.toLowerCase() === 'm')) {{
+                        if (w._dragoneyesToggleListening) {{
+                            w._dragoneyesToggleListening();
+                            e.preventDefault();
+                        }}
+                        return;
+                    }}
+
+                    // Ctrl + Shift 조합 — 메뉴 단축키 (기존)
                     if (!e.ctrlKey || !e.shiftKey) return;
                     const code = e.code || '';
                     const key = (e.key || '').toLowerCase();
@@ -638,12 +667,13 @@ def _a11y_render_floating_mic():
                 // ════════ 도움말 / 메뉴 읽기 ════════
                 if (n.indexOf('도움') >= 0 || n.indexOf('도와') >= 0 || n.indexOf('사용법') >= 0) {
                     const help = "음성 명령 안내. " +
+                        "마이크 토글 단축키: 백틱 키 또는 Command Shift M. " +
                         "페이지 정보: 현재 페이지 설명, 다시 안내, 메뉴 읽어줘. " +
                         "메뉴 이동: 홈, 통계, 업무, 모니터링, 파트너, 관리자, 사용자, 보고서. " +
                         "분석 시작: 텍스트 분석, 유튜브 분석, 네이버 분석, 추천 리스트. " +
                         "추천 카테고리: 일반, 로블록스, 마인크래프트, 도박. " +
                         "보고서: 보고서 작성, 보고서 제출, 보고서 목록. " +
-                        "기타: 드래곤파더, 다음, 이전, 확인, 취소, 닫기, 새로고침.";
+                        "기타: 드래곤파더, 다음, 이전, 확인, 취소, 닫기, 새로고침, 중지.";
                     if (w._dragoneyesSpeak) w._dragoneyesSpeak(help);
                     showDiag('<b>❓ 도움말</b><br>음성 명령 안내 발화 중', 10000);
                     return true;
@@ -939,6 +969,36 @@ def _a11y_render_floating_mic():
                 showDiag('<b>🔁 연속 음성 모드 ' + status + '</b><br>' + (w._dragoneyesContinuousMode ? '명령 후 자동으로 다시 듣기' : '한 번 듣고 종료'), 5000);
             };
 
+            // ── 마이크 상태 추적 (토글용 글로벌) ──
+            w._dragoneyesRecogInstance = w._dragoneyesRecogInstance || null;
+            w._dragoneyesIsListening = w._dragoneyesIsListening || false;
+
+            const stopListening = function() {
+                try {
+                    if (w._dragoneyesRecogInstance) {
+                        w._dragoneyesRecogInstance.abort();
+                    }
+                } catch(_) {}
+                w._dragoneyesRecogInstance = null;
+                w._dragoneyesIsListening = false;
+                w._dragoneyesContinuousMode = false;  // 연속모드도 함께 종료
+                const tBtn = w.document.getElementById('a11y-mic-toggle');
+                if (tBtn) { tBtn.style.background = '#6b7280'; tBtn.innerHTML = '🔁 OFF'; }
+                const b = w.document.getElementById('a11y-mic-floating');
+                if (b) { b.style.background = '#dc2626'; b.style.animation = ''; }
+                if (w._dragoneyesSpeak) w._dragoneyesSpeak("음성 명령을 중지합니다.");
+                showDiag('<b>🛑 마이크 중지</b><br>다시 켜려면 백틱 키(`) 또는 마이크 버튼 클릭', 4000);
+            };
+
+            const toggleListening = function() {
+                if (w._dragoneyesIsListening) {
+                    stopListening();
+                } else {
+                    startListening();
+                }
+            };
+            w._dragoneyesToggleListening = toggleListening;
+
             // ── SpeechRecognition을 같은 함수 closure 안에 직접 정의 ──
             const startListening = function() {
                 try {
@@ -958,7 +1018,9 @@ def _a11y_render_floating_mic():
 
                     recog.onstart = function() {
                         console.log('[DragonEyes Voice] started');
-                        showDiag('<b style="color:#16a34a;">🎤 듣고 있어요...</b><br>지원 명령:<br>• "통계" / "홈" / "모니터링"<br>• "업무" / "파트너" / "관리자"<br>• "사용자" / "보고서" / "작성"<br>• "메뉴 읽어줘"');
+                        w._dragoneyesRecogInstance = recog;
+                        w._dragoneyesIsListening = true;
+                        showDiag('<b style="color:#16a34a;">🎤 듣고 있어요...</b><br>중지: 백틱 키(`) 또는 "중지" 발화<br>• "통계" / "홈" / "모니터링"<br>• "업무" / "파트너" / "관리자"<br>• "현재 페이지 설명"<br>• "메뉴 읽어줘"');
                         if (w._dragoneyesSpeak) {
                             w._dragoneyesSpeak("음성 명령을 말씀하세요.");
                         }
@@ -1024,13 +1086,15 @@ def _a11y_render_floating_mic():
 
                     recog.onend = function() {
                         console.log('[DragonEyes Voice] ended');
+                        w._dragoneyesRecogInstance = null;
+                        w._dragoneyesIsListening = false;
                         const b = w.document.getElementById('a11y-mic-floating');
                         if (b) { b.style.background = '#dc2626'; b.style.animation = ''; }
                         // 연속 모드면 2초 후 자동 재시작
                         if (w._dragoneyesContinuousMode) {
-                            showDiag('<b style="color:#0284c7;">🔁 연속 모드 — 2초 후 재시작</b><br>"중지" 또는 토글 OFF로 중단', 2000);
+                            showDiag('<b style="color:#0284c7;">🔁 연속 모드 — 2초 후 재시작</b><br>"중지" 또는 백틱 키(`)로 중단', 2000);
                             setTimeout(function() {
-                                if (w._dragoneyesContinuousMode) {
+                                if (w._dragoneyesContinuousMode && !w._dragoneyesIsListening) {
                                     try { startListening(); } catch (_) {}
                                 }
                             }, 2000);
@@ -1057,8 +1121,8 @@ def _a11y_render_floating_mic():
 
                 const btn = w.document.createElement('button');
                 btn.id = 'a11y-mic-floating';
-                btn.setAttribute('aria-label', '음성 명령 마이크. 클릭 후 말씀하세요.');
-                btn.setAttribute('title', '🎤 음성 명령 (클릭 후 말씀하세요)');
+                btn.setAttribute('aria-label', '음성 명령 마이크. 클릭 또는 백틱(`) 키로 토글.');
+                btn.setAttribute('title', '🎤 음성 명령 토글\\n클릭 / 백틱 키(`) / Cmd+Shift+M');
                 btn.innerHTML = '🎤';
                 btn.style.cssText =
                     'position:fixed !important;bottom:24px;right:24px;width:72px;height:72px;' +
