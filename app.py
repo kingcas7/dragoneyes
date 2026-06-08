@@ -210,10 +210,16 @@ def _a11y_inject_shortcuts():
                 // ── 키보드 단축키 (Mac/Windows 호환) ──
                 //   Mac에서 Option+A는 e.key가 'å'로 변환되므로 e.code 우선 사용.
                 //   e.code는 물리적 키 위치 기반이라 OS 무관.
-                w.document.addEventListener('keydown', function(e) {{
+                //   listener를 window·document 다중 등록 → Streamlit 가로채기 회피
+                const _a11yKeyHandler = function(e) {{
                     if (!e.altKey) return;
                     const code = e.code || '';
                     const key = (e.key || '').toLowerCase();
+                    // 디버그 로그 (콘솔 F12)
+                    console.log('[DragonEyes A11y] keydown', {{
+                        key: e.key, code: e.code, altKey: e.altKey,
+                        metaKey: e.metaKey, target: e.target?.tagName
+                    }});
                     const isA = code === 'KeyA' || key === 'a' || key === 'å';
                     const isM = code === 'KeyM' || key === 'm' || key === 'µ';
                     const isH = code === 'KeyH' || key === 'h' || key === '˙';
@@ -270,7 +276,15 @@ def _a11y_inject_shortcuts():
                             e.preventDefault();
                         }}
                     }}
-                }}, true);
+                }};
+                // listener 다중 등록 — Streamlit 가로채기 회피
+                //   capture phase + bubble phase 양쪽, window + document 양쪽
+                w.document.addEventListener('keydown', _a11yKeyHandler, true);
+                w.addEventListener('keydown', _a11yKeyHandler, true);
+                if (w.document.body) {{
+                    w.document.body.addEventListener('keydown', _a11yKeyHandler, true);
+                }}
+                console.log('[DragonEyes A11y] keydown listeners registered on window+document+body');
             }} catch (e) {{ console.error('DragonEyes shortcuts inject error:', e); }}
         }})();
         </script>
