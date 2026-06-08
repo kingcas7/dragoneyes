@@ -676,29 +676,37 @@ def _a11y_render_floating_mic():
             w.__a11yMonitoringIdx = (typeof w.__a11yMonitoringIdx === 'number') ? w.__a11yMonitoringIdx : -1;
 
             const _getMonitoringOpenButtons = function() {
-                // "▶ 열기", "분석", "보기" 등 모니터링 시작용 버튼
-                // Streamlit의 link button(stLinkButton)·button 모두 포함
+                // ⚠️ 정확한 텍스트 매칭만 — "유튜브 분석" 탭처럼 분석 들어간 다른 버튼 차단
+                // 우선순위:
+                // 1) "▶️ 열기" / "열기" / "Open" 단독 (히스토리 페이지의 모니터링 버튼)
+                // 2) "▶️ 보기" / "보기" / "View" (다른 페이지 폴백)
                 const sels = [
                     'button', 'a', '[role="button"]',
-                    '[data-testid*="stLinkButton"]', '[data-testid*="stButton"]',
-                    '[data-testid*="Link"]'
+                    '[data-testid*="stLinkButton"]', '[data-testid*="stButton"]'
                 ];
                 const all = w.document.querySelectorAll(sels.join(','));
-                const out = [];
+                const tier1 = [];
+                const tier2 = [];
                 const seenEl = new Set();
+                // ▶️(U+25B6 U+FE0F), ▶(U+25B6) 같은 emoji와 공백 모두 제거 후 비교
+                const _norm = function(s) {
+                    return (s || '').replace(/[▶️▷▸▹⏵\s]/g, '').toLowerCase();
+                };
                 for (let i = 0; i < all.length; i++) {
                     const b = all[i];
                     if (seenEl.has(b)) continue;
                     seenEl.add(b);
                     const t = (b.innerText || b.textContent || '').trim();
                     if (!t || !b.offsetParent) continue;
-                    if (t.length > 30) continue;
-                    if (t.indexOf('열기') >= 0 || t.indexOf('분석') >= 0 ||
-                        t.indexOf('보기') >= 0 || t.toLowerCase().indexOf('open') >= 0) {
-                        out.push(b);
+                    if (t.length > 20) continue;  // 짧은 라벨만
+                    const nt = _norm(t);
+                    if (nt === '열기' || nt === 'open' || nt === '재생' || nt === 'play') {
+                        tier1.push(b);
+                    } else if (nt === '보기' || nt === 'view') {
+                        tier2.push(b);
                     }
                 }
-                return out;
+                return tier1.length > 0 ? tier1 : tier2;
             };
 
             const _getReportWriteButtons = function() {
@@ -723,21 +731,22 @@ def _a11y_render_floating_mic():
             const _startMonitoring = function() {
                 const openBtns = _getMonitoringOpenButtons();
                 if (openBtns.length === 0) {
-                    if (w._dragoneyesSpeak) w._dragoneyesSpeak("이 페이지에 모니터링 가능한 항목이 없습니다. 탐색 히스토리 또는 드래곤아이즈 추천 페이지로 이동해주세요.");
-                    showDiag('<b>⚠️ 모니터링 항목 없음</b><br>현재 페이지에 열기/분석 버튼 없음', 6000);
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak("이 페이지에 열기 버튼이 없습니다. 탐색 히스토리 페이지로 먼저 이동해주세요.");
+                    showDiag('<b>⚠️ 열기 버튼 없음</b><br>현재 페이지에 "열기" 라벨 버튼이 없음.<br>탐색 히스토리 페이지로 이동 필요.', 8000);
                     return true;
                 }
                 w.__a11yMonitoringIdx = 0;
                 const btn = openBtns[0];
                 const title = _extractItemTitle(btn);
                 if (w._dragoneyesSpeak) {
-                    w._dragoneyesSpeak("총 " + openBtns.length + "개 항목 중 첫 번째 모니터링을 시작합니다. " +
-                        (title ? title + ". " : "") +
+                    w._dragoneyesSpeak("총 " + openBtns.length + "개 항목 중 첫 번째 동영상을 엽니다. " +
+                        (title ? title.substring(0, 60) + ". " : "") +
                         "시청 후 보고서 작성이라고 말씀하세요.");
                 }
-                showDiag('<b>🎬 모니터링 시작 — 1 / ' + openBtns.length + '</b><br>' +
-                    (title || '제목 추출 실패') +
-                    '<br><br><b>다음 명령:</b> 보고서 작성, 다음 모니터링, 모니터링 종료', 10000);
+                showDiag('<b>🎬 동영상 열기 — 1 / ' + openBtns.length + '</b><br>' +
+                    (title ? '<b>제목:</b> ' + title.substring(0, 80) : '제목 추출 실패') +
+                    '<br>버튼 텍스트: <code>' + (btn.innerText || '').trim() + '</code>' +
+                    '<br><br><b>다음 명령:</b> 보고서 작성, 다음 모니터링, 모니터링 종료', 12000);
                 setTimeout(function() { try { btn.click(); } catch(_) {} }, 2000);
                 return true;
             };
@@ -939,13 +948,15 @@ def _a11y_render_floating_mic():
                 // ════════ 🎬 모니터링 워크플로우 자동화 (우선순위 ↑) ════════
                 // ⚠️ 이 분기는 "모니터링" 단독 분기보다 반드시 앞에 있어야 함
 
-                // "동영상 열기" / "영상 열기" / "비디오 열기" → 첫 번째 열기 자동 클릭
-                // ⭐ 사용자 명시 요청: 탐색 히스토리·추천 리스트 페이지에서 사용
+                // "동영상 열기" / "동영상 시작" / "영상 재생" / "재생" 등
+                // ⭐ 모니터링 항목 첫 번째 자동 클릭
                 if (n.indexOf('동영상열기') >= 0 || n.indexOf('영상열기') >= 0 ||
                     n.indexOf('비디오열기') >= 0 ||
-                    (n.indexOf('동영상') >= 0 && n.indexOf('열기') >= 0) ||
-                    (n.indexOf('영상') >= 0 && n.indexOf('열기') >= 0) ||
-                    n.indexOf('첫번째열기') >= 0 || n === '열기') {
+                    n.indexOf('동영상시작') >= 0 || n.indexOf('영상시작') >= 0 ||
+                    n.indexOf('동영상재생') >= 0 || n.indexOf('영상재생') >= 0 ||
+                    (n.indexOf('동영상') >= 0 && (n.indexOf('열기') >= 0 || n.indexOf('시작') >= 0 || n.indexOf('재생') >= 0)) ||
+                    (n.indexOf('영상') >= 0 && (n.indexOf('열기') >= 0 || n.indexOf('시작') >= 0 || n.indexOf('재생') >= 0)) ||
+                    n.indexOf('첫번째열기') >= 0 || n === '열기' || n === '재생' || n === 'play') {
                     return _startMonitoring();
                 }
 
