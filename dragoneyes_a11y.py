@@ -186,13 +186,18 @@ def render_toolbar(
             help="시각장애인용 음성 안내. 켜기 직후 Alt+A로 토글 가능.",
         )
 
-    # 토글 변화 감지 — ON/OFF 양쪽 모두 음성 안내 + 즉시 rerun
+    # 토글 변화 감지 — ON/OFF 양쪽 모두 음성 안내 + 시각 토스트 + 즉시 rerun
     if enabled != prev_enabled:
         if enabled:
             # OFF → ON: state 변경 후 안내 발화
             st.session_state["voice_guide_enabled"] = True
             if supabase is not None and user_id:
                 save_to_user(supabase, user_id)
+            # 시각 피드백 — 화면 상단 토스트 (음성 안 들려도 시각으로 확인)
+            try:
+                st.toast("🔊 음성 안내가 켜졌습니다 (ON)", icon="✅")
+            except Exception:
+                pass
             announce("음성 서비스가 준비되었습니다.")
         else:
             # ON → OFF: 먼저 종료 안내 (아직 voice_guide_enabled=True 상태) →
@@ -201,6 +206,10 @@ def render_toolbar(
             st.session_state["voice_guide_enabled"] = False
             if supabase is not None and user_id:
                 save_to_user(supabase, user_id)
+            try:
+                st.toast("🔇 음성 안내가 꺼졌습니다 (OFF)", icon="🔕")
+            except Exception:
+                pass
         # 명시적 rerun — expander 라벨이 같은 rerun에 박혀 있어서
         # 토글 변경 직후 라벨 갱신을 보장하기 위함.
         # 자동 발화 iframe은 사라질 수 있지만 음성 테스트 버튼으로 보장 가능.
