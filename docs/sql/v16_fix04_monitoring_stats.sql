@@ -167,13 +167,13 @@ COMMENT ON TABLE public.batch_job_runs IS
 -- ON CONFLICT로 멱등 (같은 날짜 재실행해도 안전).
 
 CREATE OR REPLACE FUNCTION public.run_daily_monitoring_aggregation(p_date date)
-RETURNS TABLE (scope text, rows_inserted integer)
+RETURNS TABLE (scope_out text, rows_inserted integer)
 LANGUAGE plpgsql
 AS $$
 DECLARE
     v_run_id uuid;
     v_total_rows integer := 0;
-    v_scope_rows integer;
+    v_rows integer;
 BEGIN
     -- 배치 실행 시작 기록
     INSERT INTO public.batch_job_runs (job_name, target_date, status)
@@ -214,9 +214,9 @@ BEGIN
         by_platform_json  = EXCLUDED.by_platform_json,
         by_severity_json  = EXCLUDED.by_severity_json,
         aggregated_at     = now();
-    GET DIAGNOSTICS v_scope_rows = ROW_COUNT;
-    v_total_rows := v_total_rows + v_scope_rows;
-    scope := 'system'; rows_inserted := v_scope_rows; RETURN NEXT;
+    GET DIAGNOSTICS v_rows = ROW_COUNT;
+    v_total_rows := v_total_rows + v_rows;
+    scope_out := 'system'; rows_inserted := v_rows; RETURN NEXT;
 
     -- ── 2) partner 스코프 ──
     INSERT INTO public.monitoring_daily_stats (
@@ -238,9 +238,9 @@ BEGIN
         action_completed  = EXCLUDED.action_completed,
         action_pending    = EXCLUDED.action_pending,
         aggregated_at     = now();
-    GET DIAGNOSTICS v_scope_rows = ROW_COUNT;
-    v_total_rows := v_total_rows + v_scope_rows;
-    scope := 'partner'; rows_inserted := v_scope_rows; RETURN NEXT;
+    GET DIAGNOSTICS v_rows = ROW_COUNT;
+    v_total_rows := v_total_rows + v_rows;
+    scope_out := 'partner'; rows_inserted := v_rows; RETURN NEXT;
 
     -- ── 3) company 스코프 ──
     INSERT INTO public.monitoring_daily_stats (
@@ -262,9 +262,9 @@ BEGIN
         action_completed  = EXCLUDED.action_completed,
         action_pending    = EXCLUDED.action_pending,
         aggregated_at     = now();
-    GET DIAGNOSTICS v_scope_rows = ROW_COUNT;
-    v_total_rows := v_total_rows + v_scope_rows;
-    scope := 'company'; rows_inserted := v_scope_rows; RETURN NEXT;
+    GET DIAGNOSTICS v_rows = ROW_COUNT;
+    v_total_rows := v_total_rows + v_rows;
+    scope_out := 'company'; rows_inserted := v_rows; RETURN NEXT;
 
     -- ── 4) user 스코프 ──
     INSERT INTO public.monitoring_daily_stats (
@@ -286,9 +286,9 @@ BEGIN
         action_completed  = EXCLUDED.action_completed,
         action_pending    = EXCLUDED.action_pending,
         aggregated_at     = now();
-    GET DIAGNOSTICS v_scope_rows = ROW_COUNT;
-    v_total_rows := v_total_rows + v_scope_rows;
-    scope := 'user'; rows_inserted := v_scope_rows; RETURN NEXT;
+    GET DIAGNOSTICS v_rows = ROW_COUNT;
+    v_total_rows := v_total_rows + v_rows;
+    scope_out := 'user'; rows_inserted := v_rows; RETURN NEXT;
 
     -- 배치 실행 완료 기록
     UPDATE public.batch_job_runs
