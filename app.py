@@ -12,11 +12,13 @@ try:
     RESEND_AVAILABLE = True
 except ImportError:
     RESEND_AVAILABLE = False
+import accessibility  # 시각장애인 음성 안내 (Web Speech API + WCAG 2.1 AA)
 # v2026.03.15 — 보고서↔탐색URL 양방향 연결, YouTube 메타데이터 30일 보관 정책, 모바일 PWA 최적화
 # v2026.04.19 — 보안 패치: URL 토큰 노출 방지, 세션 복원 시 토큰 즉시 삭제
 # v2026.04.21 — 한국어 번역 62개 추가
 # v2026.04.24 — 로그인 페이지 배너 이미지 추가
 # v2026.04.26 — Resend 발신자 도메인 변경 (dragoneyes@dragoneyes.co.kr), 이메일 발송 에러 로깅 추가
+# v2026.06.08 — 시각장애인 접근성 — accessibility.py 모듈 + users.preferences JSONB
 load_dotenv()
 
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
@@ -93,6 +95,10 @@ def get_naver_keys():
 NAVER_CLIENT_ID, NAVER_CLIENT_SECRET = get_naver_keys()
 
 st.set_page_config(page_title="DragonEyes / 드래곤아이즈", page_icon="🐉", layout="wide")
+
+# ── 접근성: session_state 초기화 + 키보드 단축키 inject (1회) ──
+accessibility.init_state()
+accessibility.inject_shortcuts()
 
 # PWA 메타태그 (숨김 처리)
 st.markdown("""
@@ -3076,6 +3082,8 @@ def login(email, password):
                 st.session_state.access_token = result.session.access_token
                 st.session_state.refresh_token = result.session.refresh_token
                 st.session_state.report_count = get_month_count(_u["id"])
+                # 접근성: users.preferences → session_state (음성 안내 등 사용자 선호)
+                accessibility.load_from_user(_u)
                 # 🔐 sid (refresh_token) 을 URL에 저장 → 새로고침 시 세션 복원
                 # refresh_token은 access_token과 달리 권한이 제한적이라 URL 노출이 비교적 안전
                 st.query_params["sid"] = result.session.refresh_token
@@ -3946,6 +3954,21 @@ def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="
 # 로그인 화면 (v2026.05.05 - 70:30 리디자인 + 다국어 + 카카오 버튼)
 # ══════════════════════════════
 if st.session_state.user is None:
+    # ── ♿ 접근성: 음성 안내 토글 + 페이지 진입 안내 (시각장애인 지원) ──
+    #    로그인 전이라 user_id 없음 → DB 저장은 생략, session만 유지
+    with st.expander("♿ 접근성 옵션 (음성 안내)", expanded=False):
+        accessibility.render_toolbar(key_prefix="a11y_login", compact=True)
+    # 스크린리더용 invisible landmark (NVDA·JAWS·VoiceOver 자동 읽음)
+    accessibility.aria_landmark("드래곤아이즈 로그인 페이지")
+    # 음성 토글 ON 시 페이지 진입 안내 (세션당 1회)
+    if (st.session_state.get("voice_guide_enabled")
+            and not st.session_state.get("_login_announced")):
+        accessibility.announce(
+            "드래곤아이즈 로그인 페이지입니다. "
+            "이메일과 비밀번호를 입력한 후 로그인 버튼을 누르세요."
+        )
+        st.session_state["_login_announced"] = True
+
     # ── 로그인 페이지 전용 CSS ──
     st.markdown("""
     <style>
@@ -4414,10 +4437,14 @@ if st.session_state.user is None:
                 with st.spinner(t("analyzing")):
                     ok, msg = login(email, password)
                 if ok:
+                    # 접근성: 로그인 성공 음성 안내 (rerun 직전이므로 즉시 발화)
+                    accessibility.announce("로그인 성공. 메인 페이지로 이동합니다.")
                     st.rerun()
                 else:
+                    accessibility.announce(f"로그인 실패. {msg}")
                     st.error(msg)
             else:
+                accessibility.announce("이메일과 비밀번호를 모두 입력하세요.")
                 st.warning(t("login_warn"))
 
         # 카카오 로그인 버튼 (비활성, Coming Soon)
@@ -4441,17 +4468,26 @@ if st.session_state.user is None:
             _ko_label = "🇰🇷  한국어" if _curr_lang == "ko" else "한국어"
             if st.button(_ko_label, help="한국어로 보기", key="login_flag_ko", use_container_width=True,
                          type="primary" if _curr_lang == "ko" else "secondary"):
-                st.session_state.lang = "ko"; st.rerun()
+                st.session_state.lang = "ko"
+                st.session_state["voice_lang"] = "ko-KR"
+                accessibility.announce("한국어로 변경되었습니다.", lang="ko-KR")
+                st.rerun()
         with fc2:
             _en_label = "🇺🇸  English" if _curr_lang == "en" else "English"
             if st.button(_en_label, help="View in English", key="login_flag_en", use_container_width=True,
                          type="primary" if _curr_lang == "en" else "secondary"):
-                st.session_state.lang = "en"; st.rerun()
+                st.session_state.lang = "en"
+                st.session_state["voice_lang"] = "en-US"
+                accessibility.announce("Switched to English.", lang="en-US")
+                st.rerun()
         with fc3:
             _ja_label = "🇯🇵  日本語" if _curr_lang == "ja" else "日本語"
             if st.button(_ja_label, help="日本語で見る", key="login_flag_ja", use_container_width=True,
                          type="primary" if _curr_lang == "ja" else "secondary"):
-                st.session_state.lang = "ja"; st.rerun()
+                st.session_state.lang = "ja"
+                st.session_state["voice_lang"] = "ja-JP"
+                accessibility.announce("日本語に切り替えました。", lang="ja-JP")
+                st.rerun()
 
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -4471,6 +4507,18 @@ if st.session_state.user is None:
 # ══════════════════════════════
 else:
     user = st.session_state.user
+
+    # ── ♿ 접근성: 음성 안내 토글 (로그인 후, 모든 페이지 공통 진입점) ──
+    #    DB 자동 저장 (users.preferences) → 다음 로그인 시 자동 복원
+    _voice_on = st.session_state.get("voice_guide_enabled", False)
+    _exp_label = "♿ 음성 안내 (켜짐)" if _voice_on else "♿ 접근성 옵션 (음성 안내)"
+    with st.expander(_exp_label, expanded=False):
+        accessibility.render_toolbar(
+            supabase=supabase,
+            user_id=user.get("id") if user else None,
+            key_prefix="a11y_main",
+            compact=True,
+        )
 
     # ── 최종사용자 동의 체크 (미동의 시 강제 표시) ──
     if not check_user_terms(user) and st.session_state.get("current_page") not in ("terms_agree",):

@@ -1,0 +1,299 @@
+"""DragonEyes 시각장애인 접근성 모듈 (2026-06-08 신규)
+
+Web Speech API 기반 음성 안내 + 키보드 단축키 + 사용자 선호 저장.
+WCAG 2.1 AA · KWCAG 2.2 · ARIA 1.2 표준 지향.
+
+설계 출처: docs/v2.1_pending_additions.md §음성 안내 시스템
+설정 저장: users.preferences JSONB 컬럼
+    예: {"voice_guide_enabled": true, "voice_speed": 1.0, "voice_lang": "ko-KR"}
+
+핵심 원칙
+1. 기본값 OFF — 사용자가 직접 토글
+2. 분리 페이지 없음 — 같은 페이지에서 모드 활성화
+3. 자동 감지 없음 — 사용자 선택권 존중
+4. 모든 사용자에게 동일한 시스템 — 선택의 자유
+
+주요 함수
+- init_state()          — session_state 초기화 (idempotent)
+- announce(text)        — 즉시 음성 발화 (off면 no-op)
+- render_toolbar(...)   — 사이드 컨트롤 위젯 (토글·속도)
+- load_from_user(u)     — DB → session_state
+- save_to_user(sb, uid) — session_state → DB
+- inject_shortcuts()    — Alt+A/M/H 단축키 (1회 inject)
+"""
+
+from __future__ import annotations
+
+import json
+from typing import Any, Optional
+
+import streamlit as st
+import streamlit.components.v1 as components
+
+
+# ══════════════════════════════════════════════════════════════
+# 1. session_state 초기화
+# ══════════════════════════════════════════════════════════════
+def init_state() -> None:
+    """음성 안내 관련 session_state 키를 초기화. 멱등."""
+    st.session_state.setdefault("voice_guide_enabled", False)
+    st.session_state.setdefault("voice_speed", 1.0)
+    st.session_state.setdefault("voice_lang", "ko-KR")
+
+
+# ══════════════════════════════════════════════════════════════
+# 2. DB ↔ session_state 동기화
+# ══════════════════════════════════════════════════════════════
+def load_from_user(user_dict: Optional[dict]) -> None:
+    """로그인 직후 users.preferences → session_state.
+
+    Supabase JSONB 컬럼은 dict로 반환되지만, str 형태로 올 가능성도 방어.
+    """
+    init_state()
+    prefs: Any = (user_dict or {}).get("preferences") or {}
+    if isinstance(prefs, str):
+        try:
+            prefs = json.loads(prefs)
+        except Exception:
+            prefs = {}
+    if not isinstance(prefs, dict):
+        return
+    if "voice_guide_enabled" in prefs:
+        st.session_state["voice_guide_enabled"] = bool(prefs["voice_guide_enabled"])
+    if "voice_speed" in prefs:
+        try:
+            v = float(prefs["voice_speed"])
+            st.session_state["voice_speed"] = max(0.5, min(2.0, v))
+        except Exception:
+            pass
+    if "voice_lang" in prefs:
+        st.session_state["voice_lang"] = str(prefs["voice_lang"])
+
+
+def save_to_user(supabase, user_id) -> None:
+    """session_state → users.preferences (Supabase upsert).
+
+    preferences 컬럼이 없으면 무음 실패 (마이그레이션 미적용 환경 보호).
+    """
+    if not supabase or not user_id:
+        return
+    prefs = {
+        "voice_guide_enabled": bool(st.session_state.get("voice_guide_enabled", False)),
+        "voice_speed": float(st.session_state.get("voice_speed", 1.0)),
+        "voice_lang": str(st.session_state.get("voice_lang", "ko-KR")),
+    }
+    try:
+        # 기존 preferences가 있으면 merge가 안전하지만, 현재는 음성만 저장.
+        # 향후 항목 추가 시 select → merge → update 패턴으로 확장.
+        supabase.table("users").update({"preferences": prefs}).eq("id", user_id).execute()
+    except Exception:
+        # preferences 컬럼 없거나 권한 문제 — 조용히 패스 (UI엔 영향 없음)
+        pass
+
+
+# ══════════════════════════════════════════════════════════════
+# 3. TTS — 한 번 발화
+# ══════════════════════════════════════════════════════════════
+def announce(text: str, *, lang: Optional[str] = None, interrupt: bool = True) -> None:
+    """텍스트를 즉시 음성으로 발화. voice_guide_enabled=False면 no-op.
+
+    Args:
+        text: 발화할 텍스트 (빈 문자열은 무시).
+        lang: 언어 코드 (기본 session_state['voice_lang'] = 'ko-KR').
+        interrupt: True면 진행 중인 발화를 중단하고 새로 시작.
+
+    구현 메모:
+        Streamlit components.html은 매번 새 iframe을 만든다.
+        height=0으로 시각적 영향을 제거하고, SpeechSynthesisUtterance만 호출.
+        Web Speech API는 첫 발화에 사용자 제스처가 필요할 수 있음(브라우저 정책).
+        → 토글 ON 동작이 사용자 제스처 역할을 함.
+    """
+    if not text:
+        return
+    if not st.session_state.get("voice_guide_enabled"):
+        return
+    speed = float(st.session_state.get("voice_speed", 1.0))
+    lang = lang or st.session_state.get("voice_lang", "ko-KR")
+    js_text = json.dumps(str(text))
+    js_lang = json.dumps(str(lang))
+    js_interrupt = json.dumps(bool(interrupt))
+    components.html(
+        f"""
+        <script>
+        (function() {{
+            try {{
+                const w = window.parent || window;
+                if (!('speechSynthesis' in w)) return;
+                if ({js_interrupt}) {{
+                    w.speechSynthesis.cancel();
+                }}
+                const u = new w.SpeechSynthesisUtterance({js_text});
+                u.lang = {js_lang};
+                u.rate = {speed};
+                u.pitch = 1.0;
+                u.volume = 1.0;
+                w.speechSynthesis.speak(u);
+            }} catch (e) {{
+                console.error('DragonEyes TTS error:', e);
+            }}
+        }})();
+        </script>
+        """,
+        height=0,
+    )
+
+
+# ══════════════════════════════════════════════════════════════
+# 4. 사용자 토글 위젯
+# ══════════════════════════════════════════════════════════════
+def render_toolbar(
+    *,
+    supabase=None,
+    user_id=None,
+    key_prefix: str = "a11y",
+    compact: bool = False,
+) -> None:
+    """페이지 상단에 음성 안내 컨트롤 렌더링.
+
+    한 줄 구조: [🔊 음성 안내 토글] [속도 슬라이더] [단축키 안내]
+
+    토글·속도 변경 시 즉시 DB에 저장 (supabase + user_id 제공된 경우).
+
+    Args:
+        supabase: Supabase 클라이언트 (None이면 DB 저장 생략).
+        user_id: users.id (None이면 DB 저장 생략, session만 유지).
+        key_prefix: 위젯 key 충돌 방지용 prefix.
+        compact: True면 도움말 텍스트 생략.
+    """
+    init_state()
+    cols = st.columns([1.3, 1.8, 2.4] if not compact else [1.3, 1.8])
+    prev_enabled = bool(st.session_state.get("voice_guide_enabled", False))
+    prev_speed = float(st.session_state.get("voice_speed", 1.0))
+
+    with cols[0]:
+        enabled = st.toggle(
+            "🔊 음성 안내",
+            value=prev_enabled,
+            key=f"{key_prefix}_voice_toggle",
+            help="시각장애인용 음성 안내. 켜기 직후 Alt+A로 토글 가능.",
+        )
+
+    # 토글 변화 감지
+    if enabled != prev_enabled:
+        st.session_state["voice_guide_enabled"] = enabled
+        if supabase is not None and user_id:
+            save_to_user(supabase, user_id)
+        # 켜기 직후 안내 (사용자 제스처 직후라 첫 발화 차단 위험 낮음)
+        if enabled:
+            announce("음성 안내가 켜졌습니다. 음성 속도는 1배입니다.")
+
+    # 속도 슬라이더 (토글 ON일 때만 노출)
+    with cols[1]:
+        if st.session_state.get("voice_guide_enabled"):
+            speed = st.slider(
+                "음성 속도",
+                min_value=0.5, max_value=2.0,
+                value=prev_speed, step=0.1,
+                key=f"{key_prefix}_voice_speed",
+                help="0.5배(느림) ~ 2.0배(빠름)",
+            )
+            if abs(speed - prev_speed) > 1e-3:
+                st.session_state["voice_speed"] = speed
+                if supabase is not None and user_id:
+                    save_to_user(supabase, user_id)
+                announce(f"속도 {speed:.1f}배.")
+
+    # 단축키 안내
+    if not compact and len(cols) > 2:
+        with cols[2]:
+            if st.session_state.get("voice_guide_enabled"):
+                st.caption("⌨️ Alt+A: 토글로 이동 · Alt+M: 메뉴 · Alt+H: 도움말")
+
+
+# ══════════════════════════════════════════════════════════════
+# 5. 키보드 단축키 inject (한 번)
+# ══════════════════════════════════════════════════════════════
+def inject_shortcuts() -> None:
+    """Alt+A: 음성 토글로 스크롤·포커스, Alt+M: 메뉴, Alt+H: 도움말.
+
+    Streamlit iframe 격리 때문에 위젯 클릭 자동화는 한계가 있어,
+    Alt+A는 토글 위젯으로 포커스를 이동시켜 사용자가 Space로 켤 수 있게 함.
+
+    중복 inject 방지를 위해 window.__a11yShortcutsInstalled 플래그 사용.
+    """
+    components.html(
+        """
+        <script>
+        (function() {
+            try {
+                const w = window.parent || window;
+                if (w.__a11yShortcutsInstalled) return;
+                w.__a11yShortcutsInstalled = true;
+                w.document.addEventListener('keydown', function(e) {
+                    if (!e.altKey) return;
+                    const key = (e.key || '').toLowerCase();
+                    if (key === 'a') {
+                        // 첫 'voice' 관련 토글 또는 첫 토글로 이동
+                        const tg =
+                            w.document.querySelector('[aria-label*="음성"], [data-testid*="stToggle"]') ||
+                            w.document.querySelector('label[data-baseweb="checkbox"]');
+                        if (tg) {
+                            tg.scrollIntoView({block: 'center', behavior: 'smooth'});
+                            const focusable = tg.querySelector('input, button') || tg;
+                            try { focusable.focus(); } catch (_) {}
+                        }
+                        e.preventDefault();
+                    } else if (key === 'm') {
+                        const main = w.document.querySelector(
+                            '[role="main"], main, [data-testid="stHeader"], [data-testid="stMain"]'
+                        );
+                        if (main) {
+                            main.scrollIntoView({block: 'start', behavior: 'smooth'});
+                            try { main.focus && main.focus(); } catch (_) {}
+                        }
+                        e.preventDefault();
+                    } else if (key === 'h') {
+                        // 도움말 — 향후 도움말 페이지 라우팅
+                        const evt = new CustomEvent('dragoneyes:help-requested');
+                        w.dispatchEvent(evt);
+                        e.preventDefault();
+                    }
+                }, true);
+            } catch (e) {
+                console.error('DragonEyes shortcuts inject error:', e);
+            }
+        })();
+        </script>
+        """,
+        height=0,
+    )
+
+
+# ══════════════════════════════════════════════════════════════
+# 6. ARIA 보조 — 시각 요소에 보조 텍스트 부여
+# ══════════════════════════════════════════════════════════════
+def aria_landmark(label: str) -> None:
+    """페이지 진입 시 invisible aria-live 영역에 안내문구 inject.
+
+    스크린리더(NVDA·JAWS·VoiceOver)가 자동으로 읽도록.
+    음성 안내 토글과 무관하게 항상 동작 (스크린리더 표준).
+    """
+    if not label:
+        return
+    js_label = json.dumps(str(label))
+    components.html(
+        f"""
+        <div role="status" aria-live="polite" aria-atomic="true"
+             style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;">
+            <script>
+            (function() {{
+                try {{
+                    const el = document.currentScript.parentElement;
+                    el.textContent = {js_label};
+                }} catch (e) {{}}
+            }})();
+            </script>
+        </div>
+        """,
+        height=0,
+    )
