@@ -572,6 +572,49 @@ def _a11y_render_floating_mic():
                 const n = cmd.replace(/\\s+/g, '').toLowerCase();
                 console.log('[DragonEyes Voice] normalized:', n);
 
+                // ════════ 페이지 메뉴 다시 안내 ════════
+                if (n.indexOf('다시안내') >= 0 || n.indexOf('재안내') >= 0 ||
+                    n.indexOf('안내다시') >= 0 || n.indexOf('한번더') >= 0) {
+                    if (w._dragoneyesAnnouncePage) w._dragoneyesAnnouncePage();
+                    return true;
+                }
+
+                // ════════ 추천 카테고리 (Roblox / Minecraft / 도박 / 일반) ════════
+                if (n.indexOf('로블록스') >= 0 || n.indexOf('roblox') >= 0) {
+                    return clickAndSpeak(findVisibleButton(['roblox', '로블록스']), 'Roblox 추천');
+                }
+                if (n.indexOf('마인크래프트') >= 0 || n.indexOf('마인') >= 0 || n.indexOf('minecraft') >= 0) {
+                    return clickAndSpeak(findVisibleButton(['minecraft', '마인크래프트', '마인']), 'Minecraft 추천');
+                }
+                if (n.indexOf('도박') >= 0 || n.indexOf('gambling') >= 0) {
+                    return clickAndSpeak(findVisibleButton(['도박', 'gambling']), '도박 추천');
+                }
+                if (n.indexOf('일반추천') >= 0 || (n.indexOf('일반') >= 0 && n.indexOf('추천') >= 0)) {
+                    return clickAndSpeak(findVisibleButton(['일반추천', '일반']), '일반 추천');
+                }
+
+                // ════════ 드래곤파더 / 챗봇 ════════
+                if (n.indexOf('드래곤파더') >= 0 || n.indexOf('대화') >= 0 || n.indexOf('챗봇') >= 0 || n.indexOf('파더') >= 0) {
+                    return clickAndSpeak(
+                        findVisibleButton(['드래곤파더', '대화', '챗봇']),
+                        '드래곤파더 대화'
+                    );
+                }
+
+                // ════════ 기타 페이지들 ════════
+                if (n.indexOf('히스토리') >= 0 || n.indexOf('탐색이력') >= 0 || n.indexOf('history') >= 0) {
+                    return clickAndSpeak(findVisibleButton(['탐색히스토리', '히스토리', 'history']), '탐색 히스토리');
+                }
+                if ((n.indexOf('내성과') >= 0 || n.indexOf('성과') >= 0 || n.indexOf('my') >= 0) && n.indexOf('보고서') < 0) {
+                    return clickAndSpeak(findVisibleButton(['내성과', '성과', 'myresults']), '내 성과');
+                }
+                if (n.indexOf('공지사항') >= 0 || (n.indexOf('공지') >= 0 && n.indexOf('사항') >= 0)) {
+                    return clickAndSpeak(findVisibleButton(['공지사항', '공지']), '공지사항');
+                }
+                if (n.indexOf('조직관리') >= 0 || n.indexOf('조직') >= 0) {
+                    return clickAndSpeak(findVisibleButton(['조직관리', '조직']), '조직 관리');
+                }
+
                 // ════════ 연속 모드 제어 ════════
                 if (n.indexOf('중지') >= 0 || n.indexOf('정지') >= 0 || n.indexOf('그만') >= 0 || n.indexOf('stop') >= 0) {
                     w._dragoneyesContinuousMode = false;
@@ -700,6 +743,97 @@ def _a11y_render_floating_mic():
 
                 return false;
             };
+
+            // ══════════════════════════════════════════════════════════
+            // 페이지 진입 시 자동 메뉴 안내 — 사용자 워크플로우 핵심
+            // ══════════════════════════════════════════════════════════
+            //   1. 페이지 진입 (또는 큰 DOM 변경)
+            //   2. 자동으로 현재 페이지의 클릭 가능 메뉴 음성 안내
+            //   3. 사용자가 마이크 클릭 후 명령 발화
+            //   4. 명령 매칭 → 버튼 자동 클릭 → 다음 페이지
+            //   5. 반복
+            let _lastAnnouncedPageKey = '';
+
+            const _extractMenuText = function(el) {
+                let t = (el.innerText || el.textContent || '').trim();
+                t = t.replace(/[\\n\\r\\s]+/g, ' ').substring(0, 60);
+                return t;
+            };
+
+            const announcePageMenus = function(force) {
+                if (!w._dragoneyesSpeak || !w.__a11yEnabled) return;
+                const titleEl = w.document.querySelector('h1, h2, [data-testid="stMarkdownContainer"] h1, [data-testid="stMarkdownContainer"] h2');
+                const title = titleEl ? _extractMenuText(titleEl) : '';
+                // 큰 클릭 가능 요소만 (Streamlit 카드·버튼·링크)
+                const btns = Array.from(w.document.querySelectorAll(
+                    'button, a[href], [role="button"], [data-testid="stMetric"]'
+                )).filter(b => {
+                    const t = _extractMenuText(b);
+                    if (!t || t.length > 80) return false;
+                    if (!b.offsetParent) return false;
+                    // mic·toggle 버튼 자체는 안내 안 함
+                    if (b.id === 'a11y-mic-floating' || b.id === 'a11y-mic-toggle') return false;
+                    return true;
+                });
+                if (btns.length === 0) return;
+
+                // 같은 페이지 반복 안내 차단
+                const pageKey = title + '|' + btns.length + '|' + (btns[0] && _extractMenuText(btns[0]));
+                if (!force && pageKey === _lastAnnouncedPageKey) return;
+                _lastAnnouncedPageKey = pageKey;
+
+                // 메뉴 텍스트 수집 (중복 제거)
+                const seen = new Set();
+                const menus = [];
+                for (const b of btns) {
+                    const t = _extractMenuText(b);
+                    if (t && !seen.has(t)) { seen.add(t); menus.push(t); }
+                    if (menus.length >= 12) break;
+                }
+
+                let text = '';
+                if (title) text += title + " 페이지가 열렸습니다. ";
+                text += "사용 가능한 메뉴는 " + menus.join(", ") + " 입니다. ";
+                text += "마이크 버튼을 누르고 원하는 메뉴 이름을 말씀하세요.";
+                w._dragoneyesSpeak(text.substring(0, 2500));
+                showDiag('<b>📢 페이지 메뉴 안내 중</b><br>' + menus.length + '개 메뉴<br>' +
+                    menus.slice(0,6).map((m,i) => (i+1)+'. '+m).join('<br>') +
+                    (menus.length > 6 ? '<br>... 외 ' + (menus.length-6) + '개' : ''), 8000);
+            };
+
+            // 디바운싱 (큰 DOM 변화 → 1.5초 후 안내)
+            let _announceTimer = null;
+            const _debounceAnnounce = function() {
+                clearTimeout(_announceTimer);
+                _announceTimer = setTimeout(function() { announcePageMenus(false); }, 1500);
+            };
+
+            // 글로벌 등록 (음성 명령으로 다시 안내 요청용)
+            w._dragoneyesAnnouncePage = function() { announcePageMenus(true); };
+
+            // 페이지 변경 감지 — MutationObserver (큰 변경만)
+            try {
+                const _pageObserver = new w.MutationObserver(function(mutations) {
+                    let hasMajor = false;
+                    for (const m of mutations) {
+                        if (hasMajor) break;
+                        for (const node of m.addedNodes) {
+                            if (node.nodeType !== 1) continue;
+                            const tag = node.tagName;
+                            if (tag === 'BUTTON' || tag === 'A' || tag === 'H1' || tag === 'H2' || tag === 'H3') {
+                                hasMajor = true; break;
+                            }
+                            if (node.querySelector && node.querySelector('button, a[href], h1, h2, h3')) {
+                                hasMajor = true; break;
+                            }
+                        }
+                    }
+                    if (hasMajor) _debounceAnnounce();
+                });
+                _pageObserver.observe(w.document.body, { childList: true, subtree: true });
+                // 초기 진입 안내
+                setTimeout(function() { announcePageMenus(false); }, 1500);
+            } catch (e) { console.warn('[A11y] page observer:', e); }
 
             // ── 연속 음성 모드 toggle ──
             w._dragoneyesContinuousMode = w._dragoneyesContinuousMode || false;
