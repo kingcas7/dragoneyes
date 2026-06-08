@@ -207,22 +207,25 @@ def _a11y_inject_shortcuts():
                     if (text) _speakIfNew(text, 800);
                 }}, true);
 
-                // ── 키보드 단축키 (Mac/Windows 호환) ──
-                //   Mac에서 Option+A는 e.key가 'å'로 변환되므로 e.code 우선 사용.
-                //   e.code는 물리적 키 위치 기반이라 OS 무관.
+                // ── 키보드 단축키 — Ctrl+Shift 조합 (Mac/Windows 호환) ──
+                //   Mac의 Option 키가 환경에 따라 안 먹히는 사례 발견.
+                //   Ctrl+Shift 조합은 양쪽 OS에서 안전 (Chrome 기본 단축키와 충돌 없음).
+                //   Mac: Control(⌃) + Shift + 키 / Windows: Ctrl + Shift + 키
                 //   listener를 window·document 다중 등록 → Streamlit 가로채기 회피
                 const _a11yKeyHandler = function(e) {{
-                    if (!e.altKey) return;
+                    // Ctrl + Shift 조합만 처리 (Alt/Option 사용 안 함)
+                    if (!e.ctrlKey || !e.shiftKey) return;
                     const code = e.code || '';
                     const key = (e.key || '').toLowerCase();
                     // 디버그 로그 (콘솔 F12)
-                    console.log('[DragonEyes A11y] keydown', {{
-                        key: e.key, code: e.code, altKey: e.altKey,
-                        metaKey: e.metaKey, target: e.target?.tagName
+                    console.log('[DragonEyes A11y] shortcut', {{
+                        key: e.key, code: e.code,
+                        ctrlKey: e.ctrlKey, shiftKey: e.shiftKey, altKey: e.altKey,
+                        target: e.target?.tagName
                     }});
-                    const isA = code === 'KeyA' || key === 'a' || key === 'å';
-                    const isM = code === 'KeyM' || key === 'm' || key === 'µ';
-                    const isH = code === 'KeyH' || key === 'h' || key === '˙';
+                    const isA = code === 'KeyA';
+                    const isM = code === 'KeyM';
+                    const isH = code === 'KeyH';
                     // Digit1~9 / Numpad1~9
                     let digit = 0;
                     if (code.startsWith('Digit')) digit = parseInt(code.slice(5), 10);
@@ -230,7 +233,7 @@ def _a11y_inject_shortcuts():
                     else if (key >= '1' && key <= '9') digit = parseInt(key, 10);
 
                     if (isA) {{
-                        // Alt/Option+A: 음성 토글로 포커스 이동
+                        // Ctrl+Shift+A: 음성 토글로 포커스 이동
                         const tg = w.document.querySelector('[aria-label*="음성"], [data-testid*="stToggle"]')
                             || w.document.querySelector('label[data-baseweb="checkbox"]');
                         if (tg) {{
@@ -240,26 +243,26 @@ def _a11y_inject_shortcuts():
                         }}
                         e.preventDefault();
                     }} else if (isM) {{
-                        // Alt/Option+M: 메인 콘텐츠로 이동
+                        // Ctrl+Shift+M: 메인 콘텐츠로 이동
                         const main = w.document.querySelector('[role="main"], main, [data-testid="stMain"]');
                         if (main) main.scrollIntoView({{block:'start', behavior:'smooth'}});
                         e.preventDefault();
                     }} else if (isH) {{
-                        // Alt/Option+H: 도움말 음성 안내
+                        // Ctrl+Shift+H: 도움말 음성 안내
                         if (w.__a11yEnabled) {{
-                            const altName = (navigator.platform.indexOf('Mac') >= 0) ? 'Option' : 'Alt';
+                            const ctrlName = (navigator.platform.indexOf('Mac') >= 0) ? 'Control' : 'Ctrl';
                             w._dragoneyesSpeak(
                                 "도움말입니다. 단축키 안내. " +
-                                altName + " 더하기 A는 음성 토글로 이동. " +
-                                altName + " 더하기 M은 메인 콘텐츠로 이동. " +
-                                altName + " 더하기 숫자 1부터 9는 페이지 내 주요 메뉴 빠른 이동. " +
+                                ctrlName + " 더하기 Shift 더하기 A는 음성 토글로 이동. " +
+                                ctrlName + " 더하기 Shift 더하기 M은 메인 콘텐츠로 이동. " +
+                                ctrlName + " 더하기 Shift 더하기 숫자 1부터 9는 페이지 내 주요 메뉴 빠른 이동. " +
                                 "마우스를 메뉴에 0.5초 이상 올려놓으면 해당 메뉴를 읽어드립니다. " +
                                 "Tab 키로 항목을 순차 이동하실 수도 있습니다."
                             );
                         }}
                         e.preventDefault();
                     }} else if (digit >= 1 && digit <= 9) {{
-                        // Alt/Option+1~9: N번째 주요 보이는 버튼 클릭 + 음성
+                        // Ctrl+Shift+1~9: N번째 주요 보이는 버튼 클릭 + 음성
                         const idx = digit - 1;
                         const allBtns = Array.from(w.document.querySelectorAll(
                             'button:not([aria-hidden="true"]), a[href]'
@@ -389,7 +392,7 @@ def _a11y_render_toolbar(*, supabase=None, user_id=None, key_prefix="a11y", comp
                     _a11y_save_to_user(supabase, user_id)
                 _a11y_announce(f"속도 {speed:.1f}배.")
         with sub_cols[1]:
-            st.caption("⌨️ Alt+A·M·H 단축키")
+            st.caption("⌨️ Ctrl+Shift + A·M·H·1~9")
 
         if st.button(
             "🔊 음성 테스트 (눌러서 발화)",
