@@ -12,29 +12,300 @@ try:
     RESEND_AVAILABLE = True
 except ImportError:
     RESEND_AVAILABLE = False
-# ── 시각장애인 음성 안내 (Web Speech API + WCAG 2.1 AA) ──
-# 모듈명 충돌 회피 위해 dragoneyes_a11y로 이름 변경 (2026-06-08 운영 hotfix).
-# import 실패 시(빌드 누락 등) stub으로 폴백하여 앱 자체는 살아남도록.
-import sys as _sys_a11y, os as _os_a11y
-_sys_a11y.path.insert(0, _os_a11y.path.dirname(_os_a11y.path.abspath(__file__)))
-_a11y_import_error = None
-try:
-    import dragoneyes_a11y as accessibility
-except Exception as _a11y_e:
-    _a11y_import_error = repr(_a11y_e)
-    class _A11yStub:
-        """모든 호출을 no-op으로 만드는 안전 stub. render_toolbar는 가시적 에러 표시."""
-        def render_toolbar(self, *args, **kwargs):
-            import streamlit as _stub_st
-            _stub_st.error(
-                f"⚠️ 접근성 모듈(dragoneyes_a11y) 로드 실패: {_a11y_import_error}. "
-                f"sys.path 또는 빌드 누락 가능성. Railway Deploy Logs 확인 필요."
+# ══════════════════════════════════════════════════════════════
+# 시각장애인 음성 안내 (Web Speech API + WCAG 2.1 AA) — INLINE 통합
+# ══════════════════════════════════════════════════════════════
+# 별도 파일(dragoneyes_a11y.py)은 Railway 빌드 캐시 이슈로 안 들어가서
+# app.py에 직접 inline 통합 (2026-06-08 운영 hotfix).
+import streamlit.components.v1 as _a11y_components
+import json as _a11y_json
+from types import SimpleNamespace as _A11ySimpleNamespace
+
+
+def _a11y_init_state():
+    """음성 안내 관련 session_state 키를 초기화. 멱등."""
+    st.session_state.setdefault("voice_guide_enabled", False)
+    st.session_state.setdefault("voice_speed", 1.0)
+    st.session_state.setdefault("voice_lang", "ko-KR")
+
+
+def _a11y_load_from_user(user_dict):
+    """로그인 직후 users.preferences → session_state."""
+    _a11y_init_state()
+    prefs = (user_dict or {}).get("preferences") or {}
+    if isinstance(prefs, str):
+        try:
+            prefs = _a11y_json.loads(prefs)
+        except Exception:
+            prefs = {}
+    if not isinstance(prefs, dict):
+        return
+    if "voice_guide_enabled" in prefs:
+        st.session_state["voice_guide_enabled"] = bool(prefs["voice_guide_enabled"])
+    if "voice_speed" in prefs:
+        try:
+            v = float(prefs["voice_speed"])
+            st.session_state["voice_speed"] = max(0.5, min(2.0, v))
+        except Exception:
+            pass
+    if "voice_lang" in prefs:
+        st.session_state["voice_lang"] = str(prefs["voice_lang"])
+
+
+def _a11y_save_to_user(supabase_cli, user_id):
+    """session_state → users.preferences (Supabase update). 컬럼 없으면 무음 실패."""
+    if not supabase_cli or not user_id:
+        return
+    prefs = {
+        "voice_guide_enabled": bool(st.session_state.get("voice_guide_enabled", False)),
+        "voice_speed": float(st.session_state.get("voice_speed", 1.0)),
+        "voice_lang": str(st.session_state.get("voice_lang", "ko-KR")),
+    }
+    try:
+        supabase_cli.table("users").update({"preferences": prefs}).eq("id", user_id).execute()
+    except Exception:
+        pass
+
+
+def _a11y_announce(text, *, lang=None, interrupt=True):
+    """텍스트를 즉시 음성으로 발화. voice_guide_enabled=False면 no-op."""
+    if not text:
+        return
+    if not st.session_state.get("voice_guide_enabled"):
+        return
+    speed = float(st.session_state.get("voice_speed", 1.0))
+    lang = lang or st.session_state.get("voice_lang", "ko-KR")
+    js_text = _a11y_json.dumps(str(text))
+    js_lang = _a11y_json.dumps(str(lang))
+    js_interrupt = _a11y_json.dumps(bool(interrupt))
+    _a11y_components.html(
+        f"""
+        <script>
+        (function() {{
+            try {{
+                const w = window.parent || window;
+                if (typeof w._dragoneyesSpeak === 'function') {{
+                    w._dragoneyesSpeak({js_text}, {js_lang}, {speed}, {js_interrupt});
+                    return;
+                }}
+                if (!('speechSynthesis' in w)) return;
+                if ({js_interrupt}) {{ w.speechSynthesis.cancel(); }}
+                const u = new w.SpeechSynthesisUtterance({js_text});
+                u.lang = {js_lang}; u.rate = {speed}; u.pitch = 1.0; u.volume = 1.0;
+                w.speechSynthesis.speak(u);
+            }} catch (e) {{ console.error('DragonEyes TTS error:', e); }}
+        }})();
+        </script>
+        """,
+        height=0,
+    )
+
+
+def _a11y_aria_landmark(label):
+    """페이지 진입 시 invisible aria-live 영역에 안내문구 inject (스크린리더)."""
+    if not label:
+        return
+    js_label = _a11y_json.dumps(str(label))
+    _a11y_components.html(
+        f"""
+        <div role="status" aria-live="polite" aria-atomic="true"
+             style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;">
+            <script>
+            (function() {{
+                try {{
+                    const el = document.currentScript.parentElement;
+                    el.textContent = {js_label};
+                }} catch (e) {{}}
+            }})();
+            </script>
+        </div>
+        """,
+        height=0,
+    )
+
+
+def _a11y_inject_shortcuts():
+    """Alt+A/M/H 키보드 단축키 + 부모 컨텍스트에 _dragoneyesSpeak 등록."""
+    _a11y_components.html(
+        """
+        <script>
+        (function() {
+            try {
+                const w = window.parent || window;
+                if (w.__a11yShortcutsInstalled) return;
+                w.__a11yShortcutsInstalled = true;
+                // 부모 컨텍스트에 speak 함수 등록 (iframe sandbox 회피)
+                w._dragoneyesSpeak = function(text, lang, rate, interrupt) {
+                    try {
+                        if (!('speechSynthesis' in w)) return;
+                        if (interrupt !== false) { w.speechSynthesis.cancel(); }
+                        const u = new w.SpeechSynthesisUtterance(text);
+                        u.lang = lang || 'ko-KR';
+                        u.rate = (typeof rate === 'number' && rate > 0) ? rate : 1.0;
+                        u.pitch = 1.0; u.volume = 1.0;
+                        w.speechSynthesis.speak(u);
+                    } catch (e) { console.error('DragonEyes TTS error:', e); }
+                };
+                w.document.addEventListener('keydown', function(e) {
+                    if (!e.altKey) return;
+                    const key = (e.key || '').toLowerCase();
+                    if (key === 'a') {
+                        const tg = w.document.querySelector('[aria-label*="음성"], [data-testid*="stToggle"]')
+                            || w.document.querySelector('label[data-baseweb="checkbox"]');
+                        if (tg) {
+                            tg.scrollIntoView({block:'center', behavior:'smooth'});
+                            const f = tg.querySelector('input, button') || tg;
+                            try { f.focus(); } catch (_) {}
+                        }
+                        e.preventDefault();
+                    } else if (key === 'm') {
+                        const main = w.document.querySelector('[role="main"], main, [data-testid="stMain"]');
+                        if (main) main.scrollIntoView({block:'start', behavior:'smooth'});
+                        e.preventDefault();
+                    } else if (key === 'h') {
+                        e.preventDefault();
+                    }
+                }, true);
+            } catch (e) { console.error('DragonEyes shortcuts inject error:', e); }
+        })();
+        </script>
+        """,
+        height=0,
+    )
+
+
+def _a11y_render_toolbar(*, supabase=None, user_id=None, key_prefix="a11y", compact=False):
+    """음성 안내 토글 + 상태 배지 + 속도/테스트 컨트롤 (한 줄)."""
+    st.caption(f"✅ a11y 모듈 활성 [INLINE v3 / {key_prefix}]")
+    _a11y_init_state()
+    prev_enabled = bool(st.session_state.get("voice_guide_enabled", False))
+    prev_speed = float(st.session_state.get("voice_speed", 1.0))
+
+    cols = st.columns([1, 2, 2.5])
+    with cols[0]:
+        st.markdown("**♿ 접근성**")
+    with cols[1]:
+        enabled = st.toggle(
+            "🔊 음성 안내", value=prev_enabled,
+            key=f"{key_prefix}_voice_toggle",
+            help="시각장애인용 음성 안내. 토글을 켜면 음성으로 안내합니다.",
+        )
+    with cols[2]:
+        if prev_enabled:
+            st.markdown(
+                '<div style="background:#dcfce7;color:#166534;padding:6px 12px;'
+                'border-radius:6px;font-weight:700;font-size:0.95rem;text-align:center;">'
+                '🔊 ON (켜짐) ✅</div>', unsafe_allow_html=True,
             )
-        def __getattr__(self, name):
-            return lambda *args, **kwargs: None
-    accessibility = _A11yStub()
-    import logging as _lg_a11y
-    _lg_a11y.warning("accessibility 모듈 로드 실패 → stub 사용: %s", _a11y_e)
+        else:
+            st.markdown(
+                '<div style="background:#f3f4f6;color:#6b7280;padding:6px 12px;'
+                'border-radius:6px;font-weight:600;font-size:0.95rem;text-align:center;">'
+                '🔇 OFF (꺼짐)</div>', unsafe_allow_html=True,
+            )
+
+    if enabled != prev_enabled:
+        if enabled:
+            st.session_state["voice_guide_enabled"] = True
+            if supabase is not None and user_id:
+                _a11y_save_to_user(supabase, user_id)
+            try: st.toast("🔊 음성 안내가 켜졌습니다 (ON)", icon="✅")
+            except Exception: pass
+            _a11y_announce("음성 서비스가 준비되었습니다.")
+        else:
+            _a11y_announce("음성 서비스를 종료합니다.")
+            st.session_state["voice_guide_enabled"] = False
+            if supabase is not None and user_id:
+                _a11y_save_to_user(supabase, user_id)
+            try: st.toast("🔇 음성 안내가 꺼졌습니다 (OFF)", icon="🔕")
+            except Exception: pass
+        st.rerun()
+
+    if st.session_state.get("voice_guide_enabled"):
+        sub_cols = st.columns([3, 2])
+        with sub_cols[0]:
+            speed = st.slider(
+                "음성 속도", min_value=0.5, max_value=2.0,
+                value=prev_speed, step=0.1,
+                key=f"{key_prefix}_voice_speed",
+                help="0.5배(느림) ~ 2.0배(빠름)",
+            )
+            if abs(speed - prev_speed) > 1e-3:
+                st.session_state["voice_speed"] = speed
+                if supabase is not None and user_id:
+                    _a11y_save_to_user(supabase, user_id)
+                _a11y_announce(f"속도 {speed:.1f}배.")
+        with sub_cols[1]:
+            st.caption("⌨️ Alt+A·M·H 단축키")
+
+        if st.button(
+            "🔊 음성 테스트 (눌러서 발화)",
+            key=f"{key_prefix}_voice_test", type="primary",
+            use_container_width=True,
+        ):
+            _speed = float(st.session_state.get("voice_speed", 1.0))
+            _lang = str(st.session_state.get("voice_lang", "ko-KR"))
+            _test_text = (
+                "안녕하세요. 드래곤아이즈 음성 안내 테스트입니다. "
+                "이 메시지가 들리시면 음성 서비스가 정상 작동하는 것입니다."
+            )
+            _a11y_components.html(
+                f"""
+                <div id="a11y-test-result" style="font-family:monospace;font-size:11px;
+                     padding:6px;background:#f0f9ff;border:1px solid #0284c7;border-radius:4px;
+                     color:#0c4a6e;">🔍 진단 중...</div>
+                <script>
+                (function() {{
+                    const log = (msg) => {{
+                        const el = document.getElementById('a11y-test-result');
+                        if (el) el.innerHTML += '<br>' + msg;
+                        console.log('[DragonEyes A11y]', msg);
+                    }};
+                    const text = {_a11y_json.dumps(_test_text)};
+                    const lang = {_a11y_json.dumps(_lang)};
+                    const rate = {_speed};
+                    const w = window.parent || window;
+                    log('🌐 SpeechSynthesis 지원: ' + ('speechSynthesis' in w));
+                    log('🔧 _dragoneyesSpeak 등록: ' + (typeof w._dragoneyesSpeak));
+                    log('🔉 voices 개수: ' + (w.speechSynthesis?.getVoices?.()?.length || 0));
+                    let attempted = false;
+                    try {{
+                        if (typeof w._dragoneyesSpeak === 'function') {{
+                            w._dragoneyesSpeak(text, lang, rate, true);
+                            log('✅ [방법1] 부모 _dragoneyesSpeak 호출 성공');
+                            attempted = true;
+                        }} else {{ log('⚠️ [방법1] _dragoneyesSpeak 함수 없음'); }}
+                    }} catch (e) {{ log('❌ [방법1] 에러: ' + e.message); }}
+                    try {{
+                        if ('speechSynthesis' in w) {{
+                            const u = new w.SpeechSynthesisUtterance(text);
+                            u.lang = lang; u.rate = rate;
+                            u.onstart = () => log('🎤 발화 시작');
+                            u.onend = () => log('✅ 발화 완료');
+                            u.onerror = (e) => log('❌ 발화 에러: ' + e.error);
+                            w.speechSynthesis.speak(u);
+                            log('✅ [방법2] 직접 speak 호출');
+                            attempted = true;
+                        }}
+                    }} catch (e) {{ log('❌ [방법2] 에러: ' + e.message); }}
+                    if (!attempted) log('🚫 모든 발화 시도 실패.');
+                }})();
+                </script>
+                """,
+                height=200,
+            )
+
+
+# accessibility 객체 — 기존 호출 코드(accessibility.xxx) 호환성 유지
+accessibility = _A11ySimpleNamespace(
+    init_state=_a11y_init_state,
+    announce=_a11y_announce,
+    render_toolbar=_a11y_render_toolbar,
+    load_from_user=_a11y_load_from_user,
+    save_to_user=_a11y_save_to_user,
+    inject_shortcuts=_a11y_inject_shortcuts,
+    aria_landmark=_a11y_aria_landmark,
+)
 # v2026.03.15 — 보고서↔탐색URL 양방향 연결, YouTube 메타데이터 30일 보관 정책, 모바일 PWA 최적화
 # v2026.04.19 — 보안 패치: URL 토큰 노출 방지, 세션 복원 시 토큰 즉시 삭제
 # v2026.04.21 — 한국어 번역 62개 추가
