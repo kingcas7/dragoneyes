@@ -3833,6 +3833,54 @@ def _parse_partner_documents(files):
         return {"error": str(e)[:200]}
 
 
+def log_monitoring_event(
+    event_type,
+    *,
+    platform=None, keyword=None,
+    severity=None, category=None,
+    target_url=None, is_action_completed=False,
+    result_json=None, meta_json=None,
+):
+    """모니터링·분석 이벤트를 monitoring_events 테이블에 기록.
+
+    통계 페이지 일배치 집계의 source. 실패해도 분석 흐름 방해 안 되게 무음.
+
+    Args:
+        event_type: 'analyze_text' / 'analyze_youtube' / 'analyze_naver' /
+                    'report_create' / 'keyword_search' / 'channel_monitor' 등
+        platform: 'youtube' / 'naver' / 'discord' / 'general'
+        keyword: 검색어 (있는 경우)
+        severity: 1~5 (1=안전, 5=매우위험)
+        category: '그루밍' / '도박' / '섹스토션' / '안전' 등
+        target_url: 분석 대상 URL
+        is_action_completed: 보고서 작성 등 후속 조치 완료 여부
+        result_json: 분석 결과 dict (JSONB로 저장)
+        meta_json: 추가 메타데이터 dict
+    """
+    try:
+        _u = st.session_state.get("user") or {}
+        payload = {
+            "user_id": _u.get("id"),
+            "partner_id": _u.get("partner_id"),
+            "company_id": _u.get("company_id") or _u.get("customer_id"),
+            "event_type": event_type,
+            "platform": platform,
+            "keyword": (keyword or "")[:200] or None,
+            "severity": int(severity) if severity is not None else None,
+            "category": (category or "")[:50] or None,
+            "target_url": (target_url or "")[:500] or None,
+            "is_action_completed": bool(is_action_completed),
+            "result_json": result_json,
+            "meta_json": meta_json or {},
+        }
+        # None 값 정리 (Supabase가 default 처리하게)
+        payload = {k: v for k, v in payload.items() if v is not None or k in ("result_json",)}
+        supabase.table("monitoring_events").insert(payload).execute()
+    except Exception:
+        # 테이블 미적용·권한 등 무음 실패 (분석 흐름 보호)
+        pass
+
+
 def learn_keywords_from_report(content, result, severity, category):
     """보고서에서 위험 키워드를 자동 추출해서 학습"""
     if severity < 3:
