@@ -5032,14 +5032,21 @@ if st.session_state.user is None:
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # ── 하단 푸터 배너 ──
+    # ── 하단 푸터 배너 (COMPANY_INFO 일원화) ──
     st.markdown(f"""
     <div class="login-footer-banner">
         <span>{t("login_footer_label")}</span>
         <span class="login-footer-divider">|</span>
-        <span>주식회사 4U Solution</span>
+        <span>{COMPANY_INFO['name_full_ko']}</span>
         <span class="login-footer-divider">|</span>
-        <span>kingcas7@gmail.com</span>
+        <span>대표이사 {COMPANY_INFO['ceo']}</span>
+        <span class="login-footer-divider">|</span>
+        <span>사업자등록번호 {COMPANY_INFO['business_number']}</span>
+        <span class="login-footer-divider">|</span>
+        <span>📧 {COMPANY_INFO['email']}</span>
+    </div>
+    <div style="text-align:center; color:#94a3b8; font-size:0.78rem; padding:6px 0 14px 0;">
+        📍 {COMPANY_INFO['address']} ({COMPANY_INFO['address_detail']})
     </div>
     """, unsafe_allow_html=True)
 
