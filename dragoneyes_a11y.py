@@ -174,17 +174,36 @@ def render_toolbar(
         compact: True면 도움말 텍스트 생략.
     """
     init_state()
-    cols = st.columns([1.3, 1.8, 2.4] if not compact else [1.3, 1.8])
     prev_enabled = bool(st.session_state.get("voice_guide_enabled", False))
     prev_speed = float(st.session_state.get("voice_speed", 1.0))
 
+    # 한 줄 컴팩트 레이아웃: [라벨] [토글] [상태 배지]
+    cols = st.columns([1, 2, 2.5])
     with cols[0]:
+        st.markdown("**♿ 접근성**")
+    with cols[1]:
         enabled = st.toggle(
             "🔊 음성 안내",
             value=prev_enabled,
             key=f"{key_prefix}_voice_toggle",
-            help="시각장애인용 음성 안내. 켜기 직후 Alt+A로 토글 가능.",
+            help="시각장애인용 음성 안내. 토글을 켜면 음성으로 안내합니다.",
         )
+    with cols[2]:
+        # 현재 상태 배지 — 토글 옆에서 즉시 확인
+        if prev_enabled:
+            st.markdown(
+                '<div style="background:#dcfce7;color:#166534;padding:6px 12px;'
+                'border-radius:6px;font-weight:700;font-size:0.95rem;text-align:center;">'
+                '🔊 ON (켜짐) ✅</div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                '<div style="background:#f3f4f6;color:#6b7280;padding:6px 12px;'
+                'border-radius:6px;font-weight:600;font-size:0.95rem;text-align:center;">'
+                '🔇 OFF (꺼짐)</div>',
+                unsafe_allow_html=True,
+            )
 
     # 토글 변화 감지 — ON/OFF 양쪽 모두 음성 안내 + 시각 토스트 + 즉시 rerun
     if enabled != prev_enabled:
@@ -215,9 +234,10 @@ def render_toolbar(
         # 자동 발화 iframe은 사라질 수 있지만 음성 테스트 버튼으로 보장 가능.
         st.rerun()
 
-    # 속도 슬라이더 (토글 ON일 때만 노출)
-    with cols[1]:
-        if st.session_state.get("voice_guide_enabled"):
+    # ── ON 상태일 때만 추가 컨트롤 노출 (속도 + 음성 테스트) ──
+    if st.session_state.get("voice_guide_enabled"):
+        sub_cols = st.columns([3, 2])
+        with sub_cols[0]:
             speed = st.slider(
                 "음성 속도",
                 min_value=0.5, max_value=2.0,
@@ -230,20 +250,12 @@ def render_toolbar(
                 if supabase is not None and user_id:
                     save_to_user(supabase, user_id)
                 announce(f"속도 {speed:.1f}배.")
-
-    # 단축키 안내
-    if not compact and len(cols) > 2:
-        with cols[2]:
-            if st.session_state.get("voice_guide_enabled"):
-                st.caption("⌨️ Alt+A: 토글로 이동 · Alt+M: 메뉴 · Alt+H: 도움말")
+        with sub_cols[1]:
+            st.caption("⌨️ Alt+A·M·H 단축키")
 
     # ── 🔊 음성 테스트 (토글 ON일 때만 노출) ──
     #    iframe 직접 발화 + 부모 함수 호출 두 가지 동시 시도 → 진단 가능.
     if st.session_state.get("voice_guide_enabled"):
-        st.info(
-            "🔊 **음성 안내가 켜져 있습니다.** "
-            "아래 **🔊 음성 테스트** 버튼을 눌러 음성이 정상 발화되는지 확인하세요."
-        )
         if st.button(
             "🔊 음성 테스트 (눌러서 발화)",
             key=f"{key_prefix}_voice_test",
