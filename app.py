@@ -545,13 +545,57 @@ def _a11y_render_floating_mic():
                 }
             };
 
-            // ── 메뉴 매칭 — 부분 일치 + 띄어쓰기 무시 + 영문 포함 ──
-            const tryMatchCommand = function(cmd) {
-                const normalized = cmd.replace(/\\s+/g, '').toLowerCase();
-                console.log('[DragonEyes Voice] normalized:', normalized);
+            // ── 헬퍼: 페이지 내 보이는 버튼들에서 텍스트 매칭하는 버튼 찾기 ──
+            const findVisibleButton = function(textFragments) {
+                const fragments = Array.isArray(textFragments) ? textFragments : [textFragments];
+                const btns = Array.from(w.document.querySelectorAll('button, a[href], [role="button"]'));
+                for (const b of btns) {
+                    const t = (b.innerText || b.textContent || '').toLowerCase().replace(/\\s+/g, '');
+                    if (!b.offsetParent) continue;
+                    for (const frag of fragments) {
+                        if (t.indexOf(frag.toLowerCase()) >= 0) return b;
+                    }
+                }
+                return null;
+            };
 
-                // "메뉴 읽어줘"
-                if (normalized.indexOf('메뉴') >= 0 || normalized.indexOf('읽어') >= 0) {
+            const clickAndSpeak = function(btn, label) {
+                if (!btn) return false;
+                showDiag('<b>✅ 매칭 성공</b><br>실행: ' + label + '<br>0.8초 후 자동 클릭', 4000);
+                if (w._dragoneyesSpeak) w._dragoneyesSpeak(label + " 실행합니다.");
+                setTimeout(function() { try { btn.click(); } catch(_) {} }, 800);
+                return true;
+            };
+
+            // ── 메뉴 매칭 — 확장 매핑 + 페이지 이동 + 워크플로우 ──
+            const tryMatchCommand = function(cmd) {
+                const n = cmd.replace(/\\s+/g, '').toLowerCase();
+                console.log('[DragonEyes Voice] normalized:', n);
+
+                // ════════ 연속 모드 제어 ════════
+                if (n.indexOf('중지') >= 0 || n.indexOf('정지') >= 0 || n.indexOf('그만') >= 0 || n.indexOf('stop') >= 0) {
+                    w._dragoneyesContinuousMode = false;
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak("연속 음성 모드를 종료합니다.");
+                    showDiag('<b>🛑 중지됨</b><br>연속 모드 OFF', 4000);
+                    return true;
+                }
+                if (n.indexOf('연속') >= 0 || n.indexOf('자동듣기') >= 0) {
+                    w._dragoneyesToggleContinuous();
+                    return true;
+                }
+
+                // ════════ 도움말 / 메뉴 읽기 ════════
+                if (n.indexOf('도움') >= 0 || n.indexOf('도와') >= 0 || n.indexOf('사용법') >= 0) {
+                    const help = "음성 명령 안내. " +
+                        "메뉴 이동: 홈, 통계, 업무, 모니터링, 파트너, 관리자, 사용자, 보고서. " +
+                        "분석 시작: 텍스트 분석, 유튜브 분석, 네이버 분석, 추천 리스트. " +
+                        "보고서: 보고서 작성, 보고서 제출, 보고서 목록. " +
+                        "기타: 메뉴 읽어줘, 다음, 이전, 확인, 취소, 닫기.";
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak(help);
+                    showDiag('<b>❓ 도움말</b><br>음성 명령 안내 발화 중', 10000);
+                    return true;
+                }
+                if (n.indexOf('메뉴') >= 0 || n.indexOf('읽어') >= 0) {
                     const btns = Array.from(w.document.querySelectorAll('button, a[href]'))
                         .filter(b => (b.innerText || '').trim() && b.offsetParent !== null);
                     let text = "현재 페이지 메뉴 " + btns.length + "개. ";
@@ -563,42 +607,112 @@ def _a11y_render_floating_mic():
                     return true;
                 }
 
-                // 키워드 매핑 (한·영)
-                const keywords = {
-                    '통계': ['통계', 'stats', '統計'],
-                    '홈': ['홈', 'home', 'ホーム'],
-                    '모니터링': ['모니터링', 'monitoring'],
-                    '업무': ['업무', 'work', '업무현황'],
-                    '파트너': ['파트너', 'partner'],
+                // ════════ 워크플로우 — 분석 시작 ════════
+                if (n.indexOf('텍스트') >= 0 && (n.indexOf('분석') >= 0 || n.length < 8)) {
+                    return clickAndSpeak(findVisibleButton(['텍스트분석', 'textanalysis']), '텍스트 분석');
+                }
+                if ((n.indexOf('유튜브') >= 0 || n.indexOf('youtube') >= 0) && (n.indexOf('분석') >= 0 || n.length < 8)) {
+                    return clickAndSpeak(findVisibleButton(['유튜브분석', 'youtube']), '유튜브 분석');
+                }
+                if ((n.indexOf('네이버') >= 0 || n.indexOf('naver') >= 0) && (n.indexOf('분석') >= 0 || n.length < 8)) {
+                    return clickAndSpeak(findVisibleButton(['네이버분석', '네이버탐색', 'naver']), '네이버 분석');
+                }
+                if (n.indexOf('디스코드') >= 0 || n.indexOf('discord') >= 0) {
+                    return clickAndSpeak(findVisibleButton(['디스코드', 'discord']), '디스코드 탐색');
+                }
+                if (n.indexOf('키워드') >= 0) {
+                    return clickAndSpeak(findVisibleButton(['키워드탐색', '키워드']), '키워드 탐색');
+                }
+
+                // ════════ 추천 리스트 ════════
+                if (n.indexOf('추천') >= 0 || n.indexOf('자동추천') >= 0 || n.indexOf('리스트생성') >= 0) {
+                    return clickAndSpeak(
+                        findVisibleButton(['자동추천', '추천리스트', '리스트생성', '드래곤아이즈자동']),
+                        '드래곤아이즈 자동 추천 리스트 생성'
+                    );
+                }
+
+                // ════════ 보고서 워크플로우 ════════
+                if (n.indexOf('보고서제출') >= 0 || n.indexOf('제출') >= 0) {
+                    return clickAndSpeak(findVisibleButton(['제출', 'submit', '저장']), '보고서 제출');
+                }
+                if (n.indexOf('보고서작성') >= 0 || (n.indexOf('보고서') >= 0 && n.indexOf('작성') >= 0)) {
+                    return clickAndSpeak(findVisibleButton(['보고서작성', '보고서폼', '작성']), '보고서 작성');
+                }
+                if (n.indexOf('보고서목록') >= 0 || (n.indexOf('보고서') >= 0 && n.indexOf('목록') >= 0)) {
+                    return clickAndSpeak(findVisibleButton(['보고서목록', '보고서']), '보고서 목록');
+                }
+                if (n.indexOf('보고서') >= 0) {
+                    return clickAndSpeak(findVisibleButton(['보고서']), '보고서');
+                }
+
+                // ════════ 작업 제어 ════════
+                if (n.indexOf('다음') >= 0 || n.indexOf('넥스트') >= 0 || n.indexOf('next') >= 0) {
+                    return clickAndSpeak(findVisibleButton(['다음', '▶', 'next']), '다음');
+                }
+                if (n.indexOf('이전') >= 0 || n.indexOf('백') >= 0 || n.indexOf('previous') >= 0) {
+                    return clickAndSpeak(findVisibleButton(['이전', '◀', 'previous', '뒤로']), '이전');
+                }
+                if (n.indexOf('확인') >= 0 || n === '예' || n.indexOf('동의') >= 0 || n.indexOf('승인') >= 0) {
+                    return clickAndSpeak(findVisibleButton(['확인', '예', '동의', '승인', 'ok', 'yes']), '확인');
+                }
+                if (n.indexOf('취소') >= 0 || n.indexOf('닫기') >= 0 || n === '아니오' || n.indexOf('아니') >= 0) {
+                    return clickAndSpeak(findVisibleButton(['취소', '닫기', '아니오', 'cancel', 'no']), '취소');
+                }
+                if (n.indexOf('새로고침') >= 0 || n.indexOf('갱신') >= 0 || n.indexOf('refresh') >= 0) {
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak("페이지를 새로고침합니다.");
+                    setTimeout(function() { w.location.reload(); }, 800);
+                    return true;
+                }
+
+                // ════════ 모니터링 (특수) — 홈 페이지의 모니터링 영역 ════════
+                if (n.indexOf('모니터링') >= 0 || n.indexOf('monitoring') >= 0 || n.indexOf('분석') >= 0) {
+                    // 우선 페이지 내 분석 메뉴들 시도
+                    const found = findVisibleButton(['텍스트분석', '유튜브분석', '모니터링', '드래곤아이즈자동']);
+                    if (found) return clickAndSpeak(found, '모니터링');
+                    // 아니면 홈으로 이동
+                    const home = findVisibleButton(['🏠홈', '홈', 'home']);
+                    if (home) return clickAndSpeak(home, '홈으로 이동 (모니터링 메뉴)');
+                }
+
+                // ════════ 기본 메뉴 이동 (상단 네비) ════════
+                const navMap = {
+                    '통계': ['통계', 'stats'],
+                    '홈': ['홈', 'home'],
+                    '업무': ['업무', 'work'],
+                    '파트너': ['파트너'],
                     '관리자': ['관리자', 'admin'],
-                    '사용자': ['사용자', 'user', 'profile'],
-                    '보고서': ['보고서', 'report'],
+                    '사용자': ['사용자', '프로필', 'user'],
                     '작성': ['작성', 'write'],
                     '공지': ['공지', 'notice'],
                 };
-
-                for (const [key, syns] of Object.entries(keywords)) {
+                for (const [key, syns] of Object.entries(navMap)) {
                     for (const syn of syns) {
-                        if (normalized.indexOf(syn.toLowerCase()) >= 0) {
-                            const btns = Array.from(w.document.querySelectorAll('button'));
-                            const found = btns.find(function(b) {
-                                const t = (b.innerText || '').toLowerCase().replace(/\\s+/g, '');
-                                return t.indexOf(key.toLowerCase()) >= 0 && b.offsetParent !== null;
-                            });
-                            if (found) {
-                                showDiag('<b>✅ 매칭 성공</b><br>키워드: <code>' + key + '</code><br>버튼: ' + (found.innerText||'').trim() + '<br>0.8초 후 자동 클릭', 5000);
-                                if (w._dragoneyesSpeak) w._dragoneyesSpeak(key + " 메뉴로 이동합니다.");
-                                setTimeout(function() { found.click(); }, 800);
-                                return true;
-                            } else {
-                                showDiag('<b>⚠️ 키워드는 인식했지만 버튼 못 찾음</b><br>키워드: <code>' + key + '</code><br>이 페이지에 해당 메뉴 없음', 7000);
-                                if (w._dragoneyesSpeak) w._dragoneyesSpeak(key + " 메뉴를 이 페이지에서 찾을 수 없습니다.");
-                                return true;
-                            }
+                        if (n.indexOf(syn.toLowerCase()) >= 0) {
+                            const btn = findVisibleButton([key]);
+                            if (btn) return clickAndSpeak(btn, key);
+                            showDiag('<b>⚠️ 키워드 인식했지만 버튼 없음</b><br>키워드: <code>' + key + '</code>', 5000);
+                            if (w._dragoneyesSpeak) w._dragoneyesSpeak(key + " 메뉴를 이 페이지에서 찾을 수 없습니다.");
+                            return true;
                         }
                     }
                 }
+
                 return false;
+            };
+
+            // ── 연속 음성 모드 toggle ──
+            w._dragoneyesContinuousMode = w._dragoneyesContinuousMode || false;
+            w._dragoneyesToggleContinuous = function() {
+                w._dragoneyesContinuousMode = !w._dragoneyesContinuousMode;
+                const status = w._dragoneyesContinuousMode ? '켜졌습니다' : '꺼졌습니다';
+                if (w._dragoneyesSpeak) w._dragoneyesSpeak('연속 음성 모드가 ' + status);
+                const tBtn = w.document.getElementById('a11y-mic-toggle');
+                if (tBtn) {
+                    tBtn.style.background = w._dragoneyesContinuousMode ? '#16a34a' : '#6b7280';
+                    tBtn.innerHTML = w._dragoneyesContinuousMode ? '🔁 ON' : '🔁 OFF';
+                }
+                showDiag('<b>🔁 연속 음성 모드 ' + status + '</b><br>' + (w._dragoneyesContinuousMode ? '명령 후 자동으로 다시 듣기' : '한 번 듣고 종료'), 5000);
             };
 
             // ── SpeechRecognition을 같은 함수 closure 안에 직접 정의 ──
@@ -688,6 +802,15 @@ def _a11y_render_floating_mic():
                         console.log('[DragonEyes Voice] ended');
                         const b = w.document.getElementById('a11y-mic-floating');
                         if (b) { b.style.background = '#dc2626'; b.style.animation = ''; }
+                        // 연속 모드면 2초 후 자동 재시작
+                        if (w._dragoneyesContinuousMode) {
+                            showDiag('<b style="color:#0284c7;">🔁 연속 모드 — 2초 후 재시작</b><br>"중지" 또는 토글 OFF로 중단', 2000);
+                            setTimeout(function() {
+                                if (w._dragoneyesContinuousMode) {
+                                    try { startListening(); } catch (_) {}
+                                }
+                            }, 2000);
+                        }
                     };
 
                     recog.start();
@@ -730,7 +853,26 @@ def _a11y_render_floating_mic():
                     startListening();
                 });
                 w.document.body.appendChild(btn);
-                console.log('[DragonEyes Voice] mic button injected at', w.location.href);
+
+                // ── 연속 모드 토글 버튼 (마이크 위에) ──
+                const toggleBtn = w.document.createElement('button');
+                toggleBtn.id = 'a11y-mic-toggle';
+                toggleBtn.setAttribute('aria-label', '연속 음성 모드 토글');
+                toggleBtn.setAttribute('title', '연속 모드: 한 번 켜면 명령 후 자동으로 다시 듣기');
+                toggleBtn.innerHTML = '🔁 OFF';
+                toggleBtn.style.cssText =
+                    'position:fixed !important;bottom:110px;right:24px;' +
+                    'padding:6px 14px;border-radius:18px;' +
+                    'background:#6b7280;color:white;font-size:13px;font-weight:600;' +
+                    'border:2px solid white;cursor:pointer;z-index:2147483647;' +
+                    'box-shadow:0 2px 8px rgba(0,0,0,0.2);';
+                toggleBtn.addEventListener('click', function(e) {
+                    e.preventDefault(); e.stopPropagation();
+                    w._dragoneyesToggleContinuous();
+                });
+                w.document.body.appendChild(toggleBtn);
+
+                console.log('[DragonEyes Voice] mic + toggle injected at', w.location.href);
             } catch (e) {
                 console.error('[A11y] mic btn inject error:', e);
             }
