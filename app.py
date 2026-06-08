@@ -394,6 +394,49 @@ def _a11y_render_toolbar(*, supabase=None, user_id=None, key_prefix="a11y", comp
         with sub_cols[1]:
             st.caption("⌨️ Ctrl+Shift + A·M·H·1~9")
 
+        # 📋 페이지 메뉴 듣기 — 호버·단축키 의존 없이 현재 페이지 메뉴 음성 안내
+        if st.button(
+            "📋 이 페이지 메뉴 음성으로 듣기",
+            key=f"{key_prefix}_read_menu", type="secondary",
+            use_container_width=True,
+            help="현재 페이지의 모든 메뉴·버튼을 번호와 함께 음성으로 안내합니다.",
+        ):
+            _a11y_components.html(
+                """
+                <script>
+                (function() {
+                    try {
+                        const w = window.parent || window;
+                        const top = window.top || w;
+                        const seen = new Set();
+                        const items = [];
+                        // top window와 부모 window 양쪽 스캔
+                        [w, top].forEach(tw => {
+                            try {
+                                const btns = tw.document.querySelectorAll('button:not([aria-hidden="true"]), a[href]');
+                                Array.from(btns).forEach(b => {
+                                    if (!b.offsetParent) return;
+                                    const t = (b.innerText || '').trim().replace(/\\s+/g, ' ');
+                                    if (!t || t.length > 60 || seen.has(t)) return;
+                                    seen.add(t);
+                                    items.push(t);
+                                });
+                            } catch(e) {}
+                        });
+                        let text = '현재 페이지 메뉴입니다. 총 ' + items.length + '개. ';
+                        items.slice(0, 30).forEach((t, i) => {
+                            text += (i+1) + '번, ' + t + '. ';
+                        });
+                        const speak = top._dragoneyesSpeak || w._dragoneyesSpeak;
+                        if (speak) speak(text.substring(0, 2000), 'ko-KR', 1.0, true);
+                    } catch(e) { console.error('menu read error:', e); }
+                })();
+                </script>
+                """,
+                height=0,
+            )
+            st.success(f"🔊 페이지 메뉴를 음성으로 안내 중... (음성이 들리지 않으면 다시 클릭)")
+
         if st.button(
             "🔊 음성 테스트 (눌러서 발화)",
             key=f"{key_prefix}_voice_test", type="primary",
