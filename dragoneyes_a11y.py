@@ -186,21 +186,25 @@ def render_toolbar(
             help="시각장애인용 음성 안내. 켜기 직후 Alt+A로 토글 가능.",
         )
 
-    # 토글 변화 감지 — ON/OFF 양쪽 모두 음성 안내
+    # 토글 변화 감지 — ON/OFF 양쪽 모두 음성 안내 + 즉시 rerun
     if enabled != prev_enabled:
         if enabled:
-            # OFF → ON: 먼저 state True로 → announce가 작동하게 → 준비 안내
+            # OFF → ON: state 변경 후 안내 발화
             st.session_state["voice_guide_enabled"] = True
             if supabase is not None and user_id:
                 save_to_user(supabase, user_id)
             announce("음성 서비스가 준비되었습니다.")
         else:
-            # ON → OFF: 먼저 종료 안내 (이때는 아직 voice_guide_enabled=True) →
+            # ON → OFF: 먼저 종료 안내 (아직 voice_guide_enabled=True 상태) →
             # 그 다음 state를 False로 변경 → 마지막 호출이 무사히 발화됨
             announce("음성 서비스를 종료합니다.")
             st.session_state["voice_guide_enabled"] = False
             if supabase is not None and user_id:
                 save_to_user(supabase, user_id)
+        # 명시적 rerun — expander 라벨이 같은 rerun에 박혀 있어서
+        # 토글 변경 직후 라벨 갱신을 보장하기 위함.
+        # 자동 발화 iframe은 사라질 수 있지만 음성 테스트 버튼으로 보장 가능.
+        st.rerun()
 
     # 속도 슬라이더 (토글 ON일 때만 노출)
     with cols[1]:
@@ -228,18 +232,28 @@ def render_toolbar(
     #    토글 변경 시 자동 announce가 브라우저 정책으로 차단될 수 있어
     #    명시적 사용자 클릭으로 첫 발화를 보장하는 안전판.
     if st.session_state.get("voice_guide_enabled"):
-        st.caption(
-            "💡 음성이 들리지 않으면 아래 **음성 테스트** 버튼을 눌러주세요. "
-            "브라우저 정책상 첫 발화는 사용자의 명시적 클릭이 필요할 수 있습니다."
+        st.success(
+            "✅ **음성 안내가 켜져 있습니다.** "
+            "음성이 들리지 않으면 아래 **🔊 음성 테스트** 버튼을 눌러주세요. "
+            "브라우저 정책상 첫 발화는 사용자의 명시적 클릭이 필요합니다."
         )
-        if st.button(
-            "🔊 음성 테스트",
-            key=f"{key_prefix}_voice_test",
-            help="현재 설정으로 음성이 정상 작동하는지 확인합니다.",
-        ):
-            announce(
-                "안녕하세요. 드래곤아이즈 음성 안내가 정상적으로 작동합니다. "
-                "이 메시지가 들리시면 성공입니다."
+        _btn_col1, _btn_col2 = st.columns([1, 2])
+        with _btn_col1:
+            if st.button(
+                "🔊 음성 테스트",
+                key=f"{key_prefix}_voice_test",
+                type="primary",
+                use_container_width=True,
+                help="현재 설정으로 음성이 정상 작동하는지 확인합니다.",
+            ):
+                announce(
+                    "안녕하세요. 드래곤아이즈 음성 안내가 정상적으로 작동합니다. "
+                    "이 메시지가 들리시면 성공입니다."
+                )
+        with _btn_col2:
+            st.caption(
+                "🌐 브라우저 음성 엔진(Web Speech API) 사용. "
+                "Chrome / Safari / Edge 지원. 시크릿 모드에선 차단될 수 있음."
             )
 
 
