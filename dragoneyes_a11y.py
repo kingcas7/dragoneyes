@@ -228,32 +228,96 @@ def render_toolbar(
             if st.session_state.get("voice_guide_enabled"):
                 st.caption("⌨️ Alt+A: 토글로 이동 · Alt+M: 메뉴 · Alt+H: 도움말")
 
-    # ── 🔊 음성 테스트 버튼 + 안내 (토글 ON일 때만 노출) ──
-    #    토글 변경 시 자동 announce가 브라우저 정책으로 차단될 수 있어
-    #    명시적 사용자 클릭으로 첫 발화를 보장하는 안전판.
+    # ── 🔊 음성 테스트 (토글 ON일 때만 노출) ──
+    #    iframe 직접 발화 + 부모 함수 호출 두 가지 동시 시도 → 진단 가능.
     if st.session_state.get("voice_guide_enabled"):
-        st.success(
-            "✅ **음성 안내가 켜져 있습니다.** "
-            "음성이 들리지 않으면 아래 **🔊 음성 테스트** 버튼을 눌러주세요. "
-            "브라우저 정책상 첫 발화는 사용자의 명시적 클릭이 필요합니다."
+        st.info(
+            "🔊 **음성 안내가 켜져 있습니다.** "
+            "아래 **🔊 음성 테스트** 버튼을 눌러 음성이 정상 발화되는지 확인하세요."
         )
-        _btn_col1, _btn_col2 = st.columns([1, 2])
-        with _btn_col1:
-            if st.button(
-                "🔊 음성 테스트",
-                key=f"{key_prefix}_voice_test",
-                type="primary",
-                use_container_width=True,
-                help="현재 설정으로 음성이 정상 작동하는지 확인합니다.",
-            ):
-                announce(
-                    "안녕하세요. 드래곤아이즈 음성 안내가 정상적으로 작동합니다. "
-                    "이 메시지가 들리시면 성공입니다."
-                )
-        with _btn_col2:
+        if st.button(
+            "🔊 음성 테스트 (눌러서 발화)",
+            key=f"{key_prefix}_voice_test",
+            type="primary",
+            use_container_width=True,
+            help="여러 방식으로 발화 시도하고 결과를 콘솔에 출력합니다.",
+        ):
+            # ① 부모 함수 경유 + ② iframe 내 직접 호출 + ③ 진단 메시지 모두 시도
+            _speed = float(st.session_state.get("voice_speed", 1.0))
+            _lang = str(st.session_state.get("voice_lang", "ko-KR"))
+            _test_text = (
+                "안녕하세요. 드래곤아이즈 음성 안내 테스트입니다. "
+                "이 메시지가 들리시면 음성 서비스가 정상 작동하는 것입니다."
+            )
+            import json as _json
+            components.html(
+                f"""
+                <div id="a11y-test-result" style="font-family:monospace;font-size:11px;
+                     padding:6px;background:#f0f9ff;border:1px solid #0284c7;border-radius:4px;
+                     color:#0c4a6e;">
+                    🔍 진단 중...
+                </div>
+                <script>
+                (function() {{
+                    const log = (msg) => {{
+                        const el = document.getElementById('a11y-test-result');
+                        if (el) el.innerHTML += '<br>' + msg;
+                        console.log('[DragonEyes A11y]', msg);
+                    }};
+                    const text = {_json.dumps(_test_text)};
+                    const lang = {_json.dumps(_lang)};
+                    const rate = {_speed};
+
+                    // 진단 정보
+                    const w = window.parent || window;
+                    log('🌐 SpeechSynthesis 지원: ' + ('speechSynthesis' in w));
+                    log('🔧 _dragoneyesSpeak 등록: ' + (typeof w._dragoneyesSpeak));
+                    log('🔉 voices 개수: ' + (w.speechSynthesis?.getVoices?.()?.length || 0));
+
+                    let attempted = false;
+
+                    // 방법 ①: 부모 컨텍스트 함수 호출
+                    try {{
+                        if (typeof w._dragoneyesSpeak === 'function') {{
+                            w._dragoneyesSpeak(text, lang, rate, true);
+                            log('✅ [방법1] 부모 _dragoneyesSpeak 호출 성공');
+                            attempted = true;
+                        }} else {{
+                            log('⚠️ [방법1] _dragoneyesSpeak 함수 없음');
+                        }}
+                    }} catch (e) {{
+                        log('❌ [방법1] 에러: ' + e.message);
+                    }}
+
+                    // 방법 ②: iframe 내 직접 호출 (sandbox 정책으로 차단될 수도)
+                    try {{
+                        if ('speechSynthesis' in w) {{
+                            const u = new w.SpeechSynthesisUtterance(text);
+                            u.lang = lang;
+                            u.rate = rate;
+                            u.onstart = () => log('🎤 발화 시작');
+                            u.onend = () => log('✅ 발화 완료');
+                            u.onerror = (e) => log('❌ 발화 에러: ' + e.error);
+                            w.speechSynthesis.speak(u);
+                            log('✅ [방법2] 직접 speak 호출');
+                            attempted = true;
+                        }}
+                    }} catch (e) {{
+                        log('❌ [방법2] 에러: ' + e.message);
+                    }}
+
+                    if (!attempted) {{
+                        log('🚫 모든 발화 시도 실패. 브라우저가 Web Speech API를 차단했거나 지원하지 않음.');
+                    }}
+                }})();
+                </script>
+                """,
+                height=200,
+            )
             st.caption(
-                "🌐 브라우저 음성 엔진(Web Speech API) 사용. "
-                "Chrome / Safari / Edge 지원. 시크릿 모드에선 차단될 수 있음."
+                "📋 위 박스의 진단 결과를 확인하세요. "
+                "발화 시작·완료 메시지가 보이면 음성이 정상 작동한 것입니다. "
+                "안 들리면 OS 출력 장치(스피커/이어폰) 확인."
             )
 
 
