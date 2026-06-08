@@ -186,14 +186,21 @@ def render_toolbar(
             help="시각장애인용 음성 안내. 켜기 직후 Alt+A로 토글 가능.",
         )
 
-    # 토글 변화 감지
+    # 토글 변화 감지 — ON/OFF 양쪽 모두 음성 안내
     if enabled != prev_enabled:
-        st.session_state["voice_guide_enabled"] = enabled
-        if supabase is not None and user_id:
-            save_to_user(supabase, user_id)
-        # 켜기 직후 안내 (사용자 제스처 직후라 첫 발화 차단 위험 낮음)
         if enabled:
-            announce("음성 안내가 켜졌습니다. 음성 속도는 1배입니다.")
+            # OFF → ON: 먼저 state True로 → announce가 작동하게 → 준비 안내
+            st.session_state["voice_guide_enabled"] = True
+            if supabase is not None and user_id:
+                save_to_user(supabase, user_id)
+            announce("음성 서비스가 준비되었습니다.")
+        else:
+            # ON → OFF: 먼저 종료 안내 (이때는 아직 voice_guide_enabled=True) →
+            # 그 다음 state를 False로 변경 → 마지막 호출이 무사히 발화됨
+            announce("음성 서비스를 종료합니다.")
+            st.session_state["voice_guide_enabled"] = False
+            if supabase is not None and user_id:
+                save_to_user(supabase, user_id)
 
     # 속도 슬라이더 (토글 ON일 때만 노출)
     with cols[1]:
