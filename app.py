@@ -3970,7 +3970,13 @@ def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="
 if st.session_state.user is None:
     # ── ♿ 접근성: 음성 안내 토글 + 페이지 진입 안내 (시각장애인 지원) ──
     #    로그인 전이라 user_id 없음 → DB 저장은 생략, session만 유지
-    with st.expander("♿ 접근성 옵션 (음성 안내)", expanded=False):
+    _login_voice_on = st.session_state.get("voice_guide_enabled", False)
+    _login_exp_label = (
+        "♿ 접근성 옵션 — 음성 안내: 🔊 ON (켜짐)"
+        if _login_voice_on
+        else "♿ 접근성 옵션 — 음성 안내: 🔇 OFF (꺼짐)"
+    )
+    with st.expander(_login_exp_label, expanded=False):
         accessibility.render_toolbar(key_prefix="a11y_login", compact=True)
     # 스크린리더용 invisible landmark (NVDA·JAWS·VoiceOver 자동 읽음)
     accessibility.aria_landmark("드래곤아이즈 로그인 페이지")
@@ -4529,7 +4535,11 @@ else:
     _admin_prefixes = ("admin_", "partner_", "agency", "tenant_", "org_", "distributor_")
     _is_admin_route = any(_curr_page.startswith(p) for p in _admin_prefixes)
     if _voice_on or not _is_admin_route:
-        _exp_label = "♿ 음성 안내 (켜짐)" if _voice_on else "♿ 접근성 옵션 (음성 안내)"
+        _exp_label = (
+            "♿ 접근성 옵션 — 음성 안내: 🔊 ON (켜짐)"
+            if _voice_on
+            else "♿ 접근성 옵션 — 음성 안내: 🔇 OFF (꺼짐)"
+        )
         with st.expander(_exp_label, expanded=False):
             accessibility.render_toolbar(
                 supabase=supabase,
