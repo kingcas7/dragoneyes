@@ -547,10 +547,21 @@ def _a11y_render_keyboard_mic():
     """
     if not st.session_state.get("voice_guide_enabled"):
         return
-    _label = "🎤 음성 명령 시작 (Enter 키로 작동)"
-    if st.button(_label, key="a11y_mic_kb_trigger",
-                 use_container_width=True, type="primary",
-                 help="Tab 키로 이동 후 Enter로 마이크 켜기/끄기. 표준 키보드 작동."):
+    # 컴팩트 — 좌측에만 큰 버튼, 우측은 안내 caption
+    _kc1, _kc2 = st.columns([2, 3])
+    with _kc1:
+        _clicked = st.button(
+            "🎤 음성 명령 (Enter)",
+            key="a11y_mic_kb_trigger",
+            use_container_width=True, type="primary",
+            help="Tab 키로 이동 후 Enter로 마이크 켜기/끄기. 표준 키보드 작동.",
+        )
+    with _kc2:
+        st.caption(
+            "🎙️ Tab 키로 이동 → **Enter** 키로 마이크 ON/OFF. "
+            "음성 명령으로 메뉴 이동·페이지 설명·보고서 작성 가능."
+        )
+    if _clicked:
         # 마이크 토글 JavaScript inject (rerun 무관)
         _a11y_components.html(
             """
@@ -1337,9 +1348,10 @@ def _a11y_render_toolbar(*, supabase=None, user_id=None, key_prefix="a11y", comp
             st.success(f"🔊 페이지 메뉴를 음성으로 안내 중... (음성이 들리지 않으면 다시 클릭)")
 
         if st.button(
-            "🔊 음성 테스트 (눌러서 발화)",
-            key=f"{key_prefix}_voice_test", type="primary",
-            use_container_width=True,
+            "🔊 음성 테스트",
+            key=f"{key_prefix}_voice_test", type="secondary",
+            use_container_width=False,
+            help="음성 발화 진단용 (작동 확인 후엔 안 누르셔도 됨)",
         ):
             _speed = float(st.session_state.get("voice_speed", 1.0))
             _lang = str(st.session_state.get("voice_lang", "ko-KR"))
