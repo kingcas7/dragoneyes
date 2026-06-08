@@ -870,7 +870,8 @@ def _a11y_render_floating_mic():
             };
 
             const announcePageMenus = function(force) {
-                if (!w._dragoneyesSpeak || !w.__a11yEnabled) return;
+                if (!w._dragoneyesSpeak) return;
+                // 음성 토글 OFF여도 마이크 사용자(시각장애인)에게는 안내 보장
                 const titleEl = w.document.querySelector('h1, h2, [data-testid="stMarkdownContainer"] h1, [data-testid="stMarkdownContainer"] h2');
                 const title = titleEl ? _extractMenuText(titleEl) : '';
                 // 큰 클릭 가능 요소만 (Streamlit 카드·버튼·링크)
@@ -964,39 +965,61 @@ def _a11y_render_floating_mic():
             };
 
             const describeCurrentPage = function() {
-                if (!w._dragoneyesSpeak) return;
-                const headingEl = w.document.querySelector('h1, h2, [data-testid="stMarkdownContainer"] h1, [data-testid="stMarkdownContainer"] h2');
-                const heading = headingEl ? (headingEl.innerText || '').trim() : '';
-                let desc = '';
-                let matchedKey = '';
-
-                // 매칭 시도
-                for (const [key, d] of Object.entries(_pageDescriptions)) {
-                    if (heading.indexOf(key) >= 0) {
-                        desc = d;
-                        matchedKey = key;
-                        break;
+                try {
+                    showDiag('<b>📖 페이지 설명 준비 중...</b>', 3000);
+                    console.log('[A11y] describeCurrentPage called');
+                    if (!w._dragoneyesSpeak) {
+                        showDiag('<b style="color:#dc2626;">❌ 음성 함수 없음</b><br>_dragoneyesSpeak 미등록', 5000);
+                        return;
                     }
-                }
+                    // 헤딩 텍스트 추출 (Streamlit 마크다운 컨테이너 포함)
+                    const candidates = w.document.querySelectorAll('h1, h2, h3, [data-testid="stMarkdownContainer"] h1, [data-testid="stMarkdownContainer"] h2');
+                    let heading = '';
+                    for (const el of candidates) {
+                        const t = (el.innerText || '').trim();
+                        if (t) { heading = t; break; }
+                    }
+                    let desc = '';
+                    let matchedKey = '';
 
-                if (!desc) {
-                    // 폴백: 페이지에서 동적 생성
-                    const btns = Array.from(w.document.querySelectorAll('button, a[href]'))
-                        .filter(b => (b.innerText || '').trim() && b.offsetParent !== null)
-                        .map(b => (b.innerText || '').trim().replace(/[\\n\\r\\s]+/g, ' ').substring(0, 50))
-                        .slice(0, 8);
-                    desc = (heading || '현재') + ' 페이지입니다. ' +
-                        '이 페이지에서 사용 가능한 메뉴는 ' + btns.join(', ') + ' 입니다. ' +
-                        '각 메뉴 이름을 음성으로 말씀하시면 해당 기능을 실행할 수 있습니다.';
-                }
+                    // 매칭 시도
+                    if (heading) {
+                        for (const [key, d] of Object.entries(_pageDescriptions)) {
+                            if (heading.indexOf(key) >= 0) {
+                                desc = d;
+                                matchedKey = key;
+                                break;
+                            }
+                        }
+                    }
 
-                w._dragoneyesSpeak(desc.substring(0, 3000));
-                showDiag(
-                    '<b>📖 현재 페이지 설명</b>' +
-                    (matchedKey ? '<br>매칭: <code>' + matchedKey + '</code>' : '<br>사전 미등록 — 자동 생성') +
-                    '<br><br>' + desc.substring(0, 200) + (desc.length > 200 ? '...' : ''),
-                    15000
-                );
+                    if (!desc) {
+                        // 폴백: 페이지에서 동적 생성
+                        const btns = Array.from(w.document.querySelectorAll('button, a[href]'))
+                            .filter(b => (b.innerText || '').trim() && b.offsetParent !== null)
+                            .map(b => (b.innerText || '').trim().replace(/[\\n\\r\\s]+/g, ' ').substring(0, 50))
+                            .slice(0, 8);
+                        const titleStr = heading || '드래곤아이즈';
+                        desc = titleStr + ' 페이지입니다. ' +
+                            (btns.length > 0
+                                ? '이 페이지에서 사용 가능한 메뉴는 ' + btns.join(', ') + ' 입니다. '
+                                : '') +
+                            '메뉴 이름을 음성으로 말씀하시면 해당 기능을 실행할 수 있습니다.';
+                    }
+
+                    console.log('[A11y] desc:', desc.substring(0, 100));
+                    w._dragoneyesSpeak(desc.substring(0, 3000));
+                    showDiag(
+                        '<b style="color:#16a34a;">📖 현재 페이지 설명 발화 중</b>' +
+                        '<br>제목: ' + (heading || '(없음)') +
+                        (matchedKey ? '<br>사전 매칭: <code>' + matchedKey + '</code>' : '<br>(사전 미등록 — 자동 생성)') +
+                        '<br><br>' + desc.substring(0, 200) + (desc.length > 200 ? '...' : ''),
+                        15000
+                    );
+                } catch (err) {
+                    console.error('[A11y] describeCurrentPage error:', err);
+                    showDiag('<b style="color:#dc2626;">❌ 설명 생성 오류</b><br>' + err.message, 10000);
+                }
             };
             w._dragoneyesDescribePage = describeCurrentPage;
 
@@ -1020,8 +1043,11 @@ def _a11y_render_floating_mic():
                     if (hasMajor) _debounceAnnounce();
                 });
                 _pageObserver.observe(w.document.body, { childList: true, subtree: true });
-                // 초기 진입 안내
-                setTimeout(function() { announcePageMenus(false); }, 1500);
+                // 초기 진입 안내 — Streamlit 렌더 완료 대기 위해 2.5초
+                setTimeout(function() {
+                    try { announcePageMenus(false); }
+                    catch(e) { console.error('[A11y] initial announce:', e); }
+                }, 2500);
             } catch (e) { console.warn('[A11y] page observer:', e); }
 
             // ── 연속 음성 모드 toggle ──
