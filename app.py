@@ -677,14 +677,28 @@ def _a11y_render_floating_mic():
 
             const _getMonitoringOpenButtons = function() {
                 // "▶ 열기", "분석", "보기" 등 모니터링 시작용 버튼
-                return Array.from(w.document.querySelectorAll('button, a'))
-                    .filter(b => {
-                        const t = (b.innerText || '').trim();
-                        if (!t || !b.offsetParent) return false;
-                        return (t.indexOf('열기') >= 0 || t.indexOf('분석') >= 0 ||
-                                t.indexOf('보기') >= 0 || t.toLowerCase().indexOf('open') >= 0)
-                               && t.length < 30;
-                    });
+                // Streamlit의 link button(stLinkButton)·button 모두 포함
+                const sels = [
+                    'button', 'a', '[role="button"]',
+                    '[data-testid*="stLinkButton"]', '[data-testid*="stButton"]',
+                    '[data-testid*="Link"]'
+                ];
+                const all = w.document.querySelectorAll(sels.join(','));
+                const out = [];
+                const seenEl = new Set();
+                for (let i = 0; i < all.length; i++) {
+                    const b = all[i];
+                    if (seenEl.has(b)) continue;
+                    seenEl.add(b);
+                    const t = (b.innerText || b.textContent || '').trim();
+                    if (!t || !b.offsetParent) continue;
+                    if (t.length > 30) continue;
+                    if (t.indexOf('열기') >= 0 || t.indexOf('분석') >= 0 ||
+                        t.indexOf('보기') >= 0 || t.toLowerCase().indexOf('open') >= 0) {
+                        out.push(b);
+                    }
+                }
+                return out;
             };
 
             const _getReportWriteButtons = function() {
@@ -922,15 +936,28 @@ def _a11y_render_floating_mic():
                     );
                 }
 
-                // ════════ 🎬 모니터링 워크플로우 자동화 ════════
-                // "모니터링 시작" / "시작" / "첫번째"
+                // ════════ 🎬 모니터링 워크플로우 자동화 (우선순위 ↑) ════════
+                // ⚠️ 이 분기는 "모니터링" 단독 분기보다 반드시 앞에 있어야 함
+
+                // "동영상 열기" / "영상 열기" / "비디오 열기" → 첫 번째 열기 자동 클릭
+                // ⭐ 사용자 명시 요청: 탐색 히스토리·추천 리스트 페이지에서 사용
+                if (n.indexOf('동영상열기') >= 0 || n.indexOf('영상열기') >= 0 ||
+                    n.indexOf('비디오열기') >= 0 ||
+                    (n.indexOf('동영상') >= 0 && n.indexOf('열기') >= 0) ||
+                    (n.indexOf('영상') >= 0 && n.indexOf('열기') >= 0) ||
+                    n.indexOf('첫번째열기') >= 0 || n === '열기') {
+                    return _startMonitoring();
+                }
+
+                // "모니터링 시작" / "모니터링" + "시작" / "첫번째"
                 if (n.indexOf('모니터링시작') >= 0 ||
                     (n.indexOf('모니터링') >= 0 && n.indexOf('시작') >= 0) ||
                     n.indexOf('첫번째항목') >= 0 || n.indexOf('첫항목') >= 0) {
                     return _startMonitoring();
                 }
-                // "다음 모니터링" / "다음 항목"
+                // "다음 모니터링" / "다음 항목" / "다음 동영상"
                 if (n.indexOf('다음모니터링') >= 0 || n.indexOf('다음항목') >= 0 ||
+                    n.indexOf('다음동영상') >= 0 || n.indexOf('다음영상') >= 0 ||
                     (n.indexOf('다음') >= 0 && (n.indexOf('모니터링') >= 0 || n.indexOf('영상') >= 0))) {
                     return _nextMonitoring();
                 }
@@ -978,10 +1005,13 @@ def _a11y_render_floating_mic():
 
                 // ════════ 모니터링 (특수) — 홈 페이지의 모니터링 영역 ════════
                 if (n.indexOf('모니터링') >= 0 || n.indexOf('monitoring') >= 0 || n.indexOf('분석') >= 0) {
-                    // 우선 페이지 내 분석 메뉴들 시도
+                    // 1순위: 페이지에 "열기" 버튼이 있으면 워크플로우 시작
+                    const openBtns = _getMonitoringOpenButtons();
+                    if (openBtns.length > 0) return _startMonitoring();
+                    // 2순위: 페이지 내 분석 메뉴 클릭
                     const found = findVisibleButton(['텍스트분석', '유튜브분석', '모니터링', '드래곤아이즈자동']);
                     if (found) return clickAndSpeak(found, '모니터링');
-                    // 아니면 홈으로 이동
+                    // 3순위: 홈으로 이동
                     const home = findVisibleButton(['🏠홈', '홈', 'home']);
                     if (home) return clickAndSpeak(home, '홈으로 이동 (모니터링 메뉴)');
                 }
@@ -1125,59 +1155,60 @@ def _a11y_render_floating_mic():
 
             const describeCurrentPage = function() {
                 try {
-                    showDiag('<b>📖 페이지 설명 준비 중...</b>', 3000);
-                    console.log('[A11y] describeCurrentPage called');
-                    if (!w._dragoneyesSpeak) {
-                        showDiag('<b style="color:#dc2626;">❌ 음성 함수 없음</b><br>_dragoneyesSpeak 미등록', 5000);
-                        return;
-                    }
-                    // 헤딩 텍스트 추출 (Streamlit 마크다운 컨테이너 포함)
-                    const candidates = w.document.querySelectorAll('h1, h2, h3, [data-testid="stMarkdownContainer"] h1, [data-testid="stMarkdownContainer"] h2');
+                    // 1) heading 추출 (단순)
                     let heading = '';
-                    for (const el of candidates) {
-                        const t = (el.innerText || '').trim();
-                        if (t) { heading = t; break; }
+                    const hs = w.document.querySelectorAll('h1, h2, h3');
+                    for (let i = 0; i < hs.length; i++) {
+                        const t = (hs[i].innerText || hs[i].textContent || '').trim();
+                        if (t && t.length < 100) { heading = t; break; }
                     }
+                    // 2) 사전 매칭 (for...in 사용 — 환경 호환 ↑)
                     let desc = '';
                     let matchedKey = '';
-
-                    // 매칭 시도
-                    if (heading) {
-                        for (const [key, d] of Object.entries(_pageDescriptions)) {
-                            if (heading.indexOf(key) >= 0) {
-                                desc = d;
-                                matchedKey = key;
-                                break;
-                            }
+                    for (const key in _pageDescriptions) {
+                        if (_pageDescriptions.hasOwnProperty(key) && heading.indexOf(key) >= 0) {
+                            desc = _pageDescriptions[key];
+                            matchedKey = key;
+                            break;
                         }
                     }
-
+                    // 3) 폴백 — 페이지의 보이는 버튼들로 자동 안내
                     if (!desc) {
-                        // 폴백: 페이지에서 동적 생성
-                        const btns = Array.from(w.document.querySelectorAll('button, a[href]'))
-                            .filter(b => (b.innerText || '').trim() && b.offsetParent !== null)
-                            .map(b => (b.innerText || '').trim().replace(/[\\n\\r\\s]+/g, ' ').substring(0, 50))
-                            .slice(0, 8);
-                        const titleStr = heading || '드래곤아이즈';
-                        desc = titleStr + ' 페이지입니다. ' +
-                            (btns.length > 0
-                                ? '이 페이지에서 사용 가능한 메뉴는 ' + btns.join(', ') + ' 입니다. '
-                                : '') +
-                            '메뉴 이름을 음성으로 말씀하시면 해당 기능을 실행할 수 있습니다.';
+                        const allBtns = w.document.querySelectorAll('button, a[href], [role="button"]');
+                        const menus = [];
+                        const seen = {};
+                        for (let i = 0; i < allBtns.length && menus.length < 8; i++) {
+                            const b = allBtns[i];
+                            if (!b.offsetParent) continue;
+                            let t = (b.innerText || b.textContent || '').trim().replace(/\\s+/g, ' ');
+                            if (!t || t.length > 50 || seen[t]) continue;
+                            if (b.id === 'a11y-mic-floating' || b.id === 'a11y-mic-toggle') continue;
+                            seen[t] = 1;
+                            menus.push(t);
+                        }
+                        desc = (heading || '드래곤아이즈') + ' 페이지입니다. ' +
+                            (menus.length > 0 ? '메뉴는 ' + menus.join(', ') + ' 입니다. ' : '') +
+                            '메뉴 이름을 음성으로 말씀하시면 해당 기능을 실행합니다.';
                     }
-
-                    console.log('[A11y] desc:', desc.substring(0, 100));
-                    w._dragoneyesSpeak(desc.substring(0, 3000));
+                    // 4) 발화 + 진단 박스
+                    if (w._dragoneyesSpeak) {
+                        w._dragoneyesSpeak(desc.substring(0, 3000));
+                    }
                     showDiag(
-                        '<b style="color:#16a34a;">📖 현재 페이지 설명 발화 중</b>' +
-                        '<br>제목: ' + (heading || '(없음)') +
-                        (matchedKey ? '<br>사전 매칭: <code>' + matchedKey + '</code>' : '<br>(사전 미등록 — 자동 생성)') +
-                        '<br><br>' + desc.substring(0, 200) + (desc.length > 200 ? '...' : ''),
+                        '<b style="color:#16a34a;">📖 페이지 설명 발화</b>' +
+                        '<br>제목: ' + (heading || '(헤딩 없음)') +
+                        (matchedKey ? '<br>매칭: <code>' + matchedKey + '</code>' : '<br>(사전 미등록 — 자동 생성)') +
+                        '<br><br>' + desc.substring(0, 250) + (desc.length > 250 ? '...' : ''),
                         15000
                     );
                 } catch (err) {
                     console.error('[A11y] describeCurrentPage error:', err);
-                    showDiag('<b style="color:#dc2626;">❌ 설명 생성 오류</b><br>' + err.message, 10000);
+                    showDiag(
+                        '<b style="color:#dc2626;">❌ 설명 생성 오류</b>' +
+                        '<br>error: ' + (err && err.message ? err.message : String(err)) +
+                        '<br>stack: ' + (err && err.stack ? err.stack.substring(0, 200) : ''),
+                        15000
+                    );
                 }
             };
             w._dragoneyesDescribePage = describeCurrentPage;
@@ -1315,7 +1346,14 @@ def _a11y_render_floating_mic():
                             }
                         }
                         if (!matched) {
-                            showDiag('<b style="color:#dc2626;">❌ 일치하는 메뉴 없음</b><br>인식된 명령: <code>"' + cmd + '"</code><br>지원 키워드: 통계, 홈, 모니터링, 업무, 파트너, 관리자, 사용자, 보고서, 작성, 공지, 메뉴', 10000);
+                            showDiag('<b style="color:#dc2626;">❌ 일치하는 메뉴 없음</b><br>' +
+                                '인식된 명령: <code>"' + cmd + '"</code><br><br>' +
+                                '<b>🎬 모니터링:</b> 동영상 열기, 모니터링 시작, 다음 모니터링<br>' +
+                                '<b>📝 보고서:</b> 보고서 작성, 보고서 제출, 보고서 목록<br>' +
+                                '<b>📖 페이지:</b> 현재 페이지 설명, 메뉴 읽어줘, 다시 안내<br>' +
+                                '<b>🧭 이동:</b> 통계, 홈, 업무, 파트너, 관리자, 사용자<br>' +
+                                '<b>🔍 분석:</b> 텍스트, 유튜브, 네이버, 디스코드, 키워드<br>' +
+                                '<b>🎯 추천:</b> 일반, 로블록스, 마인크래프트, 도박', 12000);
                             if (w._dragoneyesSpeak) w._dragoneyesSpeak("일치하는 메뉴를 찾지 못했습니다.");
                         }
                     };
