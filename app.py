@@ -11012,6 +11012,152 @@ else:
             st.markdown("### 💰 계약 생성")
             st.caption(f"📌 영업 기회를 '수주(closed_won)' 상태로 변경하면 계약 생성이 가능합니다. (현재 상태: {opp_status})")
 
+    elif page == "monitoring_stats":
+        # ══════════════════════════════════════════════════════════
+        # 📊 모니터링 통계 페이지 (v2.1 신규 — 4단계)
+        # ══════════════════════════════════════════════════════════
+        # monitoring_daily_stats 테이블 기반. 매일 자정 pg_cron 또는
+        # 수동 SELECT public.run_daily_monitoring_aggregation(date)로 갱신.
+        accessibility.aria_landmark("모니터링 통계 페이지")
+        st.markdown("## 📊 모니터링 통계")
+        st.caption("어제까지 누적된 분석·위험 발견·조치 통계. 매일 자정 일배치로 자동 갱신.")
+
+        # ── 권한별 범위 자동 분기 ──
+        _u = user or {}
+        _role_v2 = (_u.get("role_v2") or "user").lower()
+        if _role_v2 in ("superadmin", "director"):
+            _scope, _scope_id, _scope_label = "system", None, "🌐 전체 시스템"
+        elif _u.get("partner_role") == "partner_admin" or _u.get("is_tenant_admin"):
+            _scope, _scope_id, _scope_label = "partner", _u.get("partner_id"), "🤝 내 파트너사"
+        elif _u.get("is_company_admin") or _u.get("customer_role") == "admin":
+            _scope, _scope_id, _scope_label = (
+                "company",
+                _u.get("company_id") or _u.get("customer_id"),
+                "🏢 내 고객사",
+            )
+        else:
+            _scope, _scope_id, _scope_label = "user", _u.get("id"), "👤 내 데이터"
+
+        st.info(f"📍 통계 범위: **{_scope_label}**  ·  scope=`{_scope}`")
+
+        # 날짜 필터
+        _today = date.today()
+        col_d1, col_d2 = st.columns(2)
+        with col_d1:
+            _start_date = st.date_input(
+                "📅 시작일", value=_today - timedelta(days=30), key="mon_stat_start"
+            )
+        with col_d2:
+            _end_date = st.date_input("📅 종료일", value=_today, key="mon_stat_end")
+
+        # ── 데이터 조회 ──
+        _rows = []
+        try:
+            _q = supabase.table("monitoring_daily_stats").select("*").eq("scope", _scope)
+            if _scope_id is not None:
+                _q = _q.eq("scope_id", str(_scope_id))
+            _q = _q.gte("stat_date", _start_date.isoformat()).lte(
+                "stat_date", _end_date.isoformat()
+            )
+            _res = _q.order("stat_date", desc=False).execute()
+            _rows = _res.data or []
+        except Exception as _e:
+            st.error(f"통계 조회 실패: {_e}")
+
+        if not _rows:
+            st.warning(
+                "⚠️ 해당 기간 통계 데이터가 없습니다. "
+                "모니터링·분석을 실행하면 다음 날 자정 일배치 후 표시됩니다."
+            )
+            with st.expander("💡 즉시 집계 실행 방법 (운영팀용)"):
+                st.code(
+                    "-- Supabase SQL Editor에서 실행:\n"
+                    "SELECT public.run_daily_monitoring_aggregation(CURRENT_DATE);",
+                    language="sql",
+                )
+                st.caption("→ scope_out/rows_inserted 4행 반환. 새로고침하면 통계 표시.")
+        else:
+            # ── KPI 4종 ──
+            _total = sum((r.get("total_analyses") or 0) for r in _rows)
+            _risk = sum((r.get("risk_found") or 0) for r in _rows)
+            _done = sum((r.get("action_completed") or 0) for r in _rows)
+            _pending = sum((r.get("action_pending") or 0) for r in _rows)
+
+            st.markdown("### 📊 핵심 KPI")
+            k1, k2, k3, k4 = st.columns(4)
+            k1.metric("📊 총 분석", f"{_total:,}")
+            k2.metric("⚠️ 위험 발견", f"{_risk:,}")
+            k3.metric("✅ 조치 완료", f"{_done:,}")
+            k4.metric("🔴 미조치", f"{_pending:,}", delta_color="inverse")
+
+            # ── 일별 트렌드 차트 ──
+            st.markdown("### 📈 일별 분석·위험·조치 추이")
+            try:
+                _df = pd.DataFrame(_rows)
+                _df["stat_date"] = pd.to_datetime(_df["stat_date"])
+                _chart_df = _df.set_index("stat_date")[
+                    ["total_analyses", "risk_found", "action_completed"]
+                ].rename(
+                    columns={
+                        "total_analyses": "총 분석",
+                        "risk_found": "위험 발견",
+                        "action_completed": "조치 완료",
+                    }
+                )
+                st.line_chart(_chart_df)
+            except Exception:
+                st.caption("차트 데이터 표시 실패 (데이터 부족)")
+
+            # ── 카테고리·플랫폼 분포 (system 스코프만 상세 분포 있음) ──
+            if _scope == "system" and _rows:
+                _latest = _rows[-1]
+                _by_cat = _latest.get("by_category_json") or {}
+                _by_plt = _latest.get("by_platform_json") or {}
+
+                if _by_cat:
+                    st.markdown(f"### 🏷️ 위험 카테고리 분포 ({_latest.get('stat_date')})")
+                    _cat_df = (
+                        pd.DataFrame(list(_by_cat.items()), columns=["카테고리", "건수"])
+                        .sort_values("건수", ascending=False)
+                    )
+                    st.bar_chart(_cat_df.set_index("카테고리"))
+
+                if _by_plt:
+                    st.markdown(f"### 📱 플랫폼별 분포 ({_latest.get('stat_date')})")
+                    _plt_df = (
+                        pd.DataFrame(list(_by_plt.items()), columns=["플랫폼", "건수"])
+                        .sort_values("건수", ascending=False)
+                    )
+                    st.bar_chart(_plt_df.set_index("플랫폼"))
+
+            # ── 음성 안내 (음성 토글 ON일 때만) ──
+            if st.session_state.get("voice_guide_enabled"):
+                st.divider()
+                if st.button(
+                    "🔊 통계 요약 음성으로 듣기",
+                    key="mon_stat_voice",
+                    use_container_width=True,
+                ):
+                    _label_clean = _scope_label.split(" ", 1)[-1] if " " in _scope_label else _scope_label
+                    accessibility.announce(
+                        f"{_label_clean} 모니터링 통계 요약입니다. "
+                        f"기간 {_start_date.strftime('%Y년 %m월 %d일')}부터 "
+                        f"{_end_date.strftime('%Y년 %m월 %d일')}까지. "
+                        f"총 분석 {_total}건. 위험 발견 {_risk}건. "
+                        f"조치 완료 {_done}건. 미조치 {_pending}건."
+                    )
+
+            # 마지막 업데이트 시점
+            _last_agg = _rows[-1].get("aggregated_at") if _rows else None
+            if _last_agg:
+                st.caption(f"📅 마지막 일배치 갱신: {_last_agg}")
+
+        # 홈으로 돌아가기
+        st.divider()
+        if st.button("🏠 홈으로 돌아가기", key="mon_stat_back_home"):
+            st.session_state.current_page = "home_landing"
+            st.rerun()
+
     elif page == "home_landing":
         lang = st.session_state.get("lang", "ko")
 
@@ -11206,6 +11352,15 @@ else:
                 if st.button(t("home_rep_btn"), use_container_width=True, key="home_rep_btn"):
                     st.session_state.current_page = "home"; st.rerun()
 
+            # ── 📊 모니터링 통계 페이지 진입 (v2.1 신규) ──
+            st.markdown("")
+            if st.button(
+                "📊 모니터링 통계 보기 (일배치 KPI · 카테고리 · 플랫폼 분포)",
+                use_container_width=True, key="home_monitoring_stats_btn",
+                type="secondary",
+            ):
+                st.session_state.current_page = "monitoring_stats"; st.rerun()
+
         # ── 하단 중앙 문구 ──
         st.markdown(f"""
         <div style="
@@ -11377,6 +11532,13 @@ else:
                     sev = extract_severity(rt); cat = extract_category(rt)
                     st.subheader(f"{sev_icon(sev)} {t('result_title')}")
                     st.write(rt)
+                    # 📊 통계 로깅
+                    log_monitoring_event(
+                        "analyze_text",
+                        platform="general",
+                        severity=sev, category=cat,
+                        result_json={"text": content[:500], "analysis": rt[:1000]},
+                    )
                     if st.button(t("to_report"), key="text_report"):
                         open_report_form(content, rt, sev, cat, "기타", from_tab=0); st.rerun()
                 else:
@@ -11422,6 +11584,14 @@ else:
                         sev = extract_severity(rt); cat = extract_category(rt)
                         st.subheader(f"{sev_icon(sev)} {t('result_title')}")
                         st.write(rt)
+                        # 📊 통계 로깅
+                        log_monitoring_event(
+                            "analyze_youtube",
+                            platform="youtube",
+                            severity=sev, category=cat,
+                            target_url=url,
+                            result_json={"title": title[:200], "analysis": rt[:1000]},
+                        )
                         if st.button(t("to_report"), key="yt_report"):
                             open_report_form(url, rt, sev, cat, "YouTube", from_tab=1); st.rerun()
                     except Exception as e:
@@ -12266,6 +12436,22 @@ else:
                                     "severity": sev, "category": cat,
                                     "reason": reason, "danger_signal": danger_signal
                                 })
+
+                        # 📊 통계 로깅 — 분석된 결과를 monitoring_events에 일괄 INSERT
+                        for _na in analyzed:
+                            log_monitoring_event(
+                                "analyze_naver",
+                                platform="naver",
+                                keyword=keyword,
+                                severity=_na.get("severity"),
+                                category=_na.get("category"),
+                                target_url=_na.get("link"),
+                                result_json={
+                                    "title": (_na.get("title") or "")[:200],
+                                    "type": _na.get("type"),
+                                    "reason": (_na.get("reason") or "")[:300],
+                                },
+                            )
 
                         analyzed.sort(key=lambda x: x["severity"], reverse=True)
                         risky = [a for a in analyzed if a["severity"] >= 2]
