@@ -509,50 +509,148 @@ def _a11y_inject_shortcuts():
 
 
 def _a11y_render_floating_mic():
-    """음성 명령 floating 마이크 버튼 — 모든 페이지 우하단에 항상 표시 (ON 상태)."""
+    """음성 명령 floating 마이크 버튼 — 자체 완결형 (closure 의존 X)."""
     if not st.session_state.get("voice_guide_enabled"):
         return
     _a11y_components.html(
         """
-        <div id="a11y-mic-btn" role="button" aria-label="음성 명령 시작"
-             onclick="(window.parent || window)._dragoneyesStartListening && (window.parent || window)._dragoneyesStartListening()"
-             style="position:fixed;bottom:24px;right:24px;
-                    width:64px;height:64px;border-radius:50%;
-                    background:#dc2626;color:white;
-                    box-shadow:0 4px 14px rgba(220,38,38,0.5);
-                    display:flex;align-items:center;justify-content:center;
-                    font-size:28px;cursor:pointer;z-index:99999;
-                    border:3px solid white;
-                    transition:transform 0.2s;"
-             onmouseenter="this.style.transform='scale(1.1)'"
-             onmouseleave="this.style.transform='scale(1)'"
-             title="음성 명령 (마이크 클릭 후 말씀하세요)">
-            🎤
-        </div>
         <script>
-        // 부모 페이지에 마이크 버튼 직접 inject (iframe 한계 회피)
         (function() {
             const w = window.parent || window;
             if (w.__a11yMicInstalled) return;
             w.__a11yMicInstalled = true;
+
+            // ── SpeechRecognition을 같은 함수 closure 안에 직접 정의 ──
+            const startListening = function() {
+                try {
+                    const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
+                    if (!SR) {
+                        alert('⚠️ 음성 인식 미지원\\n\\nChrome 또는 Safari 최신 버전 권장.\\n현재 브라우저에서 webkitSpeechRecognition 사용 불가.');
+                        return;
+                    }
+                    console.log('[DragonEyes Voice] starting recognition...');
+                    const recog = new SR();
+                    recog.lang = 'ko-KR';
+                    recog.continuous = false;
+                    recog.interimResults = false;
+
+                    recog.onstart = function() {
+                        console.log('[DragonEyes Voice] started');
+                        if (w._dragoneyesSpeak) {
+                            w._dragoneyesSpeak("음성 명령을 말씀하세요.");
+                        }
+                        // 시각 피드백 — 버튼 색 변경
+                        const b = w.document.getElementById('a11y-mic-floating');
+                        if (b) {
+                            b.style.background = '#16a34a';
+                            b.style.animation = 'pulse 1.5s ease-in-out infinite';
+                        }
+                    };
+
+                    recog.onresult = function(event) {
+                        const cmd = (event.results[0][0].transcript || '').toLowerCase().trim();
+                        console.log('[DragonEyes Voice CMD]', cmd);
+                        if (w._dragoneyesSpeak) w._dragoneyesSpeak("인식된 명령: " + cmd);
+
+                        // "메뉴 읽어줘"
+                        if (cmd.indexOf('메뉴') >= 0 || cmd.indexOf('읽어') >= 0) {
+                            const btns = Array.from(w.document.querySelectorAll('button, a[href]'))
+                                .filter(b => (b.innerText || '').trim() && b.offsetParent !== null);
+                            let text = "현재 페이지 메뉴 " + btns.length + "개. ";
+                            btns.slice(0, 15).forEach(function(b, i) {
+                                text += (i+1) + "번 " + (b.innerText || '').trim() + ". ";
+                            });
+                            if (w._dragoneyesSpeak) w._dragoneyesSpeak(text.substring(0, 1500));
+                            return;
+                        }
+
+                        // 키워드 매칭 → 버튼 클릭
+                        const keywords = ['통계','홈','모니터링','업무','파트너','관리자','사용자','보고서','작성','공지'];
+                        for (const kw of keywords) {
+                            if (cmd.indexOf(kw) >= 0) {
+                                const btns = Array.from(w.document.querySelectorAll('button'));
+                                const found = btns.find(b => {
+                                    const t = (b.innerText || '').trim();
+                                    return t.indexOf(kw) >= 0 && b.offsetParent !== null;
+                                });
+                                if (found) {
+                                    if (w._dragoneyesSpeak) w._dragoneyesSpeak(kw + " 메뉴로 이동합니다.");
+                                    setTimeout(function() { found.click(); }, 800);
+                                    return;
+                                }
+                            }
+                        }
+                        if (w._dragoneyesSpeak) w._dragoneyesSpeak("일치하는 메뉴를 찾지 못했습니다.");
+                    };
+
+                    recog.onerror = function(e) {
+                        console.error('[DragonEyes Voice error]', e.error);
+                        const b = w.document.getElementById('a11y-mic-floating');
+                        if (b) {
+                            b.style.background = '#dc2626';
+                            b.style.animation = '';
+                        }
+                        if (e.error === 'not-allowed') {
+                            alert('🎤 마이크 권한 거부됨\\n\\n브라우저 주소창 좌측 자물쇠 → 마이크 → "허용"으로 변경 후 다시 시도하세요.');
+                        } else if (e.error === 'no-speech') {
+                            if (w._dragoneyesSpeak) w._dragoneyesSpeak("음성이 감지되지 않았습니다. 다시 시도하세요.");
+                        } else {
+                            alert('🎤 음성 인식 오류: ' + e.error);
+                        }
+                    };
+
+                    recog.onend = function() {
+                        console.log('[DragonEyes Voice] ended');
+                        const b = w.document.getElementById('a11y-mic-floating');
+                        if (b) {
+                            b.style.background = '#dc2626';
+                            b.style.animation = '';
+                        }
+                    };
+
+                    recog.start();
+                } catch (err) {
+                    console.error('[DragonEyes Voice] startListening error:', err);
+                    alert('🎤 음성 인식 시작 실패: ' + err.message);
+                }
+            };
+
+            // 글로벌에도 등록 (다른 곳에서 호출 가능하도록)
+            w._dragoneyesStartListening = startListening;
+
+            // ── floating 마이크 버튼 inject (부모 페이지에 직접) ──
             try {
-                const btn = w.document.createElement('div');
+                // 펄스 애니메이션 CSS 추가
+                const styleEl = w.document.createElement('style');
+                styleEl.innerHTML = '@keyframes pulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.15); } }';
+                w.document.head.appendChild(styleEl);
+
+                const btn = w.document.createElement('button');
                 btn.id = 'a11y-mic-floating';
-                btn.setAttribute('role', 'button');
-                btn.setAttribute('aria-label', '음성 명령 시작');
+                btn.setAttribute('aria-label', '음성 명령 마이크. 클릭 후 말씀하세요.');
+                btn.setAttribute('title', '🎤 음성 명령 (클릭 후 말씀하세요)');
                 btn.innerHTML = '🎤';
-                btn.style.cssText = 'position:fixed;bottom:24px;right:24px;width:64px;height:64px;' +
+                btn.style.cssText =
+                    'position:fixed !important;bottom:24px;right:24px;width:72px;height:72px;' +
                     'border-radius:50%;background:#dc2626;color:white;' +
                     'box-shadow:0 4px 14px rgba(220,38,38,0.5);' +
                     'display:flex;align-items:center;justify-content:center;' +
-                    'font-size:28px;cursor:pointer;z-index:99999;' +
-                    'border:3px solid white;transition:transform 0.2s;';
-                btn.onmouseenter = () => btn.style.transform = 'scale(1.1)';
-                btn.onmouseleave = () => btn.style.transform = 'scale(1)';
-                btn.onclick = () => w._dragoneyesStartListening && w._dragoneyesStartListening();
-                btn.title = '음성 명령 (클릭 후 말씀하세요)';
+                    'font-size:32px;cursor:pointer;z-index:2147483647;' +
+                    'border:3px solid white;transition:transform 0.2s;outline:none;';
+                btn.onmouseenter = function() { btn.style.transform = 'scale(1.1)'; };
+                btn.onmouseleave = function() { btn.style.transform = 'scale(1)'; };
+                // 클릭 핸들러 — closure로 startListening 직접 참조 (전역 의존 X)
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('[DragonEyes Voice] mic btn clicked');
+                    startListening();
+                });
                 w.document.body.appendChild(btn);
-            } catch (e) { console.error('[A11y] mic btn inject error:', e); }
+                console.log('[DragonEyes Voice] mic button injected at', w.location.href);
+            } catch (e) {
+                console.error('[A11y] mic btn inject error:', e);
+            }
         })();
         </script>
         """,
