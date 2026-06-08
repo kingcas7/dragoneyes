@@ -277,14 +277,48 @@ def _a11y_inject_shortcuts():
                         }}
                     }}
                 }};
-                // listener 다중 등록 — Streamlit 가로채기 회피
-                //   capture phase + bubble phase 양쪽, window + document 양쪽
-                w.document.addEventListener('keydown', _a11yKeyHandler, true);
-                w.addEventListener('keydown', _a11yKeyHandler, true);
-                if (w.document.body) {{
-                    w.document.body.addEventListener('keydown', _a11yKeyHandler, true);
-                }}
-                console.log('[DragonEyes A11y] keydown listeners registered on window+document+body');
+                // ── listener 다중 레벨 등록 ──
+                //   Streamlit 구조: top window → Streamlit iframe → components srcdoc iframe
+                //   window.parent는 srcdoc → Streamlit iframe 레벨까지만 닿음.
+                //   사용자 키 입력은 top window에서 발생 → top까지 traverse 필요.
+                const _a11yWindows = [];
+                try {{
+                    let curr = window;
+                    while (curr && _a11yWindows.indexOf(curr) === -1 && _a11yWindows.length < 10) {{
+                        _a11yWindows.push(curr);
+                        if (curr === curr.parent) break;
+                        curr = curr.parent;
+                    }}
+                    if (window.top && _a11yWindows.indexOf(window.top) === -1) {{
+                        _a11yWindows.push(window.top);
+                    }}
+                }} catch (e) {{ console.warn('[A11y] window traversal:', e); }}
+
+                let _registered = 0;
+                _a11yWindows.forEach((tw, i) => {{
+                    try {{
+                        tw.document.addEventListener('keydown', _a11yKeyHandler, true);
+                        tw.addEventListener('keydown', _a11yKeyHandler, true);
+                        if (tw.document.body) {{
+                            tw.document.body.addEventListener('keydown', _a11yKeyHandler, true);
+                        }}
+                        // 부모 컨텍스트의 _dragoneyesSpeak도 top까지 등록 (호출 호환성)
+                        if (!tw._dragoneyesSpeak) {{
+                            tw._dragoneyesSpeak = w._dragoneyesSpeak;
+                        }}
+                        if (!tw.hasOwnProperty('__a11yEnabled')) {{
+                            tw.__a11yEnabled = w.__a11yEnabled;
+                            tw.__a11yLang = w.__a11yLang;
+                            tw.__a11ySpeed = w.__a11ySpeed;
+                        }}
+                        _registered++;
+                        const label = (tw === window.top) ? 'TOP' : ('level-' + i);
+                        console.log('[DragonEyes A11y] listener registered:', label, tw.location?.href || '(cross-origin)');
+                    }} catch (e) {{
+                        console.warn('[A11y] register failed at level', i, ':', e.message);
+                    }}
+                }});
+                console.log('[DragonEyes A11y] total listener levels:', _registered, '/', _a11yWindows.length);
             }} catch (e) {{ console.error('DragonEyes shortcuts inject error:', e); }}
         }})();
         </script>
