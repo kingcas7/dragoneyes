@@ -12,7 +12,21 @@ try:
     RESEND_AVAILABLE = True
 except ImportError:
     RESEND_AVAILABLE = False
-import accessibility  # 시각장애인 음성 안내 (Web Speech API + WCAG 2.1 AA)
+# ── 시각장애인 음성 안내 (Web Speech API + WCAG 2.1 AA) ──
+# 모듈명 충돌 회피 위해 dragoneyes_a11y로 이름 변경 (2026-06-08 운영 hotfix).
+# import 실패 시(빌드 누락 등) stub으로 폴백하여 앱 자체는 살아남도록.
+import sys as _sys_a11y, os as _os_a11y
+_sys_a11y.path.insert(0, _os_a11y.path.dirname(_os_a11y.path.abspath(__file__)))
+try:
+    import dragoneyes_a11y as accessibility
+except Exception as _a11y_e:
+    class _A11yStub:
+        """모든 호출을 no-op으로 만드는 안전 stub."""
+        def __getattr__(self, name):
+            return lambda *args, **kwargs: None
+    accessibility = _A11yStub()
+    import logging as _lg_a11y
+    _lg_a11y.warning("accessibility 모듈 로드 실패 → stub 사용: %s", _a11y_e)
 # v2026.03.15 — 보고서↔탐색URL 양방향 연결, YouTube 메타데이터 30일 보관 정책, 모바일 PWA 최적화
 # v2026.04.19 — 보안 패치: URL 토큰 노출 방지, 세션 복원 시 토큰 즉시 삭제
 # v2026.04.21 — 한국어 번역 62개 추가
