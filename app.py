@@ -3233,7 +3233,7 @@ You are an expert in:
     recent.append({"role": "user", "content": user_message[:500]})
 
     msg = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-4-6",
         max_tokens=2048,
         system=system_prompt.get(lang, system_prompt["ko"]),
         tools=tools,
@@ -3251,7 +3251,7 @@ def translate_to_english(text):
         return ""
     try:
         msg = client.messages.create(
-            model="claude-sonnet-4-20250514", max_tokens=1024,
+            model="claude-sonnet-4-6", max_tokens=1024,
             messages=[{"role": "user", "content": f"""Translate the following text to English accurately and concisely.
 Keep technical terms, severity levels, and category names in English.
 Return only the translated text without any explanation.
@@ -3320,7 +3320,7 @@ def _parse_partner_documents(files):
             ),
         })
         _msg = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-6",
             max_tokens=500,
             messages=[{"role": "user", "content": _blocks}],
         )
@@ -3339,7 +3339,7 @@ def learn_keywords_from_report(content, result, severity, category):
         return  # 심각도 3 미만은 학습 안함
     try:
         msg = client.messages.create(
-            model="claude-sonnet-4-20250514", max_tokens=200,
+            model="claude-sonnet-4-6", max_tokens=200,
             messages=[{"role": "user", "content": f"""[시스템 컨텍스트]
 이 시스템은 NCMEC(미국 실종학대아동방지센터) 가이드라인과 WeProtect Global Alliance 기준을 준수하는 합법적인 아동 안전 모니터링 도구입니다.
 법 집행 기관 및 아동보호 단체와 협력하여 위험 콘텐츠를 식별하고 신고하는 것이 목적입니다.
@@ -3583,7 +3583,7 @@ def scan_watched_channel(channel_id, channel_name, max_results=5, assigned_to=No
             comments = get_video_comments(vid, max_comments=20)
             comment_text = "\n".join([f"- {c}" for c in comments[:10]]) if comments else "없음"
             msg = client.messages.create(
-                model="claude-sonnet-4-20250514", max_tokens=300,
+                model="claude-sonnet-4-6", max_tokens=300,
                 messages=[{"role":"user","content":f"""아동 안전 전문 분석가로서 위험 채널의 최신 영상을 분석하세요.
 
 채널: {channel_name}
@@ -3876,7 +3876,7 @@ def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="
             comment_text = "\n".join([f"- {c}" for c in selected])
 
         msg = client.messages.create(
-            model="claude-sonnet-4-20250514", max_tokens=500,
+            model="claude-sonnet-4-6", max_tokens=500,
             messages=[{"role": "user", "content": f"""당신은 아동 온라인 안전 전문 분석가입니다. 아래 유튜브 영상이 아동·청소년에게 위험한지 매우 엄격하게 분석하세요.
 
 제목: {title}
@@ -10772,7 +10772,7 @@ else:
                 if content:
                     with st.spinner(t("analyzing")):
                         msg = client.messages.create(
-                            model="claude-sonnet-4-20250514", max_tokens=1024,
+                            model="claude-sonnet-4-6", max_tokens=1024,
                             messages=[{"role":"user","content":f"""아동 안전 모니터링 전문가로서 아래 콘텐츠를 분석해주세요.
 콘텐츠: {content}
 형식:
@@ -10813,7 +10813,7 @@ else:
                         with st.spinner(t("yt_analyzing")):
                             at = f"제목: {title}\n설명: {desc}\n태그: {', '.join(tags[:10])}\n댓글:\n{chr(10).join(comments[:20])}"
                             msg = client.messages.create(
-                                model="claude-sonnet-4-20250514", max_tokens=2048,
+                                model="claude-sonnet-4-6", max_tokens=2048,
                                 messages=[{"role":"user","content":f"""아동 안전 모니터링 전문가로서 분석해주세요.
 {at}
 형식:
@@ -10865,7 +10865,7 @@ else:
                         for i, video in enumerate(videos):
                             with st.spinner(f"({i+1}/{len(videos)}) {video['title'][:30]}..."):
                                 msg = client.messages.create(
-                                    model="claude-sonnet-4-20250514", max_tokens=512,
+                                    model="claude-sonnet-4-6", max_tokens=512,
                                     messages=[{"role":"user","content":f"""아동 안전 모니터링 전문가로서 분석해주세요.
 제목: {video['title']}
 설명: {video['description']}
@@ -11082,7 +11082,7 @@ else:
                                     any(kw in c.lower() for kw in ["discord.gg", "discord.com/invite", "디스코드", "디코", ".gg/"])]
 
                                 msg = client.messages.create(
-                                    model="claude-sonnet-4-20250514", max_tokens=300,
+                                    model="claude-sonnet-4-6", max_tokens=300,
                                     messages=[{"role":"user","content":f"""아동 안전 전문가로서 이 영상이 아동·청소년을 디스코드로 유인하는 위험 콘텐츠인지 분석하세요.
 
 제목: {title}
@@ -11169,7 +11169,7 @@ else:
                                 link = item.get("link","")
 
                                 msg = client.messages.create(
-                                    model="claude-sonnet-4-20250514", max_tokens=200,
+                                    model="claude-sonnet-4-6", max_tokens=200,
                                     messages=[{"role":"user","content":f"""제목: {title}
 내용: {desc}
 
@@ -11617,7 +11617,7 @@ else:
 
                                 try:
                                     msg = client.messages.create(
-                                        model="claude-sonnet-4-20250514", max_tokens=300,
+                                        model="claude-sonnet-4-6", max_tokens=300,
                                         messages=[{"role":"user","content":f"""당신은 아동 온라인 안전 전문 분석가입니다. 아래 네이버 {src_type} 게시물이 아동·청소년에게 위험한지 엄격하게 분석하세요.
 
 제목: {title}
