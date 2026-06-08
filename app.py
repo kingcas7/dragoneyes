@@ -4522,17 +4522,21 @@ if st.session_state.user is None:
 else:
     user = st.session_state.user
 
-    # ── ♿ 접근성: 음성 안내 토글 (로그인 후, 모든 페이지 공통 진입점) ──
-    #    DB 자동 저장 (users.preferences) → 다음 로그인 시 자동 복원
+    # ── ♿ 접근성: 음성 안내 토글 (관리자 페이지는 숨김, 사용자 페이지만 노출) ──
+    #    음성 ON 상태에선 어디서든 노출 (꺼야 함). DB 자동 저장.
     _voice_on = st.session_state.get("voice_guide_enabled", False)
-    _exp_label = "♿ 음성 안내 (켜짐)" if _voice_on else "♿ 접근성 옵션 (음성 안내)"
-    with st.expander(_exp_label, expanded=False):
-        accessibility.render_toolbar(
-            supabase=supabase,
-            user_id=user.get("id") if user else None,
-            key_prefix="a11y_main",
-            compact=True,
-        )
+    _curr_page = st.session_state.get("current_page", "") or ""
+    _admin_prefixes = ("admin_", "partner_", "agency", "tenant_", "org_", "distributor_")
+    _is_admin_route = any(_curr_page.startswith(p) for p in _admin_prefixes)
+    if _voice_on or not _is_admin_route:
+        _exp_label = "♿ 음성 안내 (켜짐)" if _voice_on else "♿ 접근성 옵션 (음성 안내)"
+        with st.expander(_exp_label, expanded=False):
+            accessibility.render_toolbar(
+                supabase=supabase,
+                user_id=user.get("id") if user else None,
+                key_prefix="a11y_main",
+                compact=True,
+            )
 
     # ── 최종사용자 동의 체크 (미동의 시 강제 표시) ──
     if not check_user_terms(user) and st.session_state.get("current_page") not in ("terms_agree",):

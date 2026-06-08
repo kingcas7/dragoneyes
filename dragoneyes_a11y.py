@@ -117,12 +117,20 @@ def announce(text: str, *, lang: Optional[str] = None, interrupt: bool = True) -
     js_text = json.dumps(str(text))
     js_lang = json.dumps(str(lang))
     js_interrupt = json.dumps(bool(interrupt))
+    # 부모 컨텍스트에 등록된 _dragoneyesSpeak 호출 (iframe 격리 회피).
+    # inject_shortcuts()에서 미리 등록됨. 없으면 직접 호출(폴백).
     components.html(
         f"""
         <script>
         (function() {{
             try {{
                 const w = window.parent || window;
+                // 1순위: 부모 컨텍스트의 _dragoneyesSpeak (iframe sandbox 회피)
+                if (typeof w._dragoneyesSpeak === 'function') {{
+                    w._dragoneyesSpeak({js_text}, {js_lang}, {speed}, {js_interrupt});
+                    return;
+                }}
+                // 폴백: iframe 내 직접 호출 (브라우저 정책으로 차단될 수 있음)
                 if (!('speechSynthesis' in w)) return;
                 if ({js_interrupt}) {{
                     w.speechSynthesis.cancel();
@@ -209,6 +217,24 @@ def render_toolbar(
             if st.session_state.get("voice_guide_enabled"):
                 st.caption("⌨️ Alt+A: 토글로 이동 · Alt+M: 메뉴 · Alt+H: 도움말")
 
+    # ── 🔊 음성 테스트 버튼 + 안내 (토글 ON일 때만 노출) ──
+    #    토글 변경 시 자동 announce가 브라우저 정책으로 차단될 수 있어
+    #    명시적 사용자 클릭으로 첫 발화를 보장하는 안전판.
+    if st.session_state.get("voice_guide_enabled"):
+        st.caption(
+            "💡 음성이 들리지 않으면 아래 **음성 테스트** 버튼을 눌러주세요. "
+            "브라우저 정책상 첫 발화는 사용자의 명시적 클릭이 필요할 수 있습니다."
+        )
+        if st.button(
+            "🔊 음성 테스트",
+            key=f"{key_prefix}_voice_test",
+            help="현재 설정으로 음성이 정상 작동하는지 확인합니다.",
+        ):
+            announce(
+                "안녕하세요. 드래곤아이즈 음성 안내가 정상적으로 작동합니다. "
+                "이 메시지가 들리시면 성공입니다."
+            )
+
 
 # ══════════════════════════════════════════════════════════════
 # 5. 키보드 단축키 inject (한 번)
@@ -229,6 +255,31 @@ def inject_shortcuts() -> None:
                 const w = window.parent || window;
                 if (w.__a11yShortcutsInstalled) return;
                 w.__a11yShortcutsInstalled = true;
+
+                // ── 부모 컨텍스트에 _dragoneyesSpeak 함수 등록 ──
+                //    iframe 격리 안에서 호출 시 차단되는 SpeechSynthesisUtterance를
+                //    부모 페이지 컨텍스트에서 실행해 사용자 제스처 정책을 통과.
+                w._dragoneyesSpeak = function(text, lang, rate, interrupt) {
+                    try {
+                        if (!('speechSynthesis' in w)) {
+                            console.warn('speechSynthesis API not supported');
+                            return;
+                        }
+                        if (interrupt !== false) {
+                            w.speechSynthesis.cancel();
+                        }
+                        const u = new w.SpeechSynthesisUtterance(text);
+                        u.lang = lang || 'ko-KR';
+                        u.rate = (typeof rate === 'number' && rate > 0) ? rate : 1.0;
+                        u.pitch = 1.0;
+                        u.volume = 1.0;
+                        w.speechSynthesis.speak(u);
+                    } catch (e) {
+                        console.error('DragonEyes TTS error:', e);
+                    }
+                };
+
+                // ── 키보드 단축키 (Alt+A/M/H) ──
                 w.document.addEventListener('keydown', function(e) {
                     if (!e.altKey) return;
                     const key = (e.key || '').toLowerCase();
@@ -253,7 +304,6 @@ def inject_shortcuts() -> None:
                         }
                         e.preventDefault();
                     } else if (key === 'h') {
-                        // 도움말 — 향후 도움말 페이지 라우팅
                         const evt = new CustomEvent('dragoneyes:help-requested');
                         w.dispatchEvent(evt);
                         e.preventDefault();
