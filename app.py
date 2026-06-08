@@ -537,6 +537,64 @@ def _a11y_inject_shortcuts():
     )
 
 
+def _a11y_render_keyboard_mic():
+    """키보드 접근 가능한 마이크 시작/중지 버튼 — Streamlit native button.
+
+    시각장애인이 마이크 아이콘을 찾기 어려운 문제 해결:
+    - Streamlit 표준 button → Tab 키로 포커스 가능
+    - Enter / Space 키로 클릭 (HTML 표준, listener 의존 X)
+    - 페이지 진입 시 자동 포커스 → Enter 한 번이면 마이크 시작
+    """
+    if not st.session_state.get("voice_guide_enabled"):
+        return
+    _label = "🎤 음성 명령 시작 (Enter 키로 작동)"
+    if st.button(_label, key="a11y_mic_kb_trigger",
+                 use_container_width=True, type="primary",
+                 help="Tab 키로 이동 후 Enter로 마이크 켜기/끄기. 표준 키보드 작동."):
+        # 마이크 토글 JavaScript inject (rerun 무관)
+        _a11y_components.html(
+            """
+            <script>
+            (function() {
+                try {
+                    const w = window.parent || window;
+                    if (w._dragoneyesToggleListening) {
+                        w._dragoneyesToggleListening();
+                    } else if (w._dragoneyesStartListening) {
+                        w._dragoneyesStartListening();
+                    }
+                } catch(e) { console.error('[A11y] mic toggle:', e); }
+            })();
+            </script>
+            """,
+            height=0,
+        )
+    # 페이지 진입 시 마이크 버튼에 자동 포커스 — 1회
+    if not st.session_state.get("_a11y_mic_focused"):
+        st.session_state["_a11y_mic_focused"] = True
+        _a11y_components.html(
+            """
+            <script>
+            setTimeout(function() {
+                try {
+                    const w = window.parent || window;
+                    const btns = w.document.querySelectorAll('button');
+                    for (const b of btns) {
+                        const t = (b.innerText || '').replace(/\\s+/g, '');
+                        if (t.indexOf('음성명령시작') >= 0 || t.indexOf('Enter키로작동') >= 0) {
+                            b.focus();
+                            console.log('[A11y] mic btn auto-focused');
+                            break;
+                        }
+                    }
+                } catch(e) {}
+            }, 1200);
+            </script>
+            """,
+            height=0,
+        )
+
+
 def _a11y_render_floating_mic():
     """음성 명령 floating 마이크 버튼 — 자체 완결형 (closure 의존 X)."""
     if not st.session_state.get("voice_guide_enabled"):
@@ -1372,6 +1430,7 @@ accessibility = _A11ySimpleNamespace(
     aria_landmark=_a11y_aria_landmark,
     announce_page=_a11y_announce_page,
     render_floating_mic=_a11y_render_floating_mic,
+    render_keyboard_mic=_a11y_render_keyboard_mic,
 )
 # v2026.03.15 — 보고서↔탐색URL 양방향 연결, YouTube 메타데이터 30일 보관 정책, 모바일 PWA 최적화
 # v2026.04.19 — 보안 패치: URL 토큰 노출 방지, 세션 복원 시 토큰 즉시 삭제
@@ -5939,8 +5998,12 @@ else:
                 key_prefix="a11y_main",
                 compact=True,
             )
+            # ⌨️ 키보드 접근 가능한 마이크 시작/중지 버튼 (Tab+Enter)
+            #     시각장애인은 단축키 대신 Tab으로 포커스 → Enter 클릭
+            #     페이지 진입 시 자동 포커스 → Enter 한 번이면 마이크 ON
+            accessibility.render_keyboard_mic()
 
-    # 🎤 음성 명령 floating 마이크 버튼 (음성 ON일 때 모든 페이지 우하단)
+    # 🎤 음성 명령 floating 마이크 버튼 (음성 ON일 때 모든 페이지 우하단 — 시각용)
     accessibility.render_floating_mic()
 
     # ── 최종사용자 동의 체크 (미동의 시 강제 표시) ──
