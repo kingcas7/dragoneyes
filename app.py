@@ -1189,7 +1189,7 @@ LANG = {
         "monthly_limit_warn":"📌 월간 한도 도달. 관리자에게 토큰 요청하세요.",
         "unit_items":"건",
         "banner_line1":"이 곳은 온라인 유해 컨텐츠를 모니터링하는 Claude 기반의 AI Agent 드래곤파더와 함께 작업하는 곳입니다.","banner_line2":"어린이 아동학대, 그루밍, 성폭력, 도박 등과 관련한 다양한 불법 컨텐츠를 감시합니다.","badge_intl":"국제기관 가이드라인 준수","badge_ncmec":"NCMEC 가이드라인 준수","badge_iwf":"IWF 글로벌 기준","home_footer":"드래곤아이즈(주) | DragonEyes Inc. | 사업자등록번호 238-86-03926 | 📧 support@dragoneyes.kr","ann_unread":"미확인",
-        "hdr_work":"📊 업무현황","hdr_home":"🏠 홈","hdr_write":"📋 작성","hdr_notice":"📢 공지","hdr_admin":"👑 관리자","hdr_profile":"👤 사용자",
+        "hdr_work":"📊 업무현황","hdr_stats":"📈 통계","hdr_home":"🏠 홈","hdr_write":"📋 작성","hdr_notice":"📢 공지","hdr_admin":"👑 관리자","hdr_profile":"👤 사용자",
         "save_error":"저장 오류: {}","delete_error":"삭제 오류: {}","error":"오류: {}","no_url":"URL을 입력해주세요.",
         # 공지 팝업
         "ann_confirm":"✅ 확인 (다시 안 보기)","ann_later":"나중에 다시 알림","ann_date":"발송일:",
@@ -1409,7 +1409,7 @@ LANG = {
         "monthly_limit_warn":"📌 Monthly limit reached. Ask admin for more tokens.",
         "unit_items":"",
         "banner_line1":"This is a place to work with Claude-based AI Agent DragonFather to monitor harmful online content.","banner_line2":"We monitor illegal content related to child abuse, grooming, sexual violence, and gambling.","badge_intl":"International Guidelines Compliant","badge_ncmec":"NCMEC Guidelines","badge_iwf":"IWF Global Standards","home_footer":"DragonEyes Inc. | 드래곤아이즈(주) | Business Reg. No. 238-86-03926 | 📧 support@dragoneyes.kr","ann_unread":"Unread",
-        "hdr_work":"📊 Work Status","hdr_home":"🏠 Home","hdr_write":"📋 Write","hdr_notice":"📢 Notice","hdr_admin":"👑 Admin","hdr_profile":"👤 Profile",
+        "hdr_work":"📊 Work Status","hdr_stats":"📈 Stats","hdr_home":"🏠 Home","hdr_write":"📋 Write","hdr_notice":"📢 Notice","hdr_admin":"👑 Admin","hdr_profile":"👤 Profile",
         "save_error":"Save error: {}","delete_error":"Delete error: {}","error":"Error: {}","no_url":"Please enter a URL.",
         # announcement popup
 # 2nd pass
@@ -1656,7 +1656,7 @@ LANG = {
         "monthly_limit_warn":"📌 今月の上限に達しました。管理者に追加を申請してください。",
         "unit_items":"件",
         "banner_line1":"ここはClaude基盤のAI Agent ドラゴンファーザーと共にオンライン有害コンテンツをモニタリングする場所です。","banner_line2":"子どもへの性的虐待、グルーミング、性暴力、ギャンブル等の違法コンテンツを監視します。","badge_intl":"国際機関ガイドライン準拠","badge_ncmec":"NCMECガイドライン","badge_iwf":"IWFグローバル基準","home_footer":"ドラゴンアイズ株式会社 | DragonEyes Inc. | 事業者登録番号 238-86-03926 | 📧 support@dragoneyes.kr","ann_unread":"未確認",
-        "hdr_work":"📊 業務状況","hdr_home":"🏠 ホーム","hdr_write":"📋 作成","hdr_notice":"📢 公知","hdr_admin":"👑 管理者","hdr_profile":"👤 ユーザー",
+        "hdr_work":"📊 業務状況","hdr_stats":"📈 統計","hdr_home":"🏠 ホーム","hdr_write":"📋 作成","hdr_notice":"📢 公知","hdr_admin":"👑 管理者","hdr_profile":"👤 ユーザー",
         "save_error":"保存エラー: {}","delete_error":"削除エラー: {}","error":"エラー: {}","no_url":"URLを入力してください。",
         # 公知ポップアップ
 # 2次翻訳
@@ -5204,12 +5204,12 @@ else:
     with h_right:
         _show_agency_btn = is_agency_admin(user) or is_superadmin(user)
         if _show_admin_btn and _show_agency_btn:
-            spacer, bc_ko, bc_en, bc_jp, bc_agency, bc_work, bc_home, bc_write, bc_notice, bc_admin, bc_profile, bc_logout = st.columns([0.5, 0.28, 0.28, 0.28, 0.65, 0.5, 0.42, 0.42, 0.52, 0.52, 0.5, 0.25])
+            spacer, bc_ko, bc_en, bc_jp, bc_agency, bc_work, bc_stats, bc_home, bc_write, bc_notice, bc_admin, bc_profile, bc_logout = st.columns([0.5, 0.28, 0.28, 0.28, 0.65, 0.5, 0.55, 0.42, 0.42, 0.52, 0.52, 0.5, 0.25])
         elif _show_admin_btn:
-            spacer, bc_ko, bc_en, bc_jp, bc_work, bc_home, bc_write, bc_notice, bc_admin, bc_profile, bc_logout = st.columns([1.2, 0.28, 0.28, 0.28, 0.5, 0.42, 0.42, 0.52, 0.52, 0.5, 0.25])
+            spacer, bc_ko, bc_en, bc_jp, bc_work, bc_stats, bc_home, bc_write, bc_notice, bc_admin, bc_profile, bc_logout = st.columns([1.2, 0.28, 0.28, 0.28, 0.5, 0.55, 0.42, 0.42, 0.52, 0.52, 0.5, 0.25])
             bc_agency = None
         else:
-            spacer, bc_ko, bc_en, bc_jp, bc_work, bc_home, bc_write, bc_notice, bc_profile, bc_logout = st.columns([1.5, 0.28, 0.28, 0.28, 0.5, 0.42, 0.42, 0.52, 0.5, 0.25])
+            spacer, bc_ko, bc_en, bc_jp, bc_work, bc_stats, bc_home, bc_write, bc_notice, bc_profile, bc_logout = st.columns([1.5, 0.28, 0.28, 0.28, 0.5, 0.55, 0.42, 0.42, 0.52, 0.5, 0.25])
             bc_agency = None
 
         with bc_ko:
@@ -5228,6 +5228,10 @@ else:
         with bc_work:
             if st.button(t("hdr_work"), use_container_width=True, key="hdr_work_btn"):
                 go_to("work_page"); st.rerun()
+        with bc_stats:
+            if st.button(t("hdr_stats"), use_container_width=True, key="hdr_stats_btn",
+                         help="모니터링 통계 (KPI · 카테고리 · 플랫폼 분포)"):
+                go_to("monitoring_stats"); st.rerun()
         with bc_home:
             if st.button("🏠 홈", use_container_width=True):
                 go_home(); st.rerun()
