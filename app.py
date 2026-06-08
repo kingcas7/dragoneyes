@@ -17,11 +17,19 @@ except ImportError:
 # import 실패 시(빌드 누락 등) stub으로 폴백하여 앱 자체는 살아남도록.
 import sys as _sys_a11y, os as _os_a11y
 _sys_a11y.path.insert(0, _os_a11y.path.dirname(_os_a11y.path.abspath(__file__)))
+_a11y_import_error = None
 try:
     import dragoneyes_a11y as accessibility
 except Exception as _a11y_e:
+    _a11y_import_error = repr(_a11y_e)
     class _A11yStub:
-        """모든 호출을 no-op으로 만드는 안전 stub."""
+        """모든 호출을 no-op으로 만드는 안전 stub. render_toolbar는 가시적 에러 표시."""
+        def render_toolbar(self, *args, **kwargs):
+            import streamlit as _stub_st
+            _stub_st.error(
+                f"⚠️ 접근성 모듈(dragoneyes_a11y) 로드 실패: {_a11y_import_error}. "
+                f"sys.path 또는 빌드 누락 가능성. Railway Deploy Logs 확인 필요."
+            )
         def __getattr__(self, name):
             return lambda *args, **kwargs: None
     accessibility = _A11yStub()

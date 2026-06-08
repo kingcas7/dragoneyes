@@ -173,6 +173,9 @@ def render_toolbar(
         key_prefix: 위젯 key 충돌 방지용 prefix.
         compact: True면 도움말 텍스트 생략.
     """
+    # 진단 표시 — 모듈이 정상 로드됐는지 가시적으로 확인
+    st.caption(f"✅ a11y 모듈 활성 (render_toolbar v2 / key_prefix={key_prefix})")
+
     init_state()
     prev_enabled = bool(st.session_state.get("voice_guide_enabled", False))
     prev_speed = float(st.session_state.get("voice_speed", 1.0))
