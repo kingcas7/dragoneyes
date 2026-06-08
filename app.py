@@ -322,8 +322,238 @@ def _a11y_inject_shortcuts():
                     }}
                 }});
                 console.log('[DragonEyes A11y] total listener levels:', _registered, '/', _a11yWindows.length);
+
+                // ════════════════════════════════════════════════════════
+                // 호버·클릭 음성 — MutationObserver 새 방식 (이전 방식 실패 대응)
+                // ════════════════════════════════════════════════════════
+                // 이벤트 bubble up 의존 X. 각 element에 직접 addEventListener.
+                // Streamlit이 DOM 동적 추가하면 새 element에도 자동 적용.
+                let _lastHoverText = '';
+                let _lastHoverTime = 0;
+                let _hoverTimer = null;
+
+                const _extractAriaText = (el) => {{
+                    if (!el) return '';
+                    let t = el.getAttribute('aria-label') || el.innerText || el.textContent || '';
+                    if (!t.trim()) {{
+                        t = el.getAttribute('placeholder') || el.getAttribute('title') || el.value || '';
+                    }}
+                    return t.trim().replace(/\\s+/g, ' ').substring(0, 120);
+                }};
+
+                const _attachA11yToElement = (el) => {{
+                    if (!el || el.__a11yAttached) return;
+                    el.__a11yAttached = true;
+
+                    // 호버 (0.5초 정지 후 발화)
+                    el.addEventListener('mouseenter', (e) => {{
+                        if (!w.__a11yEnabled) return;
+                        clearTimeout(_hoverTimer);
+                        const text = _extractAriaText(el);
+                        if (!text) return;
+                        if (text === _lastHoverText && Date.now() - _lastHoverTime < 2000) return;
+                        _hoverTimer = setTimeout(() => {{
+                            if (w._dragoneyesSpeak) w._dragoneyesSpeak(text);
+                            _lastHoverText = text;
+                            _lastHoverTime = Date.now();
+                        }}, 400);
+                    }}, true);
+                    el.addEventListener('mouseleave', () => clearTimeout(_hoverTimer), true);
+
+                    // 포커스 (Tab 이동)
+                    el.addEventListener('focus', () => {{
+                        if (!w.__a11yEnabled) return;
+                        const text = _extractAriaText(el);
+                        if (!text) return;
+                        if (text === _lastHoverText && Date.now() - _lastHoverTime < 1000) return;
+                        if (w._dragoneyesSpeak) w._dragoneyesSpeak(text);
+                        _lastHoverText = text;
+                        _lastHoverTime = Date.now();
+                    }}, true);
+
+                    // 클릭 (모든 버튼 클릭 시 즉시 음성)
+                    el.addEventListener('click', () => {{
+                        if (!w.__a11yEnabled) return;
+                        const text = _extractAriaText(el);
+                        if (text && w._dragoneyesSpeak) {{
+                            // 클릭은 페이지 이동/액션 직전이라 짧게
+                            w._dragoneyesSpeak(text.substring(0, 80), null, w.__a11ySpeed || 1.2);
+                            _lastHoverText = text;
+                            _lastHoverTime = Date.now();
+                        }}
+                    }}, true);
+                }};
+
+                const _scanAndAttach = (root) => {{
+                    try {{
+                        const targets = root.querySelectorAll(
+                            'button, a[href], input, textarea, select, ' +
+                            'label[data-baseweb="checkbox"], [role="button"], ' +
+                            '[data-testid*="stMetric"], [data-testid*="stTabs"] button'
+                        );
+                        targets.forEach(_attachA11yToElement);
+                    }} catch (e) {{}}
+                }};
+
+                // 모든 등록된 window에 MutationObserver 설정
+                _a11yWindows.forEach(tw => {{
+                    try {{
+                        if (tw.__a11yObserverInstalled) return;
+                        tw.__a11yObserverInstalled = true;
+
+                        // 초기 스캔 (페이지 로드 시 이미 있는 element)
+                        if (tw.document.body) _scanAndAttach(tw.document.body);
+
+                        // 동적 추가 감지
+                        const observer = new tw.MutationObserver((mutations) => {{
+                            mutations.forEach(m => {{
+                                m.addedNodes.forEach(node => {{
+                                    if (node.nodeType !== 1) return;
+                                    _attachA11yToElement(node);  // 자체
+                                    _scanAndAttach(node);  // 자식들
+                                }});
+                            }});
+                        }});
+                        observer.observe(tw.document.body, {{
+                            childList: true, subtree: true,
+                        }});
+                        console.log('[DragonEyes A11y] MutationObserver installed at', tw.location?.href || '?');
+                    }} catch (e) {{
+                        console.warn('[A11y] observer failed:', e.message);
+                    }}
+                }});
+
+                // ════════════════════════════════════════════════════════
+                // 음성 명령 — Web Speech Recognition (Chrome / Safari 지원)
+                // ════════════════════════════════════════════════════════
+                w._dragoneyesStartListening = function() {{
+                    try {{
+                        const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
+                        if (!SR) {{
+                            if (w._dragoneyesSpeak) w._dragoneyesSpeak("음성 인식이 이 브라우저에서 지원되지 않습니다.");
+                            return;
+                        }}
+                        const recog = new SR();
+                        recog.lang = w.__a11yLang || 'ko-KR';
+                        recog.continuous = false;
+                        recog.interimResults = false;
+                        recog.onstart = () => {{
+                            if (w._dragoneyesSpeak) w._dragoneyesSpeak("음성 명령을 말씀하세요.");
+                        }};
+                        recog.onresult = (event) => {{
+                            const cmd = (event.results[0][0].transcript || '').toLowerCase().trim();
+                            console.log('[DragonEyes Voice CMD]', cmd);
+                            if (w._dragoneyesSpeak) w._dragoneyesSpeak("인식된 명령: " + cmd);
+
+                            // 명령 매핑 — 페이지 내 보이는 버튼 텍스트와 매칭
+                            const matchKeywords = {{
+                                "통계": ["통계", "Stats", "統計"],
+                                "홈": ["홈", "home", "ホーム"],
+                                "모니터링": ["모니터링", "monitoring"],
+                                "업무": ["업무", "work"],
+                                "파트너": ["파트너", "partner"],
+                                "관리자": ["관리자", "admin"],
+                                "사용자": ["사용자", "user", "profile"],
+                                "보고서": ["보고서", "report", "작성"],
+                                "메뉴": ["메뉴", "menu"],
+                            }};
+
+                            // "메뉴 읽어줘" 같은 명령
+                            if (cmd.includes("메뉴") || cmd.includes("읽어")) {{
+                                const allBtns = Array.from(w.document.querySelectorAll('button, a[href]'))
+                                    .filter(b => (b.innerText || '').trim() && b.offsetParent !== null);
+                                let text = "현재 페이지 메뉴 " + allBtns.length + "개. ";
+                                allBtns.slice(0, 15).forEach((b, i) => {{
+                                    text += (i+1) + "번 " + (b.innerText || '').trim() + ". ";
+                                }});
+                                if (w._dragoneyesSpeak) w._dragoneyesSpeak(text.substring(0, 1500));
+                                return;
+                            }}
+
+                            // 특정 메뉴 키워드 → 해당 버튼 클릭
+                            for (const [key, syns] of Object.entries(matchKeywords)) {{
+                                for (const syn of syns) {{
+                                    if (cmd.includes(syn.toLowerCase())) {{
+                                        // 해당 버튼 찾아서 클릭
+                                        const btns = Array.from(w.document.querySelectorAll('button'));
+                                        const found = btns.find(b => {{
+                                            const t = (b.innerText || '').toLowerCase();
+                                            return t.includes(syn.toLowerCase()) && b.offsetParent !== null;
+                                        }});
+                                        if (found) {{
+                                            if (w._dragoneyesSpeak) w._dragoneyesSpeak(key + " 메뉴로 이동합니다.");
+                                            setTimeout(() => found.click(), 800);
+                                            return;
+                                        }}
+                                    }}
+                                }}
+                            }}
+
+                            if (w._dragoneyesSpeak) w._dragoneyesSpeak("일치하는 메뉴를 찾지 못했습니다.");
+                        }};
+                        recog.onerror = (e) => {{
+                            console.error('[DragonEyes Voice CMD error]', e.error);
+                            if (w._dragoneyesSpeak) w._dragoneyesSpeak("음성 인식 오류가 발생했습니다.");
+                        }};
+                        recog.start();
+                    }} catch (e) {{
+                        console.error('[DragonEyes Voice CMD]', e);
+                    }}
+                }};
             }} catch (e) {{ console.error('DragonEyes shortcuts inject error:', e); }}
         }})();
+        </script>
+        """,
+        height=0,
+    )
+
+
+def _a11y_render_floating_mic():
+    """음성 명령 floating 마이크 버튼 — 모든 페이지 우하단에 항상 표시 (ON 상태)."""
+    if not st.session_state.get("voice_guide_enabled"):
+        return
+    _a11y_components.html(
+        """
+        <div id="a11y-mic-btn" role="button" aria-label="음성 명령 시작"
+             onclick="(window.parent || window)._dragoneyesStartListening && (window.parent || window)._dragoneyesStartListening()"
+             style="position:fixed;bottom:24px;right:24px;
+                    width:64px;height:64px;border-radius:50%;
+                    background:#dc2626;color:white;
+                    box-shadow:0 4px 14px rgba(220,38,38,0.5);
+                    display:flex;align-items:center;justify-content:center;
+                    font-size:28px;cursor:pointer;z-index:99999;
+                    border:3px solid white;
+                    transition:transform 0.2s;"
+             onmouseenter="this.style.transform='scale(1.1)'"
+             onmouseleave="this.style.transform='scale(1)'"
+             title="음성 명령 (마이크 클릭 후 말씀하세요)">
+            🎤
+        </div>
+        <script>
+        // 부모 페이지에 마이크 버튼 직접 inject (iframe 한계 회피)
+        (function() {
+            const w = window.parent || window;
+            if (w.__a11yMicInstalled) return;
+            w.__a11yMicInstalled = true;
+            try {
+                const btn = w.document.createElement('div');
+                btn.id = 'a11y-mic-floating';
+                btn.setAttribute('role', 'button');
+                btn.setAttribute('aria-label', '음성 명령 시작');
+                btn.innerHTML = '🎤';
+                btn.style.cssText = 'position:fixed;bottom:24px;right:24px;width:64px;height:64px;' +
+                    'border-radius:50%;background:#dc2626;color:white;' +
+                    'box-shadow:0 4px 14px rgba(220,38,38,0.5);' +
+                    'display:flex;align-items:center;justify-content:center;' +
+                    'font-size:28px;cursor:pointer;z-index:99999;' +
+                    'border:3px solid white;transition:transform 0.2s;';
+                btn.onmouseenter = () => btn.style.transform = 'scale(1.1)';
+                btn.onmouseleave = () => btn.style.transform = 'scale(1)';
+                btn.onclick = () => w._dragoneyesStartListening && w._dragoneyesStartListening();
+                btn.title = '음성 명령 (클릭 후 말씀하세요)';
+                w.document.body.appendChild(btn);
+            } catch (e) { console.error('[A11y] mic btn inject error:', e); }
+        })();
         </script>
         """,
         height=0,
@@ -496,6 +726,31 @@ def _a11y_render_toolbar(*, supabase=None, user_id=None, key_prefix="a11y", comp
 
 
 # accessibility 객체 — 기존 호출 코드(accessibility.xxx) 호환성 유지
+def _a11y_announce_page(page_title, *, description=None, menu_hint=None, once_key=None):
+    """페이지 진입 시 1회 자동 음성 안내.
+
+    Args:
+        page_title: 페이지 제목 (예: '모니터링 통계 페이지')
+        description: 페이지 설명 (선택)
+        menu_hint: 주요 메뉴 힌트 (선택, 예: '시작일, 종료일, KPI 4종')
+        once_key: 세션당 1회만 안내 (None이면 매 진입마다)
+    """
+    if not st.session_state.get("voice_guide_enabled"):
+        return
+    # 1회 가드
+    if once_key:
+        _flag = f"_a11y_announced_{once_key}"
+        if st.session_state.get(_flag):
+            return
+        st.session_state[_flag] = True
+    parts = [f"{page_title}이 열렸습니다."]
+    if description:
+        parts.append(description)
+    if menu_hint:
+        parts.append(f"주요 메뉴: {menu_hint}.")
+    _a11y_announce(" ".join(parts))
+
+
 accessibility = _A11ySimpleNamespace(
     init_state=_a11y_init_state,
     announce=_a11y_announce,
@@ -504,6 +759,8 @@ accessibility = _A11ySimpleNamespace(
     save_to_user=_a11y_save_to_user,
     inject_shortcuts=_a11y_inject_shortcuts,
     aria_landmark=_a11y_aria_landmark,
+    announce_page=_a11y_announce_page,
+    render_floating_mic=_a11y_render_floating_mic,
 )
 # v2026.03.15 — 보고서↔탐색URL 양방향 연결, YouTube 메타데이터 30일 보관 정책, 모바일 PWA 최적화
 # v2026.04.19 — 보안 패치: URL 토큰 노출 방지, 세션 복원 시 토큰 즉시 삭제
@@ -5071,6 +5328,9 @@ else:
                 key_prefix="a11y_main",
                 compact=True,
             )
+
+    # 🎤 음성 명령 floating 마이크 버튼 (음성 ON일 때 모든 페이지 우하단)
+    accessibility.render_floating_mic()
 
     # ── 최종사용자 동의 체크 (미동의 시 강제 표시) ──
     if not check_user_terms(user) and st.session_state.get("current_page") not in ("terms_agree",):
@@ -11030,6 +11290,13 @@ else:
         # monitoring_daily_stats 테이블 기반. 매일 자정 pg_cron 또는
         # 수동 SELECT public.run_daily_monitoring_aggregation(date)로 갱신.
         accessibility.aria_landmark("모니터링 통계 페이지")
+        # 페이지 진입 자동 음성 안내 (음성 ON일 때만, 세션당 1회)
+        accessibility.announce_page(
+            "모니터링 통계 페이지",
+            description="어제까지 누적된 분석·위험 발견·조치 통계를 표시합니다.",
+            menu_hint="시작일, 종료일, KPI 4종, 일별 트렌드 차트, 통계 음성 듣기 버튼",
+            once_key="monitoring_stats",
+        )
         st.markdown("## 📊 모니터링 통계")
         st.caption("어제까지 누적된 분석·위험 발견·조치 통계. 매일 자정 일배치로 자동 갱신.")
 
@@ -11171,6 +11438,13 @@ else:
 
     elif page == "home_landing":
         lang = st.session_state.get("lang", "ko")
+        # 페이지 진입 자동 음성 안내
+        accessibility.announce_page(
+            "드래곤아이즈 홈 페이지",
+            description="아동·청소년 온라인 안전을 위한 AI 모니터링 플랫폼입니다.",
+            menu_hint="상단 네비에 업무현황, 통계, 홈, 작성, 공지, 관리자, 사용자 메뉴",
+            once_key="home_landing",
+        )
 
         # 메인 2컬럼 레이아웃 — 드래곤파더 왼쪽, 통계+모니터링 오른쪽
         left_col, right_col = st.columns([1, 1])
