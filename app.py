@@ -6418,14 +6418,23 @@ else:
     user = st.session_state.user
 
     # ── ♿ 접근성: 음성 안내 토글 ───────────────────────────────────
-    #   파트너 관리자·고객사 관리자·일반 사용자 모두 시각장애인 가능성 있음 → 표시.
-    #   내부 운영(admin_*, distributor_*, org_*) 페이지만 숨김.
-    #   음성 ON 상태에선 어디서든 노출 (꺼야 함). DB 자동 저장.
+    #   원칙:
+    #     · 음성 ON  → 어디서든 박스 노출 (꺼야 하므로 필수 노출)
+    #     · 음성 OFF →
+    #         · 일반 모니터링·보고서 페이지(home, report_detail, dragon_chat)는 노출
+    #         · 그 외 관리·파트너·통계 페이지는 숨김 (공간 절약)
+    #   진입 후 음성 켜기는 우하단 floating 마이크 버튼으로 가능
+    #   (accessibility.render_floating_mic — 페이지 무관 항상 노출).
     _voice_on = st.session_state.get("voice_guide_enabled", False)
     _curr_page = st.session_state.get("current_page", "") or ""
-    _admin_prefixes = ("admin_", "distributor_", "org_")
-    _is_admin_route = any(_curr_page.startswith(p) for p in _admin_prefixes)
-    if _voice_on or not _is_admin_route:
+    # 음성 OFF 시에도 박스를 노출할 페이지 (사용자 모니터링·검토 작업용)
+    _VOICE_BAR_ALWAYS_PAGES = {
+        "home",          # 메인 모니터링 (탭: 텍스트·유튜브·키워드·디스코드·히스토리·보고서·내성과·공지·드래곤파더)
+        "report_detail", # 보고서 상세 (검토·수정)
+        "dragon_chat",   # 드래곤파더 대화
+    }
+    _voice_bar_needed = _curr_page in _VOICE_BAR_ALWAYS_PAGES
+    if _voice_on or _voice_bar_needed:
         # ♿ 접근성 — expander 없이 토글 직접 노출 (한 줄에 라벨·토글·상태배지)
         with st.container(border=True):
             accessibility.render_toolbar(
