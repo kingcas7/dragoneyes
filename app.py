@@ -6418,23 +6418,20 @@ else:
     user = st.session_state.user
 
     # ── ♿ 접근성: 음성 안내 토글 ───────────────────────────────────
-    #   원칙:
-    #     · 음성 ON  → 어디서든 박스 노출 (꺼야 하므로 필수 노출)
-    #     · 음성 OFF →
-    #         · 일반 모니터링·보고서 페이지(home, report_detail, dragon_chat)는 노출
-    #         · 그 외 관리·파트너·통계 페이지는 숨김 (공간 절약)
-    #   진입 후 음성 켜기는 우하단 floating 마이크 버튼으로 가능
-    #   (accessibility.render_floating_mic — 페이지 무관 항상 노출).
-    _voice_on = st.session_state.get("voice_guide_enabled", False)
+    #   원칙: 페이지 기반 노출 — 음성 ON/OFF 상태와 무관.
+    #     · 사용자 모니터링·검토 페이지 → 박스 노출
+    #         home, report_detail, dragon_chat
+    #     · 관리·파트너·영업·통계 페이지 → 박스 숨김
+    #   음성 ON/OFF 토글은 우하단 floating 마이크로 어디서든 가능
+    #   (accessibility.render_floating_mic — 모든 페이지 우하단 항상 노출).
     _curr_page = st.session_state.get("current_page", "") or ""
-    # 음성 OFF 시에도 박스를 노출할 페이지 (사용자 모니터링·검토 작업용)
     _VOICE_BAR_ALWAYS_PAGES = {
         "home",          # 메인 모니터링 (탭: 텍스트·유튜브·키워드·디스코드·히스토리·보고서·내성과·공지·드래곤파더)
         "report_detail", # 보고서 상세 (검토·수정)
         "dragon_chat",   # 드래곤파더 대화
     }
     _voice_bar_needed = _curr_page in _VOICE_BAR_ALWAYS_PAGES
-    if _voice_on or _voice_bar_needed:
+    if _voice_bar_needed:
         # ♿ 접근성 — expander 없이 토글 직접 노출 (한 줄에 라벨·토글·상태배지)
         with st.container(border=True):
             accessibility.render_toolbar(
