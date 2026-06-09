@@ -12795,6 +12795,188 @@ else:
                 if st.button("🗑️", help=t("chat_clear"), key="clear_chat_home"):
                     st.session_state.chat_history = []; st.rerun()
 
+            # ── 🎤 드래곤파더 음성 받아쓰기 (chat_input 옆 mic 버튼) ──
+            #   Web Speech API SpeechRecognition으로 한국어 받아쓰기
+            #   인식 결과를 chat_input textarea에 채워넣음 (자동 전송 X — 사용자가 확인 후 Enter)
+            #   React controlled component 우회: native value setter + input event dispatch
+            _a11y_components.html(
+                """
+                <script>
+                (function() {
+                    const w = window.parent || window;
+                    if (w.__dragonDictationInstalled) return;
+                    w.__dragonDictationInstalled = true;
+
+                    // chat_input textarea 찾기
+                    const findChatInput = function() {
+                        // Streamlit chat_input 가능한 selector들 (버전별 변동 대비)
+                        const sels = [
+                            'textarea[data-testid="stChatInputTextArea"]',
+                            '[data-testid="stChatInput"] textarea',
+                            'textarea[aria-label*="질문"]',
+                            'textarea[placeholder*="질문"]',
+                            'textarea[placeholder*="드래곤"]',
+                        ];
+                        for (const s of sels) {
+                            const el = w.document.querySelector(s);
+                            if (el && el.offsetParent) return el;
+                        }
+                        return null;
+                    };
+
+                    // React controlled component 우회 — native value setter
+                    const setReactValue = function(el, value) {
+                        try {
+                            const proto = Object.getPrototypeOf(el);
+                            const desc = Object.getOwnPropertyDescriptor(proto, 'value');
+                            if (desc && desc.set) desc.set.call(el, value);
+                            else el.value = value;
+                            el.dispatchEvent(new Event('input', { bubbles: true }));
+                            el.dispatchEvent(new Event('change', { bubbles: true }));
+                        } catch (e) {
+                            el.value = value;
+                        }
+                    };
+
+                    // 진단 박스 (재사용)
+                    const showInfo = function(html, ms) {
+                        let box = w.document.getElementById('dragon-dict-info');
+                        if (!box) {
+                            box = w.document.createElement('div');
+                            box.id = 'dragon-dict-info';
+                            box.style.cssText =
+                                'position:fixed;bottom:90px;right:24px;width:300px;' +
+                                'background:white;border:2px solid #7c3aed;border-radius:10px;' +
+                                'padding:12px 14px;box-shadow:0 6px 20px rgba(0,0,0,0.25);' +
+                                'font-family:-apple-system,sans-serif;font-size:13px;line-height:1.5;' +
+                                'color:#1f2937;z-index:2147483640;';
+                            w.document.body.appendChild(box);
+                        }
+                        box.innerHTML = html;
+                        box.style.display = 'block';
+                        if (ms) setTimeout(function(){ box.style.display='none'; }, ms);
+                    };
+
+                    // mic 버튼 만들기 — chat_input 옆에 inline 배치
+                    const ensureDragonMic = function() {
+                        if (w.document.getElementById('dragon-mic-btn')) return;
+                        const input = findChatInput();
+                        if (!input) return;
+
+                        const btn = w.document.createElement('button');
+                        btn.id = 'dragon-mic-btn';
+                        btn.type = 'button';
+                        btn.title = '🎤 음성으로 드래곤파더에게 질문 (말한 후 입력란에 채워짐)';
+                        btn.setAttribute('aria-label', '음성으로 드래곤파더에게 질문');
+                        btn.innerHTML = '🎤';
+                        btn.style.cssText =
+                            'position:fixed;bottom:90px;right:24px;' +
+                            'width:54px;height:54px;border-radius:50%;' +
+                            'background:#7c3aed;color:white;' +
+                            'border:2px solid #6d28d9;' +
+                            'box-shadow:0 4px 14px rgba(124,58,237,0.5);' +
+                            'font-size:22px;cursor:pointer;' +
+                            'z-index:2147483640;transition:all 0.2s;';
+                        btn.onmouseover = function(){ btn.style.transform='scale(1.08)'; };
+                        btn.onmouseout  = function(){ btn.style.transform='scale(1)'; };
+
+                        btn.onclick = function() {
+                            const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
+                            if (!SR) {
+                                showInfo('<b>⚠️ 미지원</b><br>이 브라우저는 음성 인식을 지원하지 않습니다. Chrome 권장.', 6000);
+                                return;
+                            }
+                            const target = findChatInput();
+                            if (!target) {
+                                showInfo('<b>⚠️ 입력란 없음</b><br>드래곤파더 입력란을 찾을 수 없습니다.', 5000);
+                                return;
+                            }
+                            const rec = new SR();
+                            rec.lang = 'ko-KR';
+                            rec.interimResults = true;
+                            rec.continuous = false;
+                            rec.maxAlternatives = 1;
+
+                            btn.style.background = '#dc2626';
+                            btn.innerHTML = '🔴';
+                            showInfo('<b>🎤 듣고 있어요…</b><br>드래곤파더에게 묻고 싶은 질문을 말씀해주세요.', 0);
+
+                            let finalText = '';
+                            rec.onresult = function(e) {
+                                let interim = '';
+                                for (let i = e.resultIndex; i < e.results.length; i++) {
+                                    const t = e.results[i][0].transcript;
+                                    if (e.results[i].isFinal) finalText += t;
+                                    else interim += t;
+                                }
+                                if (interim) {
+                                    showInfo('<b>🎤 듣는 중…</b><br><i style="color:#7c3aed">' + interim + '</i>', 0);
+                                }
+                            };
+                            rec.onend = function() {
+                                btn.style.background = '#7c3aed';
+                                btn.innerHTML = '🎤';
+                                if (finalText) {
+                                    const cur = (target.value || '').trim();
+                                    const newVal = cur ? (cur + ' ' + finalText) : finalText;
+                                    setReactValue(target, newVal);
+                                    try { target.focus(); } catch(_){}
+                                    showInfo(
+                                        '<b>✅ 입력됨</b><br>' +
+                                        '<i style="color:#16a34a">' + finalText + '</i><br><br>' +
+                                        '확인 후 <b>Enter</b> 키로 전송하세요.<br>' +
+                                        '잘못 인식되었으면 직접 수정 가능합니다.',
+                                        10000
+                                    );
+                                    if (w._dragoneyesSpeak) {
+                                        w._dragoneyesSpeak('질문이 입력되었습니다. ' + finalText + '. 엔터를 눌러 전송하세요.');
+                                    }
+                                } else {
+                                    showInfo('<b>⚠️ 인식 실패</b><br>다시 시도해주세요.', 4000);
+                                }
+                            };
+                            rec.onerror = function(e) {
+                                btn.style.background = '#7c3aed';
+                                btn.innerHTML = '🎤';
+                                let msg = e.error || '알 수 없음';
+                                if (msg === 'not-allowed') msg = '마이크 권한 거부됨 — 브라우저 설정에서 허용 필요';
+                                else if (msg === 'no-speech') msg = '말씀이 감지되지 않았어요';
+                                else if (msg === 'aborted') msg = '음성 인식이 중단됨';
+                                showInfo('<b>❌ 오류</b><br>' + msg, 5000);
+                            };
+                            try { rec.start(); }
+                            catch(e) {
+                                btn.style.background = '#7c3aed';
+                                btn.innerHTML = '🎤';
+                                showInfo('<b>❌ 시작 실패</b><br>' + (e.message || e), 5000);
+                            }
+                        };
+                        w.document.body.appendChild(btn);
+                    };
+
+                    // chat_input 등장 감시
+                    ensureDragonMic();
+                    const obs = new MutationObserver(function() {
+                        if (!w.document.getElementById('dragon-mic-btn')) {
+                            ensureDragonMic();
+                        } else {
+                            // chat_input이 사라졌으면 버튼도 숨김
+                            if (!findChatInput()) {
+                                const btn = w.document.getElementById('dragon-mic-btn');
+                                if (btn) btn.style.display = 'none';
+                            } else {
+                                const btn = w.document.getElementById('dragon-mic-btn');
+                                if (btn) btn.style.display = '';
+                            }
+                        }
+                    });
+                    obs.observe(w.document.body, { childList: true, subtree: true });
+                })();
+                </script>
+                """,
+                height=0,
+            )
+
             if home_input and chat_info["ok"]:
                 st.session_state.chat_history.append({"role": "user", "content": home_input})
                 with st.spinner("🐲 " + t("dragon_caption")[:10] + "..."):
