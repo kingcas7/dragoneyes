@@ -6461,34 +6461,33 @@ else:
     user = st.session_state.user
 
     # ── ♿ 접근성: 음성 안내 토글 ───────────────────────────────────
-    #   원칙: 페이지 기반 노출 (권한 무관) — 누구든 음성 토글 가능해야 함.
-    #     · 노출: home / report_detail / dragon_chat (사용자 모니터링·검토 페이지)
-    #     · 숨김: 관리·파트너·영업·통계 페이지
-    #   음성 켜고/끄려면:
-    #     · 박스 노출 페이지(home 등)에서 토글 가능 (모든 권한)
-    #     · 음성 ON 상태에선 어디서든 우하단 floating 마이크로 끄기 가능
-    #   ⚠️ 관리자라도 home 페이지에서는 박스 노출 — 음성 토글 경로 필수 보장.
+    #   원칙: 모든 페이지에서 expander로 노출 (기본 접힘) — 토글 경로 항상 보장.
+    #   사용자가 펼치지 않으면 한 줄만 차지하므로 관리 페이지 UI 산만함 최소화.
+    #   음성 ON/받아쓰기 ON 상태면 자동 펼침으로 끄기 쉽게.
     _curr_page = st.session_state.get("current_page", "") or ""
-    _VOICE_BAR_ALWAYS_PAGES = {
-        "home",          # 메인 모니터링 (탭: 텍스트·유튜브·키워드·디스코드·히스토리·보고서·내성과·공지·드래곤파더)
-        "home_landing",  # 권한별 카드 + 드래곤파더 챗 (관리자·파트너 진입 페이지)
-        "report_detail", # 보고서 상세 (검토·수정)
-        "dragon_chat",   # 드래곤파더 대화
-    }
-    _voice_bar_needed = _curr_page in _VOICE_BAR_ALWAYS_PAGES
-    if _voice_bar_needed:
-        # ♿ 접근성 — expander 없이 토글 직접 노출 (한 줄에 라벨·토글·상태배지)
-        with st.container(border=True):
-            accessibility.render_toolbar(
-                supabase=supabase,
-                user_id=user.get("id") if user else None,
-                key_prefix="a11y_main",
-                compact=True,
-            )
-            # ⌨️ 키보드 접근 가능한 마이크 시작/중지 버튼 (Tab+Enter)
-            #     시각장애인은 단축키 대신 Tab으로 포커스 → Enter 클릭
-            #     페이지 진입 시 자동 포커스 → Enter 한 번이면 마이크 ON
-            accessibility.render_keyboard_mic()
+    _voice_on_now = bool(st.session_state.get("voice_guide_enabled"))
+    _dict_on_now  = bool(st.session_state.get("dictation_enabled"))
+    # ON 중 하나라도 켜져 있으면 사용자가 끄기 쉽도록 expander 자동 펼침
+    _expander_open = _voice_on_now or _dict_on_now
+    _expander_label = "♿ 접근성 · 음성 안내 / 받아쓰기"
+    if _voice_on_now and _dict_on_now:
+        _expander_label += "  ✅ 음성 ON · 🎤 받아쓰기 ON"
+    elif _voice_on_now:
+        _expander_label += "  ✅ 음성 ON"
+    elif _dict_on_now:
+        _expander_label += "  🎤 받아쓰기 ON"
+
+    with st.expander(_expander_label, expanded=_expander_open):
+        accessibility.render_toolbar(
+            supabase=supabase,
+            user_id=user.get("id") if user else None,
+            key_prefix="a11y_main",
+            compact=True,
+        )
+        # ⌨️ 키보드 접근 가능한 마이크 시작/중지 버튼 (Tab+Enter)
+        accessibility.render_keyboard_mic()
+        # 진단 보조 — 현재 페이지 표시 (시각장애인이 위치 확인 가능)
+        st.caption(f"📍 현재 페이지: `{_curr_page or '(미정)'}`")
 
     # 🎤 음성 명령 floating 마이크 버튼 (음성 ON일 때 모든 페이지 우하단 — 시각용)
     accessibility.render_floating_mic()
