@@ -304,7 +304,7 @@ def _a11y_inject_shortcuts():
                             if (w.__a11yEnabled) {{
                                 w._dragoneyesSpeak("메뉴 " + digit + "번, " + text);
                             }}
-                            setTimeout(() => {{ try {{ allBtns[idx].click(); }} catch (_) {{}} }}, 200);
+                            setTimeout(() => {{ try {{ allBtns[idx].click(); }} catch (_) {{}} try {{ allBtns[idx].dispatchEvent(new w.MouseEvent('click', {{bubbles:true, cancelable:true, view:w}})); }} catch(_) {{}} }}, 200);
                             e.preventDefault();
                         }}
                     }}
@@ -657,11 +657,54 @@ def _a11y_render_floating_mic():
                 return null;
             };
 
+            // ── Streamlit React 컴포넌트용 click trigger ──
+            //   native btn.click()만으로는 React onClick 핸들러가 안 발화될 수 있음.
+            //   full event sequence (focus + mousedown + mouseup + click + pointer events)
+            //   로 React 컴포넌트가 확실히 인지하도록 함.
+            const _triggerClick = function(btn) {
+                if (!btn) return false;
+                try {
+                    // scroll into view + focus
+                    try { btn.scrollIntoView({block:'center', behavior:'smooth'}); } catch(_){}
+                    try { btn.focus(); } catch(_){}
+                    // 좌표 계산 (실제 위치)
+                    let cx = 10, cy = 10;
+                    try {
+                        const r = btn.getBoundingClientRect();
+                        cx = r.left + r.width / 2;
+                        cy = r.top + r.height / 2;
+                    } catch(_){}
+                    // 다양한 이벤트 dispatch (React 컴포넌트 호환)
+                    const eventTypes = ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'];
+                    eventTypes.forEach(function(et) {
+                        try {
+                            const opts = {
+                                bubbles: true, cancelable: true, view: w,
+                                clientX: cx, clientY: cy, button: 0
+                            };
+                            let evt;
+                            if (et.startsWith('pointer') && w.PointerEvent) {
+                                evt = new w.PointerEvent(et, opts);
+                            } else {
+                                evt = new w.MouseEvent(et, opts);
+                            }
+                            btn.dispatchEvent(evt);
+                        } catch(_){}
+                    });
+                    // 마지막 safety: native click()
+                    try { btn.click(); } catch(_){}
+                    return true;
+                } catch (e) {
+                    console.error('[A11y] triggerClick:', e);
+                    return false;
+                }
+            };
+
             const clickAndSpeak = function(btn, label) {
                 if (!btn) return false;
                 showDiag('<b>✅ 매칭 성공</b><br>실행: ' + label + '<br>0.8초 후 자동 클릭', 4000);
                 if (w._dragoneyesSpeak) w._dragoneyesSpeak(label + " 실행합니다.");
-                setTimeout(function() { try { btn.click(); } catch(_) {} }, 800);
+                setTimeout(function() { _triggerClick(btn); }, 800);
                 return true;
             };
 
@@ -747,7 +790,7 @@ def _a11y_render_floating_mic():
                     (title ? '<b>제목:</b> ' + title.substring(0, 80) : '제목 추출 실패') +
                     '<br>버튼 텍스트: <code>' + (btn.innerText || '').trim() + '</code>' +
                     '<br><br><b>다음 명령:</b> 보고서 작성, 다음 모니터링, 모니터링 종료', 12000);
-                setTimeout(function() { try { btn.click(); } catch(_) {} }, 2000);
+                setTimeout(function() { _triggerClick(btn); }, 2000);
                 return true;
             };
 
@@ -772,7 +815,7 @@ def _a11y_render_floating_mic():
                 }
                 showDiag('<b>🎬 모니터링 ' + (newIdx + 1) + ' / ' + openBtns.length + '</b><br>' +
                     (title || '제목 추출 실패'), 8000);
-                setTimeout(function() { try { btn.click(); } catch(_) {} }, 2000);
+                setTimeout(function() { _triggerClick(btn); }, 2000);
                 return true;
             };
 
@@ -798,7 +841,7 @@ def _a11y_render_floating_mic():
                     );
                 }
                 showDiag('<b>📝 보고서 작성 ' + (isContextual ? '(' + (idx+1) + '번째 항목)' : '') + '</b>', 5000);
-                setTimeout(function() { try { targetBtn.click(); } catch(_) {} }, 1500);
+                setTimeout(function() { _triggerClick(targetBtn); }, 1500);
                 return true;
             };
 
@@ -817,7 +860,7 @@ def _a11y_render_floating_mic():
                     );
                 }
                 showDiag('<b>✅ 보고서 제출</b><br>다음 명령: 다음 모니터링, 모니터링 종료', 8000);
-                setTimeout(function() { try { submitBtn.click(); } catch(_) {} }, 2500);
+                setTimeout(function() { _triggerClick(submitBtn); }, 2500);
                 return true;
             };
 
