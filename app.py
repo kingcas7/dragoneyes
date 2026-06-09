@@ -664,26 +664,39 @@ def _a11y_render_floating_mic():
             const _triggerClick = function(btn) {
                 if (!btn) return false;
                 try {
-                    // scroll into view + focus
+                    // 1. scroll into view + focus (Tab으로 도달한 것처럼)
                     try { btn.scrollIntoView({block:'center', behavior:'smooth'}); } catch(_){}
                     try { btn.focus(); } catch(_){}
-                    // 좌표 계산 (실제 위치)
+
+                    // 2. ⭐ Enter 키 이벤트 — Streamlit React가 가장 잘 반응
+                    //    HTML <button>은 Enter 키로 활성화되는 표준 동작
+                    const keyOpts = {
+                        key: 'Enter', code: 'Enter', keyCode: 13, which: 13,
+                        bubbles: true, cancelable: true, view: w
+                    };
+                    ['keydown', 'keypress', 'keyup'].forEach(function(et) {
+                        try { btn.dispatchEvent(new w.KeyboardEvent(et, keyOpts)); } catch(_){}
+                    });
+                    // window/document에도 dispatch (페이지 단축키 핸들러 호환)
+                    try { w.document.dispatchEvent(new w.KeyboardEvent('keydown', keyOpts)); } catch(_){}
+
+                    // 3. 좌표 계산
                     let cx = 10, cy = 10;
                     try {
                         const r = btn.getBoundingClientRect();
                         cx = r.left + r.width / 2;
                         cy = r.top + r.height / 2;
                     } catch(_){}
-                    // 다양한 이벤트 dispatch (React 컴포넌트 호환)
-                    const eventTypes = ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'];
-                    eventTypes.forEach(function(et) {
+
+                    // 4. 마우스 이벤트 시퀀스 (React 컴포넌트 호환)
+                    ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'].forEach(function(et) {
                         try {
                             const opts = {
                                 bubbles: true, cancelable: true, view: w,
                                 clientX: cx, clientY: cy, button: 0
                             };
                             let evt;
-                            if (et.startsWith('pointer') && w.PointerEvent) {
+                            if (et.indexOf('pointer') === 0 && w.PointerEvent) {
                                 evt = new w.PointerEvent(et, opts);
                             } else {
                                 evt = new w.MouseEvent(et, opts);
@@ -691,7 +704,7 @@ def _a11y_render_floating_mic():
                             btn.dispatchEvent(evt);
                         } catch(_){}
                     });
-                    // 마지막 safety: native click()
+                    // 5. 마지막 safety: native click()
                     try { btn.click(); } catch(_){}
                     return true;
                 } catch (e) {
@@ -781,16 +794,26 @@ def _a11y_render_floating_mic():
                 w.__a11yMonitoringIdx = 0;
                 const btn = openBtns[0];
                 const title = _extractItemTitle(btn);
+                // ⚡ 즉시 focus + scroll (사용자가 Enter 누르면 바로 작동하도록)
+                try { btn.scrollIntoView({block:'center', behavior:'smooth'}); } catch(_){}
+                try { btn.focus(); } catch(_){}
                 if (w._dragoneyesSpeak) {
-                    w._dragoneyesSpeak("총 " + openBtns.length + "개 항목 중 첫 번째 동영상을 엽니다. " +
+                    w._dragoneyesSpeak("첫 번째 동영상 열기 버튼을 활성화했습니다. " +
                         (title ? title.substring(0, 60) + ". " : "") +
-                        "시청 후 보고서 작성이라고 말씀하세요.");
+                        "Enter 키를 한 번 누르면 동영상이 열립니다. " +
+                        "또는 자동 클릭을 기다려주세요.");
                 }
-                showDiag('<b>🎬 동영상 열기 — 1 / ' + openBtns.length + '</b><br>' +
-                    (title ? '<b>제목:</b> ' + title.substring(0, 80) : '제목 추출 실패') +
-                    '<br>버튼 텍스트: <code>' + (btn.innerText || '').trim() + '</code>' +
-                    '<br><br><b>다음 명령:</b> 보고서 작성, 다음 모니터링, 모니터링 종료', 12000);
-                setTimeout(function() { _triggerClick(btn); }, 2000);
+                showDiag('<b>🎬 동영상 열기 — 1 / ' + openBtns.length + '</b>' +
+                    '<br>' + (title ? '<b>제목:</b> ' + title.substring(0, 80) : '제목 추출 실패') +
+                    '<br>버튼: <code>' + (btn.innerText || '').trim() + '</code>' +
+                    '<br><br><b style="color:#dc2626;">⌨️ Enter 키 누르면 즉시 열림</b>' +
+                    '<br>(또는 2초 후 자동 클릭)' +
+                    '<br><br><b>다음 명령:</b> 보고서 작성, 다음 모니터링, 모니터링 종료', 15000);
+                // 1.5초 후 자동 클릭 시도 (사용자가 Enter 못 누를 경우)
+                setTimeout(function() {
+                    try { btn.focus(); } catch(_){}
+                    _triggerClick(btn);
+                }, 1500);
                 return true;
             };
 
