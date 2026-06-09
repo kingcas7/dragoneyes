@@ -6579,7 +6579,9 @@ else:
         st.markdown(f'<div style="font-size:1.6rem; font-weight:700; display:flex; align-items:center; gap:6px; margin:0; padding:4px 0">🐉 {title_text}</div>', unsafe_allow_html=True)
 
     with h_right:
-        _show_agency_btn = is_agency_admin(user) or is_superadmin(user)
+        # 🤝 파트너페이지 노출: 파트너관리자·본부관리자(admin/superadmin) 모두 접근 가능
+        #    본부관리자는 영업 내용 파악 및 파트너 지원을 위해 파트너 페이지 열람 필요
+        _show_agency_btn = is_agency_admin(user) or is_superadmin(user) or is_admin or is_super
         if _show_admin_btn and _show_agency_btn:
             spacer, bc_ko, bc_en, bc_jp, bc_agency, bc_work, bc_stats, bc_home, bc_write, bc_notice, bc_admin, bc_profile, bc_logout = st.columns([0.5, 0.28, 0.28, 0.28, 0.65, 0.5, 0.55, 0.42, 0.42, 0.52, 0.52, 0.5, 0.25])
         elif _show_admin_btn:
@@ -7656,13 +7658,13 @@ else:
 
     elif page == "agency_dashboard":
         # ══════════════════════════════
-        # 🤝 파트너관리자 전용 모니터링 대시보드
+        # 🤝 파트너관리자 대시보드 (본부관리자도 열람 가능 — 영업 지원용)
         # ══════════════════════════════
-        # 🛡️ 보안: 파트너관리자/superadmin만 접근 가능
+        # 🛡️ 보안: 파트너관리자·본부관리자(admin/superadmin)만 접근 가능
         if not guard_page(user, allowed_roles=None, allow_admins=True):
             st.stop()
-        if not (is_agency_admin(user) or is_superadmin(user)):
-            st.error("🚫 이 페이지는 파트너관리자만 접근할 수 있습니다.")
+        if not (is_agency_admin(user) or is_superadmin(user) or is_admin or is_super):
+            st.error("🚫 이 페이지는 파트너관리자·본부관리자만 접근할 수 있습니다.")
             st.caption(f"현재 권한: {role_label(get_user_role(user))}")
             if st.button("🏠 홈으로 돌아가기", type="primary"):
                 st.session_state.current_page = "home_landing"
