@@ -7675,13 +7675,22 @@ else:
 
     elif page == "agency_dashboard":
         # ══════════════════════════════
-        # 🤝 파트너관리자 대시보드 (본부관리자도 열람 가능 — 영업 지원용)
+        # 🤝 파트너관리자 대시보드 (모든 본부 사용자 + 파트너관리자 열람 가능)
         # ══════════════════════════════
-        # 🛡️ 보안: 파트너관리자·본부관리자(admin/superadmin)만 접근 가능
-        if not guard_page(user, allowed_roles=None, allow_admins=True):
+        # 🛡️ 보안: 본부 직원 전체(admin/superadmin/director/group_leader/member/team_leader)
+        #         + 파트너관리자(agency_admin) 허용. 일반 사용자(외부 파트너 직원)는 차단.
+        _HQ_OR_PARTNER_ROLES = (
+            "superadmin", "admin", "agency_admin", "tenant_admin", "member",
+            "group_leader", "group_leader_2", "group_leader_3", "group_leader_4",
+            "director", "director_2", "director_3", "director_4",
+            "team_leader",
+        )
+        if not guard_page(user, allowed_roles=_HQ_OR_PARTNER_ROLES, allow_admins=True):
             st.stop()
-        if not (is_agency_admin(user) or is_superadmin(user) or is_admin or is_super):
-            st.error("🚫 이 페이지는 파트너관리자·본부관리자만 접근할 수 있습니다.")
+        # 보조 가드: 위에서 통과 못 한 경우에도 본부 직책·관리자면 허용
+        if not (is_agency_admin(user) or is_superadmin(user) or is_admin or is_super
+                or is_director(user) or is_team_leader(user)):
+            st.error("🚫 이 페이지는 본부관리자·파트너관리자만 접근할 수 있습니다.")
             st.caption(f"현재 권한: {role_label(get_user_role(user))}")
             if st.button("🏠 홈으로 돌아가기", type="primary"):
                 st.session_state.current_page = "home_landing"
