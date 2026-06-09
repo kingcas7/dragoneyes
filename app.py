@@ -27,6 +27,8 @@ def _a11y_init_state():
     st.session_state.setdefault("voice_guide_enabled", False)
     st.session_state.setdefault("voice_speed", 1.0)
     st.session_state.setdefault("voice_lang", "ko-KR")
+    # 🎤 드래곤파더 받아쓰기 (음성 안내와 독립) — 기본 OFF (사용자 명시 ON 필요)
+    st.session_state.setdefault("dictation_enabled", False)
 
 
 def _a11y_load_from_user(user_dict):
@@ -50,6 +52,8 @@ def _a11y_load_from_user(user_dict):
             pass
     if "voice_lang" in prefs:
         st.session_state["voice_lang"] = str(prefs["voice_lang"])
+    if "dictation_enabled" in prefs:
+        st.session_state["dictation_enabled"] = bool(prefs["dictation_enabled"])
 
 
 def _a11y_save_to_user(supabase_cli, user_id):
@@ -60,6 +64,7 @@ def _a11y_save_to_user(supabase_cli, user_id):
         "voice_guide_enabled": bool(st.session_state.get("voice_guide_enabled", False)),
         "voice_speed": float(st.session_state.get("voice_speed", 1.0)),
         "voice_lang": str(st.session_state.get("voice_lang", "ko-KR")),
+        "dictation_enabled": bool(st.session_state.get("dictation_enabled", False)),
     }
     try:
         supabase_cli.table("users").update({"preferences": prefs}).eq("id", user_id).execute()
@@ -1707,6 +1712,44 @@ def _a11y_render_toolbar(*, supabase=None, user_id=None, key_prefix="a11y", comp
                 _a11y_save_to_user(supabase, user_id)
             try: st.toast("🔇 음성 안내가 꺼졌습니다 (OFF)", icon="🔕")
             except Exception: pass
+        st.rerun()
+
+    # 🎤 드래곤파더 받아쓰기 토글 (음성 안내와 독립)
+    prev_dict = bool(st.session_state.get("dictation_enabled", False))
+    d_cols = st.columns([1, 2, 2.5])
+    with d_cols[0]:
+        st.markdown("**🎤 받아쓰기**")
+    with d_cols[1]:
+        dict_enabled = st.toggle(
+            "🐲 드래곤파더 음성 입력", value=prev_dict,
+            key=f"{key_prefix}_dictation_toggle",
+            help="홈 화면 드래곤파더 챗에 보라색 마이크 버튼을 표시합니다. 음성으로 질문 가능.",
+        )
+    with d_cols[2]:
+        if prev_dict:
+            st.markdown(
+                '<div style="background:#ede9fe;color:#5b21b6;padding:6px 12px;'
+                'border-radius:6px;font-weight:700;font-size:0.95rem;text-align:center;">'
+                '🎤 ON (보라 마이크 표시)</div>', unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                '<div style="background:#f3f4f6;color:#6b7280;padding:6px 12px;'
+                'border-radius:6px;font-weight:600;font-size:0.95rem;text-align:center;">'
+                '🔇 OFF (받아쓰기 숨김)</div>', unsafe_allow_html=True,
+            )
+
+    if dict_enabled != prev_dict:
+        st.session_state["dictation_enabled"] = dict_enabled
+        if supabase is not None and user_id:
+            _a11y_save_to_user(supabase, user_id)
+        try:
+            st.toast(
+                "🎤 받아쓰기가 켜졌습니다" if dict_enabled else "🔇 받아쓰기가 꺼졌습니다",
+                icon=("✅" if dict_enabled else "🔕"),
+            )
+        except Exception:
+            pass
         st.rerun()
 
     if st.session_state.get("voice_guide_enabled"):
@@ -12799,11 +12842,21 @@ else:
             #   Web Speech API SpeechRecognition으로 한국어 받아쓰기
             #   인식 결과를 chat_input textarea에 채워넣음 (자동 전송 X — 사용자가 확인 후 Enter)
             #   React controlled component 우회: native value setter + input event dispatch
+            #   ⚙️ 받아쓰기 토글(session_state.dictation_enabled)이 ON일 때만 mic 표시
+            _dict_enabled_js = "true" if st.session_state.get("dictation_enabled") else "false"
             _a11y_components.html(
-                """
+                ("""
                 <script>
                 (function() {
                     const w = window.parent || window;
+                    // 매 rerun마다 토글 상태 전달 — 기존 버튼 즉시 표시/숨김 처리
+                    w.__dragonDictationEnabled = __DICT_FLAG__;
+                    const _existing = w.document.getElementById('dragon-mic-btn');
+                    if (_existing) {
+                        _existing.style.display = w.__dragonDictationEnabled ? '' : 'none';
+                    }
+                    // 토글 OFF면 setup 자체 안 함 (이미 install된 경우는 위에서 표시 제어 완료)
+                    if (!w.__dragonDictationEnabled) return;
                     if (w.__dragonDictationInstalled) return;
                     w.__dragonDictationInstalled = true;
 
@@ -12973,7 +13026,7 @@ else:
                     obs.observe(w.document.body, { childList: true, subtree: true });
                 })();
                 </script>
-                """,
+                """).replace("__DICT_FLAG__", _dict_enabled_js),
                 height=0,
             )
 
