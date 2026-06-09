@@ -833,6 +833,78 @@ def _a11y_render_floating_mic():
                 return 'history';  // 기본값
             };
 
+            // 🎤 강력한 페이지 이동 — iframe sandbox 우회 4가지 방법 시도
+            // 1) window.top.location.href
+            // 2) window.parent.location.href
+            // 3) anchor element click (target="_top") — user activation 유지 시 sandbox 통과
+            // 4) window.open(url, '_top')
+            const _doVoiceRedirect = function(idx, target) {
+                const errors = [];
+                let newUrl = null;
+                try {
+                    const baseTop = w.top || w.parent || w;
+                    const url = new URL(baseTop.location.href);
+                    url.searchParams.set('voice_open', String(idx));
+                    url.searchParams.set('vot', target);
+                    const prevVt = url.searchParams.get('vt');
+                    url.searchParams.set('vt', String((prevVt ? Number(prevVt) : 0) + 1));
+                    newUrl = url.toString();
+                } catch(e) {
+                    errors.push('URL build: ' + e.message);
+                }
+                if (!newUrl) {
+                    console.error('[A11y] URL build failed', errors);
+                    return false;
+                }
+                // 시도 1: w.top.location.href
+                try {
+                    if (w.top && w.top !== w) {
+                        w.top.location.href = newUrl;
+                        console.log('[A11y] redirect via w.top OK');
+                        return true;
+                    }
+                } catch(e) { errors.push('top.location: ' + e.message); }
+                // 시도 2: w.parent.location.href
+                try {
+                    if (w.parent && w.parent !== w) {
+                        w.parent.location.href = newUrl;
+                        console.log('[A11y] redirect via w.parent OK');
+                        return true;
+                    }
+                } catch(e) { errors.push('parent.location: ' + e.message); }
+                // 시도 3: anchor click target=_top (sandbox allow-top-navigation-by-user-activation 우회)
+                try {
+                    const a = w.document.createElement('a');
+                    a.href = newUrl;
+                    a.target = '_top';
+                    a.rel = 'noopener';
+                    a.style.position = 'fixed';
+                    a.style.left = '-9999px';
+                    w.document.body.appendChild(a);
+                    a.click();
+                    console.log('[A11y] redirect via anchor click attempted');
+                    // anchor 성공 여부 확인 불가 → setTimeout으로 fallback 트리거
+                    setTimeout(function() {
+                        // 만약 여기까지 왔으면 anchor도 실패 → 시도 4
+                        try {
+                            w.open(newUrl, '_top');
+                            console.log('[A11y] redirect via window.open _top attempted');
+                        } catch(e) { errors.push('open _top: ' + e.message); }
+                    }, 300);
+                    return true;
+                } catch(e) { errors.push('anchor click: ' + e.message); }
+                // 모두 실패
+                console.error('[A11y] all redirect attempts failed:', errors);
+                showDiag('<b>⚠️ 자동 이동 차단됨</b><br>' +
+                    '브라우저 보안 정책(sandbox)으로 자동 이동 실패.<br>' +
+                    '<b>마우스로 ▶️ 열기 버튼을 직접 클릭</b>해주세요.<br><br>' +
+                    '<code style="font-size:10px">' + errors.join('<br>') + '</code>', 15000);
+                if (w._dragoneyesSpeak) {
+                    w._dragoneyesSpeak("자동 이동이 차단되었습니다. 마우스로 동영상 열기 버튼을 직접 클릭해주세요.");
+                }
+                return false;
+            };
+
             const _startMonitoring = function() {
                 const openBtns = _getMonitoringOpenButtons();
                 if (openBtns.length === 0) {
@@ -854,20 +926,11 @@ def _a11y_render_floating_mic():
                     '<br><br><b>다음 명령:</b> 보고서 작성, 다음 모니터링, 모니터링 종료', 10000);
                 // 🎤 query param 방식: 페이지 reload → Python이 popup 자동 설정
                 // (Streamlit React 버튼이 JS dispatch에 반응하지 않으므로 URL 변경으로 우회)
+                // ⚡ setTimeout 단축 (200ms) — user activation 유지로 sandbox top-navigation 통과
                 const _target = _detectActiveTabKey();  // history or reports
                 setTimeout(function() {
-                    try {
-                        const top = w.top || w;
-                        const url = new URL(top.location.href);
-                        url.searchParams.set('voice_open', '0');
-                        url.searchParams.set('vot', _target);
-                        const prevVt = url.searchParams.get('vt');
-                        url.searchParams.set('vt', String((prevVt ? Number(prevVt) : 0) + 1));
-                        top.location.href = url.toString();
-                    } catch(e) {
-                        console.error('[A11y] voice_open URL error:', e);
-                    }
-                }, 1800);
+                    _doVoiceRedirect(0, _target);
+                }, 200);
                 return true;
             };
 
@@ -893,21 +956,11 @@ def _a11y_render_floating_mic():
                 showDiag('<b>🎬 모니터링 ' + (newIdx + 1) + ' / ' + openBtns.length + '</b><br>' +
                     (title || '제목 추출 실패') +
                     '<br><br><b style="color:#16a34a;">🔄 페이지 이동 중…</b>', 8000);
-                // 🎤 query param 방식 (URL 변경 → Python 처리)
+                // 🎤 query param 방식 — _doVoiceRedirect 사용 (sandbox 우회 4단계)
                 const _targetN = _detectActiveTabKey();
                 setTimeout(function() {
-                    try {
-                        const top = w.top || w;
-                        const url = new URL(top.location.href);
-                        url.searchParams.set('voice_open', String(newIdx));
-                        url.searchParams.set('vot', _targetN);
-                        const prevVt = url.searchParams.get('vt');
-                        url.searchParams.set('vt', String((prevVt ? Number(prevVt) : 0) + 1));
-                        top.location.href = url.toString();
-                    } catch(e) {
-                        console.error('[A11y] voice_open URL error:', e);
-                    }
-                }, 2000);
+                    _doVoiceRedirect(newIdx, _targetN);
+                }, 200);
                 return true;
             };
 
