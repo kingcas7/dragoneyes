@@ -6418,38 +6418,20 @@ else:
     user = st.session_state.user
 
     # ── ♿ 접근성: 음성 안내 토글 ───────────────────────────────────
-    #   원칙: 권한 + 페이지 조합 — 음성 ON/OFF 상태와 무관.
-    #     · 일반 모니터링 직원(user) → home·report_detail·dragon_chat에서 노출
-    #     · 관리자(admin/director/group_leader/team_leader 등) → 어디서든 숨김
-    #         (관리 작업 시 UI 산만 방지)
-    #   음성 ON/OFF 토글은 우하단 floating 마이크로 어디서든 가능
-    #   (accessibility.render_floating_mic — 모든 페이지 우하단 항상 노출).
+    #   원칙: 페이지 기반 노출 (권한 무관) — 누구든 음성 토글 가능해야 함.
+    #     · 노출: home / report_detail / dragon_chat (사용자 모니터링·검토 페이지)
+    #     · 숨김: 관리·파트너·영업·통계 페이지
+    #   음성 켜고/끄려면:
+    #     · 박스 노출 페이지(home 등)에서 토글 가능 (모든 권한)
+    #     · 음성 ON 상태에선 어디서든 우하단 floating 마이크로 끄기 가능
+    #   ⚠️ 관리자라도 home 페이지에서는 박스 노출 — 음성 토글 경로 필수 보장.
     _curr_page = st.session_state.get("current_page", "") or ""
-    _user_role_for_bar = (user.get("role") or "").lower() if user else ""
-    _user_role_v2_for_bar = (user.get("role_v2") or "").lower() if user else ""
-    _ADMIN_ROLE_SET = {"admin", "super_admin", "superadmin", "member",
-                       "agency_admin", "tenant_admin"}
-    _ADMIN_ROLE_V2_SET = {
-        "superadmin", "agency_admin", "tenant_admin", "member",
-        "group_leader", "group_leader_2", "group_leader_3", "group_leader_4",
-        "director", "director_2", "director_3", "director_4",
-        "team_leader",
-    }
-    _is_admin_for_bar = (
-        _user_role_for_bar in _ADMIN_ROLE_SET
-        or _user_role_v2_for_bar in _ADMIN_ROLE_V2_SET
-        or (user.get("partner_id") if user else None) is not None
-    )
     _VOICE_BAR_ALWAYS_PAGES = {
         "home",          # 메인 모니터링 (탭: 텍스트·유튜브·키워드·디스코드·히스토리·보고서·내성과·공지·드래곤파더)
         "report_detail", # 보고서 상세 (검토·수정)
         "dragon_chat",   # 드래곤파더 대화
     }
-    # 관리자는 모든 페이지에서 박스 숨김 (음성은 우하단 floating으로 토글)
-    _voice_bar_needed = (
-        (not _is_admin_for_bar)
-        and (_curr_page in _VOICE_BAR_ALWAYS_PAGES)
-    )
+    _voice_bar_needed = _curr_page in _VOICE_BAR_ALWAYS_PAGES
     if _voice_bar_needed:
         # ♿ 접근성 — expander 없이 토글 직접 노출 (한 줄에 라벨·토글·상태배지)
         with st.container(border=True):
