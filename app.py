@@ -6579,9 +6579,25 @@ else:
         st.markdown(f'<div style="font-size:1.6rem; font-weight:700; display:flex; align-items:center; gap:6px; margin:0; padding:4px 0">🐉 {title_text}</div>', unsafe_allow_html=True)
 
     with h_right:
-        # 🤝 파트너페이지 노출: 파트너관리자·본부관리자(admin/superadmin) 모두 접근 가능
-        #    본부관리자는 영업 내용 파악 및 파트너 지원을 위해 파트너 페이지 열람 필요
-        _show_agency_btn = is_agency_admin(user) or is_superadmin(user) or is_admin or is_super
+        # 🤝 파트너페이지 노출: 본부관리자·파트너관리자 모두 접근 가능
+        #    본부관리자는 영업 내용 파악·파트너 지원을 위해 열람 필요
+        #    조건 확장: 모든 admin role, 본부 직책 role_v2, agency, super 포함
+        _user_role_chk = (user.get("role") or "").lower()
+        _user_role_v2_chk = (user.get("role_v2") or "").lower()
+        _hq_role_v2_set = {
+            "superadmin",
+            "group_leader", "group_leader_2", "group_leader_3", "group_leader_4",
+            "director", "director_2", "director_3", "director_4",
+            "member",
+        }
+        _show_agency_btn = (
+            is_agency_admin(user)
+            or is_superadmin(user)
+            or is_admin
+            or is_super
+            or _user_role_chk in ("admin", "super_admin", "superadmin", "member")
+            or _user_role_v2_chk in _hq_role_v2_set
+        )
         if _show_admin_btn and _show_agency_btn:
             spacer, bc_ko, bc_en, bc_jp, bc_agency, bc_work, bc_stats, bc_home, bc_write, bc_notice, bc_admin, bc_profile, bc_logout = st.columns([0.5, 0.28, 0.28, 0.28, 0.65, 0.5, 0.55, 0.42, 0.42, 0.52, 0.52, 0.5, 0.25])
         elif _show_admin_btn:
@@ -6602,7 +6618,8 @@ else:
                 st.session_state.lang = "ja"; st.rerun()
         if bc_agency:
             with bc_agency:
-                if st.button("🤝 파트너페이지", use_container_width=True, key="hdr_agency_btn"):
+                if st.button("🤝 파트너", use_container_width=True, key="hdr_agency_btn",
+                             help="파트너관리자 대시보드 — 영업 현황·라이선스 신청·고객사 관리"):
                     go_to("agency_dashboard"); st.rerun()
         with bc_work:
             if st.button(t("hdr_work"), use_container_width=True, key="hdr_work_btn"):
