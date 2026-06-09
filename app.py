@@ -6471,6 +6471,7 @@ else:
     _curr_page = st.session_state.get("current_page", "") or ""
     _VOICE_BAR_ALWAYS_PAGES = {
         "home",          # 메인 모니터링 (탭: 텍스트·유튜브·키워드·디스코드·히스토리·보고서·내성과·공지·드래곤파더)
+        "home_landing",  # 권한별 카드 + 드래곤파더 챗 (관리자·파트너 진입 페이지)
         "report_detail", # 보고서 상세 (검토·수정)
         "dragon_chat",   # 드래곤파더 대화
     }
