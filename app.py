@@ -830,26 +830,29 @@ def _a11y_render_floating_mic():
                 w.__a11yMonitoringIdx = 0;
                 const btn = openBtns[0];
                 const title = _extractItemTitle(btn);
-                // ⚡ 즉시 focus + scroll (사용자가 Enter 누르면 바로 작동하도록)
-                try { btn.scrollIntoView({block:'center', behavior:'smooth'}); } catch(_){}
-                try { btn.focus(); } catch(_){}
                 if (w._dragoneyesSpeak) {
-                    w._dragoneyesSpeak("첫 번째 동영상 열기 버튼을 활성화했습니다. " +
+                    w._dragoneyesSpeak("첫 번째 동영상을 엽니다. " +
                         (title ? title.substring(0, 60) + ". " : "") +
-                        "Enter 키를 한 번 누르면 동영상이 열립니다. " +
-                        "또는 자동 클릭을 기다려주세요.");
+                        "잠시 후 자동으로 재생됩니다.");
                 }
                 showDiag('<b>🎬 동영상 열기 — 1 / ' + openBtns.length + '</b>' +
                     '<br>' + (title ? '<b>제목:</b> ' + title.substring(0, 80) : '제목 추출 실패') +
-                    '<br>버튼: <code>' + (btn.innerText || '').trim() + '</code>' +
-                    '<br><br><b style="color:#dc2626;">⌨️ Enter 키 누르면 즉시 열림</b>' +
-                    '<br>(또는 2초 후 자동 클릭)' +
-                    '<br><br><b>다음 명령:</b> 보고서 작성, 다음 모니터링, 모니터링 종료', 15000);
-                // 1.5초 후 자동 클릭 시도 (사용자가 Enter 못 누를 경우)
+                    '<br><br><b style="color:#16a34a;">🔄 페이지 이동 중…</b>' +
+                    '<br><br><b>다음 명령:</b> 보고서 작성, 다음 모니터링, 모니터링 종료', 10000);
+                // 🎤 query param 방식: 페이지 reload → Python이 hist_popup_id 자동 설정
+                // (Streamlit React 버튼이 JS dispatch에 반응하지 않으므로 URL 변경으로 우회)
                 setTimeout(function() {
-                    try { btn.focus(); } catch(_){}
-                    _triggerClick(btn);
-                }, 1500);
+                    try {
+                        const top = w.top || w;
+                        const url = new URL(top.location.href);
+                        url.searchParams.set('voice_open', '0');
+                        const prevVt = url.searchParams.get('vt');
+                        url.searchParams.set('vt', String((prevVt ? Number(prevVt) : 0) + 1));
+                        top.location.href = url.toString();
+                    } catch(e) {
+                        console.error('[A11y] voice_open URL error:', e);
+                    }
+                }, 1800);
                 return true;
             };
 
@@ -870,11 +873,24 @@ def _a11y_render_floating_mic():
                 const btn = openBtns[newIdx];
                 const title = _extractItemTitle(btn);
                 if (w._dragoneyesSpeak) {
-                    w._dragoneyesSpeak((newIdx + 1) + "번째 항목 모니터링을 시작합니다. " + (title ? title : ""));
+                    w._dragoneyesSpeak((newIdx + 1) + "번째 항목을 엽니다. " + (title ? title : ""));
                 }
                 showDiag('<b>🎬 모니터링 ' + (newIdx + 1) + ' / ' + openBtns.length + '</b><br>' +
-                    (title || '제목 추출 실패'), 8000);
-                setTimeout(function() { _triggerClick(btn); }, 2000);
+                    (title || '제목 추출 실패') +
+                    '<br><br><b style="color:#16a34a;">🔄 페이지 이동 중…</b>', 8000);
+                // 🎤 query param 방식 (URL 변경 → Python 처리)
+                setTimeout(function() {
+                    try {
+                        const top = w.top || w;
+                        const url = new URL(top.location.href);
+                        url.searchParams.set('voice_open', String(newIdx));
+                        const prevVt = url.searchParams.get('vt');
+                        url.searchParams.set('vt', String((prevVt ? Number(prevVt) : 0) + 1));
+                        top.location.href = url.toString();
+                    } catch(e) {
+                        console.error('[A11y] voice_open URL error:', e);
+                    }
+                }, 2000);
                 return true;
             };
 
@@ -12689,6 +12705,46 @@ else:
         lang = st.session_state.get("lang", "ko")
         chat_info = can_use_chat(user["id"])
 
+        # ── 🎤 접근성: 음성 명령 "동영상 열기" 처리 ─────────────────
+        # JS에서 ?voice_open=<idx>&vt=<token> 으로 URL 변경 → 여기서 hist_popup_id 설정
+        # + history 탭으로 강제 활성화. 시각장애인이 마우스 없이 영상 재생 가능.
+        try:
+            _qp = st.query_params
+            _vo_val = _qp.get("voice_open")
+            if _vo_val is not None:
+                try:
+                    _vo_idx = int(_vo_val if isinstance(_vo_val, str) else (_vo_val[0] if _vo_val else "0"))
+                except Exception:
+                    _vo_idx = 0
+                _vt = str(_qp.get("vt", "0"))
+                _marker = f"vo:{_vo_idx}:{_vt}"
+                # 같은 명령 중복 처리 방지
+                if st.session_state.get("_a11y_last_voice_open") != _marker:
+                    st.session_state["_a11y_last_voice_open"] = _marker
+                    try:
+                        if is_admin:
+                            _vh = supabase.table("analyzed_urls").select("id,analyzed_at").order("analyzed_at", desc=True).limit(1000).execute()
+                        else:
+                            _vh = supabase.table("analyzed_urls").select("id,analyzed_at").eq("assigned_to", user["id"]).order("analyzed_at", desc=True).limit(1000).execute()
+                        _vdata = _vh.data or []
+                        if 0 <= _vo_idx < len(_vdata):
+                            st.session_state.hist_popup_id = _vdata[_vo_idx]["id"]
+                            # history 탭(=5)으로 강제 활성화
+                            st.session_state.active_tab = 5
+                    except Exception:
+                        pass
+                # query param 정리 (URL 깔끔하게)
+                try:
+                    if "voice_open" in _qp:
+                        del _qp["voice_open"]
+                    if "vt" in _qp:
+                        del _qp["vt"]
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        # ───────────────────────────────────────────────────────────
+
         with st.container(border=True):
             chat_header1, chat_header2, chat_header3, chat_header4 = st.columns([2,1,1,1])
             with chat_header1:
@@ -12797,6 +12853,14 @@ else:
         if active_tab_idx == 3:
             dragon_item = tab_defs.pop(3)
             tab_defs.insert(0, dragon_item)
+            st.session_state.active_tab = 0
+
+        # 🎤 접근성: 음성 명령 "동영상 열기" → history 탭 강제 활성화
+        if active_tab_idx == 5:
+            history_keys = [i for i, d in enumerate(tab_defs) if d[0] == "history"]
+            if history_keys:
+                history_item = tab_defs.pop(history_keys[0])
+                tab_defs.insert(0, history_item)
             st.session_state.active_tab = 0
 
         tab_keys   = [d[0] for d in tab_defs]
