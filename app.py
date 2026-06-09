@@ -11550,6 +11550,104 @@ else:
         col_s3.metric("💰 파이프라인", f"₩{total_pipeline/100000000:.2f}억" if total_pipeline >= 100000000 else f"₩{total_pipeline/10000:.0f}만")
         col_s4.metric("📈 가중 매출", f"₩{weighted_revenue/100000000:.2f}억" if weighted_revenue >= 100000000 else f"₩{weighted_revenue/10000:.0f}만", help="확률 × 금액 (예상 매출)")
 
+        # ──────────────────────────────────────────────────────────
+        # 📊 그래프 보기 — 영업 status별 시각화 (3종)
+        #   본부: status 분포 / status 금액 / 채널 × status (+ 파트너 Top10)
+        #   파트너 admin: status 분포 / status 금액 / status 가중매출
+        # ──────────────────────────────────────────────────────────
+        with st.expander("📊 **그래프 보기** — 영업 status별 시각화 (3종)", expanded=False):
+            if not all_opps:
+                st.info("📭 표시할 영업 기회가 없습니다.")
+            else:
+                _STATUS_LABELS = {
+                    "prospect":    "🌱 잠재",
+                    "qualified":   "✅ 검증",
+                    "proposal":    "📄 제안",
+                    "negotiation": "🤝 협상",
+                    "contract":    "📝 계약진행",
+                    "closed_won":  "🎉 수주",
+                    "closed_lost": "❌ 실주",
+                }
+                _STATUS_ORDER = ["prospect", "qualified", "proposal", "negotiation",
+                                 "contract", "closed_won", "closed_lost"]
+
+                _opps_df = pd.DataFrame([
+                    {
+                        "status":    o.get("status") or "prospect",
+                        "channel":   o.get("origin_channel") or "기타",
+                        "amount":    float(o.get("expected_amount") or 0),
+                        "weighted":  float(o.get("expected_amount") or 0) * float(o.get("win_probability") or 0) / 100,
+                        "partner_id": o.get("assigned_partner_id") or "__hq_direct__",
+                    }
+                    for o in all_opps
+                ])
+
+                # ── 1️⃣ status별 건수 (전 권한) ──
+                st.markdown("##### 1️⃣ 영업 status별 건수")
+                _g1 = _opps_df.groupby("status").size().reindex(_STATUS_ORDER, fill_value=0)
+                _g1.index = [_STATUS_LABELS.get(s, s) for s in _g1.index]
+                st.bar_chart(pd.DataFrame({"건수": _g1}), height=260)
+
+                # ── 2️⃣ status별 예상 금액 합계 (전 권한) ──
+                st.markdown("##### 2️⃣ 영업 status별 예상 금액")
+                _g2 = (_opps_df.groupby("status")["amount"].sum()
+                       .reindex(_STATUS_ORDER, fill_value=0)) / 10000
+                _g2.index = [_STATUS_LABELS.get(s, s) for s in _g2.index]
+                _unit_label = "예상금액 (만원)"
+                if _g2.max() >= 10000:
+                    _g2 = _g2 / 10000
+                    _unit_label = "예상금액 (억원)"
+                st.bar_chart(pd.DataFrame({_unit_label: _g2.round(2)}), height=260)
+
+                # ── 3️⃣ 본부: 채널 × status / 파트너: status별 가중 매출 ──
+                if is_hq_sp:
+                    st.markdown("##### 3️⃣ 채널별 영업 status 분포 (본부 전용)")
+                    try:
+                        _g3 = _opps_df.pivot_table(
+                            index="channel", columns="status", values="amount",
+                            aggfunc="count", fill_value=0,
+                        )
+                        # status 순서 정렬 + 라벨 변환
+                        _g3 = _g3.reindex(columns=[s for s in _STATUS_ORDER if s in _g3.columns], fill_value=0)
+                        _g3.columns = [_STATUS_LABELS.get(s, s) for s in _g3.columns]
+                        st.bar_chart(_g3, height=320)
+                        st.caption("💡 각 채널별로 status가 어떻게 분포되는지 한눈에 비교")
+                    except Exception as _ec:
+                        st.warning(f"채널별 그래프 생성 실패: {_ec}")
+
+                    # 보너스: 파트너별 영업 금액 Top 10 (총판·직접계약파트너 등 비교)
+                    st.markdown("##### 🏆 파트너별 영업 금액 Top 10 (본부 전용)")
+                    try:
+                        _all_partners = sb_admin().table("partners").select("id, name, channel_type").execute().data or []
+                        _pname = {p["id"]: f"{p['name']} ({p.get('channel_type','-')})" for p in _all_partners}
+                        _pname["__hq_direct__"] = "🏢 본부 직영"
+
+                        _opps_df["partner_name"] = _opps_df["partner_id"].map(lambda x: _pname.get(x, "(미배정)"))
+                        _g4 = (_opps_df.groupby("partner_name")["amount"].sum()
+                               .sort_values(ascending=False).head(10)) / 10000
+                        _g4_unit = "영업금액 (만원)"
+                        if _g4.max() >= 10000:
+                            _g4 = _g4 / 10000
+                            _g4_unit = "영업금액 (억원)"
+                        if len(_g4) > 0:
+                            st.bar_chart(pd.DataFrame({_g4_unit: _g4.round(2)}), height=320)
+                            st.caption("💡 파트너·총판별 영업 규모 비교 — 영업 지원 우선순위 판단용")
+                        else:
+                            st.info("파트너 영업 데이터가 없습니다.")
+                    except Exception as _ep:
+                        st.warning(f"파트너별 그래프 생성 실패: {_ep}")
+                else:
+                    st.markdown("##### 3️⃣ 영업 status별 가중 매출 (수주 확률 반영)")
+                    _g3p = (_opps_df.groupby("status")["weighted"].sum()
+                            .reindex(_STATUS_ORDER, fill_value=0)) / 10000
+                    _g3p.index = [_STATUS_LABELS.get(s, s) for s in _g3p.index]
+                    _u3 = "가중매출 (만원)"
+                    if _g3p.max() >= 10000:
+                        _g3p = _g3p / 10000
+                        _u3 = "가중매출 (억원)"
+                    st.bar_chart(pd.DataFrame({_u3: _g3p.round(2)}), height=260)
+                    st.caption("💡 가중 매출 = 예상 금액 × 수주 확률 — 실현 가능성 반영한 예상치")
+
         st.divider()
 
         with st.expander("➕ **신규 영업 기회 등록**", expanded=False):
