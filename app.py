@@ -6417,11 +6417,13 @@ if st.session_state.user is None:
 else:
     user = st.session_state.user
 
-    # ── ♿ 접근성: 음성 안내 토글 (관리자 페이지는 숨김, 사용자 페이지만 노출) ──
-    #    음성 ON 상태에선 어디서든 노출 (꺼야 함). DB 자동 저장.
+    # ── ♿ 접근성: 음성 안내 토글 ───────────────────────────────────
+    #   파트너 관리자·고객사 관리자·일반 사용자 모두 시각장애인 가능성 있음 → 표시.
+    #   내부 운영(admin_*, distributor_*, org_*) 페이지만 숨김.
+    #   음성 ON 상태에선 어디서든 노출 (꺼야 함). DB 자동 저장.
     _voice_on = st.session_state.get("voice_guide_enabled", False)
     _curr_page = st.session_state.get("current_page", "") or ""
-    _admin_prefixes = ("admin_", "partner_", "agency", "tenant_", "org_", "distributor_")
+    _admin_prefixes = ("admin_", "distributor_", "org_")
     _is_admin_route = any(_curr_page.startswith(p) for p in _admin_prefixes)
     if _voice_on or not _is_admin_route:
         # ♿ 접근성 — expander 없이 토글 직접 노출 (한 줄에 라벨·토글·상태배지)
