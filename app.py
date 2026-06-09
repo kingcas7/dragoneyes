@@ -820,6 +820,19 @@ def _a11y_render_floating_mic():
                 } catch(_) { return ''; }
             };
 
+            // 🎤 현재 활성 탭 감지 (history vs reports 분기용)
+            const _detectActiveTabKey = function() {
+                try {
+                    const tabs = w.document.querySelectorAll('button[role="tab"][aria-selected="true"]');
+                    for (const tb of tabs) {
+                        const txt = (tb.innerText || tb.textContent || '').trim();
+                        if (txt.indexOf('탐색 히스토리') >= 0 || txt.toLowerCase().indexOf('history') >= 0) return 'history';
+                        if (txt.indexOf('보고서 목록') >= 0 || txt.toLowerCase().indexOf('reports') >= 0 || txt.indexOf('보고서') >= 0) return 'reports';
+                    }
+                } catch(_){}
+                return 'history';  // 기본값
+            };
+
             const _startMonitoring = function() {
                 const openBtns = _getMonitoringOpenButtons();
                 if (openBtns.length === 0) {
@@ -839,13 +852,15 @@ def _a11y_render_floating_mic():
                     '<br>' + (title ? '<b>제목:</b> ' + title.substring(0, 80) : '제목 추출 실패') +
                     '<br><br><b style="color:#16a34a;">🔄 페이지 이동 중…</b>' +
                     '<br><br><b>다음 명령:</b> 보고서 작성, 다음 모니터링, 모니터링 종료', 10000);
-                // 🎤 query param 방식: 페이지 reload → Python이 hist_popup_id 자동 설정
+                // 🎤 query param 방식: 페이지 reload → Python이 popup 자동 설정
                 // (Streamlit React 버튼이 JS dispatch에 반응하지 않으므로 URL 변경으로 우회)
+                const _target = _detectActiveTabKey();  // history or reports
                 setTimeout(function() {
                     try {
                         const top = w.top || w;
                         const url = new URL(top.location.href);
                         url.searchParams.set('voice_open', '0');
+                        url.searchParams.set('vot', _target);
                         const prevVt = url.searchParams.get('vt');
                         url.searchParams.set('vt', String((prevVt ? Number(prevVt) : 0) + 1));
                         top.location.href = url.toString();
@@ -879,11 +894,13 @@ def _a11y_render_floating_mic():
                     (title || '제목 추출 실패') +
                     '<br><br><b style="color:#16a34a;">🔄 페이지 이동 중…</b>', 8000);
                 // 🎤 query param 방식 (URL 변경 → Python 처리)
+                const _targetN = _detectActiveTabKey();
                 setTimeout(function() {
                     try {
                         const top = w.top || w;
                         const url = new URL(top.location.href);
                         url.searchParams.set('voice_open', String(newIdx));
+                        url.searchParams.set('vot', _targetN);
                         const prevVt = url.searchParams.get('vt');
                         url.searchParams.set('vt', String((prevVt ? Number(prevVt) : 0) + 1));
                         top.location.href = url.toString();
@@ -12706,8 +12723,11 @@ else:
         chat_info = can_use_chat(user["id"])
 
         # ── 🎤 접근성: 음성 명령 "동영상 열기" 처리 ─────────────────
-        # JS에서 ?voice_open=<idx>&vt=<token> 으로 URL 변경 → 여기서 hist_popup_id 설정
-        # + history 탭으로 강제 활성화. 시각장애인이 마우스 없이 영상 재생 가능.
+        # JS에서 ?voice_open=<idx>&vot=<history|reports>&vt=<token> 으로 URL 변경
+        # → 여기서 활성 탭에 따라 분기:
+        #   • history → st.session_state.hist_popup_id + active_tab=5
+        #   • reports → st.session_state.rep_video_popup_id + active_tab=6
+        # 시각장애인이 마우스 없이 영상 재생 + 보고서 검토 가능.
         try:
             _qp = st.query_params
             _vo_val = _qp.get("voice_open")
@@ -12717,28 +12737,41 @@ else:
                 except Exception:
                     _vo_idx = 0
                 _vt = str(_qp.get("vt", "0"))
-                _marker = f"vo:{_vo_idx}:{_vt}"
+                _vot = str(_qp.get("vot", "history"))  # voice open target
+                _marker = f"vo:{_vot}:{_vo_idx}:{_vt}"
                 # 같은 명령 중복 처리 방지
                 if st.session_state.get("_a11y_last_voice_open") != _marker:
                     st.session_state["_a11y_last_voice_open"] = _marker
                     try:
-                        if is_admin:
-                            _vh = supabase.table("analyzed_urls").select("id,analyzed_at").order("analyzed_at", desc=True).limit(1000).execute()
+                        if _vot == "reports":
+                            # 보고서 목록 영상 popup 열기
+                            _role_vo = get_user_role(user)
+                            _reps_q = supabase.table("reports").select("id,user_id,created_at,url").order("created_at", desc=True)
+                            if _role_vo in ("superadmin", "admin"):
+                                _vr = _reps_q.execute()
+                            else:
+                                _vr = _reps_q.eq("user_id", user["id"]).execute()
+                            _vrdata = [rx for rx in (_vr.data or []) if "youtube.com" in (rx.get("url","") or "") or "youtu.be" in (rx.get("url","") or "")]
+                            if 0 <= _vo_idx < len(_vrdata):
+                                st.session_state.rep_video_popup_id = _vrdata[_vo_idx]["id"]
+                                st.session_state.active_tab = 6  # reports 탭
                         else:
-                            _vh = supabase.table("analyzed_urls").select("id,analyzed_at").eq("assigned_to", user["id"]).order("analyzed_at", desc=True).limit(1000).execute()
-                        _vdata = _vh.data or []
-                        if 0 <= _vo_idx < len(_vdata):
-                            st.session_state.hist_popup_id = _vdata[_vo_idx]["id"]
-                            # history 탭(=5)으로 강제 활성화
-                            st.session_state.active_tab = 5
+                            # 기본: 탐색 히스토리
+                            if is_admin:
+                                _vh = supabase.table("analyzed_urls").select("id,analyzed_at").order("analyzed_at", desc=True).limit(1000).execute()
+                            else:
+                                _vh = supabase.table("analyzed_urls").select("id,analyzed_at").eq("assigned_to", user["id"]).order("analyzed_at", desc=True).limit(1000).execute()
+                            _vdata = _vh.data or []
+                            if 0 <= _vo_idx < len(_vdata):
+                                st.session_state.hist_popup_id = _vdata[_vo_idx]["id"]
+                                st.session_state.active_tab = 5  # history 탭
                     except Exception:
                         pass
                 # query param 정리 (URL 깔끔하게)
                 try:
-                    if "voice_open" in _qp:
-                        del _qp["voice_open"]
-                    if "vt" in _qp:
-                        del _qp["vt"]
+                    for _k in ("voice_open", "vt", "vot"):
+                        if _k in _qp:
+                            del _qp[_k]
                 except Exception:
                     pass
         except Exception:
@@ -12861,6 +12894,14 @@ else:
             if history_keys:
                 history_item = tab_defs.pop(history_keys[0])
                 tab_defs.insert(0, history_item)
+            st.session_state.active_tab = 0
+
+        # 🎤 접근성: 음성 명령 "보고서 영상" → reports 탭 강제 활성화
+        if active_tab_idx == 6:
+            reports_keys = [i for i, d in enumerate(tab_defs) if d[0] == "reports"]
+            if reports_keys:
+                reports_item = tab_defs.pop(reports_keys[0])
+                tab_defs.insert(0, reports_item)
             st.session_state.active_tab = 0
 
         tab_keys   = [d[0] for d in tab_defs]
@@ -13467,6 +13508,55 @@ else:
             all_users_r = supabase.table("users").select("id,name").execute()
             umap_r = {u["id"]: u["name"] for u in (all_users_r.data or [])}
 
+            # 🎤 접근성: 보고서 목록 동영상 popup (시각장애인이 음성 명령으로 영상 검토)
+            if st.session_state.get("rep_video_popup_id") and all_reps_data.data:
+                _rep_popup = next((rx for rx in all_reps_data.data if rx["id"] == st.session_state.rep_video_popup_id), None)
+                if _rep_popup:
+                    _purl = _rep_popup.get("url","")
+                    with st.container(border=True):
+                        rp1, rp2 = st.columns([8, 1])
+                        with rp1:
+                            st.markdown(f"### 🎬 보고서 영상 — {_rep_popup.get('category','-')} {sev_icon(_rep_popup.get('severity',0))}")
+                            st.caption(f"#{_rep_popup['id'][:8].upper()} | {_rep_popup.get('platform','-')} | {str(_rep_popup.get('created_at',''))[:16]} | 작성자: {umap_r.get(_rep_popup.get('user_id',''),'?')}")
+                        with rp2:
+                            if st.button("✖", key="rep_popup_close_top", use_container_width=True, help="닫기"):
+                                st.session_state.rep_video_popup_id = None; st.rerun()
+                        # 동영상 재생
+                        pv1, pv2, pv3 = st.columns([1, 3, 1])
+                        with pv2:
+                            if "youtube.com" in _purl or "youtu.be" in _purl:
+                                st.video(_purl)
+                            elif _purl:
+                                st.markdown(f"[🔗 링크 열기]({_purl})")
+                            else:
+                                st.info("연결된 URL이 없습니다.")
+                        # 보고서 내용 (음성 검토용)
+                        with st.expander("📄 보고서 내용 (음성 검토용)", expanded=True):
+                            st.markdown(f"**📋 분류:** {_rep_popup.get('category','-')}  |  **🚨 심각도:** {_rep_popup.get('severity','-')}  |  **🌐 플랫폼:** {_rep_popup.get('platform','-')}")
+                            if _rep_popup.get("result"):
+                                st.markdown("**🐉 AI 분석 결과:**")
+                                st.write(_rep_popup.get("result","")[:1000])
+                            if _rep_popup.get("content"):
+                                st.markdown("**📝 작성자 메모:**")
+                                st.write(_rep_popup.get("content","")[:1000])
+                        # 액션 버튼
+                        ec1, ec2 = st.columns(2)
+                        with ec1:
+                            _can_edit_popup = is_admin or _rep_popup.get("user_id") == user["id"]
+                            if _can_edit_popup:
+                                if st.button("📝 상세 보기·수정", key="rep_popup_detail", use_container_width=True, type="primary"):
+                                    st.session_state.selected_report = _rep_popup
+                                    st.session_state.rep_video_popup_id = None
+                                    go_to("report_detail", from_tab=5); st.rerun()
+                            else:
+                                if st.button("📄 상세 보기", key="rep_popup_detail_ro", use_container_width=True, type="primary"):
+                                    st.session_state.selected_report = _rep_popup
+                                    st.session_state.rep_video_popup_id = None
+                                    go_to("report_detail", from_tab=5); st.rerun()
+                        with ec2:
+                            if st.button("✖ 닫기", key="rep_popup_close_bot", use_container_width=True):
+                                st.session_state.rep_video_popup_id = None; st.rerun()
+
             if all_reps_data.data:
                 fc1, fc2, fc3 = st.columns(3)
                 with fc1:
@@ -13543,10 +13633,22 @@ else:
                     report_no = f"#{r['id'][:8].upper()}"
                     link_badge = f" 🔗" if r.get("analyzed_url_id") else ""
 
-                    ca, cb, cc, cd = st.columns([5, 1, 1, 1])
+                    # 🎤 접근성: ▶️ 열기 버튼 추가 (시각장애인 동영상 검토용)
+                    _r_url = r.get("url","")
+                    _has_video = "youtube.com" in _r_url or "youtu.be" in _r_url
+                    if _has_video:
+                        ca, c_play, cb, cc, cd = st.columns([4, 1, 1, 1, 1])
+                    else:
+                        ca, cb, cc, cd = st.columns([5, 1, 1, 1])
+                        c_play = None
                     with ca:
                         st.markdown(f"{icon} **{r.get('category','-')}** | {r.get('platform','-')} | {created} | 👤 {writer} |{en_badge}")
                         st.caption(f"🔖 {report_no}{link_badge}  |  {preview}...")
+                    if c_play is not None:
+                        with c_play:
+                            # JS _getMonitoringOpenButtons가 인식하는 "▶️ 열기" 라벨 사용
+                            if st.button("▶️ 열기", key=f"rep_play_{r['id']}", help="동영상 재생 + 보고서 내용 검토"):
+                                st.session_state.rep_video_popup_id = r["id"]; st.rerun()
                     with cb:
                         if st.button(t("detail"), key=f"det_{r['id']}"):
                             st.session_state.selected_report = r
