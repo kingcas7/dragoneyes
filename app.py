@@ -661,15 +661,54 @@ def _a11y_render_floating_mic():
             //   native btn.click()만으로는 React onClick 핸들러가 안 발화될 수 있음.
             //   full event sequence (focus + mousedown + mouseup + click + pointer events)
             //   로 React 컴포넌트가 확실히 인지하도록 함.
+            // React 컴포넌트의 internal onClick handler 찾기
+            //   Streamlit은 React 사용 → button.__reactProps$XXX에 onClick 저장
+            //   native click 대신 직접 호출하면 우회 가능
+            const _findReactOnClick = function(el) {
+                if (!el) return null;
+                // 자기 자신 + 부모 5단계까지 탐색 (button 안에 div가 있을 수도)
+                let curr = el;
+                for (let i = 0; i < 6 && curr; i++) {
+                    for (const key in curr) {
+                        if (key.indexOf('__reactProps') === 0) {
+                            const props = curr[key];
+                            if (props && typeof props.onClick === 'function') {
+                                return props.onClick;
+                            }
+                        }
+                    }
+                    curr = curr.parentElement;
+                }
+                return null;
+            };
+
             const _triggerClick = function(btn) {
                 if (!btn) return false;
                 try {
-                    // 1. scroll into view + focus (Tab으로 도달한 것처럼)
+                    // 1. scroll into view + focus
                     try { btn.scrollIntoView({block:'center', behavior:'smooth'}); } catch(_){}
                     try { btn.focus(); } catch(_){}
 
-                    // 2. ⭐ Enter 키 이벤트 — Streamlit React가 가장 잘 반응
-                    //    HTML <button>은 Enter 키로 활성화되는 표준 동작
+                    // 2. ⭐⭐ React props.onClick 직접 호출 — 가장 robust
+                    //    Streamlit React 컴포넌트의 실제 핸들러를 찾아 호출
+                    const reactOnClick = _findReactOnClick(btn);
+                    if (reactOnClick) {
+                        try {
+                            const fakeEvent = {
+                                preventDefault: function(){},
+                                stopPropagation: function(){},
+                                target: btn, currentTarget: btn,
+                                type: 'click', bubbles: true,
+                                nativeEvent: { type: 'click' }
+                            };
+                            reactOnClick(fakeEvent);
+                            console.log('[A11y] reactOnClick called');
+                        } catch(e) { console.error('[A11y] reactOnClick err:', e); }
+                    } else {
+                        console.log('[A11y] no reactOnClick found, fallback');
+                    }
+
+                    // 3. ⭐ Enter 키 이벤트 (React 컴포넌트 호환)
                     const keyOpts = {
                         key: 'Enter', code: 'Enter', keyCode: 13, which: 13,
                         bubbles: true, cancelable: true, view: w
@@ -677,18 +716,14 @@ def _a11y_render_floating_mic():
                     ['keydown', 'keypress', 'keyup'].forEach(function(et) {
                         try { btn.dispatchEvent(new w.KeyboardEvent(et, keyOpts)); } catch(_){}
                     });
-                    // window/document에도 dispatch (페이지 단축키 핸들러 호환)
-                    try { w.document.dispatchEvent(new w.KeyboardEvent('keydown', keyOpts)); } catch(_){}
 
-                    // 3. 좌표 계산
+                    // 4. 마우스 이벤트 시퀀스
                     let cx = 10, cy = 10;
                     try {
                         const r = btn.getBoundingClientRect();
                         cx = r.left + r.width / 2;
                         cy = r.top + r.height / 2;
                     } catch(_){}
-
-                    // 4. 마우스 이벤트 시퀀스 (React 컴포넌트 호환)
                     ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'].forEach(function(et) {
                         try {
                             const opts = {
@@ -704,7 +739,8 @@ def _a11y_render_floating_mic():
                             btn.dispatchEvent(evt);
                         } catch(_){}
                     });
-                    // 5. 마지막 safety: native click()
+
+                    // 5. native click()
                     try { btn.click(); } catch(_){}
                     return true;
                 } catch (e) {
