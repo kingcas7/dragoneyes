@@ -1131,10 +1131,21 @@ def _a11y_render_floating_mic():
                 }
 
                 // ════════ 추천 리스트 ════════
+                // ⭐ "드래곤아이즈 추천" / "드래곤 추천" → 추천 리스트 탭으로 이동
+                if (n.indexOf('드래곤아이즈추천') >= 0 || n.indexOf('드래곤추천') >= 0 ||
+                    n.indexOf('추천리스트') >= 0 || n.indexOf('추천목록') >= 0 ||
+                    (n.indexOf('드래곤') >= 0 && n.indexOf('추천') >= 0)) {
+                    // 1순위: "드래곤아이즈 추천" 탭 클릭 (히스토리·홈 탭 안)
+                    const tabBtn = findVisibleButton(['드래곤아이즈추천', '드래곤추천', '드래곤아이즈 추천']);
+                    if (tabBtn) return clickAndSpeak(tabBtn, '드래곤아이즈 추천 탭');
+                    // 2순위: "자동 추천 리스트 생성" 버튼
+                    const genBtn = findVisibleButton(['자동추천', '추천리스트생성', '리스트생성', '드래곤아이즈자동']);
+                    if (genBtn) return clickAndSpeak(genBtn, '드래곤아이즈 자동 추천 리스트 생성');
+                }
                 if (n.indexOf('추천') >= 0 || n.indexOf('자동추천') >= 0 || n.indexOf('리스트생성') >= 0) {
                     return clickAndSpeak(
-                        findVisibleButton(['자동추천', '추천리스트', '리스트생성', '드래곤아이즈자동']),
-                        '드래곤아이즈 자동 추천 리스트 생성'
+                        findVisibleButton(['자동추천', '추천리스트', '리스트생성', '드래곤아이즈자동', '드래곤아이즈추천']),
+                        '드래곤아이즈 추천'
                     );
                 }
 
@@ -6460,6 +6471,101 @@ if st.session_state.user is None:
 else:
     user = st.session_state.user
 
+    # ══════════════════════════════════════════════════════════
+    # 🎤 voice_open 처리는 widget instantiated 전 반드시 실행
+    # ══════════════════════════════════════════════════════════
+    # Streamlit 정책: widget이 만들어진 후 그 widget key의 session_state
+    # 값을 변경하면 'cannot be modified' 에러. 따라서 toolbar 렌더링 전에
+    # voice_guide_enabled / a11y_main_voice_toggle 값을 모두 설정.
+    _vo_is_admin_early = (
+        (user.get("role") == "admin" and not user.get("partner_id"))
+        or user.get("role_v2") in (
+            "superadmin",
+            "group_leader", "group_leader_2", "group_leader_3", "group_leader_4",
+            "director", "director_2", "director_3", "director_4",
+        )
+    )
+    _vo_is_super_early = is_superadmin(user)
+    _vo_processed = False
+    _vo_debug = []
+    try:
+        _qp = st.query_params
+        _vo_val = _qp.get("voice_open")
+        if _vo_val is not None:
+            _vo_debug.append(f"voice_open={_vo_val}")
+            try:
+                _vo_idx = int(_vo_val if isinstance(_vo_val, str) else (_vo_val[0] if _vo_val else "0"))
+            except Exception as _e_idx:
+                _vo_idx = 0
+                _vo_debug.append(f"idx_parse_err={_e_idx}")
+            _vt  = str(_qp.get("vt", "0"))
+            _vot = str(_qp.get("vot", "history"))
+            _vo_debug.append(f"vot={_vot} idx={_vo_idx} vt={_vt}")
+            _marker = f"vo:{_vot}:{_vo_idx}:{_vt}"
+            if st.session_state.get("_a11y_last_voice_open") != _marker:
+                st.session_state["_a11y_last_voice_open"] = _marker
+                try:
+                    if _vot == "reports":
+                        _role_vo = get_user_role(user)
+                        _reps_q = supabase.table("reports").select("id,user_id,created_at,url").order("created_at", desc=True)
+                        if _role_vo in ("superadmin", "admin") or _vo_is_admin_early or _vo_is_super_early:
+                            _vr = _reps_q.execute()
+                        else:
+                            _vr = _reps_q.eq("user_id", user["id"]).execute()
+                        _vrdata = [rx for rx in (_vr.data or [])
+                                   if "youtube.com" in (rx.get("url","") or "") or "youtu.be" in (rx.get("url","") or "")]
+                        _vo_debug.append(f"reports_count={len(_vrdata)}")
+                        if 0 <= _vo_idx < len(_vrdata):
+                            st.session_state.rep_video_popup_id = _vrdata[_vo_idx]["id"]
+                            st.session_state.active_tab = 6
+                            st.session_state.current_page = "home"
+                            # 🔊 toolbar 렌더링 전이라 widget key 변경 가능 ✅
+                            st.session_state["voice_guide_enabled"] = True
+                            st.session_state["a11y_main_voice_toggle"] = True
+                            st.session_state["a11y_login_voice_toggle"] = True
+                            _vo_processed = True
+                    else:
+                        if _vo_is_admin_early or _vo_is_super_early:
+                            _vh = supabase.table("analyzed_urls").select("id,analyzed_at,url").order("analyzed_at", desc=True).limit(1000).execute()
+                        else:
+                            _vh = supabase.table("analyzed_urls").select("id,analyzed_at,url").eq("assigned_to", user["id"]).order("analyzed_at", desc=True).limit(1000).execute()
+                        _vdata = _vh.data or []
+                        _vo_debug.append(f"history_count={len(_vdata)}")
+                        if 0 <= _vo_idx < len(_vdata):
+                            st.session_state.hist_popup_id = _vdata[_vo_idx]["id"]
+                            st.session_state.active_tab = 5
+                            st.session_state.current_page = "home"
+                            # 🔊 toolbar 렌더링 전이라 widget key 변경 가능 ✅
+                            st.session_state["voice_guide_enabled"] = True
+                            st.session_state["a11y_main_voice_toggle"] = True
+                            st.session_state["a11y_login_voice_toggle"] = True
+                            _vo_processed = True
+                            _vo_debug.append(f"hist_id={_vdata[_vo_idx]['id'][:8]}")
+                except Exception as _e_proc:
+                    _vo_debug.append(f"process_err={_e_proc}")
+            else:
+                _vo_debug.append("dup_skip(이미 처리됨)")
+            try:
+                for _k in ("voice_open", "vt", "vot"):
+                    if _k in _qp:
+                        del _qp[_k]
+            except Exception as _e_del:
+                _vo_debug.append(f"del_err={_e_del}")
+    except Exception as _e_outer:
+        _vo_debug.append(f"outer_err={_e_outer}")
+
+    if _vo_processed:
+        try:
+            st.toast("🎬 동영상 popup으로 이동합니다…", icon="✅")
+        except Exception:
+            pass
+        st.rerun()
+
+    if _vo_debug and not _vo_processed:
+        st.warning(f"🔍 [voice_open 진단] {' | '.join(_vo_debug)}")
+        st.caption("⚠️ 위 정보를 알려주세요. 처리는 안 됐지만 URL은 정리됩니다.")
+    # ══════════════════════════════════════════════════════════
+
     # ── ♿ 접근성: 음성 안내 토글 ───────────────────────────────────
     #   원칙: 모든 페이지에서 expander로 노출 (기본 접힘) — 토글 경로 항상 보장.
     #   사용자가 펼치지 않으면 한 줄만 차지하므로 관리 페이지 UI 산만함 최소화.
@@ -6560,99 +6666,8 @@ else:
     is_lead  = is_team_leader(user)
     is_high  = is_dir
 
-    # ══════════════════════════════════════════════════════════
-    # 🎤 음성 명령 "동영상 열기" — 라우팅 전 공통 처리
-    # ══════════════════════════════════════════════════════════
-    # JS에서 ?voice_open=<idx>&vot=<history|reports>&vt=<token> 으로 URL 변경 → reload.
-    # 권찬 같은 본부관리자가 home_landing에 있더라도 여기서 처리하여
-    # home 페이지로 강제 이동 + history/reports 탭 활성화 + popup 표시.
-    _vo_processed = False
-    _vo_debug = []
-    try:
-        _qp = st.query_params
-        _vo_val = _qp.get("voice_open")
-        if _vo_val is not None:
-            _vo_debug.append(f"voice_open={_vo_val}")
-            try:
-                _vo_idx = int(_vo_val if isinstance(_vo_val, str) else (_vo_val[0] if _vo_val else "0"))
-            except Exception as _e_idx:
-                _vo_idx = 0
-                _vo_debug.append(f"idx_parse_err={_e_idx}")
-            _vt  = str(_qp.get("vt", "0"))
-            _vot = str(_qp.get("vot", "history"))
-            _vo_debug.append(f"vot={_vot} idx={_vo_idx} vt={_vt}")
-            _marker = f"vo:{_vot}:{_vo_idx}:{_vt}"
-            # 중복 처리 방지
-            if st.session_state.get("_a11y_last_voice_open") != _marker:
-                st.session_state["_a11y_last_voice_open"] = _marker
-                try:
-                    if _vot == "reports":
-                        _role_vo = get_user_role(user)
-                        _reps_q = supabase.table("reports").select("id,user_id,created_at,url").order("created_at", desc=True)
-                        if _role_vo in ("superadmin", "admin") or is_admin or is_super:
-                            _vr = _reps_q.execute()
-                        else:
-                            _vr = _reps_q.eq("user_id", user["id"]).execute()
-                        _vrdata = [rx for rx in (_vr.data or [])
-                                   if "youtube.com" in (rx.get("url","") or "") or "youtu.be" in (rx.get("url","") or "")]
-                        _vo_debug.append(f"reports_count={len(_vrdata)}")
-                        if 0 <= _vo_idx < len(_vrdata):
-                            st.session_state.rep_video_popup_id = _vrdata[_vo_idx]["id"]
-                            st.session_state.active_tab = 6
-                            st.session_state.current_page = "home"
-                            # 🔊 음성 상태 강제 유지 — toggle widget key도 함께 True로 동기화
-                            #   (widget key가 False면 toolbar 렌더링 시 OFF로 다시 reset됨)
-                            st.session_state["voice_guide_enabled"] = True
-                            st.session_state["a11y_main_voice_toggle"] = True
-                            st.session_state["a11y_login_voice_toggle"] = True
-                            _vo_processed = True
-                    else:
-                        # 기본: 탐색 히스토리
-                        if is_admin or is_super:
-                            _vh = supabase.table("analyzed_urls").select("id,analyzed_at,url").order("analyzed_at", desc=True).limit(1000).execute()
-                        else:
-                            _vh = supabase.table("analyzed_urls").select("id,analyzed_at,url").eq("assigned_to", user["id"]).order("analyzed_at", desc=True).limit(1000).execute()
-                        _vdata = _vh.data or []
-                        _vo_debug.append(f"history_count={len(_vdata)}")
-                        if 0 <= _vo_idx < len(_vdata):
-                            st.session_state.hist_popup_id = _vdata[_vo_idx]["id"]
-                            st.session_state.active_tab = 5
-                            st.session_state.current_page = "home"
-                            # 🔊 음성 상태 강제 유지 — toggle widget key도 함께 True로 동기화
-                            #   (widget key가 False면 toolbar 렌더링 시 OFF로 다시 reset되어
-                            #    '음성 서비스를 종료합니다' 안내 발생)
-                            st.session_state["voice_guide_enabled"] = True
-                            st.session_state["a11y_main_voice_toggle"] = True
-                            st.session_state["a11y_login_voice_toggle"] = True
-                            _vo_processed = True
-                            _vo_debug.append(f"hist_id={_vdata[_vo_idx]['id'][:8]}")
-                except Exception as _e_proc:
-                    _vo_debug.append(f"process_err={_e_proc}")
-            else:
-                _vo_debug.append("dup_skip(이미 처리됨)")
-            # query param 정리 (URL 깔끔하게 + 새로고침 시 재처리 방지)
-            try:
-                for _k in ("voice_open", "vt", "vot"):
-                    if _k in _qp:
-                        del _qp[_k]
-            except Exception as _e_del:
-                _vo_debug.append(f"del_err={_e_del}")
-    except Exception as _e_outer:
-        _vo_debug.append(f"outer_err={_e_outer}")
-
-    # ⚡ 처리 성공 시 강제 rerun — URL 정리 + 페이지 다시 라우팅
-    if _vo_processed:
-        try:
-            st.toast("🎬 동영상 popup으로 이동합니다…", icon="✅")
-        except Exception:
-            pass
-        st.rerun()
-
-    # 🔍 디버그 표시 (voice_open 발견했지만 미처리 시) — 사용자 진단용
-    if _vo_debug and not _vo_processed:
-        st.warning(f"🔍 [voice_open 진단] {' | '.join(_vo_debug)}")
-        st.caption("⚠️ 위 정보를 알려주세요. 처리는 안 됐지만 URL은 정리됩니다.")
-    # ══════════════════════════════════════════════════════════
+    # 🎤 voice_open 처리는 user 정의 직후 (toolbar 렌더링 전)에서 이미 수행됨
+    # → widget key 변경이 가능한 시점이라 'cannot be modified' 에러 없음
 
     page = st.session_state.current_page
 
