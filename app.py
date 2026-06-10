@@ -853,11 +853,19 @@ def _a11y_render_floating_mic():
             };
 
             const _getReportWriteButtons = function() {
-                return Array.from(w.document.querySelectorAll('button, a'))
+                const all = Array.from(w.document.querySelectorAll('button, a'))
                     .filter(b => {
                         const t = (b.innerText || '').trim();
                         return t && t.indexOf('작성') >= 0 && b.offsetParent !== null && t.length < 30;
                     });
+                // ⭐ "보고서" 키워드 포함된 버튼 우선 매칭
+                //   → popup 안 '📝 보고서 작성' 우선, 헤더 '📋 작성' 제외
+                //   → URL 자동 입력된 보고서 폼 열림 (빈 폼 방지)
+                const withReport = all.filter(function(b) {
+                    return (b.innerText || '').indexOf('보고서') >= 0;
+                });
+                if (withReport.length > 0) return withReport;
+                return all;
             };
 
             const _extractItemTitle = function(btn) {
