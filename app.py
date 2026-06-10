@@ -6560,6 +6560,68 @@ else:
     is_lead  = is_team_leader(user)
     is_high  = is_dir
 
+    # ══════════════════════════════════════════════════════════
+    # 🎤 음성 명령 "동영상 열기" — 라우팅 전 공통 처리
+    # ══════════════════════════════════════════════════════════
+    # JS에서 ?voice_open=<idx>&vot=<history|reports>&vt=<token> 으로 URL 변경 → reload.
+    # 권찬 같은 본부관리자가 home_landing에 있더라도 여기서 처리하여
+    # home 페이지로 강제 이동 + history/reports 탭 활성화 + popup 표시.
+    # 100% 작동 보장 — 페이지 라우팅 결정 전 실행.
+    try:
+        _qp = st.query_params
+        _vo_val = _qp.get("voice_open")
+        if _vo_val is not None:
+            try:
+                _vo_idx = int(_vo_val if isinstance(_vo_val, str) else (_vo_val[0] if _vo_val else "0"))
+            except Exception:
+                _vo_idx = 0
+            _vt  = str(_qp.get("vt", "0"))
+            _vot = str(_qp.get("vot", "history"))
+            _marker = f"vo:{_vot}:{_vo_idx}:{_vt}"
+            # 중복 처리 방지
+            if st.session_state.get("_a11y_last_voice_open") != _marker:
+                st.session_state["_a11y_last_voice_open"] = _marker
+                try:
+                    if _vot == "reports":
+                        # 보고서 영상 popup
+                        _role_vo = get_user_role(user)
+                        _reps_q = supabase.table("reports").select("id,user_id,created_at,url").order("created_at", desc=True)
+                        if _role_vo in ("superadmin", "admin") or is_admin or is_super:
+                            _vr = _reps_q.execute()
+                        else:
+                            _vr = _reps_q.eq("user_id", user["id"]).execute()
+                        _vrdata = [rx for rx in (_vr.data or [])
+                                   if "youtube.com" in (rx.get("url","") or "") or "youtu.be" in (rx.get("url","") or "")]
+                        if 0 <= _vo_idx < len(_vrdata):
+                            st.session_state.rep_video_popup_id = _vrdata[_vo_idx]["id"]
+                            st.session_state.active_tab = 6
+                            # 🏠 home 페이지로 강제 이동 (home_landing에서 호출되어도 작동)
+                            st.session_state.current_page = "home"
+                    else:
+                        # 기본: 탐색 히스토리
+                        if is_admin or is_super:
+                            _vh = supabase.table("analyzed_urls").select("id,analyzed_at").order("analyzed_at", desc=True).limit(1000).execute()
+                        else:
+                            _vh = supabase.table("analyzed_urls").select("id,analyzed_at").eq("assigned_to", user["id"]).order("analyzed_at", desc=True).limit(1000).execute()
+                        _vdata = _vh.data or []
+                        if 0 <= _vo_idx < len(_vdata):
+                            st.session_state.hist_popup_id = _vdata[_vo_idx]["id"]
+                            st.session_state.active_tab = 5
+                            # 🏠 home 페이지로 강제 이동
+                            st.session_state.current_page = "home"
+                except Exception:
+                    pass
+            # query param 정리 (URL 깔끔하게 + 새로고침 시 재처리 방지)
+            try:
+                for _k in ("voice_open", "vt", "vot"):
+                    if _k in _qp:
+                        del _qp[_k]
+            except Exception:
+                pass
+    except Exception:
+        pass
+    # ══════════════════════════════════════════════════════════
+
     page = st.session_state.current_page
 
     # ── 미확인 공지 팝업 (로그인 후 한 번만) ──
@@ -13145,61 +13207,9 @@ else:
         lang = st.session_state.get("lang", "ko")
         chat_info = can_use_chat(user["id"])
 
-        # ── 🎤 접근성: 음성 명령 "동영상 열기" 처리 ─────────────────
-        # JS에서 ?voice_open=<idx>&vot=<history|reports>&vt=<token> 으로 URL 변경
-        # → 여기서 활성 탭에 따라 분기:
-        #   • history → st.session_state.hist_popup_id + active_tab=5
-        #   • reports → st.session_state.rep_video_popup_id + active_tab=6
-        # 시각장애인이 마우스 없이 영상 재생 + 보고서 검토 가능.
-        try:
-            _qp = st.query_params
-            _vo_val = _qp.get("voice_open")
-            if _vo_val is not None:
-                try:
-                    _vo_idx = int(_vo_val if isinstance(_vo_val, str) else (_vo_val[0] if _vo_val else "0"))
-                except Exception:
-                    _vo_idx = 0
-                _vt = str(_qp.get("vt", "0"))
-                _vot = str(_qp.get("vot", "history"))  # voice open target
-                _marker = f"vo:{_vot}:{_vo_idx}:{_vt}"
-                # 같은 명령 중복 처리 방지
-                if st.session_state.get("_a11y_last_voice_open") != _marker:
-                    st.session_state["_a11y_last_voice_open"] = _marker
-                    try:
-                        if _vot == "reports":
-                            # 보고서 목록 영상 popup 열기
-                            _role_vo = get_user_role(user)
-                            _reps_q = supabase.table("reports").select("id,user_id,created_at,url").order("created_at", desc=True)
-                            if _role_vo in ("superadmin", "admin"):
-                                _vr = _reps_q.execute()
-                            else:
-                                _vr = _reps_q.eq("user_id", user["id"]).execute()
-                            _vrdata = [rx for rx in (_vr.data or []) if "youtube.com" in (rx.get("url","") or "") or "youtu.be" in (rx.get("url","") or "")]
-                            if 0 <= _vo_idx < len(_vrdata):
-                                st.session_state.rep_video_popup_id = _vrdata[_vo_idx]["id"]
-                                st.session_state.active_tab = 6  # reports 탭
-                        else:
-                            # 기본: 탐색 히스토리
-                            if is_admin:
-                                _vh = supabase.table("analyzed_urls").select("id,analyzed_at").order("analyzed_at", desc=True).limit(1000).execute()
-                            else:
-                                _vh = supabase.table("analyzed_urls").select("id,analyzed_at").eq("assigned_to", user["id"]).order("analyzed_at", desc=True).limit(1000).execute()
-                            _vdata = _vh.data or []
-                            if 0 <= _vo_idx < len(_vdata):
-                                st.session_state.hist_popup_id = _vdata[_vo_idx]["id"]
-                                st.session_state.active_tab = 5  # history 탭
-                    except Exception:
-                        pass
-                # query param 정리 (URL 깔끔하게)
-                try:
-                    for _k in ("voice_open", "vt", "vot"):
-                        if _k in _qp:
-                            del _qp[_k]
-                except Exception:
-                    pass
-        except Exception:
-            pass
-        # ───────────────────────────────────────────────────────────
+        # 🎤 음성 명령 query_params 처리는 라우팅 전 공통 위치에서 수행
+        # (line ~6563 부근의 voice_open 처리 블록 참조)
+        # → 권찬 같은 본부관리자가 home_landing에 있어도 home으로 강제 이동
 
         with st.container(border=True):
             chat_header1, chat_header2, chat_header3, chat_header4 = st.columns([2,1,1,1])
