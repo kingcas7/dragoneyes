@@ -6600,8 +6600,11 @@ else:
                             st.session_state.rep_video_popup_id = _vrdata[_vo_idx]["id"]
                             st.session_state.active_tab = 6
                             st.session_state.current_page = "home"
-                            # 🔊 음성 상태 강제 유지
+                            # 🔊 음성 상태 강제 유지 — toggle widget key도 함께 True로 동기화
+                            #   (widget key가 False면 toolbar 렌더링 시 OFF로 다시 reset됨)
                             st.session_state["voice_guide_enabled"] = True
+                            st.session_state["a11y_main_voice_toggle"] = True
+                            st.session_state["a11y_login_voice_toggle"] = True
                             _vo_processed = True
                     else:
                         # 기본: 탐색 히스토리
@@ -6615,8 +6618,12 @@ else:
                             st.session_state.hist_popup_id = _vdata[_vo_idx]["id"]
                             st.session_state.active_tab = 5
                             st.session_state.current_page = "home"
-                            # 🔊 음성 상태 강제 유지 — voice 명령으로 진입한 사용자는 음성 ON 보장
+                            # 🔊 음성 상태 강제 유지 — toggle widget key도 함께 True로 동기화
+                            #   (widget key가 False면 toolbar 렌더링 시 OFF로 다시 reset되어
+                            #    '음성 서비스를 종료합니다' 안내 발생)
                             st.session_state["voice_guide_enabled"] = True
+                            st.session_state["a11y_main_voice_toggle"] = True
+                            st.session_state["a11y_login_voice_toggle"] = True
                             _vo_processed = True
                             _vo_debug.append(f"hist_id={_vdata[_vo_idx]['id'][:8]}")
                 except Exception as _e_proc:
@@ -13883,10 +13890,12 @@ else:
                         pv1, pv2, pv3 = st.columns([1, 3, 1])
                         with pv2:
                             if "youtube.com" in hurl or "youtu.be" in hurl:
-                                # 🎬 자동 재생 시도 — 브라우저 정책상 muted=True 필요
+                                # 🎬 자동 재생 시도 (소리 포함)
+                                # 브라우저 정책: 음성 명령 user gesture(sticky activation) 유지 시 가능
+                                # 차단되면 muted=True로 fallback
                                 try:
-                                    st.video(hurl, autoplay=True, muted=True)
-                                    st.caption("🔊 자동 재생 중 — 영상 위 🔇 아이콘 클릭으로 음소거 해제 (브라우저 정책)")
+                                    st.video(hurl, autoplay=True, muted=False)
+                                    st.caption("🎬 자동 재생 중 — 소리 안 들리면 영상의 🔊 아이콘 클릭")
                                 except TypeError:
                                     # 구버전 호환
                                     st.video(hurl)
