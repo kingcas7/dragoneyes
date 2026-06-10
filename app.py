@@ -6566,24 +6566,27 @@ else:
     # JS에서 ?voice_open=<idx>&vot=<history|reports>&vt=<token> 으로 URL 변경 → reload.
     # 권찬 같은 본부관리자가 home_landing에 있더라도 여기서 처리하여
     # home 페이지로 강제 이동 + history/reports 탭 활성화 + popup 표시.
-    # 100% 작동 보장 — 페이지 라우팅 결정 전 실행.
+    _vo_processed = False
+    _vo_debug = []
     try:
         _qp = st.query_params
         _vo_val = _qp.get("voice_open")
         if _vo_val is not None:
+            _vo_debug.append(f"voice_open={_vo_val}")
             try:
                 _vo_idx = int(_vo_val if isinstance(_vo_val, str) else (_vo_val[0] if _vo_val else "0"))
-            except Exception:
+            except Exception as _e_idx:
                 _vo_idx = 0
+                _vo_debug.append(f"idx_parse_err={_e_idx}")
             _vt  = str(_qp.get("vt", "0"))
             _vot = str(_qp.get("vot", "history"))
+            _vo_debug.append(f"vot={_vot} idx={_vo_idx} vt={_vt}")
             _marker = f"vo:{_vot}:{_vo_idx}:{_vt}"
             # 중복 처리 방지
             if st.session_state.get("_a11y_last_voice_open") != _marker:
                 st.session_state["_a11y_last_voice_open"] = _marker
                 try:
                     if _vot == "reports":
-                        # 보고서 영상 popup
                         _role_vo = get_user_role(user)
                         _reps_q = supabase.table("reports").select("id,user_id,created_at,url").order("created_at", desc=True)
                         if _role_vo in ("superadmin", "admin") or is_admin or is_super:
@@ -6592,34 +6595,52 @@ else:
                             _vr = _reps_q.eq("user_id", user["id"]).execute()
                         _vrdata = [rx for rx in (_vr.data or [])
                                    if "youtube.com" in (rx.get("url","") or "") or "youtu.be" in (rx.get("url","") or "")]
+                        _vo_debug.append(f"reports_count={len(_vrdata)}")
                         if 0 <= _vo_idx < len(_vrdata):
                             st.session_state.rep_video_popup_id = _vrdata[_vo_idx]["id"]
                             st.session_state.active_tab = 6
-                            # 🏠 home 페이지로 강제 이동 (home_landing에서 호출되어도 작동)
                             st.session_state.current_page = "home"
+                            _vo_processed = True
                     else:
                         # 기본: 탐색 히스토리
                         if is_admin or is_super:
-                            _vh = supabase.table("analyzed_urls").select("id,analyzed_at").order("analyzed_at", desc=True).limit(1000).execute()
+                            _vh = supabase.table("analyzed_urls").select("id,analyzed_at,url").order("analyzed_at", desc=True).limit(1000).execute()
                         else:
-                            _vh = supabase.table("analyzed_urls").select("id,analyzed_at").eq("assigned_to", user["id"]).order("analyzed_at", desc=True).limit(1000).execute()
+                            _vh = supabase.table("analyzed_urls").select("id,analyzed_at,url").eq("assigned_to", user["id"]).order("analyzed_at", desc=True).limit(1000).execute()
                         _vdata = _vh.data or []
+                        _vo_debug.append(f"history_count={len(_vdata)}")
                         if 0 <= _vo_idx < len(_vdata):
                             st.session_state.hist_popup_id = _vdata[_vo_idx]["id"]
                             st.session_state.active_tab = 5
-                            # 🏠 home 페이지로 강제 이동
                             st.session_state.current_page = "home"
-                except Exception:
-                    pass
+                            _vo_processed = True
+                            _vo_debug.append(f"hist_id={_vdata[_vo_idx]['id'][:8]}")
+                except Exception as _e_proc:
+                    _vo_debug.append(f"process_err={_e_proc}")
+            else:
+                _vo_debug.append("dup_skip(이미 처리됨)")
             # query param 정리 (URL 깔끔하게 + 새로고침 시 재처리 방지)
             try:
                 for _k in ("voice_open", "vt", "vot"):
                     if _k in _qp:
                         del _qp[_k]
-            except Exception:
-                pass
-    except Exception:
-        pass
+            except Exception as _e_del:
+                _vo_debug.append(f"del_err={_e_del}")
+    except Exception as _e_outer:
+        _vo_debug.append(f"outer_err={_e_outer}")
+
+    # ⚡ 처리 성공 시 강제 rerun — URL 정리 + 페이지 다시 라우팅
+    if _vo_processed:
+        try:
+            st.toast("🎬 동영상 popup으로 이동합니다…", icon="✅")
+        except Exception:
+            pass
+        st.rerun()
+
+    # 🔍 디버그 표시 (voice_open 발견했지만 미처리 시) — 사용자 진단용
+    if _vo_debug and not _vo_processed:
+        st.warning(f"🔍 [voice_open 진단] {' | '.join(_vo_debug)}")
+        st.caption("⚠️ 위 정보를 알려주세요. 처리는 안 됐지만 URL은 정리됩니다.")
     # ══════════════════════════════════════════════════════════
 
     page = st.session_state.current_page
