@@ -266,8 +266,51 @@ def _a11y_inject_shortcuts():
                     else if (code.startsWith('Numpad')) digit = parseInt(code.slice(6), 10);
                     else if (key >= '1' && key <= '9') digit = parseInt(key, 10);
 
+                    // ⭐ Ctrl+Shift+V — 음성 안내 토글 ON/OFF (Voice)
+                    if (code === 'KeyV') {{
+                        const newState = !w.__a11yEnabled;
+                        // 음성 안내 (즉시 발화 — reload 전)
+                        if (w._dragoneyesSpeak) {{
+                            w._dragoneyesSpeak(newState ? "음성 안내를 켭니다." : "음성 안내를 끕니다.");
+                        }}
+                        // URL 트리거 → Python에서 처리
+                        setTimeout(function() {{
+                            try {{
+                                const tp = w.top || w.parent || w;
+                                const url = new URL(tp.location.href);
+                                url.searchParams.set('toggle_voice', newState ? '1' : '0');
+                                const prevVt = url.searchParams.get('vt');
+                                url.searchParams.set('vt', String((prevVt ? Number(prevVt) : 0) + 1));
+                                tp.location.href = url.toString();
+                            }} catch(err) {{ console.error('[A11y] toggle_voice err:', err); }}
+                        }}, 800);
+                        e.preventDefault();
+                        return;
+                    }}
+                    // ⭐ Ctrl+Shift+D — 드래곤파더 받아쓰기 토글 ON/OFF (Dictation)
+                    if (code === 'KeyD') {{
+                        const newDictState = !w.__dragonDictationEnabled;
+                        if (w._dragoneyesSpeak) {{
+                            w._dragoneyesSpeak(newDictState
+                                ? "드래곤파더 받아쓰기를 켭니다."
+                                : "드래곤파더 받아쓰기를 끕니다.");
+                        }}
+                        setTimeout(function() {{
+                            try {{
+                                const tp = w.top || w.parent || w;
+                                const url = new URL(tp.location.href);
+                                url.searchParams.set('toggle_dict', newDictState ? '1' : '0');
+                                const prevVt = url.searchParams.get('vt');
+                                url.searchParams.set('vt', String((prevVt ? Number(prevVt) : 0) + 1));
+                                tp.location.href = url.toString();
+                            }} catch(err) {{ console.error('[A11y] toggle_dict err:', err); }}
+                        }}, 800);
+                        e.preventDefault();
+                        return;
+                    }}
+
                     if (isA) {{
-                        // Ctrl+Shift+A: 음성 토글로 포커스 이동
+                        // Ctrl+Shift+A: 음성 토글로 포커스 이동 (기존)
                         const tg = w.document.querySelector('[aria-label*="음성"], [data-testid*="stToggle"]')
                             || w.document.querySelector('label[data-baseweb="checkbox"]');
                         if (tg) {{
@@ -287,9 +330,12 @@ def _a11y_inject_shortcuts():
                             const ctrlName = (navigator.platform.indexOf('Mac') >= 0) ? 'Control' : 'Ctrl';
                             w._dragoneyesSpeak(
                                 "도움말입니다. 단축키 안내. " +
-                                ctrlName + " 더하기 Shift 더하기 A는 음성 토글로 이동. " +
+                                ctrlName + " 더하기 Shift 더하기 V는 음성 안내를 켜고 끕니다. " +
+                                ctrlName + " 더하기 Shift 더하기 D는 드래곤파더 받아쓰기를 켜고 끕니다. " +
+                                ctrlName + " 더하기 Shift 더하기 A는 음성 토글로 포커스 이동. " +
                                 ctrlName + " 더하기 Shift 더하기 M은 메인 콘텐츠로 이동. " +
                                 ctrlName + " 더하기 Shift 더하기 숫자 1부터 9는 페이지 내 주요 메뉴 빠른 이동. " +
+                                "백틱 키 또는 " + ctrlName + " 더하기 Shift 더하기 M은 마이크 토글. " +
                                 "마우스를 메뉴에 0.5초 이상 올려놓으면 해당 메뉴를 읽어드립니다. " +
                                 "Tab 키로 항목을 순차 이동하실 수도 있습니다."
                             );
@@ -1778,7 +1824,11 @@ def _a11y_render_toolbar(*, supabase=None, user_id=None, key_prefix="a11y", comp
                     _a11y_save_to_user(supabase, user_id)
                 _a11y_announce(f"속도 {speed:.1f}배.")
         with sub_cols[1]:
-            st.caption("⌨️ Ctrl+Shift + A·M·H·1~9")
+            st.caption("⌨️ **Ctrl+Shift+V** 음성 안내 ON/OFF")
+            st.caption("⌨️ **Ctrl+Shift+D** 받아쓰기 ON/OFF")
+            st.caption("⌨️ Ctrl+Shift+A·M·H·1~9 메뉴")
+    else:
+        st.caption("⌨️ **Ctrl+Shift+V** 키로 음성 안내 켜기 (시각장애인용)")
 
         # 📋 페이지 메뉴 듣기 — 호버·단축키 의존 없이 현재 페이지 메뉴 음성 안내
         if st.button(
@@ -6486,6 +6536,74 @@ else:
         )
     )
     _vo_is_super_early = is_superadmin(user)
+    # ── ⌨️ 단축키 토글 처리 (Ctrl+Shift+V / Ctrl+Shift+D) ──
+    # JS에서 ?toggle_voice=1 또는 ?toggle_dict=1 으로 URL 변경 → reload
+    # 라우팅 전이라 widget key 변경 가능 ✅
+    try:
+        _qp_tg = st.query_params
+        _tv_val = _qp_tg.get("toggle_voice")
+        if _tv_val is not None:
+            _new_voice = _tv_val == "1"
+            st.session_state["voice_guide_enabled"] = _new_voice
+            st.session_state["a11y_main_voice_toggle"] = _new_voice
+            st.session_state["a11y_login_voice_toggle"] = _new_voice
+            # DB 저장
+            try:
+                if user and user.get("id"):
+                    sb_admin().table("users").update({
+                        "preferences": {
+                            "voice_guide_enabled": _new_voice,
+                            "voice_speed": float(st.session_state.get("voice_speed", 1.0)),
+                            "voice_lang": str(st.session_state.get("voice_lang", "ko-KR")),
+                            "dictation_enabled": bool(st.session_state.get("dictation_enabled", False)),
+                        }
+                    }).eq("id", user["id"]).execute()
+            except Exception:
+                pass
+            for _k in ("toggle_voice", "vt"):
+                if _k in _qp_tg:
+                    del _qp_tg[_k]
+            try:
+                st.toast(
+                    "🔊 음성 안내 켜짐" if _new_voice else "🔇 음성 안내 꺼짐",
+                    icon=("✅" if _new_voice else "🔕"),
+                )
+            except Exception:
+                pass
+            st.rerun()
+
+        _td_val = _qp_tg.get("toggle_dict")
+        if _td_val is not None:
+            _new_dict = _td_val == "1"
+            st.session_state["dictation_enabled"] = _new_dict
+            st.session_state["a11y_main_dictation_toggle"] = _new_dict
+            st.session_state["a11y_login_dictation_toggle"] = _new_dict
+            try:
+                if user and user.get("id"):
+                    sb_admin().table("users").update({
+                        "preferences": {
+                            "voice_guide_enabled": bool(st.session_state.get("voice_guide_enabled", False)),
+                            "voice_speed": float(st.session_state.get("voice_speed", 1.0)),
+                            "voice_lang": str(st.session_state.get("voice_lang", "ko-KR")),
+                            "dictation_enabled": _new_dict,
+                        }
+                    }).eq("id", user["id"]).execute()
+            except Exception:
+                pass
+            for _k in ("toggle_dict", "vt"):
+                if _k in _qp_tg:
+                    del _qp_tg[_k]
+            try:
+                st.toast(
+                    "🎤 받아쓰기 켜짐" if _new_dict else "🔇 받아쓰기 꺼짐",
+                    icon=("✅" if _new_dict else "🔕"),
+                )
+            except Exception:
+                pass
+            st.rerun()
+    except Exception:
+        pass
+
     _vo_processed = False
     _vo_debug = []
     try:
