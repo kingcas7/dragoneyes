@@ -6600,6 +6600,8 @@ else:
                             st.session_state.rep_video_popup_id = _vrdata[_vo_idx]["id"]
                             st.session_state.active_tab = 6
                             st.session_state.current_page = "home"
+                            # 🔊 음성 상태 강제 유지
+                            st.session_state["voice_guide_enabled"] = True
                             _vo_processed = True
                     else:
                         # 기본: 탐색 히스토리
@@ -6613,6 +6615,8 @@ else:
                             st.session_state.hist_popup_id = _vdata[_vo_idx]["id"]
                             st.session_state.active_tab = 5
                             st.session_state.current_page = "home"
+                            # 🔊 음성 상태 강제 유지 — voice 명령으로 진입한 사용자는 음성 ON 보장
+                            st.session_state["voice_guide_enabled"] = True
                             _vo_processed = True
                             _vo_debug.append(f"hist_id={_vdata[_vo_idx]['id'][:8]}")
                 except Exception as _e_proc:
@@ -13871,7 +13875,7 @@ else:
                     with st.container(border=True):
                         hp1, hp2 = st.columns([8, 1])
                         with hp1:
-                            st.markdown(f"**{hist_popup_d.get('title','')[:100]}**")
+                            st.markdown(f"**🎬 {hist_popup_d.get('title','')[:100]}**")
                         with hp2:
                             if st.button(t("popup_close"), key="hist_popup_close", use_container_width=True):
                                 st.session_state.hist_popup_id = None; st.rerun()
@@ -13879,11 +13883,53 @@ else:
                         pv1, pv2, pv3 = st.columns([1, 3, 1])
                         with pv2:
                             if "youtube.com" in hurl or "youtu.be" in hurl:
-                                st.video(hurl)
+                                # 🎬 자동 재생 시도 — 브라우저 정책상 muted=True 필요
+                                try:
+                                    st.video(hurl, autoplay=True, muted=True)
+                                    st.caption("🔊 자동 재생 중 — 영상 위 🔇 아이콘 클릭으로 음소거 해제 (브라우저 정책)")
+                                except TypeError:
+                                    # 구버전 호환
+                                    st.video(hurl)
+                                    st.caption("▶️ 재생 버튼을 눌러 시작하세요")
                             else:
                                 st.markdown(f"[🔗 링크 열기]({hurl})")
+                        # ── 🎤 음성 명령 사용자를 위한 다음 단계 안내 + 토글 + 마이크 ──
+                        st.divider()
+                        _hp_voice_on = bool(st.session_state.get("voice_guide_enabled"))
+                        st.markdown(
+                            "##### 🎤 음성 모니터링 워크플로우\n"
+                            "다음 단계: **보고서 작성** | 다음 모니터링 | 모니터링 종료"
+                        )
+                        _hb1, _hb2 = st.columns([1, 1])
+                        with _hb1:
+                            if not _hp_voice_on:
+                                if st.button("🎤 음성 안내 켜기 (마이크 활성화)", key="hist_popup_voice_on",
+                                             type="primary", use_container_width=True,
+                                             help="음성 안내를 켜면 우하단 마이크가 다시 나타납니다"):
+                                    st.session_state["voice_guide_enabled"] = True
+                                    try:
+                                        if user and user.get("id"):
+                                            sb_admin().table("users").update({
+                                                "preferences": {
+                                                    "voice_guide_enabled": True,
+                                                    "voice_speed": float(st.session_state.get("voice_speed", 1.0)),
+                                                    "voice_lang": str(st.session_state.get("voice_lang", "ko-KR")),
+                                                    "dictation_enabled": bool(st.session_state.get("dictation_enabled", False)),
+                                                }
+                                            }).eq("id", user["id"]).execute()
+                                    except Exception:
+                                        pass
+                                    st.toast("🔊 음성 안내 ON", icon="✅"); st.rerun()
+                            else:
+                                st.success("🔊 음성 안내 ON — 우하단 마이크 활성")
+                        with _hb2:
+                            if not hist_popup_d.get("reported"):
+                                if st.button("📝 보고서 작성", type="primary", use_container_width=True,
+                                             key="hist_popup_write_top"):
+                                    st.session_state.hist_popup_id = None
+                                    open_report_form(hurl,"",1,t("write_report_safe"),"YouTube",from_tab=4); st.rerun()
                         if not hist_popup_d.get("reported"):
-                            if st.button(t("popup_write"), type="primary", use_container_width=True, key="hist_popup_write"):
+                            if st.button(t("popup_write"), type="secondary", use_container_width=True, key="hist_popup_write"):
                                 st.session_state.hist_popup_id = None
                                 open_report_form(hurl,"",1,t("write_report_safe"),"YouTube",from_tab=4); st.rerun()
 
