@@ -1075,6 +1075,7 @@ def _a11y_render_floating_mic():
             // ── 메뉴 매칭 — 확장 매핑 + 페이지 이동 + 워크플로우 ──
             const tryMatchCommand = function(cmd) {
                 const n = cmd.replace(/\\s+/g, '').toLowerCase();
+                const rawTranscript = (cmd || '').trim();  // 메모 받아쓰기용 원본 텍스트 (공백 보존)
                 console.log('[DragonEyes Voice] normalized:', n);
 
                 // ════════ 현재 페이지 설명 ════════
@@ -1239,7 +1240,145 @@ def _a11y_render_floating_mic():
                     return true;
                 }
 
-                // ════════ 보고서 워크플로우 (컨텍스트 인식) ════════
+                // ════════ 📋 보고서 작성 음성 워크플로우 (report_form 페이지 전용) ════════
+                //   심각도/분류/메모/제출을 음성 명령으로 처리.
+                //   query_params를 통해 URL 변경 → 페이지 reload → Python이 처리.
+                const _voiceUrlSet = function(key, val) {
+                    try {
+                        const tp = w.top || w.parent || w;
+                        const url = new URL(tp.location.href);
+                        url.searchParams.set(key, String(val));
+                        const prevVt = url.searchParams.get('vt');
+                        url.searchParams.set('vt', String((prevVt ? Number(prevVt) : 0) + 1));
+                        tp.location.href = url.toString();
+                    } catch(e) { console.error('[A11y] voiceUrlSet err:', e); }
+                };
+
+                // ── 심각도 안내 (목록 음성) ──
+                if (n === '심각도안내' || n === '심각도' || n.indexOf('심각도안내') >= 0 ||
+                    (n.indexOf('심각도') >= 0 && n.indexOf('알려') >= 0)) {
+                    if (w._dragoneyesSpeak) {
+                        w._dragoneyesSpeak(
+                            "심각도는 1부터 5까지입니다. " +
+                            "1번 안전. 2번 낮은 위험. 3번 중간 위험. 4번 높은 위험. 5번 매우 위험. " +
+                            "번호 또는 이름을 말씀해주세요."
+                        );
+                    }
+                    showDiag('<b>🚨 심각도 선택</b><br>1~5 또는 안전·낮은위험·중간위험·높은위험·매우위험', 10000);
+                    return true;
+                }
+                // ── 심각도 직접 선택 ──
+                if (n === '심각도1' || n === '심각도1번' || n === '안전' || n === '1번' ||
+                    (n.indexOf('심각도') >= 0 && (n.indexOf('1') >= 0 || n.indexOf('안전') >= 0))) {
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak("심각도 1번 안전을 선택합니다.");
+                    setTimeout(function() { _voiceUrlSet('voice_sev', '1'); }, 600);
+                    return true;
+                }
+                if (n === '심각도2' || n === '낮은위험' || n === '2번' || n === '낮음' ||
+                    (n.indexOf('심각도') >= 0 && (n.indexOf('2') >= 0 || n.indexOf('낮은') >= 0))) {
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak("심각도 2번 낮은 위험을 선택합니다.");
+                    setTimeout(function() { _voiceUrlSet('voice_sev', '2'); }, 600);
+                    return true;
+                }
+                if (n === '심각도3' || n === '중간위험' || n === '3번' || n === '중간' ||
+                    (n.indexOf('심각도') >= 0 && (n.indexOf('3') >= 0 || n.indexOf('중간') >= 0))) {
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak("심각도 3번 중간 위험을 선택합니다.");
+                    setTimeout(function() { _voiceUrlSet('voice_sev', '3'); }, 600);
+                    return true;
+                }
+                if (n === '심각도4' || n === '높은위험' || n === '4번' || n === '높음' ||
+                    (n.indexOf('심각도') >= 0 && (n.indexOf('4') >= 0 || n.indexOf('높은') >= 0))) {
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak("심각도 4번 높은 위험을 선택합니다.");
+                    setTimeout(function() { _voiceUrlSet('voice_sev', '4'); }, 600);
+                    return true;
+                }
+                if (n === '심각도5' || n === '매우위험' || n === '5번' ||
+                    (n.indexOf('심각도') >= 0 && (n.indexOf('5') >= 0 || n.indexOf('매우') >= 0))) {
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak("심각도 5번 매우 위험을 선택합니다.");
+                    setTimeout(function() { _voiceUrlSet('voice_sev', '5'); }, 600);
+                    return true;
+                }
+
+                // ── 분류 안내 ──
+                if (n === '분류' || n === '분류안내' || (n.indexOf('분류') >= 0 && n.indexOf('알려') >= 0)) {
+                    if (w._dragoneyesSpeak) {
+                        w._dragoneyesSpeak(
+                            "분류는 다섯 가지입니다. 안전. 스팸. 부적절. 성인. 그루밍. " +
+                            "이 중 하나를 말씀해주세요."
+                        );
+                    }
+                    showDiag('<b>📋 분류 선택</b><br>안전·스팸·부적절·성인·그루밍', 10000);
+                    return true;
+                }
+                // ── 분류 직접 선택 ──
+                if (n === '스팸' || n === 'spam') {
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak("분류 스팸을 선택합니다.");
+                    setTimeout(function() { _voiceUrlSet('voice_cat', '스팸'); }, 600);
+                    return true;
+                }
+                if (n === '부적절' || n === 'bad') {
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak("분류 부적절을 선택합니다.");
+                    setTimeout(function() { _voiceUrlSet('voice_cat', '부적절'); }, 600);
+                    return true;
+                }
+                if (n === '성인' || n === 'adult') {
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak("분류 성인을 선택합니다.");
+                    setTimeout(function() { _voiceUrlSet('voice_cat', '성인'); }, 600);
+                    return true;
+                }
+                if (n === '그루밍' || n === 'groom' || n === 'grooming') {
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak("분류 그루밍을 선택합니다.");
+                    setTimeout(function() { _voiceUrlSet('voice_cat', '그루밍'); }, 600);
+                    return true;
+                }
+                // 단독 "안전"은 심각도 1과 분류 안전 둘 다일 수 있음 — 우선 심각도 1로 처리됨 (위에서)
+
+                // ── 메모 입력 모드 ──
+                if (n === '메모입력' || n === '추가메모' || n === '메모' ||
+                    (n.indexOf('메모') >= 0 && (n.indexOf('입력') >= 0 || n.indexOf('작성') >= 0))) {
+                    if (w._dragoneyesSpeak) {
+                        w._dragoneyesSpeak(
+                            "메모 내용을 말씀해주세요. " +
+                            "예를 들어 특이 사항 없음 또는 음란한 행위를 연상시키는 동영상 같이 짧고 명확하게 말씀하세요. " +
+                            "이어서 말씀하시면 자동으로 입력됩니다."
+                        );
+                    }
+                    showDiag(
+                        '<b>📝 메모 입력 대기</b><br>' +
+                        '말씀하시는 내용이 메모란에 자동 입력됩니다.<br>' +
+                        '<i>예: "특이 사항 없음" / "음란한 행위 의심"</i>',
+                        15000
+                    );
+                    // 메모 받아쓰기 모드 활성화 — 다음 음성 인식 결과를 메모로 처리
+                    w.__a11yMemoMode = true;
+                    return true;
+                }
+
+                // ── 메모 받아쓰기 모드 (이전 명령이 메모 입력 모드였을 때 다음 인식 결과를 메모로) ──
+                if (w.__a11yMemoMode && rawTranscript && rawTranscript.length > 1) {
+                    w.__a11yMemoMode = false;  // 한 번만 처리
+                    if (w._dragoneyesSpeak) {
+                        w._dragoneyesSpeak(
+                            "입력되었습니다. " + rawTranscript + ". " +
+                            "보고서를 제출하시겠습니까? 보고서 제출이라고 말씀해주세요."
+                        );
+                    }
+                    setTimeout(function() { _voiceUrlSet('voice_memo', rawTranscript); }, 1500);
+                    return true;
+                }
+
+                // ── 보고서 제출 (자동 제출 + 탐색 히스토리 복귀) ──
+                if (n === '보고서제출' || n === '제출완료' ||
+                    (n.indexOf('보고서') >= 0 && n.indexOf('제출') >= 0)) {
+                    if (w._dragoneyesSpeak) {
+                        w._dragoneyesSpeak("보고서를 제출합니다.");
+                    }
+                    showDiag('<b>✅ 보고서 제출 중…</b><br>완료 후 탐색 히스토리로 자동 복귀', 8000);
+                    setTimeout(function() { _voiceUrlSet('voice_submit', '1'); }, 1000);
+                    return true;
+                }
+
+                // 기존 보고서 워크플로우 (탐색 히스토리에서 보고서 작성 진입 등) ════════
                 if (n.indexOf('보고서제출') >= 0 || n.indexOf('제출') >= 0) {
                     return _submitReportWithNextHint();
                 }
@@ -6544,6 +6683,75 @@ else:
         )
     )
     _vo_is_super_early = is_superadmin(user)
+    # ── 📋 보고서 작성 음성 워크플로우 처리 (report_form 페이지용) ──
+    # JS에서 ?voice_sev=N / ?voice_cat=X / ?voice_memo=TEXT / ?voice_submit=1 등으로 URL 변경
+    # 라우팅 전이라 selectbox widget instantiated 전이라 안전.
+    try:
+        _qp_rf = st.query_params
+        _v_sev = _qp_rf.get("voice_sev")
+        if _v_sev is not None:
+            try:
+                _sev_n = int(_v_sev)
+                if 1 <= _sev_n <= 5:
+                    st.session_state["prefill_severity"] = _sev_n
+                    # selectbox key 버전 증가 → 새 widget으로 인식 → default value 적용
+                    st.session_state["_rf_sev_ver"] = st.session_state.get("_rf_sev_ver", 0) + 1
+                    st.toast(f"🚨 심각도 {_sev_n} 선택됨", icon="✅")
+            except Exception:
+                pass
+            for _k in ("voice_sev", "vt"):
+                if _k in _qp_rf:
+                    del _qp_rf[_k]
+            st.rerun()
+
+        _v_cat = _qp_rf.get("voice_cat")
+        if _v_cat is not None:
+            _cat_str = str(_v_cat)
+            _CAT_MAP = {
+                "안전": "안전", "safe": "안전",
+                "스팸": "스팸", "spam": "스팸",
+                "부적절": "부적절", "bad": "부적절",
+                "성인": "성인", "adult": "성인",
+                "그루밍": "그루밍", "groom": "그루밍",
+                "미분류": "미분류",
+            }
+            _cat_val = _CAT_MAP.get(_cat_str, _cat_str)
+            st.session_state["prefill_category"] = _cat_val
+            st.session_state["_rf_cat_ver"] = st.session_state.get("_rf_cat_ver", 0) + 1
+            try:
+                st.toast(f"📋 분류: {_cat_val}", icon="✅")
+            except Exception:
+                pass
+            for _k in ("voice_cat", "vt"):
+                if _k in _qp_rf:
+                    del _qp_rf[_k]
+            st.rerun()
+
+        _v_memo = _qp_rf.get("voice_memo")
+        if _v_memo is not None:
+            _memo_str = str(_v_memo)
+            st.session_state["prefill_memo"] = _memo_str
+            st.session_state["_rf_memo_ver"] = st.session_state.get("_rf_memo_ver", 0) + 1
+            try:
+                st.toast(f"📝 메모 입력됨: {_memo_str[:30]}", icon="✅")
+            except Exception:
+                pass
+            for _k in ("voice_memo", "vt"):
+                if _k in _qp_rf:
+                    del _qp_rf[_k]
+            st.rerun()
+
+        _v_submit = _qp_rf.get("voice_submit")
+        if _v_submit is not None:
+            # 음성 제출 트리거 — report_form 페이지 안에서 자동 제출 처리
+            st.session_state["_rf_auto_submit"] = True
+            for _k in ("voice_submit", "vt"):
+                if _k in _qp_rf:
+                    del _qp_rf[_k]
+            st.rerun()
+    except Exception:
+        pass
+
     # ── ⌨️ 단축키 토글 처리 (Ctrl+Shift+V / Ctrl+Shift+D) ──
     # JS에서 ?toggle_voice=1 또는 ?toggle_dict=1 으로 URL 변경 → reload
     # 라우팅 전이라 widget key 변경 가능 ✅
@@ -6969,6 +7177,20 @@ else:
     # ══════════════════════════════
     # ══════════════════════════════
     if page == "report_form":
+        # 🎤 음성 워크플로우 자동 안내 (페이지 진입 시 1회)
+        accessibility.announce_page(
+            "보고서 작성 페이지",
+            description="음성 명령으로 작성 가능합니다.",
+            menu_hint=(
+                "심각도 안내, 분류 안내, 메모 입력, 보고서 제출 명령어 사용 가능. "
+                "심각도는 1부터 5까지, 또는 안전·낮은위험·중간위험·높은위험·매우위험. "
+                "분류는 안전·스팸·부적절·성인·그루밍. "
+                "메모 입력이라고 말한 후 내용을 말씀하시면 자동 입력됩니다. "
+                "마지막으로 보고서 제출이라고 말씀하시면 제출됩니다."
+            ),
+            once_key="report_form_entry",
+        )
+
         col_back, col_title = st.columns([1,5])
         with col_back:
             if st.button(t("prev")):
@@ -6976,45 +7198,108 @@ else:
         with col_title:
             st.subheader(t("report_title"))
         with st.container(border=True):
+            # 🎯 selectbox 동적 key — 음성 명령마다 key 버전 증가 → 새 widget으로 default 적용
+            _sev_ver  = st.session_state.get("_rf_sev_ver", 0)
+            _cat_ver  = st.session_state.get("_rf_cat_ver", 0)
+            _memo_ver = st.session_state.get("_rf_memo_ver", 0)
+
             rc1, rc2 = st.columns(2)
             with rc1:
                 pl = [t("plat_yt"), t("plat_rb"), t("plat_mc"), t("plat_etc")]
                 pidx = 0
                 report_platform = st.selectbox(t("platform"), pl, index=pidx)
-                report_severity = st.selectbox(t("severity"), [1,2,3,4,5],
-                    index=st.session_state.prefill_severity-1,
-                    format_func=lambda x: t(f"sev_{x}"))
+                report_severity = st.selectbox(
+                    t("severity"), [1,2,3,4,5],
+                    index=int(st.session_state.get("prefill_severity", 1))-1,
+                    format_func=lambda x: t(f"sev_{x}"),
+                    key=f"rf_severity_v{_sev_ver}",
+                )
             with rc2:
                 cl = [t("cat_safe"), t("cat_spam"), t("cat_bad"), t("cat_adult"), t("cat_groom")]
-                report_category = st.selectbox(t("category"), cl)
-            report_content = st.text_area(t("content_url"), value=st.session_state.prefill_content, height=100)
-            report_memo = st.text_area(t("memo"), height=80, placeholder=t("memo_placeholder"))
+                # prefill_category가 cl에 있으면 그 index 사용, 없으면 0
+                _pre_cat = st.session_state.get("prefill_category", t("cat_safe"))
+                _cat_idx = cl.index(_pre_cat) if _pre_cat in cl else 0
+                report_category = st.selectbox(
+                    t("category"), cl,
+                    index=_cat_idx,
+                    key=f"rf_category_v{_cat_ver}",
+                )
+            report_content = st.text_area(
+                t("content_url"),
+                value=st.session_state.prefill_content,
+                height=100,
+                key=f"rf_content_v{_memo_ver}",
+            )
+            report_memo = st.text_area(
+                t("memo"),
+                value=st.session_state.get("prefill_memo", ""),
+                height=80,
+                placeholder=t("memo_placeholder"),
+                key=f"rf_memo_v{_memo_ver}",
+            )
             if st.session_state.prefill_result:
                 with st.expander(t("ai_result")):
                     st.write(st.session_state.prefill_result)
             if report_content and "youtube.com" in report_content:
                 st.markdown(f"[{t('yt_open_video')}]({report_content})")
+
+            # 🎤 음성 명령 가이드 (보고서 폼 안에 표시)
+            st.divider()
+            with st.expander("🎤 음성 명령 가이드 (펼쳐 확인)", expanded=False):
+                st.markdown(
+                    "- **심각도 안내** → 1~5 단계 안내 음성\n"
+                    "- **심각도 1** / **심각도 2** / ... / **안전** / **낮은위험** / **중간위험** / **높은위험** / **매우위험**\n"
+                    "- **분류 안내** → 분류 목록 안내 음성\n"
+                    "- **안전** / **스팸** / **부적절** / **성인** / **그루밍**\n"
+                    "- **메모 입력** → '메모 내용을 말씀해주세요' 안내 후 받아쓰기\n"
+                    "- **보고서 제출** → 자동 제출 + 탐색 히스토리로 복귀"
+                )
+
             bc1, bc2 = st.columns(2)
+            # 🎤 자동 제출 트리거 — 음성 명령으로 진입 시
+            _auto_submit = st.session_state.pop("_rf_auto_submit", False)
             with bc1:
-                if st.button(t("submit"), use_container_width=True, type="primary"):
-                    if report_content:
-                        final = st.session_state.prefill_result or f"[{t('cat_safe')}]\n{t('category')}: {report_category}\n{t('severity')}: {report_severity}"
-                        if report_memo:
-                            final += f"\n\n[{t('memo')}]\n{report_memo}"
-                        if save_report(report_content, final, report_severity, report_category, report_platform.lower()):
-                            prev = st.session_state.prev_page
-                            prev_tab = st.session_state.get("prev_tab", 0)
-                            st.session_state.prefill_content = ""
-                            st.session_state.prefill_result = ""
-                            st.session_state.current_page = prev
-                            st.session_state.active_tab = prev_tab  # 탭 복원
-                            st.success(t("report_submitted"))
-                            st.rerun()
-                    else:
-                        st.warning(t("enter_content"))
+                submit_clicked = st.button(t("submit"), use_container_width=True, type="primary")
             with bc2:
                 if st.button(t("cancel"), use_container_width=True):
                     go_back(); st.rerun()
+
+            if submit_clicked or _auto_submit:
+                if report_content:
+                    final = st.session_state.prefill_result or f"[{t('cat_safe')}]\n{t('category')}: {report_category}\n{t('severity')}: {report_severity}"
+                    if report_memo:
+                        final += f"\n\n[{t('memo')}]\n{report_memo}"
+                    if save_report(report_content, final, report_severity, report_category, report_platform.lower()):
+                        # prefill 정리
+                        st.session_state.prefill_content = ""
+                        st.session_state.prefill_result = ""
+                        st.session_state["prefill_memo"] = ""
+                        st.session_state["prefill_severity"] = 1
+                        st.session_state["prefill_category"] = t("cat_safe")
+                        # 🔄 자동 사이클: 음성 제출 시 탐색 히스토리로 복귀 (다음 영상 모니터링)
+                        if _auto_submit:
+                            st.session_state.current_page = "home"
+                            st.session_state.active_tab = 5  # history 탭
+                            try:
+                                accessibility.announce(
+                                    "보고서 제출 완료되었습니다. 탐색 히스토리로 돌아갑니다. "
+                                    "다음 동영상을 시청하려면 동영상 재생이라고 말씀해주세요."
+                                )
+                            except Exception:
+                                pass
+                            try:
+                                st.toast("✅ 보고서 제출 완료 — 탐색 히스토리로 복귀", icon="🎉")
+                            except Exception:
+                                pass
+                        else:
+                            prev = st.session_state.prev_page
+                            prev_tab = st.session_state.get("prev_tab", 0)
+                            st.session_state.current_page = prev
+                            st.session_state.active_tab = prev_tab
+                        st.success(t("report_submitted"))
+                        st.rerun()
+                else:
+                    st.warning(t("enter_content"))
 
     # ══════════════════════════════
     # 보고서 상세 페이지
