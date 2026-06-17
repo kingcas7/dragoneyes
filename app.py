@@ -13813,21 +13813,11 @@ else:
                 icon="♿",
             )
 
-            # ⭐ 시각장애인용 두 개의 큰 진입 버튼 (Tab + Enter로 작동 — 단축키보다 robust)
+            # ⭐ 시각장애인용 두 개의 진입 버튼 (Tab + Enter로 작동 — 단축키보다 robust)
             _entry_c1, _entry_c2 = st.columns(2)
             with _entry_c1:
-                # CSS로 버튼 크기 키움
-                st.markdown("""
-                    <style>
-                    div[data-testid="stButton"] button[kind="primary"] {
-                        min-height: 80px !important;
-                        font-size: 1.1rem !important;
-                        font-weight: 700 !important;
-                    }
-                    </style>
-                """, unsafe_allow_html=True)
                 if st.button(
-                    "🎯 모니터링 업무 시작\n(음성 안내 켜기)",
+                    "🎯 모니터링 업무 시작 (음성 안내 켜기)",
                     key="entry_btn_voice_on",
                     type="primary",
                     use_container_width=True,
@@ -13853,7 +13843,7 @@ else:
                     st.rerun()
             with _entry_c2:
                 if st.button(
-                    "🐲 드래곤파더에게 질문\n(받아쓰기 켜기)",
+                    "🐲 드래곤파더에게 질문 (받아쓰기 켜기)",
                     key="entry_btn_dictation_on",
                     type="secondary",
                     use_container_width=True,
