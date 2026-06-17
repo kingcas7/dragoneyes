@@ -422,6 +422,8 @@ def _a11y_force_announce(text, *, lang=None, once_key=None, speed=1.0):
     js_text = _a11y_json.dumps(str(text))
     js_lang = _a11y_json.dumps(str(lang))
     js_once = _a11y_json.dumps(str(once_key or "no_key"))
+    # ⭐ 발화 길이 비례 focusin suppress (글자수 × 130ms + 1.5초, 최소 4초)
+    _sup_ms = max(4000, int(len(str(text)) * 130) + 1500)
     _a11y_components.html(
         f"""
         <script>
@@ -434,6 +436,27 @@ def _a11y_force_announce(text, *, lang=None, once_key=None, speed=1.0):
                     console.warn('[DragonEyes A11y] speechSynthesis not available');
                     return;
                 }}
+                // ⭐ focusin suppress 설정 (메뉴 줄줄이 발화 차단)
+                try {{
+                    const _exp = Date.now() + {_sup_ms} + 500;
+                    const _set = function(ww){{ try{{ ww.__a11ySuppressFocusUntil = Math.max(ww.__a11ySuppressFocusUntil || 0, _exp); }}catch(_){{}} }};
+                    _set(window); _set(w);
+                    try {{ _set(window.top); }} catch(_){{}}
+                    // 사용자 Tab/Enter 시 즉시 해제
+                    const _rel = function(ke){{
+                        if (ke && (ke.key === 'Tab' || ke.key === 'Enter')) {{
+                            try {{ window.__a11ySuppressFocusUntil = 0; }} catch(_){{}}
+                            try {{ w.__a11ySuppressFocusUntil = 0; }} catch(_){{}}
+                            try {{ window.top.__a11ySuppressFocusUntil = 0; }} catch(_){{}}
+                            console.log('[A11y] force_announce suppress released by user');
+                        }}
+                    }};
+                    const _docs = new Set();
+                    try {{ _docs.add(window.document); }} catch(_){{}}
+                    try {{ _docs.add(w.document); }} catch(_){{}}
+                    try {{ _docs.add(window.top.document); }} catch(_){{}}
+                    _docs.forEach(function(d){{ try {{ d.addEventListener('keydown', _rel, true); }} catch(_){{}} }});
+                }} catch(_){{}}
                 // 0.5초 지연으로 다른 announce의 cancel과 충돌 회피
                 setTimeout(function() {{
                     try {{
@@ -3156,8 +3179,44 @@ def _a11y_announce_page(page_title, *, description=None, menu_hint=None, once_ke
     parts = [f"{page_title}이 열렸습니다."]
     if description:
         parts.append(description)
-    # menu_hint는 의도적으로 무시 — 각 아이콘은 Tab focusin 음성 안내가 담당
-    _a11y_announce(" ".join(parts))
+    _full = " ".join(parts)
+    _a11y_announce(_full)
+    # ⭐ 페이지 진입 발화 동안 focusin 안내 suppress (메뉴 줄줄이 발화 차단)
+    #   사용자가 Tab을 누르면 즉시 해제 → 의도된 안내는 정상 발화
+    _sup_ms = max(4000, int(len(_full) * 130) + 1500)
+    _a11y_components.html(
+        f"""
+        <script>
+        (function(){{
+            try {{
+                const _exp = Date.now() + {_sup_ms};
+                const _set = function(w){{ try{{ w.__a11ySuppressFocusUntil = _exp; }}catch(_){{}} }};
+                _set(window);
+                try {{ _set(window.parent); }} catch(_){{}}
+                try {{ _set(window.top); }} catch(_){{}}
+                // 사용자가 Tab을 직접 누르면 suppress 즉시 해제 (사용자 의도 우선)
+                const _release = function(ke) {{
+                    if (ke && (ke.key === 'Tab' || ke.key === 'ArrowDown' || ke.key === 'ArrowUp' || ke.key === 'Enter')) {{
+                        try {{ window.__a11ySuppressFocusUntil = 0; }} catch(_){{}}
+                        try {{ window.parent.__a11ySuppressFocusUntil = 0; }} catch(_){{}}
+                        try {{ window.top.__a11ySuppressFocusUntil = 0; }} catch(_){{}}
+                        console.log('[A11y] suppress released by user Tab/Enter');
+                    }}
+                }};
+                const _docs = new Set();
+                try {{ _docs.add(window.document); }} catch(_){{}}
+                try {{ _docs.add(window.parent.document); }} catch(_){{}}
+                try {{ _docs.add(window.top.document); }} catch(_){{}}
+                _docs.forEach(function(d){{
+                    try {{ d.addEventListener('keydown', _release, true); }} catch(_){{}}
+                }});
+                console.log('[A11y] page-entry suppress', {_sup_ms}, 'ms (release on Tab)');
+            }} catch(e) {{ console.warn('[A11y] page-entry suppress fail', e); }}
+        }})();
+        </script>
+        """,
+        height=0,
+    )
 
 
 accessibility = _A11ySimpleNamespace(
@@ -14630,21 +14689,16 @@ else:
             # 공지 force_announce가 우선 발화 — home_landing은 skip
             pass
         elif st.session_state.get("voice_guide_enabled"):
-            # 음성 ON → 다음 단계 워크플로우 안내
+            # 음성 ON → 한 줄 페이지 설명만
             accessibility.announce_page(
                 "드래곤아이즈 홈 페이지",
-                description=(
-                    "드래곤아이즈 모니터링을 시작하시려면 탐색 히스토리라고 음성 명령해주세요. "
-                    "드래곤파더에게 질문하시려면 컨트롤 시프트 디를 눌러 받아쓰기를 켜고 질문하세요."
-                ),
+                description="모니터링 시작과 드래곤파더 질문을 할 수 있는 페이지입니다.",
                 once_key="home_landing_voice_on",
             )
         else:
-            # 음성 OFF → 간결한 Tab 진입 안내
+            # 음성 OFF → 한 줄 페이지 설명만
             accessibility.force_announce(
-                "드래곤아이즈 모니터링 플랫폼입니다. "
-                "탭 키를 누르시면 메뉴가 순서대로 안내됩니다. "
-                "안내 음성을 들으신 후, 원하시는 메뉴에서 엔터 키를 누르시면 활성화됩니다.",
+                "드래곤아이즈 홈입니다. 모니터링 시작과 드래곤파더 질문을 할 수 있는 페이지입니다.",
                 once_key="home_landing_keyboard_intro",
                 speed=1.0,
             )
