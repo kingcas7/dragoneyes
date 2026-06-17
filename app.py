@@ -158,22 +158,52 @@ def _a11y_main_install_once():
                             return (t || '').trim().replace(/\\s+/g, ' ').substring(0, 120);
                         }
 
-                        // ─── TTS 발화 (강제) ───
+                        // ─── TTS 발화 (debounce + Chrome 자동 정지 우회) ───
+                        let __a11yTtsTimer = null;
+                        let __a11yTtsLastText = '';
                         window.__a11ySpeak = function(text) {
                             if (!text || !('speechSynthesis' in window)) return false;
-                            try {
-                                window.speechSynthesis.cancel();
-                                const u = new SpeechSynthesisUtterance(text);
-                                u.lang = 'ko-KR'; u.rate = 1.0; u.pitch = 1.0; u.volume = 1.0;
-                                u.onstart = function() { console.log('[A11y main TTS started]', text.substring(0, 40)); };
-                                u.onerror = function(e) { console.warn('[A11y main TTS error]', e.error || e); };
-                                window.speechSynthesis.speak(u);
-                                return true;
-                            } catch(e) {
-                                console.error('[A11y main TTS]', e);
-                                return false;
-                            }
+                            // ⭐ 같은 텍스트 즉시 재요청 무시 (focusin이 빠르게 반복될 때)
+                            if (text === __a11yTtsLastText) return false;
+                            __a11yTtsLastText = text;
+                            setTimeout(function() { __a11yTtsLastText = ''; }, 2000);
+                            // ⭐ 200ms debounce — 빠른 focus 이동 시 마지막 텍스트만 발화
+                            clearTimeout(__a11yTtsTimer);
+                            __a11yTtsTimer = setTimeout(function() {
+                                try {
+                                    // Chrome 자동 정지 버그 우회: paused 상태면 resume
+                                    if (window.speechSynthesis.paused) {
+                                        window.speechSynthesis.resume();
+                                    }
+                                    window.speechSynthesis.cancel();
+                                    const u = new SpeechSynthesisUtterance(text);
+                                    u.lang = 'ko-KR'; u.rate = 1.0; u.pitch = 1.0; u.volume = 1.0;
+                                    u.onstart = function() { console.log('[A11y main TTS started]', text.substring(0, 40)); };
+                                    u.onerror = function(e) {
+                                        // 'canceled'는 새 발화로 인한 정상 cancel — 경고 안 함
+                                        if (e.error && e.error !== 'canceled' && e.error !== 'interrupted') {
+                                            console.warn('[A11y main TTS error]', e.error);
+                                        }
+                                    };
+                                    u.onend = function() { console.log('[A11y main TTS ended]', text.substring(0, 30)); };
+                                    window.speechSynthesis.speak(u);
+                                } catch(e) {
+                                    console.error('[A11y main TTS speak]', e);
+                                }
+                            }, 200);
+                            return true;
                         };
+
+                        // ⭐ Chrome speechSynthesis 자동 정지 버그 우회 — 14초마다 resume
+                        //   (Chrome은 15초 이상 발화 시 자동 정지하는 버그)
+                        setInterval(function() {
+                            try {
+                                if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
+                                    window.speechSynthesis.pause();
+                                    window.speechSynthesis.resume();
+                                }
+                            } catch(_){}
+                        }, 14000);
 
                         // ─── focusin listener (Tab 이동 안내) ───
                         document.addEventListener('focusin', function(e) {
