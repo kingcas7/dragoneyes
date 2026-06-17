@@ -13785,33 +13785,97 @@ else:
                 once_key="home_landing_voice_on",
             )
         else:
-            # 음성 OFF → 키보드 단축키로 활성화 방법 강제 안내 (시각장애인 진입용)
+            # 음성 OFF → Tab + Enter 진입 안내 (가장 robust한 방법)
             accessibility.force_announce(
                 "드래곤아이즈 모니터링 플랫폼에 오신 것을 환영합니다. "
                 "아동과 청소년의 온라인 안전을 위한 인공지능 모니터링 시스템입니다. "
-                "시각장애인 사용자를 위한 두 가지 음성 지원 기능을 안내드립니다. "
-                "첫 번째, 모니터링 업무를 시작하시려면, 다음 세 가지 키 중 하나를 누르세요. "
-                "F2 키, 또는 옵션 V, 또는 커맨드 시프트 V 입니다. "
-                "음성 지원 시스템이 활성화되어 모니터링 작업을 음성 명령으로 진행할 수 있습니다. "
-                "두 번째, 드래곤파더 인공지능에게 질문하시려면, 다음 세 가지 키 중 하나를 누르세요. "
-                "F3 키, 또는 옵션 D, 또는 커맨드 시프트 D 입니다. "
-                "받아쓰기 기능이 활성화되어 음성으로 질문을 입력할 수 있습니다. "
-                "지금 원하시는 기능에 해당하는 키를 눌러주세요.",
+                "시각장애인 사용자를 위한 가장 쉬운 진입 방법을 안내드립니다. "
+                "지금 탭 키를 누르시면 첫 번째 큰 버튼인, 모니터링 업무 시작 버튼이 선택됩니다. "
+                "그 상태에서 엔터 키를 누르시면 음성 안내가 켜지고 모니터링이 시작됩니다. "
+                "대신 드래곤파더에게 질문하시려면, 탭 키를 두 번 누르신 후, 엔터 키를 누르세요. "
+                "받아쓰기가 활성화되어 음성으로 질문할 수 있습니다. "
+                "단축키 사용도 가능합니다. F2 키 또는 옵션 V는 음성 안내, "
+                "F3 키 또는 옵션 D는 받아쓰기입니다. "
+                "지금 탭 키를 눌러서 진행해주세요.",
                 once_key="home_landing_keyboard_intro",
                 speed=1.0,
             )
 
-        # 🔊 음성 OFF 상태에서도 시각장애인이 활성화 방법을 알 수 있도록 화면 상단에 명시
+        # 🔊 음성 OFF 상태에서 시각장애인용 명확한 진입 버튼 (Tab + Enter로 작동)
         if not st.session_state.get("voice_guide_enabled"):
             st.info(
-                "♿ **시각장애인용 키보드 안내** (단축키 다중 지원 — Mac/Windows 모두 OK)\n\n"
-                "🎯 **모니터링 업무 시작** (음성 안내 ON) — 아래 중 아무 키나:\n"
-                "&nbsp;&nbsp;&nbsp;&nbsp;`F2` ⋅ `Option + V` (Mac) ⋅ `Ctrl/Cmd + Shift + V`\n\n"
-                "🐲 **드래곤파더에게 질문** (받아쓰기 ON) — 아래 중 아무 키나:\n"
-                "&nbsp;&nbsp;&nbsp;&nbsp;`F3` ⋅ `Option + D` (Mac) ⋅ `Ctrl/Cmd + Shift + D`\n\n"
-                "💡 페이지 진입 시 위 안내가 음성으로 자동 재생됩니다. 음성을 듣고 원하시는 키를 눌러주세요.",
+                "♿ **시각장애인용 키보드 진입 가이드**\n\n"
+                "🎯 **방법 1 (가장 쉬움)**: `Tab` 키를 누른 후 `Enter`를 누르세요. "
+                "아래 두 개의 큰 버튼 중 첫 번째가 자동 선택됩니다.\n\n"
+                "🖱️ **방법 2**: 단축키 — `F2` / `Option+V` / `Cmd+Shift+V` (음성 안내) "
+                "또는 `F3` / `Option+D` / `Cmd+Shift+D` (받아쓰기)\n\n"
+                "💡 페이지 진입 시 음성으로 자동 안내됩니다.",
                 icon="♿",
             )
+
+            # ⭐ 시각장애인용 두 개의 큰 진입 버튼 (Tab + Enter로 작동 — 단축키보다 robust)
+            _entry_c1, _entry_c2 = st.columns(2)
+            with _entry_c1:
+                # CSS로 버튼 크기 키움
+                st.markdown("""
+                    <style>
+                    div[data-testid="stButton"] button[kind="primary"] {
+                        min-height: 80px !important;
+                        font-size: 1.1rem !important;
+                        font-weight: 700 !important;
+                    }
+                    </style>
+                """, unsafe_allow_html=True)
+                if st.button(
+                    "🎯 모니터링 업무 시작\n(음성 안내 켜기)",
+                    key="entry_btn_voice_on",
+                    type="primary",
+                    use_container_width=True,
+                    help="음성 안내 ON. 모니터링을 음성 명령으로 진행합니다.",
+                ):
+                    st.session_state["voice_guide_enabled"] = True
+                    st.session_state["a11y_main_voice_toggle"] = True
+                    st.session_state["a11y_login_voice_toggle"] = True
+                    try:
+                        if user and user.get("id"):
+                            sb_admin().table("users").update({
+                                "preferences": {
+                                    "voice_guide_enabled": True,
+                                    "voice_speed": float(st.session_state.get("voice_speed", 1.0)),
+                                    "voice_lang": str(st.session_state.get("voice_lang", "ko-KR")),
+                                    "dictation_enabled": bool(st.session_state.get("dictation_enabled", False)),
+                                }
+                            }).eq("id", user["id"]).execute()
+                    except Exception:
+                        pass
+                    try: st.toast("🔊 음성 안내 켜짐", icon="✅")
+                    except Exception: pass
+                    st.rerun()
+            with _entry_c2:
+                if st.button(
+                    "🐲 드래곤파더에게 질문\n(받아쓰기 켜기)",
+                    key="entry_btn_dictation_on",
+                    type="secondary",
+                    use_container_width=True,
+                    help="받아쓰기 ON. 드래곤파더에게 음성으로 질문합니다.",
+                ):
+                    st.session_state["dictation_enabled"] = True
+                    st.session_state["a11y_main_dictation_toggle"] = True
+                    try:
+                        if user and user.get("id"):
+                            sb_admin().table("users").update({
+                                "preferences": {
+                                    "voice_guide_enabled": bool(st.session_state.get("voice_guide_enabled", False)),
+                                    "voice_speed": float(st.session_state.get("voice_speed", 1.0)),
+                                    "voice_lang": str(st.session_state.get("voice_lang", "ko-KR")),
+                                    "dictation_enabled": True,
+                                }
+                            }).eq("id", user["id"]).execute()
+                    except Exception:
+                        pass
+                    try: st.toast("🎤 받아쓰기 켜짐", icon="✅")
+                    except Exception: pass
+                    st.rerun()
 
         # 메인 2컬럼 레이아웃 — 드래곤파더 왼쪽, 통계+모니터링 오른쪽
         left_col, right_col = st.columns([1, 1])
