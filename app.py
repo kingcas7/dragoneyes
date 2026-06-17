@@ -815,20 +815,31 @@ def _a11y_render_keyboard_mic():
     """
     if not st.session_state.get("voice_guide_enabled"):
         return
-    # 컴팩트 — 좌측에만 큰 버튼, 우측은 안내 caption
-    _kc1, _kc2 = st.columns([2, 3])
+    # 🎤 음성 명령 (빨간) + 🐲 드래곤파더 받아쓰기 (보라) 두 개 큰 버튼
+    _kc1, _kc2 = st.columns(2)
     with _kc1:
         _clicked = st.button(
             "🎤 음성 명령 (Enter)",
             key="a11y_mic_kb_trigger",
             use_container_width=True, type="primary",
-            help="Tab 키로 이동 후 Enter로 마이크 켜기/끄기. 표준 키보드 작동.",
+            help="Tab → Enter로 음성 명령 마이크 ON/OFF. 메뉴 이동·페이지 설명 등.",
         )
     with _kc2:
-        st.caption(
-            "🎙️ Tab 키로 이동 → **Enter** 키로 마이크 ON/OFF. "
-            "음성 명령으로 메뉴 이동·페이지 설명·보고서 작성 가능."
+        _dict_on_now = bool(st.session_state.get("dictation_enabled"))
+        _dict_btn_label = (
+            "🐲 드래곤파더 받아쓰기 시작 (Enter)" if _dict_on_now
+            else "🐲 음성 받아쓰기 켜기 (Enter)"
         )
+        _dict_clicked = st.button(
+            _dict_btn_label,
+            key="a11y_dict_kb_trigger",
+            use_container_width=True, type="secondary",
+            help="Tab → Enter로 드래곤파더에게 음성 질문 시작",
+        )
+    st.caption(
+        "🎙️ **음성 명령**: 메뉴 이동·페이지 설명·보고서 작성  ⋅  "
+        "🐲 **받아쓰기**: 드래곤파더에게 음성으로 질문"
+    )
     if _clicked:
         # 마이크 토글 JavaScript inject (rerun 무관)
         _a11y_components.html(
@@ -848,6 +859,48 @@ def _a11y_render_keyboard_mic():
             """,
             height=0,
         )
+    if _dict_clicked:
+        if not _dict_on_now:
+            # 받아쓰기 OFF → query_param 트리거로 ON (widget 충돌 회피)
+            try:
+                st.query_params["toggle_dict"] = "1"
+            except Exception:
+                pass
+            st.rerun()
+        else:
+            # 받아쓰기 ON → 보라색 mic 자동 클릭 (받아쓰기 시작)
+            _a11y_components.html(
+                """
+                <script>
+                (function() {
+                    try {
+                        const w = window.parent || window;
+                        // 보라 mic 버튼 찾기 (id 또는 텍스트 매칭)
+                        const btn = w.document.getElementById('dragon-mic-btn');
+                        if (btn && btn.click) {
+                            btn.click();
+                            console.log('[A11y] dragon mic clicked');
+                            return;
+                        }
+                        // fallback: 보라색 mic 텍스트 매칭
+                        const all = w.document.querySelectorAll('button');
+                        for (const b of all) {
+                            const t = (b.innerText || '').trim();
+                            if (t === '🎤' || (b.getAttribute('aria-label')||'').indexOf('받아쓰기') >= 0) {
+                                if (b.style.background && b.style.background.indexOf('124,58,237') >= 0) {
+                                    b.click();
+                                    console.log('[A11y] dragon mic clicked via fallback');
+                                    return;
+                                }
+                            }
+                        }
+                        console.warn('[A11y] dragon mic button not found');
+                    } catch(e) { console.error('[A11y] dragon mic err:', e); }
+                })();
+                </script>
+                """,
+                height=0,
+            )
     # 페이지 진입 시 마이크 버튼에 자동 포커스 — 1회
     if not st.session_state.get("_a11y_mic_focused"):
         st.session_state["_a11y_mic_focused"] = True
