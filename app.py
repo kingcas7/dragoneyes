@@ -277,12 +277,30 @@ def _a11y_main_install_once():
 
                             if (!text) return;
                             const now = Date.now();
+                            // ⭐ Gate 0: 답변 발화 중에는 focusin 안내 suppress
+                            try {
+                                const _sup = (window.top || window).__a11ySuppressFocusUntil || 0;
+                                if (now < _sup) {
+                                    console.log('[A11y main focusin] SKIP — chat answer in progress');
+                                    return;
+                                }
+                            } catch(_){}
                             // ⭐ Gate 1: isTrusted=false (스크립트 .focus())는 발화 안 함
                             //   사용자 Tab/click → isTrusted=true → 발화 OK
                             //   페이지 진입 시 자동 focus, mic 활성화 후 자동 re-focus,
                             //   details 펼침으로 인한 child focus 등 → isTrusted=false → SKIP
                             if (!e.isTrusted) {
                                 console.log('[A11y main focusin] SKIP — programmatic focus (isTrusted=false)');
+                                return;
+                            }
+                            // ⭐ Gate 1.5: SECTION/DIV/MAIN 등 큰 컨테이너는 발화 안 함
+                            //   (전체 영역 click 시 page 전체 텍스트가 발화되는 현상 차단)
+                            const _bigTags = {'SECTION':1, 'DIV':1, 'MAIN':1, 'ARTICLE':1, 'BODY':1, 'HTML':1, 'NAV':1, 'HEADER':1, 'FOOTER':1, 'ASIDE':1, 'FORM':1, 'FIGURE':1, 'UL':1, 'OL':1};
+                            const _tagU = (el.tagName || '').toUpperCase();
+                            const _role0 = (el.getAttribute && el.getAttribute('role') || '').toLowerCase();
+                            const _focusableRoles = {'button':1, 'link':1, 'tab':1, 'menuitem':1, 'option':1, 'checkbox':1, 'radio':1, 'slider':1, 'combobox':1, 'listbox':1, 'textbox':1, 'searchbox':1, 'switch':1};
+                            if (_bigTags[_tagU] && !_focusableRoles[_role0]) {
+                                console.log('[A11y main focusin] SKIP — large container', _tagU);
                                 return;
                             }
                             // ⭐ Gate 2: 접근성 박스(상단 토글바) 안의 element는
@@ -582,9 +600,26 @@ def _a11y_inject_shortcuts():
                     console.log('[A11y focusin]', e.target?.tagName, e.target?.type || '', '→ text:', text || '(empty)', 'isTrusted=', e.isTrusted);
                     if (!text) return;
                     const now = Date.now();
+                    // ⭐ Gate 0: 답변 발화 중에는 focusin 안내 suppress
+                    try {{
+                        const _sup = (w.top || w).__a11ySuppressFocusUntil || 0;
+                        if (now < _sup) {{
+                            console.log('[A11y focusin] SKIP — chat answer in progress');
+                            return;
+                        }}
+                    }} catch(_){{}}
                     // ⭐ Gate 1: isTrusted=false (스크립트 .focus()) → 발화 안 함
                     if (!e.isTrusted) {{
                         console.log('[A11y focusin] SKIP — programmatic focus');
+                        return;
+                    }}
+                    // ⭐ Gate 1.5: SECTION/DIV/MAIN 등 큰 컨테이너는 발화 안 함
+                    const _bigTags2 = {{'SECTION':1, 'DIV':1, 'MAIN':1, 'ARTICLE':1, 'BODY':1, 'HTML':1, 'NAV':1, 'HEADER':1, 'FOOTER':1, 'ASIDE':1, 'FORM':1, 'FIGURE':1, 'UL':1, 'OL':1}};
+                    const _tagU2 = (e.target?.tagName || '').toUpperCase();
+                    const _role02 = (e.target?.getAttribute && e.target.getAttribute('role') || '').toLowerCase();
+                    const _focusableRoles2 = {{'button':1, 'link':1, 'tab':1, 'menuitem':1, 'option':1, 'checkbox':1, 'radio':1, 'slider':1, 'combobox':1, 'listbox':1, 'textbox':1, 'searchbox':1, 'switch':1}};
+                    if (_bigTags2[_tagU2] && !_focusableRoles2[_role02]) {{
+                        console.log('[A11y focusin] SKIP — large container', _tagU2);
                         return;
                     }}
                     // ⭐ Gate 2: 접근성 박스 안 element는 발화 안 함 (mic 버튼 예외)
@@ -8692,6 +8727,38 @@ else:
     # ══════════════════════════════
     elif page == "dragon_chat":
         lang = st.session_state.get("lang", "ko")
+        # ⭐ 받아쓰기/드래곤파더 답변 자동 발화
+        _pending_answer_dc = st.session_state.pop("_a11y_pending_chat_answer", None)
+        if _pending_answer_dc:
+            try:
+                import re as _re_ans2
+                _ans_clean2 = _re_ans2.sub(r'<[^>]+>', '', str(_pending_answer_dc))
+                _ans_clean2 = _re_ans2.sub(r'\s+', ' ', _ans_clean2).strip()
+                if len(_ans_clean2) > 600:
+                    _ans_clean2 = _ans_clean2[:600] + " ... 이하 생략. 화면에서 전체 답변을 확인해주세요."
+                accessibility.force_announce(
+                    "드래곤파더 답변입니다. " + _ans_clean2,
+                    once_key=None, speed=1.0,
+                )
+                _sup_ms_dc = max(8000, int(len(_ans_clean2) * 130) + 2000)
+                _a11y_components.html(
+                    f"""
+                    <script>
+                    (function(){{
+                        try {{
+                            const _exp = Date.now() + {_sup_ms_dc};
+                            try {{ window.__a11ySuppressFocusUntil = _exp; }} catch(_){{}}
+                            try {{ window.parent.__a11ySuppressFocusUntil = _exp; }} catch(_){{}}
+                            try {{ window.top.__a11ySuppressFocusUntil = _exp; }} catch(_){{}}
+                            console.log('[A11y] suppress focusin for', {_sup_ms_dc}, 'ms — chat answer');
+                        }} catch(_){{}}
+                    }})();
+                    </script>
+                    """,
+                    height=0,
+                )
+            except Exception:
+                pass
         col_back, col_title = st.columns([1, 5])
         with col_back:
             if st.button(t("home_back")):
@@ -8745,6 +8812,8 @@ else:
                     st.session_state.chat_history.append({"role": "assistant", "content": response})
                     supabase.table("chat_logs").insert({"user_id": user["id"], "message": fs_input, "response": response, "tokens_used": 1}).execute()
                     use_chat_token(user["id"])
+                    if st.session_state.get("dictation_enabled") or st.session_state.get("voice_guide_enabled"):
+                        st.session_state["_a11y_pending_chat_answer"] = response
                     st.rerun()
                 except Exception as e:
                     st.session_state.chat_history.pop()
@@ -14514,10 +14583,50 @@ else:
 
     elif page == "home_landing":
         lang = st.session_state.get("lang", "ko")
+        # ⭐ 받아쓰기/드래곤파더 답변 자동 발화 (다른 안내보다 우선)
+        _pending_answer = st.session_state.pop("_a11y_pending_chat_answer", None)
+        if _pending_answer:
+            try:
+                # HTML 태그 제거 + 공백 정리
+                import re as _re_ans
+                _ans_clean = _re_ans.sub(r'<[^>]+>', '', str(_pending_answer))
+                _ans_clean = _re_ans.sub(r'\s+', ' ', _ans_clean).strip()
+                # 너무 길면 600자로 자르기 (TTS 안정성)
+                if len(_ans_clean) > 600:
+                    _ans_clean = _ans_clean[:600] + " ... 이하 생략. 화면에서 전체 답변을 확인해주세요."
+                accessibility.force_announce(
+                    "드래곤파더 답변입니다. " + _ans_clean,
+                    once_key=None,
+                    speed=1.0,
+                )
+                # 답변 발화 동안 focusin 안내 suppress — JS window에 만료 시각 주입
+                _suppress_ms = max(8000, int(len(_ans_clean) * 130) + 2000)
+                _a11y_components.html(
+                    f"""
+                    <script>
+                    (function(){{
+                        try {{
+                            const _exp = Date.now() + {_suppress_ms};
+                            const _set = function(w){{ try{{ w.__a11ySuppressFocusUntil = _exp; }}catch(_){{}} }};
+                            _set(window);
+                            try {{ _set(window.parent); }} catch(_){{}}
+                            try {{ _set(window.top); }} catch(_){{}}
+                            console.log('[A11y] suppress focusin for', {_suppress_ms}, 'ms — chat answer');
+                        }} catch(e) {{ console.warn('[A11y] suppress set fail', e); }}
+                    }})();
+                    </script>
+                    """,
+                    height=0,
+                )
+            except Exception:
+                pass
         # ⭐ 공지가 있으면 home_landing 안내는 양보 (공지 안내가 우선)
         _has_unread_ann = bool(unread_ann) and not st.session_state.get("ann_popup_dismissed")
-        # ⭐ Phase 2: 음성 상태별 차별화된 안내
-        if _has_unread_ann:
+        # ⭐ Phase 2: 음성 상태별 차별화된 안내 — 답변 발화가 있으면 페이지 안내 skip
+        if _pending_answer:
+            # 답변 발화 중에 페이지 안내 발화하면 cancel됨 → skip
+            pass
+        elif _has_unread_ann:
             # 공지 force_announce가 우선 발화 — home_landing은 skip
             pass
         elif st.session_state.get("voice_guide_enabled"):
@@ -14926,6 +15035,9 @@ else:
                         st.session_state.chat_history.append({"role": "assistant", "content": response})
                         supabase.table("chat_logs").insert({"user_id": user["id"], "message": home_input, "response": response, "tokens_used": 1}).execute()
                         use_chat_token(user["id"])
+                        # ⭐ 받아쓰기/음성 안내 켜진 경우 — 답변을 다음 rerun에서 자동 발화
+                        if st.session_state.get("dictation_enabled") or st.session_state.get("voice_guide_enabled"):
+                            st.session_state["_a11y_pending_chat_answer"] = response
                         st.rerun()
                     except Exception as e:
                         st.session_state.chat_history.pop()
