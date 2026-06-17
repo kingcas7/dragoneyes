@@ -120,17 +120,31 @@ def _a11y_force_announce(text, *, lang=None, once_key=None, speed=1.0):
     lang = lang or "ko-KR"
     js_text = _a11y_json.dumps(str(text))
     js_lang = _a11y_json.dumps(str(lang))
+    js_once = _a11y_json.dumps(str(once_key or "no_key"))
     _a11y_components.html(
         f"""
         <script>
         (function() {{
             try {{
                 const w = window.parent || window;
-                if (!('speechSynthesis' in w)) return;
-                w.speechSynthesis.cancel();
-                const u = new w.SpeechSynthesisUtterance({js_text});
-                u.lang = {js_lang}; u.rate = {speed}; u.pitch = 1.0; u.volume = 1.0;
-                w.speechSynthesis.speak(u);
+                const tag = {js_once};
+                console.log('[DragonEyes A11y] force_announce attempt: ' + tag, {js_text}.substring(0, 60));
+                if (!('speechSynthesis' in w)) {{
+                    console.warn('[DragonEyes A11y] speechSynthesis not available');
+                    return;
+                }}
+                // 0.5초 지연으로 다른 announce의 cancel과 충돌 회피
+                setTimeout(function() {{
+                    try {{
+                        w.speechSynthesis.cancel();
+                        const u = new w.SpeechSynthesisUtterance({js_text});
+                        u.lang = {js_lang}; u.rate = {speed}; u.pitch = 1.0; u.volume = 1.0;
+                        u.onstart = function() {{ console.log('[A11y] TTS started: ' + tag); }};
+                        u.onend   = function() {{ console.log('[A11y] TTS ended: ' + tag); }};
+                        u.onerror = function(e) {{ console.error('[A11y] TTS error: ' + tag, e); }};
+                        w.speechSynthesis.speak(u);
+                    }} catch (e) {{ console.error('DragonEyes force TTS speak error:', e); }}
+                }}, 500);
             }} catch (e) {{ console.error('DragonEyes force TTS error:', e); }}
         }})();
         </script>
@@ -7288,16 +7302,21 @@ else:
             type_label = {"notice": "공지사항", "work_order": "업무지시", "urgent": "긴급공지"}.get(ann["type"], "공지")
             _unread_total = len(unread_ann)
 
-            # ⭐ 시각장애인 음성 안내 — 처음 진입 시 1회 (음성 OFF여도 강제 발화)
+            # ⭐ 시각장애인 음성 안내 — 인덱스 단위 1회 (음성 OFF여도 강제 발화)
             accessibility.force_announce(
                 f"읽지 않은 공지사항이 {_unread_total}개 있습니다. "
                 f"현재 {_ann_idx + 1}번째 공지를 표시합니다. "
                 f"{type_label} 제목은, {ann['title']}, 입니다. "
-                "공지 본문을 들으시려면 공지 읽기라고 음성 명령해주세요. "
-                "다음 공지로 이동하시려면 다음 공지, "
-                "이전 공지로 이동하시려면 이전 공지, "
-                "확인 후 닫으시려면 공지 확인이라고 말씀해주세요.",
-                once_key=f"ann_popup_intro_{ann_id}_{_ann_idx}",
+                f"발송일은 {str(ann.get('created_at',''))[:10]} 입니다. "
+                "공지 본문을 들으시려면, 공지 읽기, 라고 음성 명령해주세요. "
+                + (
+                    "다음 공지로 이동하시려면, 다음 공지, "
+                    "이전 공지로 이동하시려면, 이전 공지, "
+                    if _unread_total > 1 else ""
+                )
+                + "확인 후 닫으시려면, 공지 확인, 이라고 말씀해주세요. "
+                "또는 화면의 확인 버튼이나 읽기 버튼을 직접 클릭하셔도 됩니다.",
+                once_key=f"ann_popup_intro_{ann_id}_idx_{_ann_idx}",
                 speed=1.0,
             )
 
@@ -7339,25 +7358,31 @@ else:
                 with bc1:
                     if st.button(t("ann_confirm"), key="ann_popup_confirm", use_container_width=True, type="primary"):
                         mark_announcement_read(ann["id"], user["id"])
-                        # 다음 공지가 남아있으면 idx 유지 (다음 행이 [_ann_idx]로 옴), 아니면 닫기
                         if _unread_total - 1 > _ann_idx:
-                            # 현재 공지 읽음 처리 → 다음 공지 [_ann_idx]에 자동 등장
                             pass
                         else:
                             st.session_state.ann_popup_dismissed = True
                             st.session_state.pop("ann_popup_idx", None)
+                            # 공지 모두 처리 → home_landing 안내 재발화 활성화
+                            st.session_state.pop("_a11y_announced_home_landing_voice_on", None)
+                            st.session_state.pop("_a11y_announced_home_landing", None)
+                            st.session_state.pop("_a11y_force_announced_home_landing_keyboard_intro", None)
                         st.rerun()
                 with bc2:
-                    if _unread_total > 1:
-                        if st.button("📖 읽기", key="ann_popup_read",
-                                     use_container_width=True,
-                                     help="공지 본문을 음성으로 읽어드립니다"):
-                            st.session_state["_ann_read_request"] = True
-                            st.rerun()
+                    # 항상 표시 (다중 공지 아니어도 본문 듣기 가능하게)
+                    if st.button("📖 읽기", key="ann_popup_read",
+                                 use_container_width=True,
+                                 help="공지 본문을 음성으로 읽어드립니다"):
+                        st.session_state["_ann_read_request"] = True
+                        st.rerun()
                 with bc3:
                     if st.button(t("ann_later"), key="ann_popup_later", use_container_width=True):
                         st.session_state.ann_popup_dismissed = True
                         st.session_state.pop("ann_popup_idx", None)
+                        # home_landing 안내 재발화 활성화
+                        st.session_state.pop("_a11y_announced_home_landing_voice_on", None)
+                        st.session_state.pop("_a11y_announced_home_landing", None)
+                        st.session_state.pop("_a11y_force_announced_home_landing_keyboard_intro", None)
                         st.rerun()
 
                 # 다중 공지 순회 버튼
@@ -13647,8 +13672,13 @@ else:
 
     elif page == "home_landing":
         lang = st.session_state.get("lang", "ko")
+        # ⭐ 공지가 있으면 home_landing 안내는 양보 (공지 안내가 우선)
+        _has_unread_ann = bool(unread_ann) and not st.session_state.get("ann_popup_dismissed")
         # ⭐ Phase 2: 음성 상태별 차별화된 안내
-        if st.session_state.get("voice_guide_enabled"):
+        if _has_unread_ann:
+            # 공지 force_announce가 우선 발화 — home_landing은 skip
+            pass
+        elif st.session_state.get("voice_guide_enabled"):
             # 음성 ON → 다음 단계 워크플로우 안내
             accessibility.announce_page(
                 "드래곤아이즈 홈 페이지",
