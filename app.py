@@ -6925,6 +6925,8 @@ else:
                 # 진입 안내 once_key 리셋 → 매 진입마다 새로 안내
                 st.session_state.pop("_a11y_announced_history_tab_entry", None)
                 st.session_state.pop("_a11y_announced_history_tab_empty", None)
+                # ⭐ 명시적 nav 플래그 — tab5 코드가 announce할지 결정
+                st.session_state["_explicit_tab_nav"] = "history"
                 try:
                     st.toast("📁 탐색 히스토리로 이동", icon="✅")
                 except Exception:
@@ -6933,6 +6935,7 @@ else:
                 st.session_state.current_page = "home"
                 st.session_state.active_tab = 1  # 드래곤아이즈 추천 탭
                 st.session_state.pop("_a11y_announced_dragon_recommend_entry", None)
+                st.session_state["_explicit_tab_nav"] = "recommend"
                 try:
                     st.toast("🐉 드래곤아이즈 추천으로 이동", icon="✅")
                 except Exception:
@@ -7683,9 +7686,10 @@ else:
                             # 음성 ON 유지
                             st.session_state["voice_guide_enabled"] = True
                             st.session_state["a11y_main_voice_toggle"] = True
-                            # 진입 안내 리셋
+                            # 진입 안내 리셋 + 명시 nav 플래그
                             st.session_state.pop("_a11y_announced_history_tab_entry", None)
                             st.session_state.pop("_a11y_announced_history_tab_empty", None)
+                            st.session_state["_explicit_tab_nav"] = "history"
                             # ⭐ Phase 8: 남은 미작성 개수 음성 안내
                             try:
                                 if is_admin:
@@ -14522,15 +14526,17 @@ else:
             st.caption("AI가 플랫폼별 위험 키워드를 자동 생성하고 유튜브를 탐색합니다. 이미 분석한 영상은 자동 제외됩니다.")
 
             # ⭐ Phase 5: 드래곤아이즈 추천 페이지 진입 자동 음성 안내
-            accessibility.announce_page(
-                "드래곤아이즈 자동 추천 페이지",
-                description=(
+            # 🛡️ 명시적 nav 진입 시에만 발화 (st.tabs 모든 탭 코드 실행 방지)
+            if st.session_state.get("_explicit_tab_nav") == "recommend":
+                st.session_state.pop("_explicit_tab_nav", None)
+                accessibility.force_announce(
+                    "드래곤아이즈 자동 추천 페이지가 열렸습니다. "
                     "원하시는 모니터링 섹터를 정해주세요. "
                     "일반 추천, 로블록스, 마인크래프트, 도박 중에서 하나를 선택해서 음성 명령해주세요. "
-                    "예를 들어 일반 추천이라고 말씀하시면 일반 위험 키워드 추천 리스트가 생성됩니다."
-                ),
-                once_key="dragon_recommend_entry",
-            )
+                    "예를 들어, 일반 추천, 이라고 말씀하시면 일반 위험 키워드 추천 리스트가 생성됩니다.",
+                    once_key=None,
+                    speed=1.0,
+                )
 
             token_info = can_use_dragon(user["id"])
             col_t1, col_t2, col_t3 = st.columns(3)
@@ -14832,42 +14838,43 @@ else:
             st.caption(t("history_caption"))
 
             # ⭐ Phase 4: 탐색 히스토리 자동 음성 안내 (대기 리스트 + 예상 시간)
-            try:
-                # 미리 데이터 조회 — 대기 개수 계산용
-                if is_admin:
-                    _hist_pre = supabase.table("analyzed_urls").select("id,reported").order("analyzed_at", desc=True).limit(1000).execute()
-                else:
-                    _hist_pre = supabase.table("analyzed_urls").select("id,reported").eq("assigned_to", user["id"]).order("analyzed_at", desc=True).limit(1000).execute()
-                _all_hist = _hist_pre.data or []
-                _pending_count = len([d for d in _all_hist if not d.get("reported")])
-                if _pending_count > 0:
-                    # 평균 동영상 시간 5분 + 보고서 작성 2분 = 7분 가정
-                    _avg_per_video = 7
-                    _total_min = _pending_count * _avg_per_video
-                    _hours = _total_min // 60
-                    _mins = _total_min % 60
-                    _time_str = f"{_hours}시간 {_mins}분" if _hours > 0 else f"{_mins}분"
-                    accessibility.announce_page(
-                        "탐색 히스토리 페이지",
-                        description=(
+            # 🛡️ 명시적 nav 진입 시에만 발화 (st.tabs는 모든 탭 코드 실행 → 다른 탭에서 발화 방지)
+            if st.session_state.get("_explicit_tab_nav") == "history":
+                # 안내 직후 플래그 제거 (한 번만)
+                st.session_state.pop("_explicit_tab_nav", None)
+                try:
+                    if is_admin:
+                        _hist_pre = supabase.table("analyzed_urls").select("id,reported").order("analyzed_at", desc=True).limit(1000).execute()
+                    else:
+                        _hist_pre = supabase.table("analyzed_urls").select("id,reported").eq("assigned_to", user["id"]).order("analyzed_at", desc=True).limit(1000).execute()
+                    _all_hist = _hist_pre.data or []
+                    _pending_count = len([d for d in _all_hist if not d.get("reported")])
+                    if _pending_count > 0:
+                        # 평균 동영상 시간 5분 + 보고서 작성 2분 = 7분 가정
+                        _avg_per_video = 7
+                        _total_min = _pending_count * _avg_per_video
+                        _hours = _total_min // 60
+                        _mins = _total_min % 60
+                        _time_str = f"{_hours}시간 {_mins}분" if _hours > 0 else f"{_mins}분"
+                        accessibility.force_announce(
+                            f"탐색 히스토리 페이지가 열렸습니다. "
                             f"현재 모니터링 대기 리스트 {_pending_count}개가 있습니다. "
                             f"예상되는 최종 모니터링 시간은 총 {_time_str} 입니다. "
-                            f"동영상 시청을 시작하시려면 동영상 재생이라고 음성 명령해주세요."
-                        ),
-                        once_key="history_tab_entry",
-                    )
-                else:
-                    accessibility.announce_page(
-                        "탐색 히스토리 페이지",
-                        description=(
+                            f"동영상 시청을 시작하시려면, 동영상 재생, 이라고 음성 명령해주세요.",
+                            once_key=None,
+                            speed=1.0,
+                        )
+                    else:
+                        accessibility.force_announce(
+                            "탐색 히스토리 페이지가 열렸습니다. "
                             "현재 대기중인 모니터링 리스트가 없습니다. "
-                            "드래곤아이즈 자동 추천 리스트를 생성하시려면 "
-                            "드래곤아이즈 자동추천 리스트 생성이라고 음성 명령해주세요."
-                        ),
-                        once_key="history_tab_empty",
-                    )
-            except Exception:
-                pass
+                            "드래곤아이즈 자동 추천 리스트를 생성하시려면, "
+                            "드래곤아이즈 자동추천 리스트 생성, 이라고 음성 명령해주세요.",
+                            once_key=None,
+                            speed=1.0,
+                        )
+                except Exception:
+                    pass
 
             fc1, fc2, fc3 = st.columns(3)
             with fc1:
