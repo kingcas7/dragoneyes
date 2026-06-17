@@ -801,6 +801,40 @@ def _a11y_inject_shortcuts():
                             e.preventDefault();
                             return;
                         }}
+                        // ⭐ F4 — 마이크 모드 전환 (두 마이크 모두 활성 시)
+                        //   음성명령(빨강) ↔ 받아쓰기(보라) 전환 + 안내 + focus 이동
+                        if (codeAll === 'F4' || keyAll === 'F4') {{
+                            try {{
+                                const tp = w.top || w.parent || w;
+                                const doc = tp.document;
+                                const redMic = doc.getElementById('a11y-mic-floating');     // 빨강 (음성명령)
+                                const purpleMic = doc.getElementById('dragon-mic-btn');     // 보라 (받아쓰기)
+                                const redVisible = redMic && redMic.offsetParent !== null;
+                                const purpleVisible = purpleMic && purpleMic.offsetParent !== null;
+                                if (redVisible && purpleVisible) {{
+                                    const cur = tp.__a11yActiveMicMode || 'voice';
+                                    const next = (cur === 'voice') ? 'dictation' : 'voice';
+                                    tp.__a11yActiveMicMode = next;
+                                    if (next === 'dictation') {{
+                                        purpleMic.focus();
+                                        if (w._dragoneyesSpeak) w._dragoneyesSpeak('마이크가 받아쓰기로 전환되었습니다. 엔터 키로 활성화하세요.');
+                                    }} else {{
+                                        redMic.focus();
+                                        if (w._dragoneyesSpeak) w._dragoneyesSpeak('마이크가 음성 명령으로 전환되었습니다. 엔터 키로 활성화하세요.');
+                                    }}
+                                }} else if (redVisible) {{
+                                    redMic.focus();
+                                    if (w._dragoneyesSpeak) w._dragoneyesSpeak('현재 음성 명령 마이크만 활성화되어 있습니다. 받아쓰기를 켜려면 F3 키를 누르세요.');
+                                }} else if (purpleVisible) {{
+                                    purpleMic.focus();
+                                    if (w._dragoneyesSpeak) w._dragoneyesSpeak('현재 받아쓰기 마이크만 활성화되어 있습니다. 음성 명령을 켜려면 음성 안내를 켜세요.');
+                                }} else {{
+                                    if (w._dragoneyesSpeak) w._dragoneyesSpeak('활성화된 마이크가 없습니다.');
+                                }}
+                            }} catch(err) {{ console.error('[A11y] F4 mic switch err:', err); }}
+                            e.preventDefault();
+                            return;
+                        }}
                     }}
 
                     // ⭐ MAC 사용자 친화 — Option(Alt) + V/D 조합
@@ -929,14 +963,13 @@ def _a11y_inject_shortcuts():
                             const ctrlName = (navigator.platform.indexOf('Mac') >= 0) ? 'Control' : 'Ctrl';
                             w._dragoneyesSpeak(
                                 "도움말입니다. 단축키 안내. " +
-                                ctrlName + " 더하기 Shift 더하기 V는 음성 안내를 켜고 끕니다. " +
-                                ctrlName + " 더하기 Shift 더하기 D는 드래곤파더 받아쓰기를 켜고 끕니다. " +
-                                ctrlName + " 더하기 Shift 더하기 A는 음성 토글로 포커스 이동. " +
-                                ctrlName + " 더하기 Shift 더하기 M은 메인 콘텐츠로 이동. " +
+                                "F2는 음성 안내를 켜고 끕니다. " +
+                                "F3는 드래곤파더 받아쓰기를 켜고 끕니다. " +
+                                "F4는 마이크를 음성 명령과 받아쓰기 사이에서 전환합니다. " +
+                                ctrlName + " 더하기 Shift 더하기 V도 음성 안내 토글입니다. " +
+                                ctrlName + " 더하기 Shift 더하기 D도 받아쓰기 토글입니다. " +
                                 ctrlName + " 더하기 Shift 더하기 숫자 1부터 9는 페이지 내 주요 메뉴 빠른 이동. " +
-                                "백틱 키 또는 " + ctrlName + " 더하기 Shift 더하기 M은 마이크 토글. " +
-                                "마우스를 메뉴에 0.5초 이상 올려놓으면 해당 메뉴를 읽어드립니다. " +
-                                "Tab 키로 항목을 순차 이동하실 수도 있습니다."
+                                "Tab 키로 항목을 순차 이동하실 수 있습니다."
                             );
                         }}
                         e.preventDefault();
@@ -2971,6 +3004,8 @@ def _a11y_render_toolbar(*, supabase=None, user_id=None, key_prefix="a11y", comp
             st.caption("&nbsp;&nbsp;**Ctrl/Cmd+Shift+V** · **F2** · **Option+V**", unsafe_allow_html=True)
             st.caption("⌨️ 받아쓰기 ON/OFF")
             st.caption("&nbsp;&nbsp;**Ctrl/Cmd+Shift+D** · **F3** · **Option+D**", unsafe_allow_html=True)
+            st.caption("🎤 마이크 전환 (음성명령↔받아쓰기)")
+            st.caption("&nbsp;&nbsp;**F4**", unsafe_allow_html=True)
             st.caption("⌨️ Ctrl+Shift+A·M·H·1~9 메뉴")
     else:
         # ⭐ 시각장애인용 Tab+Enter 진입 버튼 (음성 OFF 상태)
