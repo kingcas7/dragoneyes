@@ -2898,12 +2898,8 @@ def _a11y_render_toolbar(*, supabase=None, user_id=None, key_prefix="a11y", comp
                 _a11y_save_to_user(supabase, user_id)
             try: st.toast("🔊 음성 안내가 켜졌습니다 (ON)", icon="✅")
             except Exception: pass
-            # 🎯 메인 페이지 직접 발화 — iframe sandbox 우회
-            _a11y_main_speak(
-                "음성 안내가 켜졌습니다. "
-                "음성 명령을 시작하려면 음성 명령 엔터 버튼에 탭으로 이동한 후 엔터를 누르세요. "
-                "또는 백틱 키를 누르세요."
-            )
+            # 🎯 토글 안내 — 한 줄만 (그 외 안내는 Tab 위치 기반)
+            _a11y_main_speak("음성 안내를 켭니다.")
         else:
             _a11y_main_speak("음성 안내를 끕니다.")
             st.session_state["voice_guide_enabled"] = False
@@ -2949,13 +2945,9 @@ def _a11y_render_toolbar(*, supabase=None, user_id=None, key_prefix="a11y", comp
             )
         except Exception:
             pass
-        # 🔊 메인 페이지 직접 발화 (iframe sandbox 우회)
+        # 🔊 토글 안내 — 한 줄만 (사용법은 Tab 위치 기반 안내가 담당)
         if dict_enabled:
-            _a11y_main_speak(
-                "드래곤파더 받아쓰기가 켜졌습니다. "
-                "받아쓰기를 시작하려면 받아쓰기 시작 엔터 버튼에 탭으로 이동한 후 엔터를 누르세요. "
-                "질문 마지막에 답변 부탁해 또는 알려줘라고 말씀하시면 자동 전송됩니다."
-            )
+            _a11y_main_speak("드래곤파더 받아쓰기를 켭니다.")
         else:
             _a11y_main_speak("받아쓰기를 끕니다.")
         st.rerun()
