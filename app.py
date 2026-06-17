@@ -1169,6 +1169,47 @@ def _a11y_render_keyboard_mic():
                         }, true);
                         console.log('[A11y] ESC key handler bound to top');
                     }
+
+                    // ⭐ 탭/링크/메뉴 버튼 클릭 후 자동으로 음성 명령 버튼에 focus 복귀
+                    //   Streamlit st.tabs 클릭 시 focus가 탭 버튼에 머물러 Enter가 다른 동작
+                    //   해결: 탭 클릭/포커스 변경 후 800ms 후에 음성 명령 버튼으로 자동 이동
+                    if (!top.__a11yAutoReFocusBound) {
+                        top.__a11yAutoReFocusBound = true;
+                        let _reFocusTimer = null;
+                        const _scheduleReFocus = function(delayMs) {
+                            clearTimeout(_reFocusTimer);
+                            _reFocusTimer = setTimeout(function() {
+                                try {
+                                    const active = top.document.activeElement;
+                                    const activeTag = (active?.tagName || '').toUpperCase();
+                                    // 입력 필드에 focus 있으면 방해 안 함
+                                    if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || active?.isContentEditable) return;
+                                    // 이미 음성 명령 버튼이면 그대로
+                                    const activeText = (active?.innerText || active?.textContent || '').trim();
+                                    if ((activeText.indexOf('음성 명령') >= 0 || activeText.indexOf('음성명령') >= 0) && activeText.indexOf('Enter') >= 0) return;
+                                    // 음성 명령 버튼으로 focus 이동
+                                    const btn = findMicBtn();
+                                    if (btn) {
+                                        btn.focus();
+                                        console.log('[A11y auto-refocus] mic btn focused after tab/menu click');
+                                    }
+                                } catch(_){}
+                            }, delayMs || 800);
+                        };
+                        // 모든 클릭 후 schedule
+                        top.document.addEventListener('click', function(e) {
+                            const t = e.target;
+                            const tag = (t?.tagName || '').toUpperCase();
+                            const role = (t?.getAttribute?.('role') || '').toLowerCase();
+                            // tab/button/link 클릭 시 — 단 음성 명령 버튼 자체는 제외
+                            if (tag === 'BUTTON' || tag === 'A' || role === 'tab' || role === 'button' || role === 'link') {
+                                const txt = (t.innerText || t.textContent || '').trim();
+                                if ((txt.indexOf('음성 명령') >= 0 || txt.indexOf('음성명령') >= 0) && txt.indexOf('Enter') >= 0) return;
+                                _scheduleReFocus(1200);
+                            }
+                        }, true);
+                        console.log('[A11y] auto-refocus on tab/menu click bound');
+                    }
                 } catch(e) { console.error('[A11y mic focus]', e); }
             }, 1000);
             </script>
@@ -2426,6 +2467,36 @@ def _a11y_render_floating_mic():
                         w._dragoneyesIsListening = false;
                         const b = w.document.getElementById('a11y-mic-floating');
                         if (b) { b.style.background = '#dc2626'; b.style.animation = ''; }
+
+                        // ⭐ 음성 인식 종료 후 음성 명령 버튼에 자동 focus 복귀 (Enter로 재시작)
+                        //   페이지 전환이 있을 수 있으니 1.5초 후 시도 (DOM 업데이트 대기)
+                        setTimeout(function() {
+                            try {
+                                const top = window.top || w;
+                                const findMicBtn = function() {
+                                    const targets = [w, top].filter((x, i, arr) => x && arr.indexOf(x) === i);
+                                    for (const wx of targets) {
+                                        try {
+                                            const btns = wx.document.querySelectorAll('button');
+                                            for (const bx of btns) {
+                                                const t = (bx.innerText || bx.textContent || '').trim();
+                                                if ((t.indexOf('음성 명령') >= 0 || t.indexOf('음성명령') >= 0) &&
+                                                    t.indexOf('Enter') >= 0 && bx.offsetParent) return bx;
+                                            }
+                                        } catch(_){}
+                                    }
+                                    return null;
+                                };
+                                const micBtn = findMicBtn();
+                                if (micBtn) {
+                                    micBtn.focus();
+                                    console.log('[A11y] mic btn re-focused after recognition end');
+                                } else {
+                                    console.warn('[A11y] mic btn not found after recognition end');
+                                }
+                            } catch(e) { console.error('[A11y] re-focus err:', e); }
+                        }, 1500);
+
                         // 연속 모드면 2초 후 자동 재시작
                         if (w._dragoneyesContinuousMode) {
                             showDiag('<b style="color:#0284c7;">🔁 연속 모드 — 2초 후 재시작</b><br>"중지" 또는 백틱 키(`)로 중단', 2000);
