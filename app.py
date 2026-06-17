@@ -252,11 +252,37 @@ def _a11y_inject_shortcuts():
                 }}, true);
                 w.document.addEventListener('mouseout', () => clearTimeout(_hoverTimer), true);
 
-                // ── 포커스 음성 안내 (Tab 이동 시 즉시) ──
+                // ── 포커스 음성 안내 (Tab 이동 시 즉시 + 'Enter로 활성화' 추가) ──
+                //   음성 OFF 상태에서도 force speak — 시각장애인이 진입할 수 있게
                 w.document.addEventListener('focusin', (e) => {{
-                    if (!w.__a11yEnabled) return;
                     const text = _extractText(e.target);
-                    if (text) _speakIfNew(text, 800);
+                    if (!text) return;
+                    // 같은 텍스트 반복 방지 (짧은 시간 내 같은 element re-focus)
+                    const now = Date.now();
+                    if (w.__a11yLastFocusText === text && (now - (w.__a11yLastFocusTime || 0)) < 1500) return;
+                    w.__a11yLastFocusText = text;
+                    w.__a11yLastFocusTime = now;
+
+                    // 입력 필드면 'Enter' 안내 생략 (Enter는 줄바꿈 의미)
+                    const tag = (e.target?.tagName || '').toUpperCase();
+                    const isInputField = tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable;
+                    const fullText = isInputField
+                        ? text + '. 입력란입니다.'
+                        : text + '. 활성화하려면 엔터 키를 누르세요.';
+
+                    if (w.__a11yEnabled) {{
+                        // 음성 ON: 기존 속도/언어 반영
+                        _speakIfNew(fullText, 800);
+                    }} else {{
+                        // 음성 OFF: force speak (시각장애인 진입 안내)
+                        try {{
+                            if (!w.speechSynthesis) return;
+                            w.speechSynthesis.cancel();
+                            const u = new w.SpeechSynthesisUtterance(fullText);
+                            u.lang = 'ko-KR'; u.rate = 1.0;
+                            w.speechSynthesis.speak(u);
+                        }} catch(_){{}}
+                    }}
                 }}, true);
 
                 // ── 키보드 단축키 — Ctrl+Shift 조합 (Mac/Windows 호환) ──
@@ -13785,65 +13811,14 @@ else:
                 once_key="home_landing_voice_on",
             )
         else:
-            # 음성 OFF → Tab + Enter 진입 안내 (가장 robust한 방법)
+            # 음성 OFF → 간결한 Tab 진입 안내
             accessibility.force_announce(
-                "드래곤아이즈 모니터링 플랫폼에 오신 것을 환영합니다. "
-                "아동과 청소년의 온라인 안전을 위한 인공지능 모니터링 시스템입니다. "
-                "시각장애인 사용자를 위한 가장 쉬운 진입 방법을 안내드립니다. "
-                "지금 탭 키를 누르시면 첫 번째 큰 버튼인, 모니터링 업무 시작 버튼이 선택됩니다. "
-                "그 상태에서 엔터 키를 누르시면 음성 안내가 켜지고 모니터링이 시작됩니다. "
-                "대신 드래곤파더에게 질문하시려면, 탭 키를 두 번 누르신 후, 엔터 키를 누르세요. "
-                "받아쓰기가 활성화되어 음성으로 질문할 수 있습니다. "
-                "단축키 사용도 가능합니다. F2 키 또는 옵션 V는 음성 안내, "
-                "F3 키 또는 옵션 D는 받아쓰기입니다. "
-                "지금 탭 키를 눌러서 진행해주세요.",
+                "드래곤아이즈 모니터링 플랫폼입니다. "
+                "탭 키를 누르시면 메뉴가 순서대로 안내됩니다. "
+                "안내 음성을 들으신 후, 원하시는 메뉴에서 엔터 키를 누르시면 활성화됩니다.",
                 once_key="home_landing_keyboard_intro",
                 speed=1.0,
             )
-
-        # 🔊 음성 OFF 상태에서 시각장애인용 명확한 진입 버튼 (Tab + Enter로 작동)
-        if not st.session_state.get("voice_guide_enabled"):
-            st.info(
-                "♿ **시각장애인용 키보드 진입 가이드**\n\n"
-                "🎯 **방법 1 (가장 쉬움)**: `Tab` 키를 누른 후 `Enter`를 누르세요. "
-                "아래 두 개의 큰 버튼 중 첫 번째가 자동 선택됩니다.\n\n"
-                "🖱️ **방법 2**: 단축키 — `F2` / `Option+V` / `Cmd+Shift+V` (음성 안내) "
-                "또는 `F3` / `Option+D` / `Cmd+Shift+D` (받아쓰기)\n\n"
-                "💡 페이지 진입 시 음성으로 자동 안내됩니다.",
-                icon="♿",
-            )
-
-            # ⭐ 시각장애인용 두 개의 진입 버튼 (Tab + Enter로 작동)
-            # 🛡️ widget key를 onclick에서 직접 변경하면 Streamlit 에러 → query_param 트리거로 우회
-            #     라우팅 전 처리(widget 생성 전)에서 toggle_voice/toggle_dict 안전하게 처리
-            _entry_c1, _entry_c2 = st.columns(2)
-            with _entry_c1:
-                if st.button(
-                    "🎯 모니터링 업무 시작 (음성 안내 켜기)",
-                    key="entry_btn_voice_on",
-                    type="primary",
-                    use_container_width=True,
-                    help="음성 안내 ON. 모니터링을 음성 명령으로 진행합니다.",
-                ):
-                    # query_param 트리거 → reload → 라우팅 전 toggle_voice 처리
-                    try:
-                        st.query_params["toggle_voice"] = "1"
-                    except Exception:
-                        pass
-                    st.rerun()
-            with _entry_c2:
-                if st.button(
-                    "🐲 드래곤파더에게 질문 (받아쓰기 켜기)",
-                    key="entry_btn_dictation_on",
-                    type="secondary",
-                    use_container_width=True,
-                    help="받아쓰기 ON. 드래곤파더에게 음성으로 질문합니다.",
-                ):
-                    try:
-                        st.query_params["toggle_dict"] = "1"
-                    except Exception:
-                        pass
-                    st.rerun()
 
         # 메인 2컬럼 레이아웃 — 드래곤파더 왼쪽, 통계+모니터링 오른쪽
         left_col, right_col = st.columns([1, 1])
