@@ -205,11 +205,49 @@ def _a11y_main_install_once():
                             } catch(_){}
                         }, 14000);
 
-                        // ─── focusin listener (Tab 이동 안내) ───
+                        // ─── focusin listener (Tab 이동 안내 + mic 버튼에 keydown 직접 등록) ───
                         document.addEventListener('focusin', function(e) {
                             const el = e.target;
                             const text = _extractText(el);
                             console.log('[A11y main focusin]', el.tagName, el.type || '', el.role || el.getAttribute('role') || '', '→', text || '(empty)');
+
+                            // ⭐ mic 관련 버튼이면 keydown listener 직접 등록 (Streamlit 가로채기 우회)
+                            //   element 자체에 등록한 listener는 어느 단계에서도 잡힘
+                            if (text && !el.__a11yKeyBound) {
+                                const isMicBtn = (text.indexOf('음성 명령') >= 0 || text.indexOf('음성명령') >= 0) && text.indexOf('Enter') >= 0;
+                                const isDictBtn = (text.indexOf('받아쓰기 시작') >= 0 || text.indexOf('받아쓰기 켜기') >= 0) && text.indexOf('Enter') >= 0;
+                                if (isMicBtn || isDictBtn) {
+                                    el.__a11yKeyBound = true;
+                                    el.addEventListener('keydown', function(ke) {
+                                        if (ke.key !== 'Enter' && ke.code !== 'Enter') return;
+                                        if (ke.shiftKey || ke.ctrlKey || ke.metaKey || ke.altKey) return;
+                                        ke.preventDefault();
+                                        ke.stopPropagation();
+                                        ke.stopImmediatePropagation();
+                                        console.log('[A11y direct keydown] Enter on', isMicBtn ? 'mic' : 'dict', 'button');
+                                        if (isMicBtn) {
+                                            // mic 토글 시도
+                                            const cands = [window.top, window.parent, window].filter((x, i, a) => x && a.indexOf(x) === i);
+                                            for (const w of cands) {
+                                                try {
+                                                    if (typeof w._dragoneyesToggleListening === 'function') {
+                                                        w._dragoneyesToggleListening();
+                                                        console.log('[A11y direct] toggleListening called');
+                                                        return;
+                                                    }
+                                                } catch(_){}
+                                            }
+                                            console.warn('[A11y direct] _dragoneyesToggleListening not found');
+                                        } else if (isDictBtn) {
+                                            const dragonBtn = (window.top || window).document.getElementById('dragon-mic-btn');
+                                            if (dragonBtn) { dragonBtn.click(); console.log('[A11y direct] dragon mic clicked'); }
+                                            else console.warn('[A11y direct] dragon-mic-btn not found');
+                                        }
+                                    }, true);
+                                    console.log('[A11y] direct keydown bound to', isMicBtn ? 'mic' : 'dict', 'button');
+                                }
+                            }
+
                             if (!text) return;
                             const now = Date.now();
                             if (window.__a11yLastFocusText === text && (now - (window.__a11yLastFocusTime || 0)) < 1500) return;
