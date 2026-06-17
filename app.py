@@ -13813,7 +13813,9 @@ else:
                 icon="♿",
             )
 
-            # ⭐ 시각장애인용 두 개의 진입 버튼 (Tab + Enter로 작동 — 단축키보다 robust)
+            # ⭐ 시각장애인용 두 개의 진입 버튼 (Tab + Enter로 작동)
+            # 🛡️ widget key를 onclick에서 직접 변경하면 Streamlit 에러 → query_param 트리거로 우회
+            #     라우팅 전 처리(widget 생성 전)에서 toggle_voice/toggle_dict 안전하게 처리
             _entry_c1, _entry_c2 = st.columns(2)
             with _entry_c1:
                 if st.button(
@@ -13823,23 +13825,11 @@ else:
                     use_container_width=True,
                     help="음성 안내 ON. 모니터링을 음성 명령으로 진행합니다.",
                 ):
-                    st.session_state["voice_guide_enabled"] = True
-                    st.session_state["a11y_main_voice_toggle"] = True
-                    st.session_state["a11y_login_voice_toggle"] = True
+                    # query_param 트리거 → reload → 라우팅 전 toggle_voice 처리
                     try:
-                        if user and user.get("id"):
-                            sb_admin().table("users").update({
-                                "preferences": {
-                                    "voice_guide_enabled": True,
-                                    "voice_speed": float(st.session_state.get("voice_speed", 1.0)),
-                                    "voice_lang": str(st.session_state.get("voice_lang", "ko-KR")),
-                                    "dictation_enabled": bool(st.session_state.get("dictation_enabled", False)),
-                                }
-                            }).eq("id", user["id"]).execute()
+                        st.query_params["toggle_voice"] = "1"
                     except Exception:
                         pass
-                    try: st.toast("🔊 음성 안내 켜짐", icon="✅")
-                    except Exception: pass
                     st.rerun()
             with _entry_c2:
                 if st.button(
@@ -13849,22 +13839,10 @@ else:
                     use_container_width=True,
                     help="받아쓰기 ON. 드래곤파더에게 음성으로 질문합니다.",
                 ):
-                    st.session_state["dictation_enabled"] = True
-                    st.session_state["a11y_main_dictation_toggle"] = True
                     try:
-                        if user and user.get("id"):
-                            sb_admin().table("users").update({
-                                "preferences": {
-                                    "voice_guide_enabled": bool(st.session_state.get("voice_guide_enabled", False)),
-                                    "voice_speed": float(st.session_state.get("voice_speed", 1.0)),
-                                    "voice_lang": str(st.session_state.get("voice_lang", "ko-KR")),
-                                    "dictation_enabled": True,
-                                }
-                            }).eq("id", user["id"]).execute()
+                        st.query_params["toggle_dict"] = "1"
                     except Exception:
                         pass
-                    try: st.toast("🎤 받아쓰기 켜짐", icon="✅")
-                    except Exception: pass
                     st.rerun()
 
         # 메인 2컬럼 레이아웃 — 드래곤파더 왼쪽, 통계+모니터링 오른쪽
@@ -15133,20 +15111,12 @@ else:
                                 if st.button("🎤 음성 안내 켜기 (마이크 활성화)", key="hist_popup_voice_on",
                                              type="primary", use_container_width=True,
                                              help="음성 안내를 켜면 우하단 마이크가 다시 나타납니다"):
-                                    st.session_state["voice_guide_enabled"] = True
+                                    # query_param 트리거 (widget key 변경은 라우팅 전 처리에서 안전하게)
                                     try:
-                                        if user and user.get("id"):
-                                            sb_admin().table("users").update({
-                                                "preferences": {
-                                                    "voice_guide_enabled": True,
-                                                    "voice_speed": float(st.session_state.get("voice_speed", 1.0)),
-                                                    "voice_lang": str(st.session_state.get("voice_lang", "ko-KR")),
-                                                    "dictation_enabled": bool(st.session_state.get("dictation_enabled", False)),
-                                                }
-                                            }).eq("id", user["id"]).execute()
+                                        st.query_params["toggle_voice"] = "1"
                                     except Exception:
                                         pass
-                                    st.toast("🔊 음성 안내 ON", icon="✅"); st.rerun()
+                                    st.rerun()
                             else:
                                 st.success("🔊 음성 안내 ON — 우하단 마이크 활성")
                         with _hb2:
