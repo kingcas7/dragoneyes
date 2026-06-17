@@ -225,7 +225,25 @@ def _a11y_inject_shortcuts():
                 const _extractText = (el) => {{
                     if (!el) return '';
                     let t = el.innerText || el.textContent || '';
-                    if (!t.trim()) t = el.getAttribute('aria-label') || el.getAttribute('placeholder') || el.getAttribute('title') || '';
+                    if (!t.trim()) {{
+                        // 1순위: aria-label
+                        t = el.getAttribute('aria-label') || '';
+                        // 2순위: 부모 label의 텍스트 (checkbox/radio/toggle input)
+                        if (!t.trim()) {{
+                            const lbl = el.closest('label');
+                            if (lbl) t = lbl.innerText || lbl.textContent || '';
+                        }}
+                        // 3순위: aria-labelledby가 가리키는 element
+                        if (!t.trim()) {{
+                            const labId = el.getAttribute('aria-labelledby');
+                            if (labId) {{
+                                const labEl = el.ownerDocument.getElementById(labId);
+                                if (labEl) t = labEl.innerText || labEl.textContent || '';
+                            }}
+                        }}
+                        // 4순위: placeholder, title
+                        if (!t.trim()) t = el.getAttribute('placeholder') || el.getAttribute('title') || '';
+                    }}
                     return t.trim().replace(/\\s+/g, ' ').substring(0, 120);
                 }};
                 const _speakIfNew = (text, debounceMs) => {{
@@ -256,6 +274,7 @@ def _a11y_inject_shortcuts():
                 //   음성 OFF 상태에서도 force speak — 시각장애인이 진입할 수 있게
                 w.document.addEventListener('focusin', (e) => {{
                     const text = _extractText(e.target);
+                    console.log('[A11y focusin]', e.target?.tagName, e.target?.type || '', '→ text:', text || '(empty)');
                     if (!text) return;
                     // 같은 텍스트 반복 방지 (짧은 시간 내 같은 element re-focus)
                     const now = Date.now();
@@ -2278,10 +2297,38 @@ def _a11y_render_toolbar(*, supabase=None, user_id=None, key_prefix="a11y", comp
             st.caption("&nbsp;&nbsp;**Ctrl/Cmd+Shift+D** · **F3** · **Option+D**", unsafe_allow_html=True)
             st.caption("⌨️ Ctrl+Shift+A·M·H·1~9 메뉴")
     else:
+        # ⭐ 시각장애인용 Tab+Enter 진입 버튼 (음성 OFF 상태)
+        _entry_bc1, _entry_bc2 = st.columns(2)
+        with _entry_bc1:
+            if st.button(
+                "🔊 음성 안내 켜기 (Enter)",
+                key=f"{key_prefix}_entry_voice_on",
+                type="primary",
+                use_container_width=True,
+                help="Tab으로 이동 후 Enter로 활성화",
+            ):
+                # query_param 트리거 (widget key 충돌 회피)
+                try:
+                    st.query_params["toggle_voice"] = "1"
+                except Exception:
+                    pass
+                st.rerun()
+        with _entry_bc2:
+            if st.button(
+                "🎤 받아쓰기 켜기 (Enter)",
+                key=f"{key_prefix}_entry_dict_on",
+                type="secondary",
+                use_container_width=True,
+                help="Tab으로 이동 후 Enter로 활성화",
+            ):
+                try:
+                    st.query_params["toggle_dict"] = "1"
+                except Exception:
+                    pass
+                st.rerun()
         st.caption(
-            "⌨️ **음성 안내 켜기** (시각장애인용)\n\n"
-            "Windows: `Ctrl+Shift+V`\n\n"
-            "🍎 Mac: `Cmd+Shift+V` 또는 `F2` 또는 `Option+V`"
+            "💡 Tab 키로 이동 시 메뉴 안내 음성. Enter로 활성화.\n\n"
+            "단축키: Win `Ctrl+Shift+V` · Mac `Cmd+Shift+V` / `F2` / `Option+V`"
         )
 
         # 📋 페이지 메뉴 듣기 — 호버·단축키 의존 없이 현재 페이지 메뉴 음성 안내
