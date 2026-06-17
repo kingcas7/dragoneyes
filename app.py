@@ -13418,7 +13418,7 @@ else:
                             box = w.document.createElement('div');
                             box.id = 'dragon-dict-info';
                             box.style.cssText =
-                                'position:fixed;bottom:90px;right:24px;width:300px;' +
+                                'position:fixed;bottom:260px;right:24px;width:300px;' +
                                 'background:white;border:2px solid #7c3aed;border-radius:10px;' +
                                 'padding:12px 14px;box-shadow:0 6px 20px rgba(0,0,0,0.25);' +
                                 'font-family:-apple-system,sans-serif;font-size:13px;line-height:1.5;' +
@@ -13443,13 +13443,13 @@ else:
                         btn.setAttribute('aria-label', '음성으로 드래곤파더에게 질문');
                         btn.innerHTML = '🎤';
                         btn.style.cssText =
-                            'position:fixed;bottom:90px;right:24px;' +
+                            'position:fixed;bottom:180px;right:24px;' +
                             'width:54px;height:54px;border-radius:50%;' +
                             'background:#7c3aed;color:white;' +
                             'border:2px solid #6d28d9;' +
                             'box-shadow:0 4px 14px rgba(124,58,237,0.5);' +
                             'font-size:22px;cursor:pointer;' +
-                            'z-index:2147483640;transition:all 0.2s;';
+                            'z-index:2147483645;transition:all 0.2s;';
                         btn.onmouseover = function(){ btn.style.transform='scale(1.08)'; };
                         btn.onmouseout  = function(){ btn.style.transform='scale(1)'; };
 
