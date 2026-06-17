@@ -228,7 +228,7 @@ def _a11y_main_install_once():
                         document.addEventListener('focusin', function(e) {
                             const el = e.target;
                             const text = _extractText(el);
-                            console.log('[A11y main focusin]', el.tagName, el.type || '', el.role || el.getAttribute('role') || '', '→', text || '(empty)');
+                            console.log('[A11y main focusin]', el.tagName, el.type || '', el.role || el.getAttribute('role') || '', '→', text || '(empty)', 'isTrusted=', e.isTrusted);
 
                             // ⭐ mic 관련 버튼이면 keydown listener 직접 등록 (Streamlit 가로채기 우회)
                             //   element 자체에 등록한 listener는 어느 단계에서도 잡힘
@@ -277,13 +277,31 @@ def _a11y_main_install_once():
 
                             if (!text) return;
                             const now = Date.now();
-                            // ⭐ user-action gate — 사용자 직접 액션 후 1.5초 이내만 발화
-                            //   (자동 .focus()로 인한 아이콘 줄줄이 안내 차단)
-                            const _lastUA = window.__a11yLastUserAction || 0;
-                            if (now - _lastUA > 1500) {
-                                console.log('[A11y main focusin] SKIP — no recent user action');
+                            // ⭐ Gate 1: isTrusted=false (스크립트 .focus())는 발화 안 함
+                            //   사용자 Tab/click → isTrusted=true → 발화 OK
+                            //   페이지 진입 시 자동 focus, mic 활성화 후 자동 re-focus,
+                            //   details 펼침으로 인한 child focus 등 → isTrusted=false → SKIP
+                            if (!e.isTrusted) {
+                                console.log('[A11y main focusin] SKIP — programmatic focus (isTrusted=false)');
                                 return;
                             }
+                            // ⭐ Gate 2: 접근성 박스(상단 토글바) 안의 element는
+                            //   사용자가 직접 Tab해도 일일이 안 읽음 (사용자 요청)
+                            try {
+                                const _details = el.closest && el.closest('details');
+                                if (_details) {
+                                    const _sum = _details.querySelector('summary');
+                                    const _sumText = ((_sum && _sum.innerText) || '').replace(/\s+/g, '');
+                                    if (_sumText.indexOf('접근성') >= 0) {
+                                        // 단, '음성 명령 (Enter)' 버튼은 가장 자주 쓰는 활성화 입구라 발화 유지
+                                        const _isMic = (text.indexOf('음성 명령') >= 0 || text.indexOf('음성명령') >= 0) && text.indexOf('Enter') >= 0;
+                                        if (!_isMic) {
+                                            console.log('[A11y main focusin] SKIP — inside accessibility toolbar');
+                                            return;
+                                        }
+                                    }
+                                }
+                            } catch(_){}
                             if (window.__a11yLastFocusText === text && (now - (window.__a11yLastFocusTime || 0)) < 1500) return;
                             window.__a11yLastFocusText = text;
                             window.__a11yLastFocusTime = now;
@@ -561,23 +579,29 @@ def _a11y_inject_shortcuts():
                 //   다중 window 등록 (iframe sandbox 우회)
                 const _a11yFocusHandler = (e) => {{
                     const text = _extractText(e.target);
-                    console.log('[A11y focusin]', e.target?.tagName, e.target?.type || '', '→ text:', text || '(empty)');
+                    console.log('[A11y focusin]', e.target?.tagName, e.target?.type || '', '→ text:', text || '(empty)', 'isTrusted=', e.isTrusted);
                     if (!text) return;
                     const now = Date.now();
-                    // ⭐ user-action gate — 사용자 직접 액션 후 1.5초 이내만 발화
-                    //   (자동 .focus()로 인한 아이콘 줄줄이 안내 차단)
-                    let _lastUA = 0;
-                    try {{
-                        _lastUA = Math.max(
-                            w.__a11yLastUserAction || 0,
-                            (w.parent && w.parent.__a11yLastUserAction) || 0,
-                            (w.top && w.top.__a11yLastUserAction) || 0
-                        );
-                    }} catch(_){{}}
-                    if (now - _lastUA > 1500) {{
-                        console.log('[A11y focusin] SKIP — no recent user action');
+                    // ⭐ Gate 1: isTrusted=false (스크립트 .focus()) → 발화 안 함
+                    if (!e.isTrusted) {{
+                        console.log('[A11y focusin] SKIP — programmatic focus');
                         return;
                     }}
+                    // ⭐ Gate 2: 접근성 박스 안 element는 발화 안 함 (mic 버튼 예외)
+                    try {{
+                        const _details = e.target && e.target.closest && e.target.closest('details');
+                        if (_details) {{
+                            const _sum = _details.querySelector('summary');
+                            const _sumText = ((_sum && _sum.innerText) || '').replace(/\\s+/g, '');
+                            if (_sumText.indexOf('접근성') >= 0) {{
+                                const _isMic = (text.indexOf('음성 명령') >= 0 || text.indexOf('음성명령') >= 0) && text.indexOf('Enter') >= 0;
+                                if (!_isMic) {{
+                                    console.log('[A11y focusin] SKIP — inside accessibility toolbar');
+                                    return;
+                                }}
+                            }}
+                        }}
+                    }} catch(_){{}}
                     if (w.__a11yLastFocusText === text && (now - (w.__a11yLastFocusTime || 0)) < 1500) return;
                     w.__a11yLastFocusText = text;
                     w.__a11yLastFocusTime = now;
