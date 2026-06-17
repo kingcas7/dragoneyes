@@ -3023,7 +3023,7 @@ def _a11y_announce_page(page_title, *, description=None, menu_hint=None, once_ke
     Args:
         page_title: 페이지 제목 (예: '모니터링 통계 페이지')
         description: 페이지 설명 (선택)
-        menu_hint: 주요 메뉴 힌트 (선택, 예: '시작일, 종료일, KPI 4종')
+        menu_hint: (사용 안 함 — Tab 이동 시 아이콘별 안내가 자동 발화되므로 불필요)
         once_key: 세션당 1회만 안내 (None이면 매 진입마다)
     """
     if not st.session_state.get("voice_guide_enabled"):
@@ -3037,8 +3037,7 @@ def _a11y_announce_page(page_title, *, description=None, menu_hint=None, once_ke
     parts = [f"{page_title}이 열렸습니다."]
     if description:
         parts.append(description)
-    if menu_hint:
-        parts.append(f"주요 메뉴: {menu_hint}.")
+    # menu_hint는 의도적으로 무시 — 각 아이콘은 Tab focusin 음성 안내가 담당
     _a11y_announce(" ".join(parts))
 
 
@@ -14288,7 +14287,6 @@ else:
         accessibility.announce_page(
             "모니터링 통계 페이지",
             description="어제까지 누적된 분석·위험 발견·조치 통계를 표시합니다.",
-            menu_hint="시작일, 종료일, KPI 4종, 일별 트렌드 차트, 통계 음성 듣기 버튼",
             once_key="monitoring_stats",
         )
         st.markdown("## 📊 모니터링 통계")
