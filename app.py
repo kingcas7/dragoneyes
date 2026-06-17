@@ -1218,6 +1218,50 @@ def _a11y_render_floating_mic():
                     return clickAndSpeak(findVisibleButton(['키워드탐색', '키워드']), '키워드 탐색');
                 }
 
+                // ⭐ 공지사항 음성 명령 (시각장애인 친화)
+                //   - 공지 읽기 / 읽어줘  → 본문 음성 발화
+                //   - 다음 공지 / 이전 공지 → 순회
+                //   - 공지 확인 / 공지 닫기 → 읽음 처리 + 닫기
+                //   - 공지 나중에 → 일단 닫기 (다음 로그인 때 다시)
+                const _sendAnnCmd = function(cmd) {
+                    try {
+                        const tp = w.top || w.parent || w;
+                        const url = new URL(tp.location.href);
+                        url.searchParams.set('ann_cmd', cmd);
+                        const prevVt = url.searchParams.get('vt');
+                        url.searchParams.set('vt', String((prevVt ? Number(prevVt) : 0) + 1));
+                        tp.location.href = url.toString();
+                    } catch(e){ console.error('[A11y] ann_cmd err:', e); }
+                };
+                if (n === '공지읽기' || n === '공지내용읽어줘' || n === '공지읽어줘' ||
+                    n === '읽어줘' || n === '공지내용' ||
+                    (n.indexOf('공지') >= 0 && (n.indexOf('읽') >= 0 || n.indexOf('내용') >= 0))) {
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak('공지 본문을 읽어드립니다.');
+                    setTimeout(function() { _sendAnnCmd('read'); }, 400);
+                    return true;
+                }
+                if (n === '다음공지' || (n.indexOf('다음') >= 0 && n.indexOf('공지') >= 0)) {
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak('다음 공지로 이동합니다.');
+                    setTimeout(function() { _sendAnnCmd('next'); }, 400);
+                    return true;
+                }
+                if (n === '이전공지' || (n.indexOf('이전') >= 0 && n.indexOf('공지') >= 0)) {
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak('이전 공지로 이동합니다.');
+                    setTimeout(function() { _sendAnnCmd('prev'); }, 400);
+                    return true;
+                }
+                if (n === '공지확인' || n === '공지닫기' || n === '확인다시안보기' ||
+                    (n.indexOf('공지') >= 0 && (n.indexOf('확인') >= 0 || n.indexOf('닫') >= 0))) {
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak('공지를 확인 처리하고 닫습니다.');
+                    setTimeout(function() { _sendAnnCmd('confirm'); }, 500);
+                    return true;
+                }
+                if (n === '공지나중에' || (n.indexOf('공지') >= 0 && n.indexOf('나중') >= 0)) {
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak('공지를 나중에 다시 알림으로 처리합니다.');
+                    setTimeout(function() { _sendAnnCmd('later'); }, 400);
+                    return true;
+                }
+
                 // ⭐ Phase 3: 탐색 히스토리 직접 이동 (어디서든 home의 history 탭으로)
                 if ((n.indexOf('탐색') >= 0 && n.indexOf('히스토리') >= 0) ||
                     n === '탐색히스토리' || n === '히스토리') {
@@ -6815,6 +6859,42 @@ else:
         )
     )
     _vo_is_super_early = is_superadmin(user)
+    # ── 📢 공지 음성 명령 처리 ──
+    try:
+        _qp_ann = st.query_params
+        _ann_cmd = _qp_ann.get("ann_cmd")
+        if _ann_cmd is not None:
+            _cmd_str = str(_ann_cmd)
+            if _cmd_str == "read":
+                st.session_state["_ann_read_request"] = True
+            elif _cmd_str == "next":
+                st.session_state["ann_popup_idx"] = int(st.session_state.get("ann_popup_idx", 0)) + 1
+            elif _cmd_str == "prev":
+                st.session_state["ann_popup_idx"] = max(0, int(st.session_state.get("ann_popup_idx", 0)) - 1)
+            elif _cmd_str == "confirm":
+                # 현재 공지 읽음 처리
+                try:
+                    _all_unread = get_unread_announcements(user["id"])
+                    _ai = int(st.session_state.get("ann_popup_idx", 0))
+                    if 0 <= _ai < len(_all_unread):
+                        mark_announcement_read(_all_unread[_ai]["id"], user["id"])
+                    # 남은 공지 확인
+                    _remaining_after = get_unread_announcements(user["id"])
+                    if not _remaining_after:
+                        st.session_state.ann_popup_dismissed = True
+                        st.session_state.pop("ann_popup_idx", None)
+                except Exception:
+                    pass
+            elif _cmd_str == "later":
+                st.session_state.ann_popup_dismissed = True
+                st.session_state.pop("ann_popup_idx", None)
+            for _k in ("ann_cmd", "vt"):
+                if _k in _qp_ann:
+                    del _qp_ann[_k]
+            st.rerun()
+    except Exception:
+        pass
+
     # ── 🧭 Phase 3·5: 페이지 직접 이동 (nav_to query_param) ──
     try:
         _qp_nav = st.query_params
@@ -7193,30 +7273,108 @@ else:
 
     page = st.session_state.current_page
 
-    # ── 미확인 공지 팝업 (로그인 후 한 번만) ──
+    # ── 미확인 공지 팝업 (시각장애인 음성 친화) ──
     unread_ann = get_unread_announcements(user["id"])
     if unread_ann and not st.session_state.get("ann_popup_dismissed"):
-        ann_id = unread_ann[0]["id"]
+        # 🎤 현재 표시할 공지 인덱스 (음성 명령으로 순회 가능)
+        _ann_idx = int(st.session_state.get("ann_popup_idx", 0))
+        if _ann_idx >= len(unread_ann):
+            _ann_idx = 0
+        ann_id = unread_ann[_ann_idx]["id"]
         latest = supabase.table("announcements").select("*").eq("id", ann_id).execute().data
         if latest:
             ann = latest[0]
             type_color = {"notice": "🔵", "work_order": "🟠", "urgent": "🚨"}.get(ann["type"], "📢")
             type_label = {"notice": "공지사항", "work_order": "업무지시", "urgent": "긴급공지"}.get(ann["type"], "공지")
+            _unread_total = len(unread_ann)
+
+            # ⭐ 시각장애인 음성 안내 — 처음 진입 시 1회 (음성 OFF여도 강제 발화)
+            accessibility.force_announce(
+                f"읽지 않은 공지사항이 {_unread_total}개 있습니다. "
+                f"현재 {_ann_idx + 1}번째 공지를 표시합니다. "
+                f"{type_label} 제목은, {ann['title']}, 입니다. "
+                "공지 본문을 들으시려면 공지 읽기라고 음성 명령해주세요. "
+                "다음 공지로 이동하시려면 다음 공지, "
+                "이전 공지로 이동하시려면 이전 공지, "
+                "확인 후 닫으시려면 공지 확인이라고 말씀해주세요.",
+                once_key=f"ann_popup_intro_{ann_id}_{_ann_idx}",
+                speed=1.0,
+            )
+
+            # ⭐ '공지 읽기' 명령 처리 — 본문 발화
+            if st.session_state.pop("_ann_read_request", False):
+                _content_text = ann.get("content", "") or ""
+                # HTML 태그 제거
+                import re as _re_ann
+                _content_clean = _re_ann.sub(r'<[^>]+>', '', _content_text).strip()
+                _content_clean = _re_ann.sub(r'\s+', ' ', _content_clean)
+                accessibility.force_announce(
+                    f"{type_label} 본문을 읽어드립니다. "
+                    f"제목, {ann['title']}. "
+                    f"내용은, {_content_clean[:500]}. "
+                    f"발송일은 {str(ann.get('created_at',''))[:10]} 입니다. "
+                    "공지 확인이라고 말씀하시면 닫히고 다시 보지 않게 됩니다. "
+                    "나중에 다시 알림을 받으시려면 공지 나중에라고 말씀해주세요.",
+                    once_key=None,
+                    speed=0.95,
+                )
+
             with st.container(border=True):
-                st.markdown(f"### {type_color} {type_label}")
+                st.markdown(f"### {type_color} {type_label} ({_ann_idx + 1}/{_unread_total})")
                 st.markdown(f"**{ann['title']}**")
                 st.markdown(f'<div style="color:#1e293b;">{ann["content"]}</div>', unsafe_allow_html=True)
                 st.caption(f"{t('ann_date')} {str(ann.get('created_at',''))[:10]}")
-                bc1, bc2 = st.columns(2)
+
+                # 🎤 음성 명령 가이드 (시각장애인 친화)
+                with st.expander("🎤 음성 명령 가이드", expanded=False):
+                    st.markdown(
+                        "- **공지 읽기** / **읽어줘** → 본문을 음성으로 읽어드립니다\n"
+                        + (f"- **다음 공지** → 다음 공지로 이동 (총 {_unread_total}개)\n" if _unread_total > 1 else "")
+                        + (f"- **이전 공지** → 이전 공지로 이동\n" if _unread_total > 1 else "")
+                        + "- **공지 확인** → 확인 처리 후 닫기 (다시 보지 않음)\n"
+                        + "- **공지 나중에** → 일단 닫기 (다음 로그인 때 다시 표시)"
+                    )
+
+                bc1, bc2, bc3 = st.columns([2, 1, 2])
                 with bc1:
                     if st.button(t("ann_confirm"), key="ann_popup_confirm", use_container_width=True, type="primary"):
                         mark_announcement_read(ann["id"], user["id"])
-                        st.session_state.ann_popup_dismissed = True
+                        # 다음 공지가 남아있으면 idx 유지 (다음 행이 [_ann_idx]로 옴), 아니면 닫기
+                        if _unread_total - 1 > _ann_idx:
+                            # 현재 공지 읽음 처리 → 다음 공지 [_ann_idx]에 자동 등장
+                            pass
+                        else:
+                            st.session_state.ann_popup_dismissed = True
+                            st.session_state.pop("ann_popup_idx", None)
                         st.rerun()
                 with bc2:
+                    if _unread_total > 1:
+                        if st.button("📖 읽기", key="ann_popup_read",
+                                     use_container_width=True,
+                                     help="공지 본문을 음성으로 읽어드립니다"):
+                            st.session_state["_ann_read_request"] = True
+                            st.rerun()
+                with bc3:
                     if st.button(t("ann_later"), key="ann_popup_later", use_container_width=True):
                         st.session_state.ann_popup_dismissed = True
+                        st.session_state.pop("ann_popup_idx", None)
                         st.rerun()
+
+                # 다중 공지 순회 버튼
+                if _unread_total > 1:
+                    nc1, nc2 = st.columns(2)
+                    with nc1:
+                        if st.button(f"◀ 이전 공지 ({((_ann_idx - 1) % _unread_total) + 1}/{_unread_total})",
+                                     key="ann_popup_prev", use_container_width=True,
+                                     disabled=(_ann_idx == 0)):
+                            st.session_state["ann_popup_idx"] = max(0, _ann_idx - 1)
+                            st.rerun()
+                    with nc2:
+                        if st.button(f"다음 공지 ({((_ann_idx + 1) % _unread_total) + 1}/{_unread_total}) ▶",
+                                     key="ann_popup_next", use_container_width=True,
+                                     disabled=(_ann_idx >= _unread_total - 1)):
+                            st.session_state["ann_popup_idx"] = min(_unread_total - 1, _ann_idx + 1)
+                            st.rerun()
 
     # ── 상단 헤더 ──
     _show_admin_btn = is_admin or is_super
