@@ -15652,42 +15652,109 @@ else:
             if st.session_state.get("hist_popup_id"):
                 hist_popup_d = next((x for x in data if x["id"] == st.session_state.hist_popup_id), None)
                 if hist_popup_d:
-                    # ⭐ Phase 6: 동영상 정보 음성 안내 (재생 전)
+                    # ⭐ Phase 6: 동영상 정보 음성 안내 → 재생 (2단계 분리)
                     _vp_id = hist_popup_d.get("id", "")
                     _vp_announce_key = f"_a11y_video_announced_{_vp_id}"
+                    _vp_show_video_key = f"_a11y_video_show_{_vp_id}"
+                    _vp_meta_key = f"_a11y_video_meta_{_vp_id}"
+                    hurl = hist_popup_d.get("url","")
+
+                    # ── 메타데이터 캐시 (YouTube Data API 한 번만 호출) ──
+                    if _vp_meta_key not in st.session_state:
+                        _meta = {"duration_ko": "", "views": 0, "comments": 0, "published": ""}
+                        try:
+                            if "youtube.com" in hurl or "youtu.be" in hurl:
+                                if "v=" in hurl:
+                                    _vid = hurl.split("v=")[-1].split("&")[0]
+                                elif "youtu.be/" in hurl:
+                                    _vid = hurl.split("youtu.be/")[-1].split("?")[0].split("&")[0]
+                                else:
+                                    _vid = ""
+                                if _vid:
+                                    _vr = youtube.videos().list(
+                                        part="snippet,statistics,contentDetails", id=_vid
+                                    ).execute()
+                                    _items = _vr.get("items", [])
+                                    if _items:
+                                        _sn = _items[0].get("snippet", {})
+                                        _stt = _items[0].get("statistics", {})
+                                        _cd = _items[0].get("contentDetails", {})
+                                        _meta["published"] = (_sn.get("publishedAt", "") or "")[:10]
+                                        try:
+                                            _meta["views"] = int(_stt.get("viewCount", 0) or 0)
+                                        except Exception:
+                                            _meta["views"] = 0
+                                        try:
+                                            _meta["comments"] = int(_stt.get("commentCount", 0) or 0)
+                                        except Exception:
+                                            _meta["comments"] = 0
+                                        # ISO 8601 (PT5M30S) → "5분 30초"
+                                        import re as _re_dur
+                                        _m = _re_dur.match(
+                                            r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?',
+                                            _cd.get("duration", "") or ""
+                                        )
+                                        if _m:
+                                            _h, _mi, _s = _m.groups()
+                                            _parts = []
+                                            if _h: _parts.append(f"{_h}시간")
+                                            if _mi: _parts.append(f"{_mi}분")
+                                            if _s: _parts.append(f"{_s}초")
+                                            _meta["duration_ko"] = " ".join(_parts) or "1초 미만"
+                        except Exception:
+                            pass
+                        st.session_state[_vp_meta_key] = _meta
+                    _meta = st.session_state.get(_vp_meta_key, {})
+
+                    # ── 위험·부정 댓글 수 추출 (분석 결과 텍스트에서) ──
+                    _vrr = hist_popup_d.get("result", "") or hist_popup_d.get("analysis", "") or ""
+                    _neg_count = 0
+                    try:
+                        import re as _re_neg
+                        _m_neg = _re_neg.search(r'위험\s*댓글[^\d]{0,15}(\d+)', _vrr or "")
+                        if _m_neg:
+                            _neg_count = int(_m_neg.group(1))
+                        else:
+                            _sec = (_vrr or "").split("[위험 댓글 목록]")[-1] if "[위험 댓글 목록]" in (_vrr or "") else ""
+                            if _sec and "없음" not in _sec:
+                                _neg_count = len(_re_neg.findall(r'(?:^|\n)\s*[-*\d]+[.\)]\s', _sec))
+                    except Exception:
+                        pass
+
+                    _vt = hist_popup_d.get("title", "")[:80]
+                    _vs = hist_popup_d.get("severity", 0)
+                    _vc = hist_popup_d.get("category", "미분류")
+                    _sev_label = {1:"안전", 2:"낮은 위험", 3:"중간 위험", 4:"높은 위험", 5:"매우 위험"}.get(_vs, "미분류")
+
+                    # ── 정보 안내 음성 (첫 진입 시 1회) ──
                     if not st.session_state.get(_vp_announce_key):
                         st.session_state[_vp_announce_key] = True
                         try:
-                            _vt = hist_popup_d.get("title", "")[:60]
-                            _vs = hist_popup_d.get("severity", 0)
-                            _vc = hist_popup_d.get("category", "미분류")
-                            _va = str(hist_popup_d.get("analyzed_at", ""))[:10]
-                            _vu = hist_popup_d.get("url", "")
-                            # 댓글 분석 데이터 (있으면 활용)
-                            _vrr = hist_popup_d.get("result", "") or hist_popup_d.get("analysis", "") or ""
-                            _vrr_short = _vrr[:200] if _vrr else ""
-                            # 위험신호 라인 추출
-                            _risk_line = ""
-                            for _l in (_vrr or "").splitlines():
-                                if "위험신호:" in _l or "이유:" in _l:
-                                    _risk_line = _l.strip()
-                                    break
-                            _sev_label = {1:"안전", 2:"낮은 위험", 3:"중간 위험", 4:"높은 위험", 5:"매우 위험"}.get(_vs, "미분류")
-                            _intro = (
-                                f"동영상 정보를 안내합니다. "
-                                f"제목은, {_vt}, 입니다. "
-                                f"심각도는 {_vs}단계, {_sev_label}이며 분류는 {_vc} 입니다. "
-                                f"분석 일자는 {_va} 입니다. "
-                            )
-                            if _risk_line:
-                                _intro += f"AI 분석 결과는 다음과 같습니다. {_risk_line}. "
-                            _intro += (
-                                "지금부터 동영상을 재생하겠습니다. "
-                                "시청이 끝나신 후에는 보고서 작성이라고 음성 명령해주세요."
-                            )
-                            accessibility.announce(_intro)
+                            _intro = f"동영상 정보를 안내합니다. 제목은 {_vt} 입니다. "
+                            if _meta.get("published"):
+                                _intro += f"업로드 일자는 {_meta['published']} 입니다. "
+                            if _meta.get("duration_ko"):
+                                _intro += f"재생 시간은 {_meta['duration_ko']} 입니다. "
+                            if _meta.get("views"):
+                                _intro += f"조회수는 {_meta['views']:,}회 입니다. "
+                            if _meta.get("comments"):
+                                _intro += f"댓글은 총 {_meta['comments']:,}개 입니다. "
+                            if _neg_count:
+                                _intro += f"이 중 부정적이거나 위험한 댓글은 약 {_neg_count}개 입니다. "
+                            _intro += f"AI 분석 심각도는 {_vs}단계, {_sev_label}이며 분류는 {_vc} 입니다. "
+                            _intro += "정보 안내를 마쳤습니다. 잠시 후 동영상이 자동으로 재생됩니다. "
+                            _intro += "지금 바로 재생을 원하시면 엔터 키를 누르세요."
+                            try:
+                                accessibility.force_announce(_intro)
+                            except Exception:
+                                accessibility.announce(_intro)
+                            # 안내 길이 → 자동 재생 지연 (글자당 ~130ms + 최소 16초)
+                            st.session_state[f"_a11y_video_intro_chars_{_vp_id}"] = len(_intro)
                         except Exception:
                             pass
+
+                    _video_ready = st.session_state.get(_vp_show_video_key, False)
+
                     with st.container(border=True):
                         hp1, hp2 = st.columns([8, 1])
                         with hp1:
@@ -15695,22 +15762,73 @@ else:
                         with hp2:
                             if st.button(t("popup_close"), key="hist_popup_close", use_container_width=True):
                                 st.session_state.hist_popup_id = None; st.rerun()
-                        hurl = hist_popup_d.get("url","")
-                        pv1, pv2, pv3 = st.columns([1, 3, 1])
-                        with pv2:
-                            if "youtube.com" in hurl or "youtu.be" in hurl:
-                                # 🎬 자동 재생 시도 (소리 포함)
-                                # 브라우저 정책: 음성 명령 user gesture(sticky activation) 유지 시 가능
-                                # 차단되면 muted=True로 fallback
-                                try:
-                                    st.video(hurl, autoplay=True, muted=False)
-                                    st.caption("🎬 자동 재생 중 — 소리 안 들리면 영상의 🔊 아이콘 클릭")
-                                except TypeError:
-                                    # 구버전 호환
-                                    st.video(hurl)
-                                    st.caption("▶️ 재생 버튼을 눌러 시작하세요")
-                            else:
-                                st.markdown(f"[🔗 링크 열기]({hurl})")
+
+                        if not _video_ready:
+                            # ── 1단계: 정보 카드 + 즉시 재생 버튼 (영상 미표시) ──
+                            _info_md = "##### 📋 영상 정보\n"
+                            _info_md += f"- **제목**: {_vt}\n"
+                            if _meta.get("published"):
+                                _info_md += f"- **업로드 일자**: {_meta['published']}\n"
+                            if _meta.get("duration_ko"):
+                                _info_md += f"- **재생 시간**: {_meta['duration_ko']}\n"
+                            if _meta.get("views"):
+                                _info_md += f"- **조회수**: {_meta['views']:,}회\n"
+                            if _meta.get("comments"):
+                                _info_md += f"- **댓글 수**: {_meta['comments']:,}개"
+                                if _neg_count:
+                                    _info_md += f" (위험 댓글 약 {_neg_count}개)"
+                                _info_md += "\n"
+                            _info_md += f"- **심각도**: {_vs}단계 ({_sev_label})\n"
+                            _info_md += f"- **분류**: {_vc}"
+                            st.info(_info_md)
+
+                            _pn1, _pn2, _pn3 = st.columns([1, 2, 1])
+                            with _pn2:
+                                if st.button("▶️ 지금 바로 동영상 재생 (Enter)",
+                                             type="primary", use_container_width=True,
+                                             key=f"hist_popup_play_now_{_vp_id}"):
+                                    st.session_state[_vp_show_video_key] = True
+                                    st.rerun()
+                            st.caption("⏳ 음성 안내가 끝나면 자동으로 영상이 재생됩니다.")
+
+                            # ── 자동 재생 트리거 (TTS 끝난 후) ──
+                            _intro_chars = st.session_state.get(f"_a11y_video_intro_chars_{_vp_id}", 200)
+                            _auto_delay_ms = max(16000, int(_intro_chars * 130) + 1500)
+                            _a11y_components.html(f"""
+                            <script>
+                            (function(){{
+                                if (window.__a11yVideoAutoStarted_{str(_vp_id).replace('-','_')}) return;
+                                window.__a11yVideoAutoStarted_{str(_vp_id).replace('-','_')} = true;
+                                setTimeout(function(){{
+                                    try {{
+                                        const doc = (window.top || window).document;
+                                        const btns = doc.querySelectorAll('button');
+                                        for (const b of btns) {{
+                                            const tt = (b.innerText || '').replace(/\\s+/g, '');
+                                            if (tt.indexOf('지금바로동영상재생') >= 0) {{
+                                                b.click();
+                                                console.log('[A11y] auto play video after TTS');
+                                                return;
+                                            }}
+                                        }}
+                                    }} catch(e) {{ console.log('[A11y] auto play err', e); }}
+                                }}, {_auto_delay_ms});
+                            }})();
+                            </script>
+                            """, height=0)
+                        else:
+                            # ── 2단계: 영상 표시 + 자동 재생 ──
+                            pv1, pv2, pv3 = st.columns([1, 3, 1])
+                            with pv2:
+                                if "youtube.com" in hurl or "youtu.be" in hurl:
+                                    try:
+                                        st.video(hurl, autoplay=True, muted=False)
+                                        st.caption("🎬 자동 재생 중 — 소리 안 들리면 영상의 🔊 아이콘 클릭")
+                                    except TypeError:
+                                        st.video(hurl)
+                                        st.caption("▶️ 재생 버튼을 눌러 시작하세요")
+                                else:
+                                    st.markdown(f"[🔗 링크 열기]({hurl})")
                         # ── 🎤 음성 명령 사용자를 위한 다음 단계 안내 + 토글 + 마이크 ──
                         st.divider()
                         _hp_voice_on = bool(st.session_state.get("voice_guide_enabled"))
