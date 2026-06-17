@@ -1200,6 +1200,61 @@ def _a11y_render_keyboard_mic():
                         console.log('[A11y] ESC key handler bound to top');
                     }
 
+                    // ⭐ 글로벌 Enter 키 핸들러 — focus가 mic 버튼이면 직접 _dragoneyesToggleListening 호출
+                    //   Streamlit React button이 Enter로 click event 발화 안 하는 문제 우회
+                    if (!top.__a11yEnterBound) {
+                        top.__a11yEnterBound = true;
+                        top.document.addEventListener('keydown', function(e) {
+                            if (e.key !== 'Enter' && e.code !== 'Enter') return;
+                            if (e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
+                            const target = e.target;
+                            const tag = (target?.tagName || '').toUpperCase();
+                            const type = (target?.type || '').toLowerCase();
+                            // 입력 필드면 무시 (텍스트 입력)
+                            if (tag === 'TEXTAREA' || target?.isContentEditable) return;
+                            if (tag === 'INPUT' && ['text','email','password','search','tel','url','number','date'].indexOf(type) >= 0) return;
+                            // checkbox/radio는 Space 키 — Enter는 폼 submit 의미라 통과
+                            if (tag === 'INPUT' && (type === 'checkbox' || type === 'radio')) return;
+
+                            const txt = (target?.innerText || target?.textContent || '').trim();
+
+                            // 1. 음성 명령 버튼 — 직접 토글 (Streamlit click이 안 될 수 있음)
+                            if ((txt.indexOf('음성 명령') >= 0 || txt.indexOf('음성명령') >= 0) && txt.indexOf('Enter') >= 0) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                console.log('[A11y Enter] mic button detected, calling _dragoneyesToggleListening');
+                                const candidates = [top, window.parent, window].filter((x, i, arr) => x && arr.indexOf(x) === i);
+                                for (const w of candidates) {
+                                    try {
+                                        if (typeof w._dragoneyesToggleListening === 'function') {
+                                            w._dragoneyesToggleListening();
+                                            console.log('[A11y Enter] toggleListening called on', w === top ? 'top' : 'other');
+                                            return;
+                                        }
+                                    } catch(_){}
+                                }
+                                console.warn('[A11y Enter] _dragoneyesToggleListening not found anywhere');
+                                return;
+                            }
+
+                            // 2. 드래곤파더 받아쓰기 시작 버튼 — 보라 mic 직접 click
+                            if (txt.indexOf('받아쓰기 시작') >= 0 || (txt.indexOf('받아쓰기') >= 0 && txt.indexOf('Enter') >= 0)) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                console.log('[A11y Enter] dragon mic button detected');
+                                const dragonBtn = top.document.getElementById('dragon-mic-btn');
+                                if (dragonBtn) {
+                                    dragonBtn.click();
+                                    console.log('[A11y Enter] dragon mic clicked');
+                                } else {
+                                    console.warn('[A11y Enter] dragon-mic-btn not found');
+                                }
+                                return;
+                            }
+                        }, true);
+                        console.log('[A11y] global Enter key handler bound to top');
+                    }
+
                     // ⭐ 탭/링크/메뉴 버튼 클릭 후 자동으로 음성 명령 버튼에 focus 복귀
                     //   Streamlit st.tabs 클릭 시 focus가 탭 버튼에 머물러 Enter가 다른 동작
                     //   해결: 탭 클릭/포커스 변경 후 800ms 후에 음성 명령 버튼으로 자동 이동
