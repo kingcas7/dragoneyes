@@ -205,6 +205,25 @@ def _a11y_main_install_once():
                             } catch(_){}
                         }, 14000);
 
+                        // ─── user-action gate ─────────────────────────────────────
+                        // 사용자가 직접 Tab/방향키/클릭한 직후 1.5초 동안만 focusin 발화.
+                        // 자동으로 .focus() 호출되거나 details 펼침 시 child에 focus 가는 경우 등은
+                        // 사용자 의도 아님 → 발화 안 함 (아이콘 일일이 읽는 현상 차단).
+                        // mic 버튼 자동 re-focus는 사용자가 Enter 누른 직후라 자연스럽게 gate 통과.
+                        try {
+                            window.__a11yLastUserAction = window.__a11yLastUserAction || 0;
+                            const _markUser = function() { window.__a11yLastUserAction = Date.now(); };
+                            document.addEventListener('keydown', function(ke) {
+                                if (ke.key === 'Tab' || ke.key === 'Enter' || ke.key === ' ' ||
+                                    ke.key === 'ArrowUp' || ke.key === 'ArrowDown' ||
+                                    ke.key === 'ArrowLeft' || ke.key === 'ArrowRight') {
+                                    _markUser();
+                                }
+                            }, true);
+                            document.addEventListener('mousedown', _markUser, true);
+                            document.addEventListener('pointerdown', _markUser, true);
+                        } catch(_){}
+
                         // ─── focusin listener (Tab 이동 안내 + mic 버튼에 keydown 직접 등록) ───
                         document.addEventListener('focusin', function(e) {
                             const el = e.target;
@@ -258,6 +277,13 @@ def _a11y_main_install_once():
 
                             if (!text) return;
                             const now = Date.now();
+                            // ⭐ user-action gate — 사용자 직접 액션 후 1.5초 이내만 발화
+                            //   (자동 .focus()로 인한 아이콘 줄줄이 안내 차단)
+                            const _lastUA = window.__a11yLastUserAction || 0;
+                            if (now - _lastUA > 1500) {
+                                console.log('[A11y main focusin] SKIP — no recent user action');
+                                return;
+                            }
                             if (window.__a11yLastFocusText === text && (now - (window.__a11yLastFocusTime || 0)) < 1500) return;
                             window.__a11yLastFocusText = text;
                             window.__a11yLastFocusTime = now;
@@ -494,6 +520,26 @@ def _a11y_inject_shortcuts():
                     _lastTextTime = Date.now();
                 }};
 
+                // ── user-action marker (Tab/방향키/click) ──
+                //   focusin 발화 시 사용자 의도 여부 판단 (아이콘 자동 순회 차단)
+                try {{
+                    const _markUA = function() {{
+                        const t = Date.now();
+                        try {{ w.__a11yLastUserAction = t; }} catch(_){{}}
+                        try {{ if (w.parent) w.parent.__a11yLastUserAction = t; }} catch(_){{}}
+                        try {{ if (w.top)    w.top.__a11yLastUserAction    = t; }} catch(_){{}}
+                    }};
+                    w.document.addEventListener('keydown', function(ke) {{
+                        if (ke.key === 'Tab' || ke.key === 'Enter' || ke.key === ' ' ||
+                            ke.key === 'ArrowUp' || ke.key === 'ArrowDown' ||
+                            ke.key === 'ArrowLeft' || ke.key === 'ArrowRight') {{
+                            _markUA();
+                        }}
+                    }}, true);
+                    w.document.addEventListener('mousedown', _markUA, true);
+                    w.document.addEventListener('pointerdown', _markUA, true);
+                }} catch(_){{}}
+
                 // ── 호버 음성 안내 (0.5초 정지 후 발화) ──
                 w.document.addEventListener('mouseover', (e) => {{
                     if (!w.__a11yEnabled) return;
@@ -518,6 +564,20 @@ def _a11y_inject_shortcuts():
                     console.log('[A11y focusin]', e.target?.tagName, e.target?.type || '', '→ text:', text || '(empty)');
                     if (!text) return;
                     const now = Date.now();
+                    // ⭐ user-action gate — 사용자 직접 액션 후 1.5초 이내만 발화
+                    //   (자동 .focus()로 인한 아이콘 줄줄이 안내 차단)
+                    let _lastUA = 0;
+                    try {{
+                        _lastUA = Math.max(
+                            w.__a11yLastUserAction || 0,
+                            (w.parent && w.parent.__a11yLastUserAction) || 0,
+                            (w.top && w.top.__a11yLastUserAction) || 0
+                        );
+                    }} catch(_){{}}
+                    if (now - _lastUA > 1500) {{
+                        console.log('[A11y focusin] SKIP — no recent user action');
+                        return;
+                    }}
                     if (w.__a11yLastFocusText === text && (now - (w.__a11yLastFocusTime || 0)) < 1500) return;
                     w.__a11yLastFocusText = text;
                     w.__a11yLastFocusTime = now;
