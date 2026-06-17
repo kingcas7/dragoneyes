@@ -179,7 +179,7 @@ def _a11y_main_install_once():
                         document.addEventListener('focusin', function(e) {
                             const el = e.target;
                             const text = _extractText(el);
-                            console.log('[A11y main focusin]', el.tagName, el.type || '', '→', text || '(empty)');
+                            console.log('[A11y main focusin]', el.tagName, el.type || '', el.role || el.getAttribute('role') || '', '→', text || '(empty)');
                             if (!text) return;
                             const now = Date.now();
                             if (window.__a11yLastFocusText === text && (now - (window.__a11yLastFocusTime || 0)) < 1500) return;
@@ -187,10 +187,37 @@ def _a11y_main_install_once():
                             window.__a11yLastFocusTime = now;
 
                             const tag = (el.tagName || '').toUpperCase();
-                            const isTextInput = (tag === 'INPUT' && ['text','email','password','search','tel','url','number'].indexOf(el.type) >= 0) || tag === 'TEXTAREA';
+                            const type = (el.type || '').toLowerCase();
+                            const role = (el.getAttribute('role') || '').toLowerCase();
+
+                            let activateMsg = '엔터 키로 활성화하세요';
+                            let isTextInput = false;
+
+                            // 토글/체크박스/라디오 — Space 키로 작동
+                            if ((tag === 'INPUT' && (type === 'checkbox' || type === 'radio')) ||
+                                role === 'checkbox' || role === 'switch' || role === 'radio') {
+                                activateMsg = '스페이스 키로 켜고 끄세요';
+                            }
+                            // 슬라이더 — 화살표 키
+                            else if ((tag === 'INPUT' && type === 'range') || role === 'slider') {
+                                activateMsg = '좌우 화살표 키로 값을 조절하세요';
+                            }
+                            // 셀렉트박스 — Enter 또는 Space
+                            else if (tag === 'SELECT' || role === 'combobox' || role === 'listbox') {
+                                activateMsg = '엔터 또는 스페이스 키로 목록을 여세요';
+                            }
+                            // 일반 텍스트 입력 — 그냥 입력
+                            else if ((tag === 'INPUT' && ['text','email','password','search','tel','url','number',''].indexOf(type) >= 0) || tag === 'TEXTAREA' || el.isContentEditable) {
+                                isTextInput = true;
+                            }
+                            // 버튼/링크 — Enter (기본값)
+                            else if (tag === 'BUTTON' || tag === 'A' || role === 'button' || role === 'link') {
+                                activateMsg = '엔터 키로 활성화하세요';
+                            }
+
                             const fullText = isTextInput
                                 ? text + '. 입력란입니다.'
-                                : text + '. 활성화하려면 엔터 키를 누르세요.';
+                                : text + '. ' + activateMsg + '.';
                             window.__a11ySpeak(fullText);
                         }, true);
 
@@ -977,19 +1004,63 @@ def _a11y_render_keyboard_mic():
         "🐲 **받아쓰기**: 드래곤파더에게 음성으로 질문"
     )
     if _clicked:
-        # 마이크 토글 JavaScript inject (rerun 무관)
+        # 🎤 마이크 토글 — 다중 fallback (sandbox 우회)
         _a11y_components.html(
             """
             <script>
             (function() {
+                // top window 우선 시도
+                const candidates = [];
                 try {
-                    const w = window.parent || window;
-                    if (w._dragoneyesToggleListening) {
-                        w._dragoneyesToggleListening();
-                    } else if (w._dragoneyesStartListening) {
-                        w._dragoneyesStartListening();
+                    if (window.top) candidates.push(window.top);
+                    if (window.parent && window.parent !== window.top) candidates.push(window.parent);
+                    candidates.push(window);
+                } catch(_){}
+                console.log('[A11y mic click] candidates:', candidates.length);
+
+                let triggered = false;
+                for (const w of candidates) {
+                    try {
+                        console.log('[A11y mic check]', '_dragoneyesToggleListening:', typeof w._dragoneyesToggleListening,
+                                    '_dragoneyesStartListening:', typeof w._dragoneyesStartListening);
+                        if (typeof w._dragoneyesToggleListening === 'function') {
+                            w._dragoneyesToggleListening();
+                            console.log('[A11y mic] toggleListening called');
+                            triggered = true; break;
+                        }
+                        if (typeof w._dragoneyesStartListening === 'function') {
+                            w._dragoneyesStartListening();
+                            console.log('[A11y mic] startListening called');
+                            triggered = true; break;
+                        }
+                    } catch(e) { console.warn('[A11y mic try]', e); }
+                }
+                // fallback: floating mic 버튼 직접 클릭
+                if (!triggered) {
+                    for (const w of candidates) {
+                        try {
+                            // 빨간 floating mic 찾기 (id 또는 background)
+                            const allBtns = w.document.querySelectorAll('button, div[role="button"]');
+                            for (const b of allBtns) {
+                                const bg = (b.style && b.style.background || '') + '';
+                                const txt = (b.innerText || b.textContent || '').trim();
+                                if ((bg.indexOf('220,38,38') >= 0 || bg.indexOf('dc2626') >= 0 ||
+                                     bg.indexOf('rgb(220') >= 0) && (txt === '🎤' || txt === '🔴')) {
+                                    b.click();
+                                    console.log('[A11y mic fallback] floating mic clicked');
+                                    triggered = true; break;
+                                }
+                            }
+                            if (triggered) break;
+                        } catch(e){}
                     }
-                } catch(e) { console.error('[A11y] mic toggle:', e); }
+                }
+                if (!triggered) {
+                    console.error('[A11y mic] NO trigger found. Try clicking floating mic manually.');
+                    if (window.top && window.top.__a11ySpeak) {
+                        window.top.__a11ySpeak('마이크 시작 기능을 찾지 못했습니다. 우측 하단 빨간 마이크 아이콘을 클릭해주세요.');
+                    }
+                }
             })();
             </script>
             """,
