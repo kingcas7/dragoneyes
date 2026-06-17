@@ -281,6 +281,11 @@ def _a11y_inject_shortcuts():
                     if (w.__a11yLastFocusText === text && (now - (w.__a11yLastFocusTime || 0)) < 1500) return;
                     w.__a11yLastFocusText = text;
                     w.__a11yLastFocusTime = now;
+                    // ⭐ 화면 상단 표시용 — 모든 window에 동기화
+                    try {{
+                        if (w.parent) w.parent.__a11yLastFocusText = text;
+                        if (w.top) w.top.__a11yLastFocusText = text;
+                    }} catch(_){{}}
 
                     const tag = (e.target?.tagName || '').toUpperCase();
                     const isInputField = tag === 'INPUT' && (e.target?.type === 'text' || e.target?.type === 'email' || e.target?.type === 'password' || e.target?.type === 'search');
@@ -290,9 +295,15 @@ def _a11y_inject_shortcuts():
                         : text + '. 활성화하려면 엔터 키를 누르세요.';
 
                     // ⭐ 다중 window에서 speechSynthesis 시도 (sandbox 우회)
-                    const _tryAllSynth = [w, w.parent, w.top].filter((wx, i, arr) => wx && arr.indexOf(wx) === i);
+                    const _seen = new Set();
+                    const _candidates = [];
+                    [w, w.parent, w.top].forEach((wx) => {{
+                        try {{
+                            if (wx && !_seen.has(wx)) {{ _seen.add(wx); _candidates.push(wx); }}
+                        }} catch(_){{}}
+                    }});
                     let _spoken = false;
-                    for (const wx of _tryAllSynth) {{
+                    for (const wx of _candidates) {{
                         try {{
                             if (wx.speechSynthesis) {{
                                 wx.speechSynthesis.cancel();
@@ -302,9 +313,10 @@ def _a11y_inject_shortcuts():
                                 u.pitch = 1.0;
                                 u.volume = 1.0;
                                 u.onstart = () => console.log('[A11y focus TTS started]', text.substring(0, 30));
-                                u.onerror = (err) => console.warn('[A11y focus TTS error]', err);
+                                u.onerror = (err) => console.warn('[A11y focus TTS error]', err.error || err);
                                 wx.speechSynthesis.speak(u);
                                 _spoken = true;
+                                console.log('[A11y focus TTS] dispatched on', wx === w ? 'self' : (wx === w.parent ? 'parent' : 'top'));
                                 break;
                             }}
                         }} catch(err) {{
@@ -314,10 +326,18 @@ def _a11y_inject_shortcuts():
                     if (!_spoken) console.warn('[A11y focus TTS] no speechSynthesis available');
                 }};
                 // top, parent, current 모두 등록 (iframe sandbox 우회)
-                [w, w.parent, w.top].filter((wx, i, arr) => wx && arr.indexOf(wx) === i).forEach((wx) => {{
+                const _focusRegSeen = new Set();
+                const _focusRegCandidates = [];
+                [w, w.parent, w.top].forEach((wx) => {{
+                    try {{
+                        if (wx && !_focusRegSeen.has(wx)) {{ _focusRegSeen.add(wx); _focusRegCandidates.push(wx); }}
+                    }} catch(_){{}}
+                }});
+                _focusRegCandidates.forEach((wx) => {{
                     try {{
                         wx.document.addEventListener('focusin', _a11yFocusHandler, true);
-                        console.log('[A11y] focusin listener registered on:', wx.location?.href?.substring(0, 50) || '(unknown)');
+                        wx.document.body && wx.document.body.addEventListener('focusin', _a11yFocusHandler, true);
+                        console.log('[A11y] focusin listener registered on:', wx === w ? 'self' : (wx === w.parent ? 'parent' : 'top'), wx.location?.href?.substring(0, 60) || '(unknown)');
                     }} catch(err) {{
                         console.warn('[A11y] focusin register failed:', err);
                     }}
@@ -2349,21 +2369,42 @@ def _a11y_render_toolbar(*, supabase=None, user_id=None, key_prefix="a11y", comp
             "단축키: Win `Ctrl+Shift+V` · Mac `Cmd+Shift+V` / `F2` / `Option+V`"
         )
 
-    # ⭐ 이전 화면으로 가기 버튼 (음성 ON/OFF 무관 항상 표시 — 시각장애인 탈출구)
-    if st.button(
-        "🔙 이전 화면으로 가기 (Enter)",
-        key=f"{key_prefix}_go_back",
-        use_container_width=True,
-        help="브라우저 이전 화면으로 돌아갑니다",
-    ):
+        # ⌨️ 키 이동 안내
+        st.caption(
+            "⬅️ **이전 메뉴로 이동**: `Shift + Tab` (브라우저 기본 동작)\n\n"
+            "➡️ **다음 메뉴로 이동**: `Tab`\n\n"
+            "▶️ **활성화**: `Enter`"
+        )
+
+        # 🔍 진단: 마지막 focus 위치를 화면에 표시 (음성 안 들릴 때 사용자가 확인용)
         _a11y_components.html(
             """
+            <div id="a11y-focus-display"
+                 style="position:fixed;top:8px;left:50%;transform:translateX(-50%);
+                        background:#dbeafe;color:#1e40af;border:2px solid #2563eb;
+                        border-radius:8px;padding:8px 16px;font-weight:700;
+                        font-size:14px;z-index:2147483640;max-width:80vw;
+                        box-shadow:0 4px 12px rgba(0,0,0,0.2);display:none;">
+                <span>📍 현재 위치: </span>
+                <span id="a11y-focus-text"></span>
+            </div>
             <script>
             (function() {
-                try {
-                    const w = window.top || window.parent || window;
-                    w.history.back();
-                } catch(e) { console.error('[A11y] history.back err:', e); }
+                const w = window.parent || window;
+                setInterval(function() {
+                    const box = w.document.getElementById('a11y-focus-display');
+                    const txt = w.document.getElementById('a11y-focus-text');
+                    if (!box || !txt) return;
+                    const t = w.__a11yLastFocusText || '';
+                    if (t) {
+                        txt.textContent = t.substring(0, 80);
+                        box.style.display = '';
+                        clearTimeout(w.__a11yFocusBoxTimer);
+                        w.__a11yFocusBoxTimer = setTimeout(function() {
+                            box.style.display = 'none';
+                        }, 3000);
+                    }
+                }, 500);
             })();
             </script>
             """,
