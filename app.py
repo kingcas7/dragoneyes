@@ -1108,26 +1108,69 @@ def _a11y_render_keyboard_mic():
                 """,
                 height=0,
             )
-    # 페이지 진입 시 마이크 버튼에 자동 포커스 — 1회
-    if not st.session_state.get("_a11y_mic_focused"):
-        st.session_state["_a11y_mic_focused"] = True
+    # ⭐ 페이지 진입마다 음성 명령 버튼 auto-focus (시각장애인 Enter 일관성 보장)
+    #   페이지 변경마다 재실행되도록 current_page 키로 추적
+    _curr_page_focus = st.session_state.get("current_page", "")
+    _focus_key = f"_a11y_mic_focused_{_curr_page_focus}"
+    if not st.session_state.get(_focus_key):
+        st.session_state[_focus_key] = True
         _a11y_components.html(
             """
             <script>
+            // 1초 후 자동 포커스 시도 + ESC 키 글로벌 단축키 등록
             setTimeout(function() {
                 try {
                     const w = window.parent || window;
-                    const btns = w.document.querySelectorAll('button');
-                    for (const b of btns) {
-                        const t = (b.innerText || '').replace(/\\s+/g, '');
-                        if (t.indexOf('음성명령시작') >= 0 || t.indexOf('Enter키로작동') >= 0) {
-                            b.focus();
-                            console.log('[A11y] mic btn auto-focused');
-                            break;
+                    const top = window.top || w;
+                    // 음성 명령 버튼 찾기 — 텍스트 'Enter' 또는 '🎤'·'음성 명령' 포함
+                    const findMicBtn = function() {
+                        const targets = [w, top].filter((x, i, arr) => x && arr.indexOf(x) === i);
+                        for (const wx of targets) {
+                            try {
+                                const btns = wx.document.querySelectorAll('button');
+                                for (const b of btns) {
+                                    const t = (b.innerText || b.textContent || '').trim();
+                                    // '🎤 음성 명령 (Enter)' 매칭
+                                    if ((t.indexOf('음성 명령') >= 0 || t.indexOf('음성명령') >= 0) &&
+                                        t.indexOf('Enter') >= 0 && b.offsetParent) {
+                                        return b;
+                                    }
+                                }
+                            } catch(_){}
                         }
+                        return null;
+                    };
+                    const micBtn = findMicBtn();
+                    if (micBtn) {
+                        micBtn.focus();
+                        console.log('[A11y] mic btn auto-focused on page change');
+                    } else {
+                        console.warn('[A11y] mic btn not found for auto-focus');
                     }
-                } catch(e) {}
-            }, 1200);
+
+                    // ⭐ ESC 키 글로벌 단축키 — 어디서든 음성 명령 버튼으로 focus 복귀
+                    //   이미 설치되어 있으면 다시 안 함
+                    if (!top.__a11yEscBound) {
+                        top.__a11yEscBound = true;
+                        top.document.addEventListener('keydown', function(e) {
+                            if (e.key === 'Escape' || e.code === 'Escape') {
+                                const target = e.target;
+                                const tag = (target?.tagName || '').toUpperCase();
+                                // 입력 필드에서는 ESC가 입력 취소 의미 → 그 후 mic 버튼으로
+                                const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable;
+                                const btn = findMicBtn();
+                                if (btn) {
+                                    e.preventDefault();
+                                    btn.focus();
+                                    console.log('[A11y ESC] mic btn re-focused');
+                                    if (top.__a11ySpeak) top.__a11ySpeak('음성 명령 버튼으로 이동했습니다. 엔터로 시작하세요.');
+                                }
+                            }
+                        }, true);
+                        console.log('[A11y] ESC key handler bound to top');
+                    }
+                } catch(e) { console.error('[A11y mic focus]', e); }
+            }, 1000);
             </script>
             """,
             height=0,
