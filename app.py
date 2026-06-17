@@ -271,38 +271,57 @@ def _a11y_inject_shortcuts():
                 w.document.addEventListener('mouseout', () => clearTimeout(_hoverTimer), true);
 
                 // ── 포커스 음성 안내 (Tab 이동 시 즉시 + 'Enter로 활성화' 추가) ──
-                //   음성 OFF 상태에서도 force speak — 시각장애인이 진입할 수 있게
-                w.document.addEventListener('focusin', (e) => {{
+                //   ⭐ Tab 키 자체가 user gesture → speechSynthesis 호출 가능
+                //   다중 window 등록 (iframe sandbox 우회)
+                const _a11yFocusHandler = (e) => {{
                     const text = _extractText(e.target);
                     console.log('[A11y focusin]', e.target?.tagName, e.target?.type || '', '→ text:', text || '(empty)');
                     if (!text) return;
-                    // 같은 텍스트 반복 방지 (짧은 시간 내 같은 element re-focus)
                     const now = Date.now();
                     if (w.__a11yLastFocusText === text && (now - (w.__a11yLastFocusTime || 0)) < 1500) return;
                     w.__a11yLastFocusText = text;
                     w.__a11yLastFocusTime = now;
 
-                    // 입력 필드면 'Enter' 안내 생략 (Enter는 줄바꿈 의미)
                     const tag = (e.target?.tagName || '').toUpperCase();
-                    const isInputField = tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable;
-                    const fullText = isInputField
+                    const isInputField = tag === 'INPUT' && (e.target?.type === 'text' || e.target?.type === 'email' || e.target?.type === 'password' || e.target?.type === 'search');
+                    const isTextarea = tag === 'TEXTAREA' || e.target?.isContentEditable;
+                    const fullText = (isInputField || isTextarea)
                         ? text + '. 입력란입니다.'
                         : text + '. 활성화하려면 엔터 키를 누르세요.';
 
-                    if (w.__a11yEnabled) {{
-                        // 음성 ON: 기존 속도/언어 반영
-                        _speakIfNew(fullText, 800);
-                    }} else {{
-                        // 음성 OFF: force speak (시각장애인 진입 안내)
+                    // ⭐ 다중 window에서 speechSynthesis 시도 (sandbox 우회)
+                    const _tryAllSynth = [w, w.parent, w.top].filter((wx, i, arr) => wx && arr.indexOf(wx) === i);
+                    let _spoken = false;
+                    for (const wx of _tryAllSynth) {{
                         try {{
-                            if (!w.speechSynthesis) return;
-                            w.speechSynthesis.cancel();
-                            const u = new w.SpeechSynthesisUtterance(fullText);
-                            u.lang = 'ko-KR'; u.rate = 1.0;
-                            w.speechSynthesis.speak(u);
-                        }} catch(_){{}}
+                            if (wx.speechSynthesis) {{
+                                wx.speechSynthesis.cancel();
+                                const u = new wx.SpeechSynthesisUtterance(fullText);
+                                u.lang = 'ko-KR';
+                                u.rate = w.__a11yEnabled ? (w.__a11ySpeed || 1.0) : 1.0;
+                                u.pitch = 1.0;
+                                u.volume = 1.0;
+                                u.onstart = () => console.log('[A11y focus TTS started]', text.substring(0, 30));
+                                u.onerror = (err) => console.warn('[A11y focus TTS error]', err);
+                                wx.speechSynthesis.speak(u);
+                                _spoken = true;
+                                break;
+                            }}
+                        }} catch(err) {{
+                            console.warn('[A11y focus TTS failed at window]', err);
+                        }}
                     }}
-                }}, true);
+                    if (!_spoken) console.warn('[A11y focus TTS] no speechSynthesis available');
+                }};
+                // top, parent, current 모두 등록 (iframe sandbox 우회)
+                [w, w.parent, w.top].filter((wx, i, arr) => wx && arr.indexOf(wx) === i).forEach((wx) => {{
+                    try {{
+                        wx.document.addEventListener('focusin', _a11yFocusHandler, true);
+                        console.log('[A11y] focusin listener registered on:', wx.location?.href?.substring(0, 50) || '(unknown)');
+                    }} catch(err) {{
+                        console.warn('[A11y] focusin register failed:', err);
+                    }}
+                }});
 
                 // ── 키보드 단축키 — Ctrl+Shift 조합 (Mac/Windows 호환) ──
                 //   Mac의 Option 키가 환경에 따라 안 먹히는 사례 발견.
@@ -2307,7 +2326,6 @@ def _a11y_render_toolbar(*, supabase=None, user_id=None, key_prefix="a11y", comp
                 use_container_width=True,
                 help="Tab으로 이동 후 Enter로 활성화",
             ):
-                # query_param 트리거 (widget key 충돌 회피)
                 try:
                     st.query_params["toggle_voice"] = "1"
                 except Exception:
@@ -2329,6 +2347,27 @@ def _a11y_render_toolbar(*, supabase=None, user_id=None, key_prefix="a11y", comp
         st.caption(
             "💡 Tab 키로 이동 시 메뉴 안내 음성. Enter로 활성화.\n\n"
             "단축키: Win `Ctrl+Shift+V` · Mac `Cmd+Shift+V` / `F2` / `Option+V`"
+        )
+
+    # ⭐ 이전 화면으로 가기 버튼 (음성 ON/OFF 무관 항상 표시 — 시각장애인 탈출구)
+    if st.button(
+        "🔙 이전 화면으로 가기 (Enter)",
+        key=f"{key_prefix}_go_back",
+        use_container_width=True,
+        help="브라우저 이전 화면으로 돌아갑니다",
+    ):
+        _a11y_components.html(
+            """
+            <script>
+            (function() {
+                try {
+                    const w = window.top || window.parent || window;
+                    w.history.back();
+                } catch(e) { console.error('[A11y] history.back err:', e); }
+            })();
+            </script>
+            """,
+            height=0,
         )
 
         # 📋 페이지 메뉴 듣기 — 호버·단축키 의존 없이 현재 페이지 메뉴 음성 안내
@@ -7357,8 +7396,11 @@ else:
     _curr_page = st.session_state.get("current_page", "") or ""
     _voice_on_now = bool(st.session_state.get("voice_guide_enabled"))
     _dict_on_now  = bool(st.session_state.get("dictation_enabled"))
-    # ON 중 하나라도 켜져 있으면 사용자가 끄기 쉽도록 expander 자동 펼침
-    _expander_open = _voice_on_now or _dict_on_now
+    # ⭐ expander 자동 펼침 조건:
+    #   - 음성 ON / 받아쓰기 ON: 끄기 쉽도록 펼침
+    #   - 둘 다 OFF (시각장애인 진입 가능성): Tab으로 접근하도록 펼침
+    #   → 결과적으로 항상 펼침 (UI 산만함 최소화는 한 줄 expander label로 대체)
+    _expander_open = True
     _expander_label = "♿ 접근성 · 음성 안내 / 받아쓰기"
     if _voice_on_now and _dict_on_now:
         _expander_label += "  ✅ 음성 ON · 🎤 받아쓰기 ON"
