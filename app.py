@@ -1185,6 +1185,78 @@ def _a11y_render_floating_mic():
                     return clickAndSpeak(findVisibleButton(['키워드탐색', '키워드']), '키워드 탐색');
                 }
 
+                // ⭐ Phase 3: 탐색 히스토리 직접 이동 (어디서든 home의 history 탭으로)
+                if ((n.indexOf('탐색') >= 0 && n.indexOf('히스토리') >= 0) ||
+                    n === '탐색히스토리' || n === '히스토리') {
+                    if (w._dragoneyesSpeak) {
+                        w._dragoneyesSpeak('탐색 히스토리 페이지로 이동합니다.');
+                    }
+                    setTimeout(function() {
+                        try {
+                            const tp = w.top || w.parent || w;
+                            const url = new URL(tp.location.href);
+                            url.searchParams.set('nav_to', 'history');
+                            const prevVt = url.searchParams.get('vt');
+                            url.searchParams.set('vt', String((prevVt ? Number(prevVt) : 0) + 1));
+                            tp.location.href = url.toString();
+                        } catch(e) { console.error('[A11y] nav_to history err:', e); }
+                    }, 600);
+                    return true;
+                }
+
+                // ⭐ Phase 5: 드래곤아이즈 자동추천 리스트 생성 (직접 이동)
+                if (n.indexOf('자동추천') >= 0 || n.indexOf('리스트생성') >= 0 ||
+                    n === '드래곤아이즈자동추천') {
+                    if (w._dragoneyesSpeak) {
+                        w._dragoneyesSpeak('드래곤아이즈 자동 추천 페이지로 이동합니다.');
+                    }
+                    setTimeout(function() {
+                        try {
+                            const tp = w.top || w.parent || w;
+                            const url = new URL(tp.location.href);
+                            url.searchParams.set('nav_to', 'recommend');
+                            const prevVt = url.searchParams.get('vt');
+                            url.searchParams.set('vt', String((prevVt ? Number(prevVt) : 0) + 1));
+                            tp.location.href = url.toString();
+                        } catch(e){}
+                    }, 600);
+                    return true;
+                }
+
+                // ⭐ Phase 5: 섹터 선택 음성 명령 (일반/로블록스/마인크래프트/도박)
+                if (n === '일반' || n === '일반추천' ||
+                    (n.indexOf('일반') >= 0 && n.indexOf('추천') >= 0 &&
+                     n.indexOf('드래곤') < 0)) {
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak('일반 추천 리스트를 생성합니다.');
+                    return clickAndSpeak(
+                        findVisibleButton(['일반추천', '일반 추천', '🐉일반', '일반']),
+                        '일반 추천'
+                    );
+                }
+                if (n === '로블록스' || n.indexOf('로블록스') >= 0 || n === 'roblox') {
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak('로블록스 추천 리스트를 생성합니다.');
+                    return clickAndSpeak(
+                        findVisibleButton(['로블록스', 'Roblox', 'roblox', '🎮Roblox']),
+                        '로블록스 추천'
+                    );
+                }
+                if (n === '마인크래프트' || n === '마크' ||
+                    n.indexOf('마인크래프트') >= 0 || n === 'minecraft' ||
+                    n.indexOf('minecraft') >= 0) {
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak('마인크래프트 추천 리스트를 생성합니다.');
+                    return clickAndSpeak(
+                        findVisibleButton(['마인크래프트', 'Minecraft', 'minecraft', '⛏️Minecraft']),
+                        '마인크래프트 추천'
+                    );
+                }
+                if (n === '도박' || n.indexOf('도박') >= 0 || n === 'gambling') {
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak('도박 관련 추천 리스트를 생성합니다.');
+                    return clickAndSpeak(
+                        findVisibleButton(['도박', 'gambling']),
+                        '도박 추천'
+                    );
+                }
+
                 // ════════ 추천 리스트 ════════
                 // ⭐ "드래곤아이즈 추천" / "드래곤 추천" → 추천 리스트 탭으로 이동
                 if (n.indexOf('드래곤아이즈추천') >= 0 || n.indexOf('드래곤추천') >= 0 ||
@@ -1908,7 +1980,13 @@ def _a11y_render_toolbar(*, supabase=None, user_id=None, key_prefix="a11y", comp
                 _a11y_save_to_user(supabase, user_id)
             try: st.toast("🔊 음성 안내가 켜졌습니다 (ON)", icon="✅")
             except Exception: pass
-            _a11y_announce("음성 서비스가 준비되었습니다.")
+            # 🎯 음성 ON 직후 워크플로우 안내
+            _a11y_announce(
+                "음성 지원 서비스가 활성화되었습니다. "
+                "드래곤아이즈 모니터링을 시작합니다. "
+                "모니터링 대상 리스트를 보시려면 탐색 히스토리라고 음성 명령해주세요. "
+                "우측 하단의 빨간 마이크 버튼을 클릭하거나 백틱 키를 누른 후 말씀하시면 됩니다."
+            )
         else:
             _a11y_announce("음성 서비스를 종료합니다.")
             st.session_state["voice_guide_enabled"] = False
@@ -1954,6 +2032,15 @@ def _a11y_render_toolbar(*, supabase=None, user_id=None, key_prefix="a11y", comp
             )
         except Exception:
             pass
+        # 🔊 음성 안내 (받아쓰기 토글 시)
+        if dict_enabled:
+            _a11y_announce(
+                "드래곤파더 받아쓰기가 켜졌습니다. "
+                "우측 하단의 보라색 마이크 버튼을 클릭한 후 질문을 말씀해주세요. "
+                "마지막에 답변 부탁해 또는 알려줘라고 말씀하시면 자동으로 전송됩니다."
+            )
+        else:
+            _a11y_announce("드래곤파더 받아쓰기를 끕니다.")
         st.rerun()
 
     if st.session_state.get("voice_guide_enabled"):
@@ -6683,6 +6770,44 @@ else:
         )
     )
     _vo_is_super_early = is_superadmin(user)
+    # ── 🧭 Phase 3·5: 페이지 직접 이동 (nav_to query_param) ──
+    try:
+        _qp_nav = st.query_params
+        _nav_val = _qp_nav.get("nav_to")
+        if _nav_val is not None:
+            _nav_str = str(_nav_val)
+            # 음성 ON 강제 유지 (widget 생성 전이라 안전)
+            st.session_state["voice_guide_enabled"] = True
+            st.session_state["a11y_main_voice_toggle"] = True
+            st.session_state["a11y_login_voice_toggle"] = True
+            if _nav_str == "history":
+                st.session_state.current_page = "home"
+                st.session_state.active_tab = 5  # 탐색 히스토리 탭
+                # 진입 안내 once_key 리셋 → 매 진입마다 새로 안내
+                st.session_state.pop("_a11y_announced_history_tab_entry", None)
+                st.session_state.pop("_a11y_announced_history_tab_empty", None)
+                try:
+                    st.toast("📁 탐색 히스토리로 이동", icon="✅")
+                except Exception:
+                    pass
+            elif _nav_str == "recommend":
+                st.session_state.current_page = "home"
+                st.session_state.active_tab = 1  # 드래곤아이즈 추천 탭
+                st.session_state.pop("_a11y_announced_dragon_recommend_entry", None)
+                try:
+                    st.toast("🐉 드래곤아이즈 추천으로 이동", icon="✅")
+                except Exception:
+                    pass
+            elif _nav_str == "report":
+                st.session_state.current_page = "report_form"
+                st.session_state.pop("_a11y_announced_report_form_entry", None)
+            for _k in ("nav_to", "vt"):
+                if _k in _qp_nav:
+                    del _qp_nav[_k]
+            st.rerun()
+    except Exception:
+        pass
+
     # ── 📋 보고서 작성 음성 워크플로우 처리 (report_form 페이지용) ──
     # JS에서 ?voice_sev=N / ?voice_cat=X / ?voice_memo=TEXT / ?voice_submit=1 등으로 URL 변경
     # 라우팅 전이라 selectbox widget instantiated 전이라 안전.
@@ -6694,9 +6819,15 @@ else:
                 _sev_n = int(_v_sev)
                 if 1 <= _sev_n <= 5:
                     st.session_state["prefill_severity"] = _sev_n
-                    # selectbox key 버전 증가 → 새 widget으로 인식 → default value 적용
                     st.session_state["_rf_sev_ver"] = st.session_state.get("_rf_sev_ver", 0) + 1
-                    st.toast(f"🚨 심각도 {_sev_n} 선택됨", icon="✅")
+                    # ⭐ Phase 7: 입력 확인 + 다음 단계 안내 (음성)
+                    _sev_label = {1:"안전", 2:"낮은 위험", 3:"중간 위험", 4:"높은 위험", 5:"매우 위험"}.get(_sev_n, "")
+                    st.session_state["_rf_next_announce"] = (
+                        f"심각도 {_sev_n}단계 {_sev_label}이 입력되었습니다. "
+                        "다음 단계는 분류 선택입니다. "
+                        "분류라고 말씀하시면 안전, 스팸, 부적절, 성인, 그루밍 중에서 선택할 수 있습니다."
+                    )
+                    st.toast(f"🚨 심각도 {_sev_n} ({_sev_label})", icon="✅")
             except Exception:
                 pass
             for _k in ("voice_sev", "vt"):
@@ -6718,6 +6849,13 @@ else:
             _cat_val = _CAT_MAP.get(_cat_str, _cat_str)
             st.session_state["prefill_category"] = _cat_val
             st.session_state["_rf_cat_ver"] = st.session_state.get("_rf_cat_ver", 0) + 1
+            # ⭐ Phase 7: 입력 확인 + 다음 단계 안내 (음성)
+            st.session_state["_rf_next_announce"] = (
+                f"분류 {_cat_val}이 입력되었습니다. "
+                "다음 단계는 메모 작성입니다. "
+                "메모 입력이라고 말씀하신 후 모니터링 결과를 짧게 말씀해주세요. "
+                "예를 들어 특이 사항 없음 또는 음란한 행위 의심과 같이 짧고 명확하게 말씀하시면 됩니다."
+            )
             try:
                 st.toast(f"📋 분류: {_cat_val}", icon="✅")
             except Exception:
@@ -6732,6 +6870,11 @@ else:
             _memo_str = str(_v_memo)
             st.session_state["prefill_memo"] = _memo_str
             st.session_state["_rf_memo_ver"] = st.session_state.get("_rf_memo_ver", 0) + 1
+            # ⭐ Phase 7: 메모 입력 확인 + 다음 단계 안내 (음성)
+            st.session_state["_rf_next_announce"] = (
+                f"메모가 입력되었습니다. 입력된 내용은, {_memo_str[:50]}, 입니다. "
+                "마지막 단계입니다. 보고서를 제출하시려면 보고서 제출이라고 음성 명령해주세요."
+            )
             try:
                 st.toast(f"📝 메모 입력됨: {_memo_str[:30]}", icon="✅")
             except Exception:
@@ -7177,19 +7320,25 @@ else:
     # ══════════════════════════════
     # ══════════════════════════════
     if page == "report_form":
-        # 🎤 음성 워크플로우 자동 안내 (페이지 진입 시 1회)
+        # ⭐ Phase 7: 보고서 작성 단계별 음성 워크플로우 안내
         accessibility.announce_page(
             "보고서 작성 페이지",
-            description="음성 명령으로 작성 가능합니다.",
-            menu_hint=(
-                "심각도 안내, 분류 안내, 메모 입력, 보고서 제출 명령어 사용 가능. "
-                "심각도는 1부터 5까지, 또는 안전·낮은위험·중간위험·높은위험·매우위험. "
-                "분류는 안전·스팸·부적절·성인·그루밍. "
-                "메모 입력이라고 말한 후 내용을 말씀하시면 자동 입력됩니다. "
-                "마지막으로 보고서 제출이라고 말씀하시면 제출됩니다."
+            description=(
+                "보고서 작성을 단계별로 진행합니다. "
+                "첫 번째 단계, 심각도 선택입니다. "
+                "심각도라고 말씀하시면 1단계 안전부터 5단계 매우 위험까지 안내해드립니다. "
+                "또는 바로 1번부터 5번까지 또는 안전, 낮은위험, 중간위험, 높은위험, 매우위험 중 하나를 말씀하셔도 됩니다."
             ),
             once_key="report_form_entry",
         )
+
+        # ⭐ Phase 7: 단계별 다음 안내 발화 (음성 명령 입력 직후)
+        _next_msg = st.session_state.pop("_rf_next_announce", None)
+        if _next_msg:
+            try:
+                accessibility.announce(_next_msg)
+            except Exception:
+                pass
 
         col_back, col_title = st.columns([1,5])
         with col_back:
@@ -7276,19 +7425,70 @@ else:
                         st.session_state["prefill_memo"] = ""
                         st.session_state["prefill_severity"] = 1
                         st.session_state["prefill_category"] = t("cat_safe")
-                        # 🔄 자동 사이클: 음성 제출 시 탐색 히스토리로 복귀 (다음 영상 모니터링)
+                        # 진입 안내 once_key 리셋
+                        st.session_state.pop("_a11y_announced_report_form_entry", None)
+
+                        # ⭐ Phase 8: 자동 이메일 발송 트리거 (email_recipients 활성 대상자)
+                        try:
+                            _last_report = supabase.table("reports").select("id").eq("user_id", user["id"]).order("created_at", desc=True).limit(1).execute()
+                            _report_id_for_email = _last_report.data[0]["id"] if _last_report.data else None
+                            if _report_id_for_email:
+                                _recipients = supabase.table("email_recipients").select("id").eq("active", True).execute().data or []
+                                for _rc in _recipients:
+                                    try:
+                                        supabase.table("email_logs").insert({
+                                            "report_id": _report_id_for_email,
+                                            "recipient_id": _rc["id"],
+                                            "sent_by": user["id"],
+                                            "subject": f"[DragonEyes] 신규 보고서 — {report_category} (심각도 {report_severity})",
+                                            "status": "pending"
+                                        }).execute()
+                                    except Exception:
+                                        pass
+                        except Exception:
+                            pass
+
+                        # 🔄 자동 사이클: 음성 제출 시 탐색 히스토리로 복귀
                         if _auto_submit:
                             st.session_state.current_page = "home"
                             st.session_state.active_tab = 5  # history 탭
+                            # 음성 ON 유지
+                            st.session_state["voice_guide_enabled"] = True
+                            st.session_state["a11y_main_voice_toggle"] = True
+                            # 진입 안내 리셋
+                            st.session_state.pop("_a11y_announced_history_tab_entry", None)
+                            st.session_state.pop("_a11y_announced_history_tab_empty", None)
+                            # ⭐ Phase 8: 남은 미작성 개수 음성 안내
                             try:
-                                accessibility.announce(
-                                    "보고서 제출 완료되었습니다. 탐색 히스토리로 돌아갑니다. "
-                                    "다음 동영상을 시청하려면 동영상 재생이라고 말씀해주세요."
-                                )
+                                if is_admin:
+                                    _remaining = supabase.table("analyzed_urls").select("id").eq("reported", False).execute()
+                                else:
+                                    _remaining = supabase.table("analyzed_urls").select("id").eq("assigned_to", user["id"]).eq("reported", False).execute()
+                                _remaining_count = len(_remaining.data or [])
+                                if _remaining_count > 0:
+                                    _avg_per_video = 7
+                                    _total_min = _remaining_count * _avg_per_video
+                                    _hours = _total_min // 60
+                                    _mins = _total_min % 60
+                                    _time_str = f"{_hours}시간 {_mins}분" if _hours > 0 else f"{_mins}분"
+                                    accessibility.announce(
+                                        f"보고서 제출이 완료되었습니다. "
+                                        f"등록된 수신자에게 이메일이 발송됩니다. "
+                                        f"탐색 히스토리로 돌아갑니다. "
+                                        f"대기 리스트 {_remaining_count}개가 남았습니다. "
+                                        f"예상 남은 시간은 {_time_str} 입니다. "
+                                        f"다음 동영상을 시청하시려면 동영상 재생이라고 음성 명령해주세요."
+                                    )
+                                else:
+                                    accessibility.announce(
+                                        "보고서 제출이 완료되었습니다. "
+                                        "축하합니다. 모든 모니터링 대기 리스트를 완료하셨습니다. "
+                                        "새로운 추천 리스트를 생성하시려면 드래곤아이즈 자동추천 리스트 생성이라고 말씀해주세요."
+                                    )
                             except Exception:
                                 pass
                             try:
-                                st.toast("✅ 보고서 제출 완료 — 탐색 히스토리로 복귀", icon="🎉")
+                                st.toast("✅ 보고서 제출·이메일 발송 — 탐색 히스토리로 복귀", icon="🎉")
                             except Exception:
                                 pass
                         else:
@@ -13244,13 +13444,34 @@ else:
 
     elif page == "home_landing":
         lang = st.session_state.get("lang", "ko")
-        # 페이지 진입 자동 음성 안내
-        accessibility.announce_page(
-            "드래곤아이즈 홈 페이지",
-            description="아동·청소년 온라인 안전을 위한 AI 모니터링 플랫폼입니다.",
-            menu_hint="상단 네비에 업무현황, 통계, 홈, 작성, 공지, 관리자, 사용자 메뉴",
-            once_key="home_landing",
-        )
+        # ⭐ Phase 2: 음성 상태별 차별화된 안내
+        if st.session_state.get("voice_guide_enabled"):
+            # 음성 ON → 다음 단계 워크플로우 안내
+            accessibility.announce_page(
+                "드래곤아이즈 홈 페이지",
+                description=(
+                    "아동·청소년 온라인 안전을 위한 AI 모니터링 플랫폼입니다. "
+                    "드래곤아이즈 모니터링을 시작하시려면 탐색 히스토리라고 음성 명령해주세요. "
+                    "또는 드래곤파더에게 질문하시려면 받아쓰기를 켜고 질문해주세요."
+                ),
+                once_key="home_landing_voice_on",
+            )
+        else:
+            # 음성 OFF → 활성화 방법 안내 (force_announce 대안: 일반 announce는 OFF면 no-op)
+            accessibility.announce_page(
+                "드래곤아이즈 홈 페이지",
+                description="아동·청소년 온라인 안전을 위한 AI 모니터링 플랫폼입니다.",
+                menu_hint="상단 네비에 업무현황, 통계, 홈, 작성, 공지, 관리자, 사용자 메뉴",
+                once_key="home_landing",
+            )
+
+        # 🔊 음성 OFF 상태에서도 시각장애인이 활성화 방법을 알 수 있도록 화면 상단에 명시
+        if not st.session_state.get("voice_guide_enabled"):
+            st.info(
+                "🔊 **시각장애인용 음성 지원을 시작하시려면 `Ctrl + Shift + V` 키를 누르세요.** "
+                "음성 안내가 활성화됩니다.",
+                icon="♿",
+            )
 
         # 메인 2컬럼 레이아웃 — 드래곤파더 왼쪽, 통계+모니터링 오른쪽
         left_col, right_col = st.columns([1, 1])
@@ -13490,19 +13711,98 @@ else:
                                 btn.style.background = '#7c3aed';
                                 btn.innerHTML = '🎤';
                                 if (finalText) {
+                                    // ⭐ Phase 1: 종료 문구 감지 → 1.5초 후 자동 전송
+                                    const END_PHRASES = [
+                                        '답변부탁해', '답변 부탁해', '답변부탁드려', '답변 부탁드려',
+                                        '알려줘', '알려 줘', '알려주세요', '알려 주세요',
+                                        '물어볼게', '물어 볼게', '궁금해', '궁금해요',
+                                        '설명해줘', '설명해 줘', '설명해주세요',
+                                        '말해줘', '말해 줘', '대답해줘', '대답해 줘',
+                                        '답해줘', '답해 줘'
+                                    ];
+                                    let cleanText = finalText.trim();
+                                    // 끝의 마침표·물음표 제거
+                                    cleanText = cleanText.replace(/[.?!\s]+$/, '');
+                                    let shouldAutoSend = false;
+                                    for (const phrase of END_PHRASES) {
+                                        const norm = phrase.replace(/\\s+/g, '');
+                                        const cleanNorm = cleanText.replace(/\\s+/g, '');
+                                        if (cleanNorm.endsWith(norm)) {
+                                            // 원본 텍스트에서 종료 문구 제거 (공백 포함 변형 다 처리)
+                                            const idx = cleanText.lastIndexOf(phrase.replace(/\\s+/g, ''));
+                                            if (idx >= 0) cleanText = cleanText.substring(0, idx).trim();
+                                            // 공백 포함 변형도 시도
+                                            const idx2 = cleanText.lastIndexOf(phrase);
+                                            if (idx2 >= 0) cleanText = cleanText.substring(0, idx2).trim();
+                                            shouldAutoSend = true;
+                                            break;
+                                        }
+                                    }
+
                                     const cur = (target.value || '').trim();
-                                    const newVal = cur ? (cur + ' ' + finalText) : finalText;
+                                    const sendText = shouldAutoSend ? cleanText : finalText;
+                                    const newVal = cur ? (cur + ' ' + sendText) : sendText;
                                     setReactValue(target, newVal);
                                     try { target.focus(); } catch(_){}
-                                    showInfo(
-                                        '<b>✅ 입력됨</b><br>' +
-                                        '<i style="color:#16a34a">' + finalText + '</i><br><br>' +
-                                        '확인 후 <b>Enter</b> 키로 전송하세요.<br>' +
-                                        '잘못 인식되었으면 직접 수정 가능합니다.',
-                                        10000
-                                    );
-                                    if (w._dragoneyesSpeak) {
-                                        w._dragoneyesSpeak('질문이 입력되었습니다. ' + finalText + '. 엔터를 눌러 전송하세요.');
+
+                                    if (shouldAutoSend) {
+                                        showInfo(
+                                            '<b>✅ 자동 전송 중…</b><br>' +
+                                            '<i style="color:#16a34a">' + sendText + '</i><br><br>' +
+                                            '1.5초 후 자동으로 드래곤파더에게 전송됩니다.',
+                                            3000
+                                        );
+                                        if (w._dragoneyesSpeak) {
+                                            w._dragoneyesSpeak('자동으로 전송합니다. 잠시만 기다려주세요.');
+                                        }
+                                        // 1.5초 후 Enter 키 시뮬레이션
+                                        setTimeout(function() {
+                                            try {
+                                                const evDown = new w.KeyboardEvent('keydown', {
+                                                    key: 'Enter', code: 'Enter',
+                                                    keyCode: 13, which: 13,
+                                                    bubbles: true, cancelable: true
+                                                });
+                                                target.dispatchEvent(evDown);
+                                                const evPress = new w.KeyboardEvent('keypress', {
+                                                    key: 'Enter', code: 'Enter',
+                                                    keyCode: 13, which: 13,
+                                                    bubbles: true, cancelable: true
+                                                });
+                                                target.dispatchEvent(evPress);
+                                                const evUp = new w.KeyboardEvent('keyup', {
+                                                    key: 'Enter', code: 'Enter',
+                                                    keyCode: 13, which: 13,
+                                                    bubbles: true, cancelable: true
+                                                });
+                                                target.dispatchEvent(evUp);
+                                                // form submit fallback
+                                                const form = target.closest('form');
+                                                if (form) {
+                                                    try { form.dispatchEvent(new w.Event('submit', {bubbles:true, cancelable:true})); } catch(_){}
+                                                }
+                                                // Streamlit chat_input의 send 버튼 클릭 fallback
+                                                const sendBtn = w.document.querySelector(
+                                                    '[data-testid="stChatInputSubmitButton"], ' +
+                                                    'button[aria-label*="전송"], ' +
+                                                    'button[aria-label*="Send"]'
+                                                );
+                                                if (sendBtn && !sendBtn.disabled) {
+                                                    sendBtn.click();
+                                                }
+                                            } catch(e) { console.error('[A11y] auto-send err:', e); }
+                                        }, 1500);
+                                    } else {
+                                        showInfo(
+                                            '<b>✅ 입력됨</b><br>' +
+                                            '<i style="color:#16a34a">' + finalText + '</i><br><br>' +
+                                            '확인 후 <b>Enter</b> 키로 전송하세요.<br>' +
+                                            '💡 마지막에 <b>"답변 부탁해"</b> 또는 <b>"알려줘"</b>라고 하면 자동 전송됩니다.',
+                                            12000
+                                        );
+                                        if (w._dragoneyesSpeak) {
+                                            w._dragoneyesSpeak('질문이 입력되었습니다. ' + finalText + '. 엔터 키로 전송하거나, 마지막에 알려줘라고 말씀하시면 자동 전송됩니다.');
+                                        }
                                     }
                                 } else {
                                     showInfo('<b>⚠️ 인식 실패</b><br>다시 시도해주세요.', 4000);
@@ -13981,6 +14281,17 @@ else:
             st.subheader(t("dragon_title"))
             st.caption("AI가 플랫폼별 위험 키워드를 자동 생성하고 유튜브를 탐색합니다. 이미 분석한 영상은 자동 제외됩니다.")
 
+            # ⭐ Phase 5: 드래곤아이즈 추천 페이지 진입 자동 음성 안내
+            accessibility.announce_page(
+                "드래곤아이즈 자동 추천 페이지",
+                description=(
+                    "원하시는 모니터링 섹터를 정해주세요. "
+                    "일반 추천, 로블록스, 마인크래프트, 도박 중에서 하나를 선택해서 음성 명령해주세요. "
+                    "예를 들어 일반 추천이라고 말씀하시면 일반 위험 키워드 추천 리스트가 생성됩니다."
+                ),
+                once_key="dragon_recommend_entry",
+            )
+
             token_info = can_use_dragon(user["id"])
             col_t1, col_t2, col_t3 = st.columns(3)
             col_t1.metric(t("dragon_used"), f"{token_info['used']}/{token_info['monthly_limit']}회")
@@ -14046,6 +14357,16 @@ else:
                     st.session_state.recommend_results = merged
                     use_dragon_token(user["id"])
                     st.success(f"완료! {selected_label} — {len(all_results)}개 중 주의 필요 {len(risky)}개 발견")
+                    # ⭐ Phase 5: 생성 결과 음성 안내 + 다음 단계 가이드
+                    try:
+                        accessibility.announce(
+                            f"{selected_label} 추천 리스트 생성이 완료되었습니다. "
+                            f"총 {len(all_results)}개 동영상이 분석되었고 "
+                            f"주의가 필요한 동영상은 {len(risky)}개입니다. "
+                            f"동영상 모니터링을 시작하시려면 탐색 히스토리라고 음성 명령해주세요."
+                        )
+                    except Exception:
+                        pass
                 except Exception as e:
                     st.error(t("error_msg").format(str(e)))
 
@@ -14270,6 +14591,44 @@ else:
             st.subheader(t("history_title"))
             st.caption(t("history_caption"))
 
+            # ⭐ Phase 4: 탐색 히스토리 자동 음성 안내 (대기 리스트 + 예상 시간)
+            try:
+                # 미리 데이터 조회 — 대기 개수 계산용
+                if is_admin:
+                    _hist_pre = supabase.table("analyzed_urls").select("id,reported").order("analyzed_at", desc=True).limit(1000).execute()
+                else:
+                    _hist_pre = supabase.table("analyzed_urls").select("id,reported").eq("assigned_to", user["id"]).order("analyzed_at", desc=True).limit(1000).execute()
+                _all_hist = _hist_pre.data or []
+                _pending_count = len([d for d in _all_hist if not d.get("reported")])
+                if _pending_count > 0:
+                    # 평균 동영상 시간 5분 + 보고서 작성 2분 = 7분 가정
+                    _avg_per_video = 7
+                    _total_min = _pending_count * _avg_per_video
+                    _hours = _total_min // 60
+                    _mins = _total_min % 60
+                    _time_str = f"{_hours}시간 {_mins}분" if _hours > 0 else f"{_mins}분"
+                    accessibility.announce_page(
+                        "탐색 히스토리 페이지",
+                        description=(
+                            f"현재 모니터링 대기 리스트 {_pending_count}개가 있습니다. "
+                            f"예상되는 최종 모니터링 시간은 총 {_time_str} 입니다. "
+                            f"동영상 시청을 시작하시려면 동영상 재생이라고 음성 명령해주세요."
+                        ),
+                        once_key="history_tab_entry",
+                    )
+                else:
+                    accessibility.announce_page(
+                        "탐색 히스토리 페이지",
+                        description=(
+                            "현재 대기중인 모니터링 리스트가 없습니다. "
+                            "드래곤아이즈 자동 추천 리스트를 생성하시려면 "
+                            "드래곤아이즈 자동추천 리스트 생성이라고 음성 명령해주세요."
+                        ),
+                        once_key="history_tab_empty",
+                    )
+            except Exception:
+                pass
+
             fc1, fc2, fc3 = st.columns(3)
             with fc1:
                 ftype = st.selectbox(t("filter_type"), LANG.get(st.session_state.get("lang","ko"),LANG["ko"]).get("history_types",["전체","🐉 일반추천","🎮 Roblox추천","⛏️ Minecraft추천","🔍 키워드탐색"]))
@@ -14305,6 +14664,42 @@ else:
             if st.session_state.get("hist_popup_id"):
                 hist_popup_d = next((x for x in data if x["id"] == st.session_state.hist_popup_id), None)
                 if hist_popup_d:
+                    # ⭐ Phase 6: 동영상 정보 음성 안내 (재생 전)
+                    _vp_id = hist_popup_d.get("id", "")
+                    _vp_announce_key = f"_a11y_video_announced_{_vp_id}"
+                    if not st.session_state.get(_vp_announce_key):
+                        st.session_state[_vp_announce_key] = True
+                        try:
+                            _vt = hist_popup_d.get("title", "")[:60]
+                            _vs = hist_popup_d.get("severity", 0)
+                            _vc = hist_popup_d.get("category", "미분류")
+                            _va = str(hist_popup_d.get("analyzed_at", ""))[:10]
+                            _vu = hist_popup_d.get("url", "")
+                            # 댓글 분석 데이터 (있으면 활용)
+                            _vrr = hist_popup_d.get("result", "") or hist_popup_d.get("analysis", "") or ""
+                            _vrr_short = _vrr[:200] if _vrr else ""
+                            # 위험신호 라인 추출
+                            _risk_line = ""
+                            for _l in (_vrr or "").splitlines():
+                                if "위험신호:" in _l or "이유:" in _l:
+                                    _risk_line = _l.strip()
+                                    break
+                            _sev_label = {1:"안전", 2:"낮은 위험", 3:"중간 위험", 4:"높은 위험", 5:"매우 위험"}.get(_vs, "미분류")
+                            _intro = (
+                                f"동영상 정보를 안내합니다. "
+                                f"제목은, {_vt}, 입니다. "
+                                f"심각도는 {_vs}단계, {_sev_label}이며 분류는 {_vc} 입니다. "
+                                f"분석 일자는 {_va} 입니다. "
+                            )
+                            if _risk_line:
+                                _intro += f"AI 분석 결과는 다음과 같습니다. {_risk_line}. "
+                            _intro += (
+                                "지금부터 동영상을 재생하겠습니다. "
+                                "시청이 끝나신 후에는 보고서 작성이라고 음성 명령해주세요."
+                            )
+                            accessibility.announce(_intro)
+                        except Exception:
+                            pass
                     with st.container(border=True):
                         hp1, hp2 = st.columns([8, 1])
                         with hp1:
