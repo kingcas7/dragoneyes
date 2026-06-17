@@ -294,8 +294,94 @@ def _a11y_inject_shortcuts():
                         return;
                     }}
 
-                    // Ctrl + Shift 조합 — 메뉴 단축키 (기존)
-                    if (!e.ctrlKey || !e.shiftKey) return;
+                    // ⭐ MAC 사용자 친화 — F2 음성 안내 / F3 받아쓰기 (modifier 없이 단일 키)
+                    //   입력 필드 외에서만 작동 (텍스트 입력 방해 X)
+                    if (!isInput && !e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {{
+                        if (codeAll === 'F2' || keyAll === 'F2') {{
+                            const newState = !w.__a11yEnabled;
+                            if (w._dragoneyesSpeak) {{
+                                w._dragoneyesSpeak(newState ? "음성 안내를 켭니다." : "음성 안내를 끕니다.");
+                            }}
+                            setTimeout(function() {{
+                                try {{
+                                    const tp = w.top || w.parent || w;
+                                    const url = new URL(tp.location.href);
+                                    url.searchParams.set('toggle_voice', newState ? '1' : '0');
+                                    const prevVt = url.searchParams.get('vt');
+                                    url.searchParams.set('vt', String((prevVt ? Number(prevVt) : 0) + 1));
+                                    tp.location.href = url.toString();
+                                }} catch(err) {{ console.error('[A11y] F2 toggle_voice err:', err); }}
+                            }}, 800);
+                            e.preventDefault();
+                            return;
+                        }}
+                        if (codeAll === 'F3' || keyAll === 'F3') {{
+                            const newDictState = !w.__dragonDictationEnabled;
+                            if (w._dragoneyesSpeak) {{
+                                w._dragoneyesSpeak(newDictState
+                                    ? "드래곤파더 받아쓰기를 켭니다."
+                                    : "드래곤파더 받아쓰기를 끕니다.");
+                            }}
+                            setTimeout(function() {{
+                                try {{
+                                    const tp = w.top || w.parent || w;
+                                    const url = new URL(tp.location.href);
+                                    url.searchParams.set('toggle_dict', newDictState ? '1' : '0');
+                                    const prevVt = url.searchParams.get('vt');
+                                    url.searchParams.set('vt', String((prevVt ? Number(prevVt) : 0) + 1));
+                                    tp.location.href = url.toString();
+                                }} catch(err) {{ console.error('[A11y] F3 toggle_dict err:', err); }}
+                            }}, 800);
+                            e.preventDefault();
+                            return;
+                        }}
+                    }}
+
+                    // ⭐ MAC 사용자 친화 — Option(Alt) + V/D 조합
+                    //   입력 필드에서도 작동, Cmd 없이 Alt 단독 + 키
+                    if (e.altKey && !e.ctrlKey && !e.shiftKey && !e.metaKey) {{
+                        if (codeAll === 'KeyV' || keyAll === 'v' || keyAll === 'V' || keyAll === '√') {{
+                            // Mac에서 Option+V는 √ 입력 — 사용자가 누른 거 확실
+                            const newState = !w.__a11yEnabled;
+                            if (w._dragoneyesSpeak) {{
+                                w._dragoneyesSpeak(newState ? "음성 안내를 켭니다." : "음성 안내를 끕니다.");
+                            }}
+                            setTimeout(function() {{
+                                try {{
+                                    const tp = w.top || w.parent || w;
+                                    const url = new URL(tp.location.href);
+                                    url.searchParams.set('toggle_voice', newState ? '1' : '0');
+                                    const prevVt = url.searchParams.get('vt');
+                                    url.searchParams.set('vt', String((prevVt ? Number(prevVt) : 0) + 1));
+                                    tp.location.href = url.toString();
+                                }} catch(err) {{ console.error('[A11y] Opt+V err:', err); }}
+                            }}, 800);
+                            e.preventDefault();
+                            return;
+                        }}
+                        if (codeAll === 'KeyD' || keyAll === 'd' || keyAll === 'D' || keyAll === '∂') {{
+                            // Mac에서 Option+D는 ∂ 입력
+                            const newDictState = !w.__dragonDictationEnabled;
+                            if (w._dragoneyesSpeak) {{
+                                w._dragoneyesSpeak(newDictState ? "받아쓰기를 켭니다." : "받아쓰기를 끕니다.");
+                            }}
+                            setTimeout(function() {{
+                                try {{
+                                    const tp = w.top || w.parent || w;
+                                    const url = new URL(tp.location.href);
+                                    url.searchParams.set('toggle_dict', newDictState ? '1' : '0');
+                                    const prevVt = url.searchParams.get('vt');
+                                    url.searchParams.set('vt', String((prevVt ? Number(prevVt) : 0) + 1));
+                                    tp.location.href = url.toString();
+                                }} catch(err) {{ console.error('[A11y] Opt+D err:', err); }}
+                            }}, 800);
+                            e.preventDefault();
+                            return;
+                        }}
+                    }}
+
+                    // Ctrl + Shift 조합 또는 Cmd + Shift 조합 (Mac/Windows 호환)
+                    if (!((e.ctrlKey || e.metaKey) && e.shiftKey)) return;
                     const code = e.code || '';
                     const key = (e.key || '').toLowerCase();
                     // 디버그 로그 (콘솔 F12)
@@ -2160,11 +2246,17 @@ def _a11y_render_toolbar(*, supabase=None, user_id=None, key_prefix="a11y", comp
                     _a11y_save_to_user(supabase, user_id)
                 _a11y_announce(f"속도 {speed:.1f}배.")
         with sub_cols[1]:
-            st.caption("⌨️ **Ctrl+Shift+V** 음성 안내 ON/OFF")
-            st.caption("⌨️ **Ctrl+Shift+D** 받아쓰기 ON/OFF")
+            st.caption("⌨️ 음성 안내 ON/OFF")
+            st.caption("&nbsp;&nbsp;**Ctrl/Cmd+Shift+V** · **F2** · **Option+V**", unsafe_allow_html=True)
+            st.caption("⌨️ 받아쓰기 ON/OFF")
+            st.caption("&nbsp;&nbsp;**Ctrl/Cmd+Shift+D** · **F3** · **Option+D**", unsafe_allow_html=True)
             st.caption("⌨️ Ctrl+Shift+A·M·H·1~9 메뉴")
     else:
-        st.caption("⌨️ **Ctrl+Shift+V** 키로 음성 안내 켜기 (시각장애인용)")
+        st.caption(
+            "⌨️ **음성 안내 켜기** (시각장애인용)\n\n"
+            "Windows: `Ctrl+Shift+V`\n\n"
+            "🍎 Mac: `Cmd+Shift+V` 또는 `F2` 또는 `Option+V`"
+        )
 
         # 📋 페이지 메뉴 듣기 — 호버·단축키 의존 없이 현재 페이지 메뉴 음성 안내
         if st.button(
@@ -13698,9 +13790,11 @@ else:
                 "드래곤아이즈 모니터링 플랫폼에 오신 것을 환영합니다. "
                 "아동과 청소년의 온라인 안전을 위한 인공지능 모니터링 시스템입니다. "
                 "시각장애인 사용자를 위한 두 가지 음성 지원 기능을 안내드립니다. "
-                "첫 번째, 모니터링 업무를 시작하시려면 컨트롤 시프트 브이를 누르세요. "
+                "첫 번째, 모니터링 업무를 시작하시려면, 다음 세 가지 키 중 하나를 누르세요. "
+                "F2 키, 또는 옵션 V, 또는 커맨드 시프트 V 입니다. "
                 "음성 지원 시스템이 활성화되어 모니터링 작업을 음성 명령으로 진행할 수 있습니다. "
-                "두 번째, 드래곤파더 인공지능에게 질문하시려면 컨트롤 시프트 디를 누르세요. "
+                "두 번째, 드래곤파더 인공지능에게 질문하시려면, 다음 세 가지 키 중 하나를 누르세요. "
+                "F3 키, 또는 옵션 D, 또는 커맨드 시프트 D 입니다. "
                 "받아쓰기 기능이 활성화되어 음성으로 질문을 입력할 수 있습니다. "
                 "지금 원하시는 기능에 해당하는 키를 눌러주세요.",
                 once_key="home_landing_keyboard_intro",
@@ -13710,10 +13804,12 @@ else:
         # 🔊 음성 OFF 상태에서도 시각장애인이 활성화 방법을 알 수 있도록 화면 상단에 명시
         if not st.session_state.get("voice_guide_enabled"):
             st.info(
-                "♿ **시각장애인용 키보드 안내**\n\n"
-                "🎯 **모니터링 업무 시작** → `Ctrl + Shift + V` 키를 누르세요 (음성 안내 ON)\n\n"
-                "🐲 **드래곤파더에게 질문** → `Ctrl + Shift + D` 키를 누르세요 (받아쓰기 ON)\n\n"
-                "💡 페이지에 처음 진입하면 위 안내가 음성으로 자동 재생됩니다. 음성을 듣고 원하시는 키를 눌러주세요.",
+                "♿ **시각장애인용 키보드 안내** (단축키 다중 지원 — Mac/Windows 모두 OK)\n\n"
+                "🎯 **모니터링 업무 시작** (음성 안내 ON) — 아래 중 아무 키나:\n"
+                "&nbsp;&nbsp;&nbsp;&nbsp;`F2` ⋅ `Option + V` (Mac) ⋅ `Ctrl/Cmd + Shift + V`\n\n"
+                "🐲 **드래곤파더에게 질문** (받아쓰기 ON) — 아래 중 아무 키나:\n"
+                "&nbsp;&nbsp;&nbsp;&nbsp;`F3` ⋅ `Option + D` (Mac) ⋅ `Ctrl/Cmd + Shift + D`\n\n"
+                "💡 페이지 진입 시 위 안내가 음성으로 자동 재생됩니다. 음성을 듣고 원하시는 키를 눌러주세요.",
                 icon="♿",
             )
 
