@@ -224,6 +224,14 @@ def _a11y_main_install_once():
                                         ke.preventDefault();
                                         ke.stopPropagation();
                                         ke.stopImmediatePropagation();
+                                        // ⭐ debounce — 500ms 내 같은 element에서 Enter 중복 호출 무시
+                                        //   (글로벌 Enter handler + direct keydown 둘 다 잡으면 토글 stop)
+                                        const now = Date.now();
+                                        if (window.__a11yLastMicEnter && (now - window.__a11yLastMicEnter) < 500) {
+                                            console.log('[A11y direct keydown] DEBOUNCED — too fast');
+                                            return;
+                                        }
+                                        window.__a11yLastMicEnter = now;
                                         console.log('[A11y direct keydown] Enter on', isMicBtn ? 'mic' : 'dict', 'button');
                                         if (isMicBtn) {
                                             // mic 토글 시도
@@ -450,9 +458,10 @@ def _a11y_inject_shortcuts():
                 }};
 
                 // ── 호버·포커스 공통: 텍스트 추출 + 디바운스 ──
-                let _hoverTimer = null;
-                let _lastText = null;
-                let _lastTextTime = 0;
+                // var 사용 — 같은 iframe 안에서 재선언 시 SyntaxError 회피
+                var _hoverTimer = _hoverTimer || null;
+                var _lastText = (typeof _lastText !== 'undefined') ? _lastText : null;
+                var _lastTextTime = (typeof _lastTextTime !== 'undefined') ? _lastTextTime : 0;
                 const _extractText = (el) => {{
                     if (!el) return '';
                     let t = el.innerText || el.textContent || '';
@@ -856,9 +865,10 @@ def _a11y_inject_shortcuts():
                 // ════════════════════════════════════════════════════════
                 // 이벤트 bubble up 의존 X. 각 element에 직접 addEventListener.
                 // Streamlit이 DOM 동적 추가하면 새 element에도 자동 적용.
-                let _lastHoverText = '';
-                let _lastHoverTime = 0;
-                let _hoverTimer = null;
+                // var 사용 — 같은 iframe 안에서 재선언 시 SyntaxError 회피
+                var _lastHoverText = (typeof _lastHoverText !== 'undefined') ? _lastHoverText : '';
+                var _lastHoverTime = (typeof _lastHoverTime !== 'undefined') ? _lastHoverTime : 0;
+                if (typeof _hoverTimer === 'undefined') var _hoverTimer = null;
 
                 const _extractAriaText = (el) => {{
                     if (!el) return '';
@@ -1260,6 +1270,14 @@ def _a11y_render_keyboard_mic():
                             if ((txt.indexOf('음성 명령') >= 0 || txt.indexOf('음성명령') >= 0) && txt.indexOf('Enter') >= 0) {
                                 e.preventDefault();
                                 e.stopPropagation();
+                                // ⭐ debounce — direct keydown과 중복 호출 방지
+                                const now = Date.now();
+                                if (top.__a11yLastMicEnter && (now - top.__a11yLastMicEnter) < 500) {
+                                    console.log('[A11y Enter] DEBOUNCED — already handled');
+                                    return;
+                                }
+                                top.__a11yLastMicEnter = now;
+                                try { window.__a11yLastMicEnter = now; } catch(_){}
                                 console.log('[A11y Enter] mic button detected, calling _dragoneyesToggleListening');
                                 const candidates = [top, window.parent, window].filter((x, i, arr) => x && arr.indexOf(x) === i);
                                 for (const w of candidates) {
