@@ -106,6 +106,39 @@ def _a11y_announce(text, *, lang=None, interrupt=True):
     )
 
 
+def _a11y_force_announce(text, *, lang=None, once_key=None, speed=1.0):
+    """voice_guide_enabled 무시하고 강제 발화 (음성 OFF 사용자도 들음).
+    시각장애인 진입 시 키보드 안내용. once_key로 세션당 1회 제한.
+    """
+    if not text:
+        return
+    if once_key:
+        _flag = f"_a11y_force_announced_{once_key}"
+        if st.session_state.get(_flag):
+            return
+        st.session_state[_flag] = True
+    lang = lang or "ko-KR"
+    js_text = _a11y_json.dumps(str(text))
+    js_lang = _a11y_json.dumps(str(lang))
+    _a11y_components.html(
+        f"""
+        <script>
+        (function() {{
+            try {{
+                const w = window.parent || window;
+                if (!('speechSynthesis' in w)) return;
+                w.speechSynthesis.cancel();
+                const u = new w.SpeechSynthesisUtterance({js_text});
+                u.lang = {js_lang}; u.rate = {speed}; u.pitch = 1.0; u.volume = 1.0;
+                w.speechSynthesis.speak(u);
+            }} catch (e) {{ console.error('DragonEyes force TTS error:', e); }}
+        }})();
+        </script>
+        """,
+        height=0,
+    )
+
+
 def _a11y_aria_landmark(label):
     """페이지 진입 시 invisible aria-live 영역에 안내문구 inject (스크린리더)."""
     if not label:
@@ -1980,12 +2013,16 @@ def _a11y_render_toolbar(*, supabase=None, user_id=None, key_prefix="a11y", comp
                 _a11y_save_to_user(supabase, user_id)
             try: st.toast("🔊 음성 안내가 켜졌습니다 (ON)", icon="✅")
             except Exception: pass
-            # 🎯 음성 ON 직후 워크플로우 안내
+            # 🎯 음성 ON 직후 워크플로우 안내 (키보드 사용자 친화)
             _a11y_announce(
                 "음성 지원 서비스가 활성화되었습니다. "
                 "드래곤아이즈 모니터링을 시작합니다. "
-                "모니터링 대상 리스트를 보시려면 탐색 히스토리라고 음성 명령해주세요. "
-                "우측 하단의 빨간 마이크 버튼을 클릭하거나 백틱 키를 누른 후 말씀하시면 됩니다."
+                "음성 명령을 시작하려면 다음 세 가지 방법 중 하나를 사용하세요. "
+                "첫 번째, 키보드의 백틱 키를 누르세요. 키보드 좌측 상단 숫자 일 옆에 있습니다. "
+                "두 번째, 컨트롤 시프트 엠을 누르세요. "
+                "세 번째, 우측 하단의 빨간 마이크 버튼을 클릭하세요. "
+                "음성 명령이 활성화되면 탐색 히스토리라고 말씀해주세요. "
+                "모니터링 대상 리스트 페이지로 이동합니다."
             )
         else:
             _a11y_announce("음성 서비스를 종료합니다.")
@@ -2034,13 +2071,20 @@ def _a11y_render_toolbar(*, supabase=None, user_id=None, key_prefix="a11y", comp
             pass
         # 🔊 음성 안내 (받아쓰기 토글 시)
         if dict_enabled:
-            _a11y_announce(
-                "드래곤파더 받아쓰기가 켜졌습니다. "
-                "우측 하단의 보라색 마이크 버튼을 클릭한 후 질문을 말씀해주세요. "
-                "마지막에 답변 부탁해 또는 알려줘라고 말씀하시면 자동으로 전송됩니다."
+            # force_announce — 음성 안내 자체는 OFF여도 받아쓰기 켜면 사용법 안내 발화
+            # (시각장애인이 Ctrl+Shift+D만 누른 상태에서도 들을 수 있도록)
+            _a11y_force_announce(
+                "드래곤파더 받아쓰기가 활성화되었습니다. "
+                "질문을 입력하려면 우측 하단의 보라색 마이크 버튼을 클릭하세요. "
+                "그 후 드래곤파더에게 묻고 싶은 질문을 말씀해주세요. "
+                "질문의 마지막에, 답변 부탁해, 또는, 알려줘, 라고 말씀하시면 "
+                "엔터 키를 누르지 않아도 1.5초 후에 자동으로 전송됩니다. "
+                "예를 들어, 그루밍 패턴이 무엇인지 알려줘, 라고 말씀하시면 됩니다.",
+                once_key=None,  # 매번 발화 — 토글 ON 안내는 항상 들려야
+                speed=1.0,
             )
         else:
-            _a11y_announce("드래곤파더 받아쓰기를 끕니다.")
+            _a11y_force_announce("드래곤파더 받아쓰기를 끕니다.", once_key=None)
         st.rerun()
 
     if st.session_state.get("voice_guide_enabled"):
@@ -2195,6 +2239,7 @@ def _a11y_announce_page(page_title, *, description=None, menu_hint=None, once_ke
 accessibility = _A11ySimpleNamespace(
     init_state=_a11y_init_state,
     announce=_a11y_announce,
+    force_announce=_a11y_force_announce,
     render_toolbar=_a11y_render_toolbar,
     load_from_user=_a11y_load_from_user,
     save_to_user=_a11y_save_to_user,
@@ -13450,26 +13495,33 @@ else:
             accessibility.announce_page(
                 "드래곤아이즈 홈 페이지",
                 description=(
-                    "아동·청소년 온라인 안전을 위한 AI 모니터링 플랫폼입니다. "
                     "드래곤아이즈 모니터링을 시작하시려면 탐색 히스토리라고 음성 명령해주세요. "
-                    "또는 드래곤파더에게 질문하시려면 받아쓰기를 켜고 질문해주세요."
+                    "드래곤파더에게 질문하시려면 컨트롤 시프트 디를 눌러 받아쓰기를 켜고 질문하세요."
                 ),
                 once_key="home_landing_voice_on",
             )
         else:
-            # 음성 OFF → 활성화 방법 안내 (force_announce 대안: 일반 announce는 OFF면 no-op)
-            accessibility.announce_page(
-                "드래곤아이즈 홈 페이지",
-                description="아동·청소년 온라인 안전을 위한 AI 모니터링 플랫폼입니다.",
-                menu_hint="상단 네비에 업무현황, 통계, 홈, 작성, 공지, 관리자, 사용자 메뉴",
-                once_key="home_landing",
+            # 음성 OFF → 키보드 단축키로 활성화 방법 강제 안내 (시각장애인 진입용)
+            accessibility.force_announce(
+                "드래곤아이즈 모니터링 플랫폼에 오신 것을 환영합니다. "
+                "아동과 청소년의 온라인 안전을 위한 인공지능 모니터링 시스템입니다. "
+                "시각장애인 사용자를 위한 두 가지 음성 지원 기능을 안내드립니다. "
+                "첫 번째, 모니터링 업무를 시작하시려면 컨트롤 시프트 브이를 누르세요. "
+                "음성 지원 시스템이 활성화되어 모니터링 작업을 음성 명령으로 진행할 수 있습니다. "
+                "두 번째, 드래곤파더 인공지능에게 질문하시려면 컨트롤 시프트 디를 누르세요. "
+                "받아쓰기 기능이 활성화되어 음성으로 질문을 입력할 수 있습니다. "
+                "지금 원하시는 기능에 해당하는 키를 눌러주세요.",
+                once_key="home_landing_keyboard_intro",
+                speed=1.0,
             )
 
         # 🔊 음성 OFF 상태에서도 시각장애인이 활성화 방법을 알 수 있도록 화면 상단에 명시
         if not st.session_state.get("voice_guide_enabled"):
             st.info(
-                "🔊 **시각장애인용 음성 지원을 시작하시려면 `Ctrl + Shift + V` 키를 누르세요.** "
-                "음성 안내가 활성화됩니다.",
+                "♿ **시각장애인용 키보드 안내**\n\n"
+                "🎯 **모니터링 업무 시작** → `Ctrl + Shift + V` 키를 누르세요 (음성 안내 ON)\n\n"
+                "🐲 **드래곤파더에게 질문** → `Ctrl + Shift + D` 키를 누르세요 (받아쓰기 ON)\n\n"
+                "💡 페이지에 처음 진입하면 위 안내가 음성으로 자동 재생됩니다. 음성을 듣고 원하시는 키를 눌러주세요.",
                 icon="♿",
             )
 
