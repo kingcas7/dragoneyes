@@ -106,6 +106,142 @@ def _a11y_announce(text, *, lang=None, interrupt=True):
     )
 
 
+def _a11y_main_install_once():
+    """메인 페이지(top window)에 focusin listener + TTS 헬퍼를 한 번만 inject.
+
+    components.html iframe sandbox 우회 — top.document.head에 직접 script 추가.
+    페이지 load 후 한 번만 실행하면 모든 focusin event와 TTS가 메인 페이지에서 동작.
+    """
+    if st.session_state.get("_a11y_main_installed"):
+        return
+    st.session_state["_a11y_main_installed"] = True
+    _a11y_components.html(
+        r"""
+        <script>
+        (function() {
+            try {
+                const top = window.top || window.parent || window;
+                if (top.__a11yMainScriptInstalled) {
+                    console.log('[A11y] main script already installed');
+                    return;
+                }
+                top.__a11yMainScriptInstalled = true;
+
+                // 메인 페이지에 inline script 추가
+                const script = top.document.createElement('script');
+                script.id = 'a11y-main-script';
+                script.textContent = `
+                    (function() {
+                        if (window.__a11yMainBound) return;
+                        window.__a11yMainBound = true;
+                        console.log('[A11y main] script bound to top window');
+
+                        // ─── 텍스트 추출 ───
+                        function _extractText(el) {
+                            if (!el) return '';
+                            let t = el.innerText || el.textContent || '';
+                            if (!t.trim()) {
+                                t = el.getAttribute('aria-label') || '';
+                                if (!t.trim()) {
+                                    const lbl = el.closest('label');
+                                    if (lbl) t = lbl.innerText || lbl.textContent || '';
+                                }
+                                if (!t.trim()) {
+                                    const ariaId = el.getAttribute('aria-labelledby');
+                                    if (ariaId) {
+                                        const labEl = document.getElementById(ariaId);
+                                        if (labEl) t = labEl.innerText || labEl.textContent || '';
+                                    }
+                                }
+                                if (!t.trim()) t = el.getAttribute('placeholder') || el.getAttribute('title') || '';
+                            }
+                            return (t || '').trim().replace(/\\s+/g, ' ').substring(0, 120);
+                        }
+
+                        // ─── TTS 발화 (강제) ───
+                        window.__a11ySpeak = function(text) {
+                            if (!text || !('speechSynthesis' in window)) return false;
+                            try {
+                                window.speechSynthesis.cancel();
+                                const u = new SpeechSynthesisUtterance(text);
+                                u.lang = 'ko-KR'; u.rate = 1.0; u.pitch = 1.0; u.volume = 1.0;
+                                u.onstart = function() { console.log('[A11y main TTS started]', text.substring(0, 40)); };
+                                u.onerror = function(e) { console.warn('[A11y main TTS error]', e.error || e); };
+                                window.speechSynthesis.speak(u);
+                                return true;
+                            } catch(e) {
+                                console.error('[A11y main TTS]', e);
+                                return false;
+                            }
+                        };
+
+                        // ─── focusin listener (Tab 이동 안내) ───
+                        document.addEventListener('focusin', function(e) {
+                            const el = e.target;
+                            const text = _extractText(el);
+                            console.log('[A11y main focusin]', el.tagName, el.type || '', '→', text || '(empty)');
+                            if (!text) return;
+                            const now = Date.now();
+                            if (window.__a11yLastFocusText === text && (now - (window.__a11yLastFocusTime || 0)) < 1500) return;
+                            window.__a11yLastFocusText = text;
+                            window.__a11yLastFocusTime = now;
+
+                            const tag = (el.tagName || '').toUpperCase();
+                            const isTextInput = (tag === 'INPUT' && ['text','email','password','search','tel','url','number'].indexOf(el.type) >= 0) || tag === 'TEXTAREA';
+                            const fullText = isTextInput
+                                ? text + '. 입력란입니다.'
+                                : text + '. 활성화하려면 엔터 키를 누르세요.';
+                            window.__a11ySpeak(fullText);
+                        }, true);
+
+                        console.log('[A11y main] focusin listener registered on top.document');
+                    })();
+                `;
+                top.document.head.appendChild(script);
+                console.log('[A11y] main script injected into top.document.head');
+            } catch(e) {
+                console.error('[A11y] main install failed:', e);
+            }
+        })();
+        </script>
+        """,
+        height=0,
+    )
+
+
+def _a11y_main_speak(text, *, once_key=None):
+    """메인 페이지의 __a11ySpeak 호출 — iframe sandbox 우회 발화."""
+    if not text:
+        return
+    if once_key:
+        _flag = f"_a11y_main_spoken_{once_key}"
+        if st.session_state.get(_flag):
+            return
+        st.session_state[_flag] = True
+    js_text = _a11y_json.dumps(str(text))
+    _a11y_components.html(
+        f"""
+        <script>
+        (function() {{
+            try {{
+                const top = window.top || window.parent || window;
+                if (typeof top.__a11ySpeak === 'function') {{
+                    top.__a11ySpeak({js_text});
+                }} else if ('speechSynthesis' in top) {{
+                    top.speechSynthesis.cancel();
+                    const u = new top.SpeechSynthesisUtterance({js_text});
+                    u.lang = 'ko-KR'; u.rate = 1.0;
+                    top.speechSynthesis.speak(u);
+                    console.log('[A11y main speak fallback]');
+                }}
+            }} catch(e) {{ console.error('[A11y main speak]', e); }}
+        }})();
+        </script>
+        """,
+        height=0,
+    )
+
+
 def _a11y_force_announce(text, *, lang=None, once_key=None, speed=1.0):
     """voice_guide_enabled 무시하고 강제 발화 (음성 OFF 사용자도 들음).
     시각장애인 진입 시 키보드 안내용. once_key로 세션당 1회 제한.
@@ -2294,19 +2430,14 @@ def _a11y_render_toolbar(*, supabase=None, user_id=None, key_prefix="a11y", comp
                 _a11y_save_to_user(supabase, user_id)
             try: st.toast("🔊 음성 안내가 켜졌습니다 (ON)", icon="✅")
             except Exception: pass
-            # 🎯 음성 ON 직후 워크플로우 안내 (키보드 사용자 친화)
-            _a11y_announce(
-                "음성 지원 서비스가 활성화되었습니다. "
-                "드래곤아이즈 모니터링을 시작합니다. "
-                "음성 명령을 시작하려면 다음 세 가지 방법 중 하나를 사용하세요. "
-                "첫 번째, 키보드의 백틱 키를 누르세요. 키보드 좌측 상단 숫자 일 옆에 있습니다. "
-                "두 번째, 컨트롤 시프트 엠을 누르세요. "
-                "세 번째, 우측 하단의 빨간 마이크 버튼을 클릭하세요. "
-                "음성 명령이 활성화되면 탐색 히스토리라고 말씀해주세요. "
-                "모니터링 대상 리스트 페이지로 이동합니다."
+            # 🎯 메인 페이지 직접 발화 — iframe sandbox 우회
+            _a11y_main_speak(
+                "음성 안내가 켜졌습니다. "
+                "음성 명령을 시작하려면 음성 명령 엔터 버튼에 탭으로 이동한 후 엔터를 누르세요. "
+                "또는 백틱 키를 누르세요."
             )
         else:
-            _a11y_announce("음성 서비스를 종료합니다.")
+            _a11y_main_speak("음성 안내를 끕니다.")
             st.session_state["voice_guide_enabled"] = False
             if supabase is not None and user_id:
                 _a11y_save_to_user(supabase, user_id)
@@ -2350,22 +2481,15 @@ def _a11y_render_toolbar(*, supabase=None, user_id=None, key_prefix="a11y", comp
             )
         except Exception:
             pass
-        # 🔊 음성 안내 (받아쓰기 토글 시)
+        # 🔊 메인 페이지 직접 발화 (iframe sandbox 우회)
         if dict_enabled:
-            # force_announce — 음성 안내 자체는 OFF여도 받아쓰기 켜면 사용법 안내 발화
-            # (시각장애인이 Ctrl+Shift+D만 누른 상태에서도 들을 수 있도록)
-            _a11y_force_announce(
-                "드래곤파더 받아쓰기가 활성화되었습니다. "
-                "질문을 입력하려면 우측 하단의 보라색 마이크 버튼을 클릭하세요. "
-                "그 후 드래곤파더에게 묻고 싶은 질문을 말씀해주세요. "
-                "질문의 마지막에, 답변 부탁해, 또는, 알려줘, 라고 말씀하시면 "
-                "엔터 키를 누르지 않아도 1.5초 후에 자동으로 전송됩니다. "
-                "예를 들어, 그루밍 패턴이 무엇인지 알려줘, 라고 말씀하시면 됩니다.",
-                once_key=None,  # 매번 발화 — 토글 ON 안내는 항상 들려야
-                speed=1.0,
+            _a11y_main_speak(
+                "드래곤파더 받아쓰기가 켜졌습니다. "
+                "받아쓰기를 시작하려면 받아쓰기 시작 엔터 버튼에 탭으로 이동한 후 엔터를 누르세요. "
+                "질문 마지막에 답변 부탁해 또는 알려줘라고 말씀하시면 자동 전송됩니다."
             )
         else:
-            _a11y_force_announce("드래곤파더 받아쓰기를 끕니다.", once_key=None)
+            _a11y_main_speak("받아쓰기를 끕니다.")
         st.rerun()
 
     if st.session_state.get("voice_guide_enabled"):
@@ -2596,6 +2720,8 @@ accessibility = _A11ySimpleNamespace(
     init_state=_a11y_init_state,
     announce=_a11y_announce,
     force_announce=_a11y_force_announce,
+    main_install_once=_a11y_main_install_once,
+    main_speak=_a11y_main_speak,
     render_toolbar=_a11y_render_toolbar,
     load_from_user=_a11y_load_from_user,
     save_to_user=_a11y_save_to_user,
@@ -2691,6 +2817,9 @@ st.set_page_config(page_title="DragonEyes / 드래곤아이즈", page_icon="🐉
 # ── 접근성: session_state 초기화 + 키보드 단축키 inject (1회) ──
 accessibility.init_state()
 accessibility.inject_shortcuts()
+# ⭐ 메인 페이지(top window)에 focusin listener + TTS 헬퍼 직접 inject
+#   components.html iframe sandbox 우회 — Tab 이동·토글 변경 음성 안내 보장
+accessibility.main_install_once()
 
 # PWA 메타태그 (숨김 처리)
 st.markdown("""
