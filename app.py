@@ -3475,18 +3475,46 @@ else:
                 obs.observe(root.body, { childList: true, subtree: true });
                 setTimeout(function(){ try { obs.disconnect(); } catch(e){} }, 10000);
             } catch(e){}
-            // ⭐ 캠페인 컨텍스트 — 빨강/보라 마이크 floating button 제거
+            // ⭐ 캠페인 컨텍스트 — 빨강/보라 마이크 floating button 영구 제거
+            const _micIds = ['dragon-mic-btn', 'a11y-mic-floating', 'a11y-mic-toggle'];
             const _removeMics = function(){
                 try {
                     const root = (window.top || window).document;
-                    ['dragon-mic-btn', 'a11y-mic-floating', 'a11y-mic-toggle'].forEach(function(id){
+                    _micIds.forEach(function(id){
                         const el = root.getElementById(id);
                         if (el) el.remove();
                     });
                 } catch(e){}
             };
             _removeMics();
-            // ⭐ 1초간 cancel 반복 + iframe re-patch + mic 재제거 (Streamlit 재inject 차단)
+
+            // ⭐ MutationObserver — 새 mic element 등장 시 즉시 제거 (영구 감시)
+            try {
+                const root = (window.top || window).document;
+                if (!root.__a11yMicObserver) {
+                    const micObs = new MutationObserver(function(muts){
+                        muts.forEach(function(m){
+                            m.addedNodes && m.addedNodes.forEach(function(node){
+                                if (node.nodeType === 1) {
+                                    if (_micIds.indexOf(node.id) >= 0) {
+                                        try { node.remove(); } catch(e){}
+                                    }
+                                    if (node.querySelector) {
+                                        _micIds.forEach(function(id){
+                                            const c = node.querySelector('#' + id);
+                                            if (c) { try { c.remove(); } catch(e){} }
+                                        });
+                                    }
+                                }
+                            });
+                        });
+                    });
+                    micObs.observe(root.body, { childList: true, subtree: true });
+                    root.__a11yMicObserver = micObs;
+                }
+            } catch(e){}
+
+            // ⭐ 3초간 cancel 반복 + iframe re-patch + mic 재제거 (Streamlit 재inject 차단)
             let _kc = 0;
             const _ki = setInterval(function(){
                 try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch(e){}
@@ -3495,7 +3523,7 @@ else:
                 _patchAllIframes();
                 _removeMics();
                 _kc++;
-                if (_kc > 20) clearInterval(_ki);
+                if (_kc > 60) clearInterval(_ki);
             }, 50);
         })();
         </script>
