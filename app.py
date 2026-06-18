@@ -15455,15 +15455,25 @@ else:
         # ══════════════════════════════════════════════════════════════
         # 🎓 Phase 3 (v17): 캠페인 홈 — 역할별 대시보드 진입점
         # ══════════════════════════════════════════════════════════════
-        st.markdown("## 🎓 온라인 유해컨텐츠 근절 캠페인")
-        st.caption("교육기관 · 학부모 · 학생이 함께 만드는 안전한 온라인 환경")
-        st.divider()
-
         _u = user or {}
         _role_v2 = (_u.get("role_v2") or "user").lower()
         _is_student = (_role_v2 == "student") or bool(_u.get("is_campaign_only"))
         _is_parent = (_role_v2 == "parent")
         _is_inst = (_role_v2 == "institution_admin")
+
+        # ⭐ 우측 상단 작은 버튼 — 모니터링 전환 (학생 제외)
+        if not _is_student:
+            _topl, _topr = st.columns([6, 1])
+            with _topr:
+                if st.button("🛡️ 모니터링", key="cmp_to_mon_top",
+                             help="모니터링 시스템으로 이동",
+                             use_container_width=True):
+                    st.session_state["current_page"] = "home_landing"
+                    st.rerun()
+
+        st.markdown("## 🎓 온라인 유해컨텐츠 근절 캠페인")
+        st.caption("교육기관 · 학부모 · 학생이 함께 만드는 안전한 온라인 환경")
+        st.divider()
 
         # 상단 안내 배너 (사용자 결정 #10)
         if _is_student:
@@ -15557,15 +15567,12 @@ else:
                     if st.button("봉사 인벤토리 열기", use_container_width=True, key="cmp_stu_volunteer"):
                         st.info("Phase 8에서 활성화됩니다.")
         else:
-            # 본부 admin이 캠페인 페이지에 들어온 경우 — 안내
+            # 본부 admin이 캠페인 페이지에 들어온 경우 — 안내 (모니터링 버튼은 우측 상단에 이미 있음)
             st.info(
                 "📝 **본부 관리자/일반 사용자**는 캠페인 사용자 등록 후 이용 가능합니다. "
-                "캠페인 시스템은 교육기관·학부모·학생 전용입니다."
+                "캠페인 시스템은 교육기관·학부모·학생 전용입니다. "
+                "모니터링 시스템 이용은 우측 상단 **🛡️ 모니터링** 버튼을 눌러주세요."
             )
-            if st.button("🛡️ 모니터링 시스템으로 가기", type="primary", use_container_width=True,
-                         key="cmp_landing_to_mon_general"):
-                st.session_state["current_page"] = "home_landing"
-                st.rerun()
 
         st.divider()
 
@@ -15580,23 +15587,13 @@ else:
 
         st.divider()
 
-        # ── 하단 버튼 ──
-        _ba1, _ba2 = st.columns(2)
-        with _ba1:
+        # ── 하단 로그아웃 (모니터링 전환은 우측 상단에 이미 있음) ──
+        _logoutc1, _logoutc2, _logoutc3 = st.columns([2, 1, 2])
+        with _logoutc2:
             if st.button("🚪 로그아웃", use_container_width=True, key="campaign_landing_logout"):
                 st.session_state.user = None
                 st.session_state["login_mode"] = "monitoring"
                 st.session_state["current_page"] = None
-                st.rerun()
-        with _ba2:
-            # 학생은 모니터링 접근 불가 — 버튼 자체를 안 보여줌
-            if not _is_student and st.button(
-                "🛡️ 모니터링 시스템 전환",
-                use_container_width=True, type="primary",
-                key="campaign_landing_to_monitor",
-                help="로그아웃 없이 모니터링 페이지로 이동",
-            ):
-                st.session_state["current_page"] = "home_landing"
                 st.rerun()
 
     elif page == "home_landing":
