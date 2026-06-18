@@ -7817,6 +7817,32 @@ if st.session_state.user is None:
         # 강제로 OFF (혹시 켜져있어도 캠페인에서는 무조건 끔)
         st.session_state["voice_guide_enabled"] = False
         st.session_state["dictation_enabled"] = False
+        # ⭐ 활성 TTS 즉시 종료 + 자동 발화 함수 무력화 (JS)
+        st.markdown(
+            "<script>"
+            "try { "
+            "  if (window.speechSynthesis) { window.speechSynthesis.cancel(); }"
+            "  if (window.parent && window.parent.speechSynthesis) { window.parent.speechSynthesis.cancel(); }"
+            "  if (window.top && window.top.speechSynthesis) { window.top.speechSynthesis.cancel(); }"
+            "  /* _dragoneyesSpeak, __a11ySpeak를 noop으로 교체 */"
+            "  const _noop = function(){ return false; };"
+            "  try { window._dragoneyesSpeak = _noop; } catch(e){}"
+            "  try { window.parent._dragoneyesSpeak = _noop; } catch(e){}"
+            "  try { window.top._dragoneyesSpeak = _noop; } catch(e){}"
+            "  try { window.__a11ySpeak = _noop; } catch(e){}"
+            "  try { window.parent.__a11ySpeak = _noop; } catch(e){}"
+            "  try { window.top.__a11ySpeak = _noop; } catch(e){}"
+            "  try { window.__a11yEnabled = false; window.parent.__a11yEnabled = false; window.top.__a11yEnabled = false; } catch(e){}"
+            "} catch(e){}"
+            "</script>",
+            unsafe_allow_html=True,
+        )
+        # 발화 캐시 클리어 (이전 announce 캐시 잔여 제거)
+        for _k in list(st.session_state.keys()):
+            if isinstance(_k, str) and (_k.startswith("_a11y_announced_")
+                                        or _k.startswith("_a11y_force_announced_")
+                                        or _k == "_login_announced"):
+                st.session_state.pop(_k, None)
         # toolbar, landmark, 음성 진입 안내 모두 skip
     else:
         # ── ♿ 접근성: 음성 안내 토글 — expander로 접어 한 줄만 차지 (사용자 요청) ──
