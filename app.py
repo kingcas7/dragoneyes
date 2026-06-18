@@ -7817,23 +7817,41 @@ if st.session_state.user is None:
         # 강제로 OFF (혹시 켜져있어도 캠페인에서는 무조건 끔)
         st.session_state["voice_guide_enabled"] = False
         st.session_state["dictation_enabled"] = False
-        # ⭐ 활성 TTS 즉시 종료 + 자동 발화 함수 무력화 (JS)
+        # ⭐ 활성 TTS 즉시 종료 + speechSynthesis.speak 자체를 monkey-patch
+        #    inject_shortcuts focusin 핸들러가 _dragoneyesSpeak 우회하고
+        #    직접 speechSynthesis.speak() 호출하므로 그 함수 자체를 무력화.
         st.markdown(
             "<script>"
-            "try { "
-            "  if (window.speechSynthesis) { window.speechSynthesis.cancel(); }"
-            "  if (window.parent && window.parent.speechSynthesis) { window.parent.speechSynthesis.cancel(); }"
-            "  if (window.top && window.top.speechSynthesis) { window.top.speechSynthesis.cancel(); }"
-            "  /* _dragoneyesSpeak, __a11ySpeak를 noop으로 교체 */"
+            "(function(){"
             "  const _noop = function(){ return false; };"
-            "  try { window._dragoneyesSpeak = _noop; } catch(e){}"
-            "  try { window.parent._dragoneyesSpeak = _noop; } catch(e){}"
-            "  try { window.top._dragoneyesSpeak = _noop; } catch(e){}"
-            "  try { window.__a11ySpeak = _noop; } catch(e){}"
-            "  try { window.parent.__a11ySpeak = _noop; } catch(e){}"
-            "  try { window.top.__a11ySpeak = _noop; } catch(e){}"
-            "  try { window.__a11yEnabled = false; window.parent.__a11yEnabled = false; window.top.__a11yEnabled = false; } catch(e){}"
-            "} catch(e){}"
+            "  const _patchWin = function(w){"
+            "    try {"
+            "      if (w && w.speechSynthesis) {"
+            "        try { w.speechSynthesis.cancel(); } catch(e){}"
+            "        try { w.speechSynthesis.speak = _noop; } catch(e){}"
+            "      }"
+            "      try { w._dragoneyesSpeak = _noop; } catch(e){}"
+            "      try { w.__a11ySpeak = _noop; } catch(e){}"
+            "      try { w.__a11yEnabled = false; } catch(e){}"
+            "      try { w.__a11yForceMute = true; } catch(e){}"
+            "    } catch(e){}"
+            "  };"
+            "  _patchWin(window);"
+            "  try { _patchWin(window.parent); } catch(e){}"
+            "  try { _patchWin(window.top); } catch(e){}"
+            "  /* 새로 시작되는 모든 utterance도 차단 — SpeechSynthesisUtterance 생성 후 speak 시도시 noop */"
+            "  /* 100ms마다 cancel 반복 (혹시 모를 큐 잔여 발화 제거) */"
+            "  let _killCount = 0;"
+            "  const _killInterval = setInterval(function(){"
+            "    try {"
+            "      if (window.speechSynthesis) window.speechSynthesis.cancel();"
+            "      if (window.parent && window.parent.speechSynthesis) window.parent.speechSynthesis.cancel();"
+            "      if (window.top && window.top.speechSynthesis) window.top.speechSynthesis.cancel();"
+            "    } catch(e){}"
+            "    _killCount++;"
+            "    if (_killCount > 20) clearInterval(_killInterval);"  # 2초간 반복 후 종료
+            "  }, 100);"
+            "})();"
             "</script>",
             unsafe_allow_html=True,
         )
