@@ -7819,9 +7819,9 @@ if st.session_state.user is None:
         st.session_state["dictation_enabled"] = False
         # toolbar, landmark, 음성 진입 안내 모두 skip
     else:
-        # ── ♿ 접근성: 음성 안내 토글 + 페이지 진입 안내 (시각장애인 지원) ──
-        #    로그인 전이라 user_id 없음 → DB 저장은 생략, session만 유지
-        with st.container(border=True):
+        # ── ♿ 접근성: 음성 안내 토글 — expander로 접어 한 줄만 차지 (사용자 요청) ──
+        #    필요할 때 펼쳐서 사용. 기본 접힘.
+        with st.expander("♿ 접근성 · 음성 안내 / 받아쓰기 (시각장애인 지원)", expanded=False):
             accessibility.render_toolbar(key_prefix="a11y_login", compact=True)
         # 스크린리더용 invisible landmark
         accessibility.aria_landmark("드래곤아이즈 로그인 페이지")
@@ -7838,20 +7838,25 @@ if st.session_state.user is None:
     if _login_mode_pre == "campaign":
         st.markdown(
             "<style>"
-            # 상단 여백 거의 0
-            ".block-container { padding-top: 0.25rem !important; padding-bottom: 0.5rem !important; }"
-            # Streamlit 기본 헤더 영역 숨김
-            "header[data-testid='stHeader'] { height: 0 !important; min-height: 0 !important; }"
+            # ⭐ 가장 강력한 위쪽 여백 제거 — 모든 가능한 셀렉터 일괄 적용
+            ".stApp > header { display: none !important; }"
+            "header[data-testid='stHeader'] { display: none !important; height: 0 !important; }"
+            "section[data-testid='stMain'] { padding-top: 0 !important; }"
+            "section[data-testid='stMain'] > div { padding-top: 0 !important; }"
+            ".main { padding-top: 0 !important; }"
+            ".block-container { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; margin-top: 0 !important; }"
+            # 첫 번째 element 위 마진 제거
+            ".main .block-container > div:first-child { margin-top: 0 !important; padding-top: 0 !important; }"
             # 모드 토글 버튼 작게 (70px → 48px)
             ".login-mode-toggle .stButton > button { height: 48px !important; font-size: 13px !important; padding: 4px 12px !important; }"
             # 로그인 박스 내부 padding 축소
-            ".login-right-card { padding: 20px 24px !important; }"
+            ".login-right-card { padding: 18px 24px !important; }"
             # 폼 헤더 마진 축소
             ".login-form-header { margin-bottom: 8px !important; }"
             # st.text_input 사이 간격 축소
             ".stTextInput { margin-bottom: 4px !important; }"
             # 기본 element 간 vertical gap 압축
-            ".main .block-container [data-testid='stVerticalBlock'] { gap: 0.4rem !important; }"
+            ".main .block-container [data-testid='stVerticalBlock'] { gap: 0.35rem !important; }"
             "</style>",
             unsafe_allow_html=True,
         )
