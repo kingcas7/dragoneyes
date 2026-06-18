@@ -3406,10 +3406,61 @@ st.set_page_config(page_title="DragonEyes / 드래곤아이즈", page_icon="🐉
 
 # ── 접근성: session_state 초기화 + 키보드 단축키 inject (1회) ──
 accessibility.init_state()
-accessibility.inject_shortcuts()
-# ⭐ 메인 페이지(top window)에 focusin listener + TTS 헬퍼 직접 inject
-#   components.html iframe sandbox 우회 — Tab 이동·토글 변경 음성 안내 보장
-accessibility.main_install_once()
+
+# ⭐ 캠페인 컨텍스트 판정 — inject_shortcuts/main_install_once 호출 여부 결정
+#    캠페인 사용자/페이지/로그인 모드에서는 accessibility 인프라 자체를 inject 안 함.
+#    (focusin TTS, _dragoneyesSpeak, speechSynthesis.speak 모두 차단)
+_u_top = st.session_state.get("user") or {}
+_is_campaign_login_mode = (
+    st.session_state.get("user") is None
+    and st.session_state.get("login_mode") == "campaign"
+)
+_is_campaign_user = bool(
+    _u_top.get("is_campaign_only")
+    or (_u_top.get("role_v2") in ("student", "parent", "institution_admin"))
+)
+_is_campaign_page = (st.session_state.get("current_page", "") or "").startswith("campaign_")
+_is_campaign_ctx = _is_campaign_login_mode or _is_campaign_user or _is_campaign_page
+
+if not _is_campaign_ctx:
+    accessibility.inject_shortcuts()
+    # ⭐ 메인 페이지(top window)에 focusin listener + TTS 헬퍼 직접 inject
+    #   components.html iframe sandbox 우회 — Tab 이동·토글 변경 음성 안내 보장
+    accessibility.main_install_once()
+else:
+    # 캠페인 — 음성/받아쓰기 강제 OFF + 활성 TTS 즉시 중단
+    st.session_state["voice_guide_enabled"] = False
+    st.session_state["dictation_enabled"] = False
+    st.markdown(
+        "<script>"
+        "(function(){"
+        "  const _noop = function(){ return false; };"
+        "  const _patch = function(w){"
+        "    try {"
+        "      if (w && w.speechSynthesis) {"
+        "        try { w.speechSynthesis.cancel(); } catch(e){}"
+        "        try { w.speechSynthesis.speak = _noop; } catch(e){}"
+        "      }"
+        "      try { w._dragoneyesSpeak = _noop; } catch(e){}"
+        "      try { w.__a11ySpeak = _noop; } catch(e){}"
+        "      try { w.__a11yEnabled = false; } catch(e){}"
+        "      try { w.__a11yForceMute = true; } catch(e){}"
+        "    } catch(e){}"
+        "  };"
+        "  _patch(window);"
+        "  try { _patch(window.parent); } catch(e){}"
+        "  try { _patch(window.top); } catch(e){}"
+        "  let _kc = 0;"
+        "  const _ki = setInterval(function(){"
+        "    try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch(e){}"
+        "    try { if (window.parent && window.parent.speechSynthesis) window.parent.speechSynthesis.cancel(); } catch(e){}"
+        "    try { if (window.top && window.top.speechSynthesis) window.top.speechSynthesis.cancel(); } catch(e){}"
+        "    _kc++; if (_kc > 30) clearInterval(_ki);"
+        "  }, 100);"
+        "})();"
+        "</script>",
+        unsafe_allow_html=True,
+    )
 
 # PWA 메타태그 (숨김 처리)
 st.markdown("""
