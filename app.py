@@ -15581,8 +15581,9 @@ else:
                     st.markdown("##### 👥 학생 관리")
                     st.caption("소속 학생 명단 · 진행률 · QR 일괄 발급")
                     if st.button("학생 관리 열기", use_container_width=True, key="cmp_inst_students",
-                                 help="Phase 4에서 활성화"):
-                        st.info("Phase 4에서 활성화됩니다.")
+                                 type="primary"):
+                        st.session_state["current_page"] = "institution_dashboard"
+                        st.rerun()
             with ic2:
                 with st.container(border=True):
                     st.markdown("##### 📋 설문지 관리")
@@ -15668,6 +15669,421 @@ else:
                 st.session_state["login_mode"] = "monitoring"
                 st.session_state["current_page"] = None
                 st.rerun()
+
+    # ══════════════════════════════════════════════════════════════
+    # 🏫 Phase 4 (v17): 교육기관 대시보드 — 소속 학생 명단 / 일괄 등록 / 통계
+    # ══════════════════════════════════════════════════════════════
+    elif page == "institution_dashboard":
+        _u = user or {}
+        _role_v2 = (_u.get("role_v2") or "").lower()
+        _inst_id = _u.get("institution_id")
+
+        # 권한 가드
+        if _role_v2 != "institution_admin":
+            st.error("🚫 교육기관 관리자 전용 페이지입니다.")
+            if st.button("🏠 캠페인 홈으로", key="inst_dash_back"):
+                go_to("campaign_landing"); st.rerun()
+            st.stop()
+
+        # 상단 헤더
+        _h1, _h2 = st.columns([6, 1])
+        with _h1:
+            st.markdown("## 🏫 교육기관 대시보드")
+        with _h2:
+            if st.button("← 캠페인 홈", key="inst_dash_back_top", use_container_width=True):
+                go_to("campaign_landing"); st.rerun()
+
+        # 기관 정보 표시
+        if not _inst_id:
+            st.warning(
+                "⚠️ **소속 기관이 연결되지 않았습니다.** "
+                "신규 등록 신청 중이라면 본부 승인 대기 중입니다 (보통 1~3일 소요). "
+                "본부 관리자(support@dragoneyes.kr)에게 문의하실 수 있습니다."
+            )
+            st.stop()
+
+        try:
+            _inst = supabase.table("institutions").select("*").eq("id", _inst_id).single().execute().data
+        except Exception:
+            _inst = None
+        if not _inst:
+            st.error("기관 정보를 불러올 수 없습니다.")
+            st.stop()
+
+        _type_label = {
+            "ministry": "교육부", "metro_office": "시·도 교육청",
+            "district_office": "교육지원청", "elementary": "초등학교",
+            "middle": "중학교", "high": "고등학교", "special": "특수학교",
+            "youth_facility": "청소년 교육시설", "other": "기타 교육기관",
+        }.get(_inst.get("type"), _inst.get("type"))
+
+        st.markdown(
+            f"#### 🏛️ {_inst.get('name','')} "
+            f"`{_type_label}` · {_inst.get('region','')} {_inst.get('district','')}"
+        )
+        if _inst.get("status") == "pending":
+            st.warning("⚠️ 본 기관은 본부 승인 대기 중입니다.")
+        st.divider()
+
+        # 소속 학생 조회
+        try:
+            _students = supabase.table("users").select(
+                "id, name, email, grade, birth_date, parent_consent_at, signup_source, "
+                "is_campaign_only, created_at"
+            ).eq("institution_id", _inst_id).eq("role_v2", "student").is_(
+                "deleted_at", "null").order("grade").order("name").execute().data or []
+        except Exception:
+            _students = []
+
+        # KPI 카드
+        _total = len(_students)
+        _consented = len([s for s in _students if s.get("parent_consent_at")])
+        _pending_consent = _total - _consented
+        _by_grade = {}
+        for s in _students:
+            _g = s.get("grade") or 0
+            _by_grade[_g] = _by_grade.get(_g, 0) + 1
+
+        kc1, kc2, kc3, kc4 = st.columns(4)
+        kc1.metric("👥 전체 학생", f"{_total}명")
+        kc2.metric("✅ 동의 완료", f"{_consented}명")
+        kc3.metric("⏳ 동의 대기", f"{_pending_consent}명")
+        kc4.metric("📚 학년 수", f"{len(_by_grade)}개")
+
+        # 탭: 명단 / 일괄 등록 / 통계
+        ins_tab1, ins_tab2, ins_tab3 = st.tabs(["📋 학생 명단", "📤 학생 일괄 등록", "📊 진행률"])
+
+        # ── 탭 1: 학생 명단 ──
+        with ins_tab1:
+            if not _students:
+                st.info("아직 등록된 학생이 없습니다. **'학생 일괄 등록'** 탭에서 추가해주세요.")
+            else:
+                # 학년 필터
+                _gopts = ["전체"] + sorted([str(g) for g in _by_grade.keys() if g])
+                _sel_g = st.selectbox("학년 필터", _gopts, key="inst_dash_grade_filter")
+                _filtered = _students if _sel_g == "전체" else [
+                    s for s in _students if str(s.get("grade") or "") == _sel_g
+                ]
+                st.caption(f"표시 {len(_filtered)}명 / 전체 {_total}명")
+
+                # 테이블 데이터
+                _rows = []
+                for s in _filtered:
+                    _rows.append({
+                        "이름": s.get("name", ""),
+                        "이메일": s.get("email", ""),
+                        "학년": s.get("grade", "-"),
+                        "생년월일": str(s.get("birth_date", "") or "")[:10],
+                        "가입 경로": {
+                            "self": "자가",
+                            "institution_bulk": "학교 일괄",
+                            "parent_create": "학부모 생성",
+                        }.get(s.get("signup_source", ""), "-"),
+                        "보호자 동의": "✅" if s.get("parent_consent_at") else "⏳ 대기",
+                        "등록일": str(s.get("created_at", "") or "")[:10],
+                    })
+                if _rows:
+                    import pandas as _pd_ins
+                    _df_stu = _pd_ins.DataFrame(_rows)
+                    st.dataframe(_df_stu, use_container_width=True, hide_index=True)
+
+                    # 엑셀 다운로드
+                    try:
+                        render_excel_download(
+                            f"📥 학생 명단 엑셀 ({len(_rows)}명)",
+                            _rows,
+                            resource_type="institution_student_list",
+                            resource_label=f"학생 명단 ({_inst.get('name','')})",
+                            file_basename=f"학생명단_{_inst.get('name','')}_{date.today().isoformat()}",
+                            user=user,
+                            scope_description=f"기관 {_inst.get('name','')} 학생 {len(_rows)}명",
+                            key="xlsx_inst_students",
+                            sheet_name="학생명단",
+                        )
+                    except Exception:
+                        pass
+
+        # ── 탭 2: 학생 일괄 등록 (CSV) ──
+        with ins_tab2:
+            st.markdown("##### 📤 CSV로 학생 일괄 등록")
+            st.caption(
+                "CSV 형식: `name, email, grade, birth_date(YYYY-MM-DD), parent_name, parent_email`  "
+                "한 줄에 한 명. 헤더 행 포함."
+            )
+
+            # CSV 템플릿 다운로드
+            _csv_template = (
+                "name,email,grade,birth_date,parent_name,parent_email\n"
+                "홍길동,hong@example.com,6,2013-03-15,홍부모,parent1@example.com\n"
+                "김영희,kim@example.com,6,2013-07-22,김부모,parent2@example.com\n"
+            )
+            st.download_button(
+                "📥 CSV 템플릿 다운로드",
+                data=_csv_template.encode("utf-8-sig"),
+                file_name="student_bulk_template.csv",
+                mime="text/csv",
+                use_container_width=True,
+                key="inst_csv_template",
+            )
+
+            _csv_file = st.file_uploader(
+                "학생 명단 CSV 업로드",
+                type=["csv"], key="inst_csv_upload",
+                help="UTF-8 인코딩 권장",
+            )
+
+            if _csv_file is not None:
+                try:
+                    import pandas as _pd_csv
+                    _df_csv = _pd_csv.read_csv(_csv_file)
+                    st.markdown("**미리보기** (최대 10행)")
+                    st.dataframe(_df_csv.head(10), use_container_width=True, hide_index=True)
+                    st.caption(f"총 {len(_df_csv)}행")
+
+                    _bulk_pw = st.text_input(
+                        "초기 비밀번호 (모든 학생 공통)",
+                        type="password",
+                        help="학생이 첫 로그인 후 변경 권장. 6자 이상.",
+                        key="inst_bulk_pw",
+                    )
+                    _agree_bulk = st.checkbox(
+                        "✅ 본 학교는 모든 학생에 대해 학부모 사전 동의를 확보했음을 확인합니다.",
+                        value=False, key="inst_bulk_consent",
+                    )
+
+                    if st.button("👥 일괄 등록 실행", type="primary",
+                                 use_container_width=True, key="inst_bulk_submit",
+                                 disabled=not (_bulk_pw and _agree_bulk)):
+                        if len(_bulk_pw) < 6:
+                            st.error("비밀번호는 6자 이상이어야 합니다.")
+                        else:
+                            _ok_cnt, _err_cnt = 0, 0
+                            _errors = []
+                            for _idx, _row in _df_csv.iterrows():
+                                _name = str(_row.get("name", "")).strip()
+                                _email = str(_row.get("email", "")).strip()
+                                _grade = _row.get("grade")
+                                _birth = _row.get("birth_date")
+                                _p_name = str(_row.get("parent_name", "")).strip()
+                                _p_email = str(_row.get("parent_email", "")).strip()
+                                if not _name or not _email:
+                                    _err_cnt += 1
+                                    _errors.append(f"{_idx+1}행: 이름/이메일 누락")
+                                    continue
+                                _uid, _err = _campaign_create_auth_user(_email, _bulk_pw, _name)
+                                if _err:
+                                    _err_cnt += 1
+                                    _errors.append(f"{_idx+1}행 ({_email}): {_err[:80]}")
+                                    continue
+                                try:
+                                    supabase.table("users").insert({
+                                        "id": _uid,
+                                        "email": _email,
+                                        "name": _name,
+                                        "role": "user",
+                                        "role_v2": "student",
+                                        "is_campaign_only": True,
+                                        "signup_source": "institution_bulk",
+                                        "birth_date": str(_birth)[:10] if _birth and str(_birth) != "nan" else None,
+                                        "grade": int(_grade) if _grade and str(_grade) != "nan" else None,
+                                        "institution_id": _inst_id,
+                                        "school_name": _inst.get("name", ""),
+                                        "guardian_name": _p_name or None,
+                                        "preferences": {"guardian_email": _p_email or ""},
+                                        "parent_consent_at": datetime.now().isoformat(),  # 학교가 학부모 동의 확보 가정
+                                        "status": "active",
+                                    }).execute()
+                                    _ok_cnt += 1
+                                except Exception as e:
+                                    _err_cnt += 1
+                                    _errors.append(f"{_idx+1}행 ({_email}): {str(e)[:80]}")
+                            st.success(f"✅ 등록 완료: {_ok_cnt}명 / 실패: {_err_cnt}명")
+                            if _errors:
+                                with st.expander(f"❌ 실패 상세 ({len(_errors)}건)"):
+                                    for e in _errors[:50]:
+                                        st.text(e)
+                            if _ok_cnt > 0:
+                                st.balloons()
+                                st.button("🔄 새로고침", key="inst_bulk_refresh",
+                                          on_click=lambda: st.rerun())
+                except Exception as e:
+                    st.error(f"CSV 파싱 실패: {e}")
+
+        # ── 탭 3: 진행률 ──
+        with ins_tab3:
+            st.markdown("##### 📊 학년별 통계")
+            if _by_grade:
+                _grade_rows = [{"학년": g if g else "미입력", "학생 수": cnt}
+                               for g, cnt in sorted(_by_grade.items())]
+                import pandas as _pd_g
+                st.dataframe(_pd_g.DataFrame(_grade_rows), use_container_width=True, hide_index=True)
+            else:
+                st.info("학생 데이터가 없습니다.")
+
+            st.markdown("##### 🎯 다음 단계 안내 (Phase 5~8에서 활성화)")
+            st.markdown(
+                "- 📋 **학교 커스텀 설문 등록** — 전국 표준 외 학교 자체 설문 (Phase 7)\n"
+                "- 🏆 **봉사 점수 일괄 발급** — CSV/PDF 형식 (Phase 8)\n"
+                "- 📲 **학생별 QR/링크 발급** — 설문 일괄 배포 (Phase 7)\n"
+                "- 📚 **학습 자료 시청 통계** — 학생별 진행률 (Phase 5)"
+            )
+
+    # ══════════════════════════════════════════════════════════════
+    # 🛂 Phase 4 (v17): 교육기관 등록 신청 승인 큐 (본부 admin 전용)
+    # ══════════════════════════════════════════════════════════════
+    elif page == "institution_approval":
+        if not (is_superadmin(user) or
+                (user.get("role") == "admin" and not user.get("partner_id"))):
+            st.error("🚫 본부 관리자 전용 페이지입니다.")
+            if st.button("🏠 홈으로", key="ia_back"):
+                go_home(); st.rerun()
+            st.stop()
+
+        _h1, _h2 = st.columns([6, 1])
+        with _h1:
+            st.markdown("## 🛂 교육기관 등록 신청 관리")
+            st.caption("교육기관 관리자가 가입 시 신청한 신규 기관 등록 / 정보 수정 / 삭제 요청 처리")
+        with _h2:
+            if st.button("← 관리자 콘솔", key="ia_back_top", use_container_width=True):
+                go_to("home"); st.rerun()
+        st.divider()
+
+        # 상태 필터
+        _st_filter = st.radio(
+            "상태 필터",
+            ["pending (대기 중)", "approved (승인됨)", "rejected (거절됨)", "전체"],
+            horizontal=True, key="ia_status_filter",
+        )
+        _filter_key = _st_filter.split(" ")[0] if _st_filter != "전체" else None
+
+        try:
+            _q = supabase.table("institution_requests").select("*").order(
+                "created_at", desc=True)
+            if _filter_key:
+                _q = _q.eq("status", _filter_key)
+            _reqs = _q.execute().data or []
+        except Exception as e:
+            st.error(f"신청 목록 조회 실패: {e}")
+            _reqs = []
+
+        st.caption(f"표시 {len(_reqs)}건")
+
+        if not _reqs:
+            st.info("처리할 신청이 없습니다.")
+        else:
+            for _r in _reqs:
+                _r_id = _r["id"]
+                _r_type = _r.get("request_type", "add")
+                _r_status = _r.get("status", "pending")
+                _r_data = _r.get("requested_data", {}) or {}
+                _type_label_inst = {
+                    "elementary":"초", "middle":"중", "high":"고", "special":"특수학교",
+                    "metro_office":"시·도 교육청", "district_office":"교육지원청",
+                    "youth_facility":"청소년 시설", "other":"기타", "ministry":"교육부",
+                }.get(_r_data.get("type"), _r_data.get("type", "-"))
+
+                _badge = {
+                    "pending": "⏳ 대기",
+                    "approved": "✅ 승인",
+                    "rejected": "❌ 거절",
+                    "cancelled": "🚫 취소",
+                }.get(_r_status, _r_status)
+                _action = {"add": "🆕 신규 등록", "update": "✏️ 정보 수정", "delete": "🗑️ 삭제"}.get(_r_type, _r_type)
+
+                with st.expander(
+                    f"{_badge} · {_action} · **{_r_data.get('name','(이름 없음)')}** "
+                    f"`{_type_label_inst}` · {_r_data.get('region','')} {_r_data.get('district','')} · "
+                    f"신청일 {str(_r.get('created_at',''))[:10]}",
+                    expanded=(_r_status == "pending"),
+                ):
+                    # 신청 데이터 표시
+                    rc1, rc2 = st.columns(2)
+                    with rc1:
+                        st.markdown(f"- **기관명**: {_r_data.get('name','-')}")
+                        st.markdown(f"- **유형**: {_type_label_inst}")
+                        st.markdown(f"- **지역**: {_r_data.get('region','-')} {_r_data.get('district','')}")
+                        st.markdown(f"- **주소**: {_r_data.get('address','-')}")
+                    with rc2:
+                        st.markdown(f"- **대표 전화**: {_r_data.get('phone','-')}")
+                        st.markdown(f"- **대표자**: {_r_data.get('representative','-')}")
+                        st.markdown(f"- **기관 코드**: {_r_data.get('code','-')}")
+                        st.markdown(f"- **신청자 ID**: `{str(_r.get('requested_by',''))[:8]}…`")
+
+                    if _r.get("note"):
+                        st.caption(f"💬 신청자 메모: {_r['note']}")
+
+                    if _r_status == "pending":
+                        st.markdown("---")
+                        _process_note = st.text_input(
+                            "처리 메모 (선택)",
+                            key=f"ia_note_{_r_id}",
+                            placeholder="승인/거절 사유, 검증 결과 등",
+                        )
+                        ac1, ac2, ac3 = st.columns([1, 1, 2])
+                        with ac1:
+                            if st.button("✅ 승인", key=f"ia_approve_{_r_id}",
+                                         type="primary", use_container_width=True):
+                                try:
+                                    # 신규 등록 신청이면 institutions에 INSERT
+                                    _new_inst_id = None
+                                    if _r_type == "add":
+                                        _ins_payload = {
+                                            "type": _r_data.get("type", "other"),
+                                            "name": _r_data.get("name", ""),
+                                            "code": _r_data.get("code") or None,
+                                            "region": _r_data.get("region") or None,
+                                            "district": _r_data.get("district") or None,
+                                            "address": _r_data.get("address") or None,
+                                            "phone": _r_data.get("phone") or None,
+                                            "representative": _r_data.get("representative") or None,
+                                            "status": "approved",
+                                            "verification_source": "manual",
+                                            "approved_at": datetime.now().isoformat(),
+                                            "approved_by": user.get("id"),
+                                        }
+                                        _ins_res = supabase.table("institutions").insert(
+                                            _ins_payload).execute()
+                                        _new_inst_id = _ins_res.data[0]["id"] if _ins_res.data else None
+
+                                        # 신청자 user의 institution_id 연결
+                                        if _new_inst_id and _r.get("requested_by"):
+                                            supabase.table("users").update({
+                                                "institution_id": _new_inst_id,
+                                                "updated_at": datetime.now().isoformat(),
+                                            }).eq("id", _r["requested_by"]).execute()
+
+                                    # request 상태 갱신
+                                    supabase.table("institution_requests").update({
+                                        "status": "approved",
+                                        "processed_by": user.get("id"),
+                                        "processed_at": datetime.now().isoformat(),
+                                        "process_note": _process_note or None,
+                                        "institution_id": _new_inst_id or _r.get("institution_id"),
+                                    }).eq("id", _r_id).execute()
+                                    st.success("✅ 승인 완료")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"승인 실패: {e}")
+                        with ac2:
+                            if st.button("❌ 거절", key=f"ia_reject_{_r_id}",
+                                         use_container_width=True):
+                                try:
+                                    supabase.table("institution_requests").update({
+                                        "status": "rejected",
+                                        "processed_by": user.get("id"),
+                                        "processed_at": datetime.now().isoformat(),
+                                        "process_note": _process_note or None,
+                                    }).eq("id", _r_id).execute()
+                                    st.warning("❌ 거절 처리")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"거절 실패: {e}")
+                    else:
+                        # 처리 완료된 신청 — 처리자/시각 표시
+                        st.caption(
+                            f"처리: {str(_r.get('processed_at',''))[:19]} · "
+                            f"메모: {_r.get('process_note','') or '-'}"
+                        )
 
     elif page == "home_landing":
         lang = st.session_state.get("lang", "ko")
@@ -18728,10 +19144,28 @@ else:
 
                     # 신규 파트너 등록 — 전용 페이지로 분리 (2026-05-27)
                     #   admin st.tabs 안에서 파일 업로드 시 탭/스크롤 리셋 문제 회피
-                    if st.button("➕ 신규 파트너 등록 (AI 서류 자동채움 지원)",
-                                 type="primary", key="goto_partner_register",
-                                 use_container_width=True):
-                        go_to("partner_register"); st.rerun()
+                    _pr_c1, _pr_c2 = st.columns(2)
+                    with _pr_c1:
+                        if st.button("➕ 신규 파트너 등록 (AI 서류 자동채움 지원)",
+                                     type="primary", key="goto_partner_register",
+                                     use_container_width=True):
+                            go_to("partner_register"); st.rerun()
+                    with _pr_c2:
+                        # 🆕 Phase 4 (v17): 교육기관 등록 신청 승인 큐
+                        try:
+                            _pending_inst = supabase.table("institution_requests").select(
+                                "id", count="exact").eq("status", "pending").execute()
+                            _pending_cnt = _pending_inst.count if hasattr(_pending_inst, "count") else len(_pending_inst.data or [])
+                        except Exception:
+                            _pending_cnt = 0
+                        _ia_label = "🛂 교육기관 등록 신청 관리"
+                        if _pending_cnt > 0:
+                            _ia_label += f" ({_pending_cnt}건 대기)"
+                        if st.button(_ia_label, type="secondary",
+                                     key="goto_institution_approval",
+                                     use_container_width=True,
+                                     help="캠페인 교육기관 가입 시 신청한 신규 등록/수정/삭제 처리"):
+                            go_to("institution_approval"); st.rerun()
 
                     # 파트너관리자 목록
                     all_agencies = get_all_agencies()
