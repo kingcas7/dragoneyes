@@ -3428,37 +3428,66 @@ if not _is_campaign_ctx:
     #   components.html iframe sandbox 우회 — Tab 이동·토글 변경 음성 안내 보장
     accessibility.main_install_once()
 else:
-    # 캠페인 — 음성/받아쓰기 강제 OFF + 활성 TTS 즉시 중단
+    # 캠페인 — 음성/받아쓰기 강제 OFF + 모든 window/iframe TTS 완전 차단
     st.session_state["voice_guide_enabled"] = False
     st.session_state["dictation_enabled"] = False
     st.markdown(
-        "<script>"
-        "(function(){"
-        "  const _noop = function(){ return false; };"
-        "  const _patch = function(w){"
-        "    try {"
-        "      if (w && w.speechSynthesis) {"
-        "        try { w.speechSynthesis.cancel(); } catch(e){}"
-        "        try { w.speechSynthesis.speak = _noop; } catch(e){}"
-        "      }"
-        "      try { w._dragoneyesSpeak = _noop; } catch(e){}"
-        "      try { w.__a11ySpeak = _noop; } catch(e){}"
-        "      try { w.__a11yEnabled = false; } catch(e){}"
-        "      try { w.__a11yForceMute = true; } catch(e){}"
-        "    } catch(e){}"
-        "  };"
-        "  _patch(window);"
-        "  try { _patch(window.parent); } catch(e){}"
-        "  try { _patch(window.top); } catch(e){}"
-        "  let _kc = 0;"
-        "  const _ki = setInterval(function(){"
-        "    try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch(e){}"
-        "    try { if (window.parent && window.parent.speechSynthesis) window.parent.speechSynthesis.cancel(); } catch(e){}"
-        "    try { if (window.top && window.top.speechSynthesis) window.top.speechSynthesis.cancel(); } catch(e){}"
-        "    _kc++; if (_kc > 30) clearInterval(_ki);"
-        "  }, 100);"
-        "})();"
-        "</script>",
+        """
+        <script>
+        (function(){
+            const _noop = function(){ return false; };
+            const _patch = function(w){
+                try {
+                    if (w && w.speechSynthesis) {
+                        try { w.speechSynthesis.cancel(); } catch(e){}
+                        try { w.speechSynthesis.speak = _noop; } catch(e){}
+                        try { w.speechSynthesis.pause = _noop; } catch(e){}
+                        try { w.speechSynthesis.resume = _noop; } catch(e){}
+                    }
+                    if (w) {
+                        try { w._dragoneyesSpeak = _noop; } catch(e){}
+                        try { w.__a11ySpeak = _noop; } catch(e){}
+                        try { w.__a11yEnabled = false; } catch(e){}
+                        try { w.__a11yForceMute = true; } catch(e){}
+                        try { w.__dragonDictationEnabled = false; } catch(e){}
+                    }
+                } catch(e){}
+            };
+            // ⭐ window/parent/top 모두 patch
+            _patch(window);
+            try { _patch(window.parent); } catch(e){}
+            try { _patch(window.top); } catch(e){}
+            // ⭐ top.document의 모든 iframe도 patch (components.html iframe)
+            const _patchAllIframes = function(){
+                try {
+                    const root = (window.top || window).document;
+                    const iframes = root.querySelectorAll('iframe');
+                    iframes.forEach(function(iframe){
+                        try { _patch(iframe.contentWindow); } catch(e){}
+                    });
+                } catch(e){}
+            };
+            _patchAllIframes();
+            // ⭐ MutationObserver — 새로 생성되는 iframe도 즉시 patch
+            try {
+                const root = (window.top || window).document;
+                const obs = new MutationObserver(function(){ _patchAllIframes(); });
+                obs.observe(root.body, { childList: true, subtree: true });
+                setTimeout(function(){ try { obs.disconnect(); } catch(e){} }, 10000);
+            } catch(e){}
+            // ⭐ 1초간 cancel 반복 (큐 잔여 발화 제거)
+            let _kc = 0;
+            const _ki = setInterval(function(){
+                try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch(e){}
+                try { window.parent.speechSynthesis && window.parent.speechSynthesis.cancel(); } catch(e){}
+                try { window.top.speechSynthesis && window.top.speechSynthesis.cancel(); } catch(e){}
+                _patchAllIframes();
+                _kc++;
+                if (_kc > 20) clearInterval(_ki);
+            }, 50);
+        })();
+        </script>
+        """,
         unsafe_allow_html=True,
     )
 
@@ -15624,11 +15653,17 @@ else:
             if _last_agg:
                 st.caption(f"📅 마지막 일배치 갱신: {_last_agg}")
 
-        # 홈으로 돌아가기
+        # 홈으로 돌아가기 — 캠페인에서 왔으면 캠페인으로, 아니면 모니터링 홈으로
         st.divider()
-        if st.button("🏠 홈으로 돌아가기", key="mon_stat_back_home"):
-            st.session_state.current_page = "home_landing"
-            st.rerun()
+        _back_to_campaign = st.session_state.pop("_stats_from_campaign", False)
+        if _back_to_campaign:
+            if st.button("← 캠페인 홈으로 돌아가기", key="mon_stat_back_campaign", type="primary"):
+                st.session_state.current_page = "campaign_landing"
+                st.rerun()
+        else:
+            if st.button("🏠 홈으로 돌아가기", key="mon_stat_back_home"):
+                st.session_state.current_page = "home_landing"
+                st.rerun()
 
     elif page == "campaign_landing":
         # ══════════════════════════════════════════════════════════════
@@ -15762,6 +15797,8 @@ else:
             "정부/공인기관 제공 자료로 학생을 포함한 모든 사용자가 조회할 수 있습니다."
         )
         if st.button("📊 모니터링 통계 보기", use_container_width=True, key="cmp_landing_stats"):
+            # ⭐ 통계 페이지에서 돌아올 때 캠페인으로 복귀하도록 플래그 설정
+            st.session_state["_stats_from_campaign"] = True
             st.session_state["current_page"] = "monitoring_stats"
             st.rerun()
 
