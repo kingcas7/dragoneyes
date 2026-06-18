@@ -7810,24 +7810,29 @@ if st.session_state.user is None:
         render_campaign_signup_page(_current_anon_page)
         st.stop()
 
-    # ── ♿ 접근성: 음성 안내 토글 + 페이지 진입 안내 (시각장애인 지원) ──
-    #    로그인 전이라 user_id 없음 → DB 저장은 생략, session만 유지
-    # ⭐ 캠페인 모드에서는 접근성 박스 미표시 (모니터링 전용 기능)
+    # ⭐ 캠페인 모드 진입 시 — 접근성 기능 자체를 강제 OFF (모니터링 전용)
+    #    음성 안내/받아쓰기는 모니터링 시스템 전용 기능이므로 캠페인에서는 완전 차단.
     _login_mode_pre = st.session_state.get("login_mode", "monitoring")
-    if _login_mode_pre != "campaign":
+    if _login_mode_pre == "campaign":
+        # 강제로 OFF (혹시 켜져있어도 캠페인에서는 무조건 끔)
+        st.session_state["voice_guide_enabled"] = False
+        st.session_state["dictation_enabled"] = False
+        # toolbar, landmark, 음성 진입 안내 모두 skip
+    else:
+        # ── ♿ 접근성: 음성 안내 토글 + 페이지 진입 안내 (시각장애인 지원) ──
+        #    로그인 전이라 user_id 없음 → DB 저장은 생략, session만 유지
         with st.container(border=True):
             accessibility.render_toolbar(key_prefix="a11y_login", compact=True)
-    # 스크린리더용 invisible landmark (NVDA·JAWS·VoiceOver 자동 읽음)
-    accessibility.aria_landmark("드래곤아이즈 로그인 페이지")
-    # 음성 토글 ON 시 페이지 진입 안내 (세션당 1회) — 캠페인 모드는 skip
-    if (_login_mode_pre != "campaign"
-            and st.session_state.get("voice_guide_enabled")
-            and not st.session_state.get("_login_announced")):
-        accessibility.announce(
-            "드래곤아이즈 로그인 페이지입니다. "
-            "이메일과 비밀번호를 입력한 후 로그인 버튼을 누르세요."
-        )
-        st.session_state["_login_announced"] = True
+        # 스크린리더용 invisible landmark
+        accessibility.aria_landmark("드래곤아이즈 로그인 페이지")
+        # 음성 토글 ON 시 페이지 진입 안내 (세션당 1회)
+        if (st.session_state.get("voice_guide_enabled")
+                and not st.session_state.get("_login_announced")):
+            accessibility.announce(
+                "드래곤아이즈 로그인 페이지입니다. "
+                "이메일과 비밀번호를 입력한 후 로그인 버튼을 누르세요."
+            )
+            st.session_state["_login_announced"] = True
 
     # ── 로그인 페이지 전용 CSS ──
     st.markdown("""
