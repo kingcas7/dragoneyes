@@ -8264,9 +8264,10 @@ if st.session_state.user is None:
             _feat1_icon, _feat1_title, _feat1_desc = "🏫", "교육기관 전용 대시보드", "학생 보호 교육·행동강령·저작권 등 미개척 분야 커리큘럼"
             _feat2_icon, _feat2_title, _feat2_desc = "📋", "학생 설문 + 봉사 점수", "50문항 성실 완료 → 교육부 인정 봉사시간 (4~6시간) 발급"
             _feat3_icon, _feat3_title, _feat3_desc = "👨‍👩‍👧 ", "학부모 자료·자녀 관리", "연 1만원으로 모든 유료 자료 무제한 + 자녀 설문 모니터링"
-            _stats_title = "🎯 캠페인 정책 요약"
-            # ⭐ 들여쓰기 제거 — Streamlit markdown이 4-space indent를 코드블록으로 처리해
-            #    raw HTML이 텍스트로 표시되던 버그 회피
+            _stats_title = ""  # 캠페인 모드는 stats 박스 자체 미사용
+            # ⭐ 사용자 요청: 캠페인 정책 요약 박스 제거 (가려져 안 보이고 raw HTML 문제도 있음)
+            _stats_box_html = ""  # 빈 string → div 자체 안 그림
+            # 아래 _stat_rows_html은 호환용 (현재 미사용)
             _stat_rows_html = (
 '<div class="login-stat-row"><div class="login-stat-header"><span class="login-stat-label">🎒 학생</span><span class="login-stat-value">무료</span></div><div class="login-stat-bar"><div class="login-stat-fill" style="background:#10b981;width:100%;"></div></div></div>'
 '<div class="login-stat-row"><div class="login-stat-header"><span class="login-stat-label">👨‍👩‍👧 학부모 (연간)</span><span class="login-stat-value">10,000원</span></div><div class="login-stat-bar"><div class="login-stat-fill" style="background:#3b82f6;width:80%;"></div></div></div>'
@@ -8285,6 +8286,7 @@ if st.session_state.user is None:
             _stats_title = t("login_stats_title")
             # ⭐ 들여쓰기 제거 — Streamlit markdown 코드블록 처리 회피
             _gr  = _stats.get('grooming', 38)
+            _stats_box_html = ""  # 아래에서 _stat_rows_html 만든 후 채움
             _gb  = _stats.get('gambling', 24)
             _sx  = _stats.get('sextortion', 16)
             _ip  = _stats.get('inappropriate', 12)
@@ -8295,6 +8297,12 @@ if st.session_state.user is None:
                 f'<div class="login-stat-row"><div class="login-stat-header"><span class="login-stat-label">{t("login_cat_sextortion")}</span><span class="login-stat-value">{_sx}%</span></div><div class="login-stat-bar"><div class="login-stat-fill" style="background:#db2777;width:{_sx}%;"></div></div></div>'
                 f'<div class="login-stat-row"><div class="login-stat-header"><span class="login-stat-label">{t("login_cat_inappropriate")}</span><span class="login-stat-value">{_ip}%</span></div><div class="login-stat-bar"><div class="login-stat-fill" style="background:#7c3aed;width:{_ip}%;"></div></div></div>'
                 f'<div class="login-stat-row"><div class="login-stat-header"><span class="login-stat-label">{t("login_cat_other")}</span><span class="login-stat-value">{_ot}%</span></div><div class="login-stat-bar"><div class="login-stat-fill" style="background:#64748b;width:{_ot}%;"></div></div></div>'
+            )
+            _stats_box_html = (
+                f'<div class="login-stats-box">'
+                f'<p class="login-stats-title">{_stats_title}</p>'
+                f'{_stat_rows_html}'
+                f'</div>'
             )
         st.markdown(f"""
         <div class="login-left-card">
@@ -8335,10 +8343,7 @@ if st.session_state.user is None:
                     </div>
                 </div>
             </div>
-            <div class="login-stats-box">
-                <p class="login-stats-title">{_stats_title}</p>
-                {_stat_rows_html}
-            </div>
+            {_stats_box_html}
             <div class="login-badges">
                 <p class="login-badges-title">{t("login_badges_title")}</p>
                 <div class="login-badge-row">
@@ -8823,6 +8828,13 @@ else:
     #   사용자가 펼치지 않으면 한 줄만 차지하므로 관리 페이지 UI 산만함 최소화.
     #   음성 ON/받아쓰기 ON 상태면 자동 펼침으로 끄기 쉽게.
     _curr_page = st.session_state.get("current_page", "") or ""
+    # ⭐ 사용자 요청: 캠페인 페이지에서는 접근성 toolbar 자체 숨김
+    #    (모니터링 전용 기능 — 캠페인 사용자는 불필요)
+    _hide_a11y_toolbar = (
+        _curr_page.startswith("campaign_")
+        or bool((user or {}).get("is_campaign_only"))
+        or ((user or {}).get("role_v2") in ("student", "parent", "institution_admin"))
+    )
     _voice_on_now = bool(st.session_state.get("voice_guide_enabled"))
     _dict_on_now  = bool(st.session_state.get("dictation_enabled"))
     # ⭐ expander 자동 펼침 조건:
@@ -8838,20 +8850,22 @@ else:
     elif _dict_on_now:
         _expander_label += "  🎤 받아쓰기 ON"
 
-    with st.expander(_expander_label, expanded=_expander_open):
-        accessibility.render_toolbar(
-            supabase=supabase,
-            user_id=user.get("id") if user else None,
-            key_prefix="a11y_main",
-            compact=True,
-        )
-        # ⌨️ 키보드 접근 가능한 마이크 시작/중지 버튼 (Tab+Enter)
-        accessibility.render_keyboard_mic()
-        # 진단 보조 — 현재 페이지 표시 (시각장애인이 위치 확인 가능)
-        st.caption(f"📍 현재 페이지: `{_curr_page or '(미정)'}`")
+    # ⭐ 캠페인 페이지/사용자는 toolbar 숨김 (모니터링 전용 기능)
+    if not _hide_a11y_toolbar:
+        with st.expander(_expander_label, expanded=_expander_open):
+            accessibility.render_toolbar(
+                supabase=supabase,
+                user_id=user.get("id") if user else None,
+                key_prefix="a11y_main",
+                compact=True,
+            )
+            # ⌨️ 키보드 접근 가능한 마이크 시작/중지 버튼 (Tab+Enter)
+            accessibility.render_keyboard_mic()
+            # 진단 보조 — 현재 페이지 표시 (시각장애인이 위치 확인 가능)
+            st.caption(f"📍 현재 페이지: `{_curr_page or '(미정)'}`")
 
-    # 🎤 음성 명령 floating 마이크 버튼 (음성 ON일 때 모든 페이지 우하단 — 시각용)
-    accessibility.render_floating_mic()
+        # 🎤 음성 명령 floating 마이크 버튼 (음성 ON일 때 모든 페이지 우하단 — 시각용)
+        accessibility.render_floating_mic()
 
     # ── 최종사용자 동의 체크 (미동의 시 강제 표시) ──
     if not check_user_terms(user) and st.session_state.get("current_page") not in ("terms_agree",):
