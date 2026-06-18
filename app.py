@@ -9049,7 +9049,8 @@ else:
     #    monitoring_stats가 캠페인에서 진입한 경우도 캠페인 컨텍스트로 취급
     _hide_a11y_toolbar = (
         _curr_page.startswith("campaign_")
-        or _curr_page in ("institution_dashboard", "institution_approval", "campaign_status")
+        or _curr_page in ("institution_dashboard", "institution_approval",
+                          "campaign_status", "parent_dashboard")
         or (_curr_page == "monitoring_stats" and bool(st.session_state.get("_stats_from_campaign")))
         or bool((user or {}).get("is_campaign_only"))
         or ((user or {}).get("role_v2") in ("student", "parent", "institution_admin"))
@@ -9255,7 +9256,8 @@ else:
         _cp_now = st.session_state.get("current_page") or ""
         _cp_cmp_pages = (
             _cp_now.startswith("campaign_")
-            or _cp_now in ("institution_dashboard", "institution_approval", "campaign_status")
+            or _cp_now in ("institution_dashboard", "institution_approval",
+                           "campaign_status", "parent_dashboard")
             or (_cp_now == "monitoring_stats" and bool(st.session_state.get("_stats_from_campaign")))
         )
         if _cp_cmp_pages and st.query_params.get("page") != _cp_now:
@@ -9389,7 +9391,8 @@ else:
     _stats_from_cmp = bool(st.session_state.get("_stats_from_campaign"))
     _is_campaign_hdr = (
         _curr_page_hdr.startswith("campaign_")
-        or _curr_page_hdr in ("institution_dashboard", "institution_approval", "campaign_status")
+        or _curr_page_hdr in ("institution_dashboard", "institution_approval",
+                              "campaign_status", "parent_dashboard")
         or (_curr_page_hdr == "monitoring_stats" and _stats_from_cmp)
         or bool((user or {}).get("is_campaign_only"))
         or ((user or {}).get("role_v2") in ("student", "parent", "institution_admin"))
@@ -16030,8 +16033,11 @@ else:
                          use_container_width=True,
                          type="primary",
                          key="cmp_cat_fam"):
-                if _is_parent or _is_student:
-                    # 이미 가입된 학생/학부모 → 자료 페이지
+                if _is_parent:
+                    # 학부모 → 자녀 관리 대시보드 (자녀 등록 / 매칭 / 다자녀)
+                    st.session_state["current_page"] = "parent_dashboard"
+                elif _is_student:
+                    # 학생 → 자료 페이지
                     st.session_state["current_page"] = "campaign_materials"
                 elif _role_v2 in ("user", "", None):
                     # 미가입 → 가입 선택 페이지 (학생/학부모 카드)
@@ -16305,6 +16311,319 @@ else:
                 if st.button("← 목록으로 돌아가기", key="cm_close_viewer"):
                     st.session_state.pop("_cm_viewing_id", None)
                     st.rerun()
+
+    # ══════════════════════════════════════════════════════════════
+    # 👨‍👩‍👧 Phase 6 (v17): 학부모 대시보드 — 자녀 등록 · 매칭 · 다자녀 관리
+    # ══════════════════════════════════════════════════════════════
+    elif page == "parent_dashboard":
+        _u_p = user or {}
+        _role_v2_p = (_u_p.get("role_v2") or "").lower()
+
+        # 권한 가드
+        if _role_v2_p != "parent":
+            st.error("🚫 학부모 전용 페이지입니다.")
+            if st.button("🏠 캠페인 홈으로", key="pdash_back_unauth"):
+                st.session_state["current_page"] = "campaign_landing"
+                st.rerun()
+            st.stop()
+
+        # 헤더
+        _ph1, _ph2 = st.columns([6, 1])
+        with _ph1:
+            st.markdown("## 👨‍👩‍👧 학부모 대시보드")
+            st.caption("자녀 등록 · 매칭 확인 · 다자녀 관리 · 결제 상태")
+        with _ph2:
+            if st.button("← 캠페인 홈", key="pdash_back_top", use_container_width=True):
+                st.session_state["current_page"] = "campaign_landing"
+                st.rerun()
+
+        # 자녀 목록 조회 (parent_student_links + users JOIN)
+        try:
+            _links = supabase.table("parent_student_links").select(
+                "id, relationship, is_primary, consent_at, verification_status, "
+                "verified_at, student_id"
+            ).eq("parent_id", _u_p.get("id")).order(
+                "is_primary", desc=True).order("created_at").execute().data or []
+        except Exception:
+            _links = []
+
+        # 자녀 user 데이터 일괄 조회
+        _stu_ids = [l["student_id"] for l in _links if l.get("student_id")]
+        _stu_map = {}
+        if _stu_ids:
+            try:
+                _stus = supabase.table("users").select(
+                    "id, name, email, grade, birth_date, school_name, institution_id, "
+                    "parent_consent_at, signup_source, created_at"
+                ).in_("id", _stu_ids).is_("deleted_at", "null").execute().data or []
+                _stu_map = {s["id"]: s for s in _stus}
+            except Exception:
+                _stu_map = {}
+
+        # 결제 상태 (당해 연도)
+        _y_cur = date.today().year
+        _has_subscription = False
+        try:
+            _has_subscription = bool(supabase.rpc(
+                "has_active_parent_subscription",
+                {"p_user_id": _u_p.get("id"), "p_year": _y_cur}
+            ).execute().data)
+        except Exception:
+            _has_subscription = False
+
+        # KPI
+        _verified_links = [l for l in _links if l.get("verification_status") == "verified"]
+        _pending_links = [l for l in _links if l.get("verification_status") == "pending"]
+        _kp1, _kp2, _kp3, _kp4 = st.columns(4)
+        _kp1.metric("👨‍👩‍👧‍👦 등록 자녀", f"{len(_verified_links)}명")
+        _kp2.metric("⏳ 매칭 대기", f"{len(_pending_links)}명")
+        _kp3.metric("💳 구독 상태", "✅ 구독 중" if _has_subscription else "❌ 미가입")
+        _kp4.metric("💰 연 구독료", "10,000원")
+
+        st.divider()
+
+        # 탭: 자녀 목록 / 자녀 등록 / 결제·구독
+        pt1, pt2, pt3 = st.tabs(["👨‍👩‍👧‍👦 자녀 목록", "➕ 자녀 등록", "💳 결제·구독"])
+
+        # ── 탭 1: 자녀 목록 ──
+        with pt1:
+            if not _links:
+                st.info("아직 등록된 자녀가 없습니다. **'➕ 자녀 등록'** 탭에서 추가해주세요.")
+            else:
+                for _l in _links:
+                    _stu = _stu_map.get(_l.get("student_id")) or {}
+                    _status_label = {
+                        "verified": "✅ 인증 완료",
+                        "pending":  "⏳ 인증 대기",
+                        "rejected": "❌ 거절됨",
+                        "cancelled":"🚫 취소",
+                    }.get(_l.get("verification_status"), _l.get("verification_status"))
+                    _rel = {"mother":"모", "father":"부", "guardian":"후견인",
+                            "grandparent":"조부모", "other":"기타"}.get(_l.get("relationship"), "-")
+                    _primary_badge = " · 🌟 주 보호자" if _l.get("is_primary") else ""
+                    with st.expander(
+                        f"{_status_label} · 🎒 **{_stu.get('name','(이름 없음)')}** "
+                        f"({_stu.get('grade','-')}학년 / {_stu.get('school_name','-')}) "
+                        f"· 관계: {_rel}{_primary_badge}",
+                        expanded=(_l.get("verification_status") == "pending"),
+                    ):
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            st.markdown(f"- **이메일**: {_stu.get('email','-')}")
+                            st.markdown(f"- **생년월일**: {str(_stu.get('birth_date',''))[:10] or '-'}")
+                            st.markdown(f"- **가입 경로**: {_stu.get('signup_source','-')}")
+                        with c2:
+                            st.markdown(f"- **매칭 상태**: {_status_label}")
+                            st.markdown(f"- **인증일**: {str(_l.get('verified_at',''))[:10] or '-'}")
+                            st.markdown(f"- **자녀 동의**: {'✅' if _stu.get('parent_consent_at') else '⏳'}")
+                        if _l.get("verification_status") == "pending":
+                            st.warning(
+                                "⚠️ 자녀가 사이트에서 매칭을 확인해야 인증 완료됩니다. "
+                                "(자녀에게 알림 발송 — 추후 활성화)"
+                            )
+                        st.markdown("")
+                        _ac1, _ac2 = st.columns([1, 1])
+                        with _ac1:
+                            if not _l.get("is_primary"):
+                                if st.button("🌟 주 보호자로 설정", key=f"pdash_primary_{_l['id']}",
+                                             use_container_width=True):
+                                    try:
+                                        # 다른 자녀들 is_primary=False로 reset
+                                        supabase.table("parent_student_links").update({
+                                            "is_primary": False
+                                        }).eq("parent_id", _u_p.get("id")).execute()
+                                        supabase.table("parent_student_links").update({
+                                            "is_primary": True
+                                        }).eq("id", _l["id"]).execute()
+                                        st.success("주 보호자 설정 완료")
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"실패: {e}")
+                        with _ac2:
+                            if st.button("🗑️ 매칭 해제", key=f"pdash_unlink_{_l['id']}",
+                                         use_container_width=True):
+                                try:
+                                    supabase.table("parent_student_links").update({
+                                        "verification_status": "cancelled"
+                                    }).eq("id", _l["id"]).execute()
+                                    st.success("매칭 해제됨")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"실패: {e}")
+
+        # ── 탭 2: 자녀 등록 ──
+        with pt2:
+            st.markdown("##### 자녀 등록 방식 선택")
+            _signup_mode = st.radio(
+                "방식",
+                ["📋 기존 학생 매칭 (자녀가 이미 가입된 경우)",
+                 "🆕 자녀 ID 신규 생성 (자녀가 가입 안 된 경우)"],
+                horizontal=False, key="pdash_signup_mode",
+            )
+
+            if _signup_mode.startswith("📋"):
+                # ── 기존 학생 매칭 ──
+                st.caption("자녀의 이메일을 입력하면 매칭 신청을 보냅니다. 자녀가 사이트에서 확인 후 인증 완료됩니다.")
+                with st.form("pdash_match_form"):
+                    _m_email = st.text_input("자녀 이메일 *", placeholder="student@example.com")
+                    _m_rel = st.selectbox(
+                        "관계 *",
+                        ["mother", "father", "guardian", "grandparent", "other"],
+                        format_func=lambda x: {"mother":"모", "father":"부", "guardian":"후견인",
+                                               "grandparent":"조부모", "other":"기타"}.get(x, x),
+                    )
+                    _m_primary = st.checkbox("🌟 주 보호자로 설정 (결제·동의 우선권)")
+                    _m_submit = st.form_submit_button("📋 매칭 신청", type="primary",
+                                                     use_container_width=True)
+
+                if _m_submit:
+                    if not _m_email:
+                        st.error("자녀 이메일을 입력해주세요.")
+                    else:
+                        try:
+                            _stu_q = supabase.table("users").select("id, name, role_v2").eq(
+                                "email", _m_email).is_("deleted_at", "null").execute().data or []
+                            if not _stu_q:
+                                st.error("해당 이메일로 가입된 학생을 찾을 수 없습니다. '자녀 ID 신규 생성'을 사용하세요.")
+                            elif _stu_q[0].get("role_v2") != "student":
+                                st.error("해당 사용자는 학생 계정이 아닙니다.")
+                            else:
+                                _stu_id = _stu_q[0]["id"]
+                                # 중복 체크
+                                _dup = supabase.table("parent_student_links").select("id").eq(
+                                    "parent_id", _u_p.get("id")).eq("student_id", _stu_id).execute().data or []
+                                if _dup:
+                                    st.warning(f"이미 매칭된 자녀입니다 ({_stu_q[0].get('name','')}).")
+                                else:
+                                    if _m_primary:
+                                        supabase.table("parent_student_links").update({
+                                            "is_primary": False
+                                        }).eq("parent_id", _u_p.get("id")).execute()
+                                    supabase.table("parent_student_links").insert({
+                                        "parent_id": _u_p.get("id"),
+                                        "student_id": _stu_id,
+                                        "relationship": _m_rel,
+                                        "is_primary": _m_primary,
+                                        "verification_status": "pending",
+                                        "verification_method": "student_confirm",
+                                        "consent_method": "electronic",
+                                        "consent_at": datetime.now().isoformat(),
+                                    }).execute()
+                                    st.success(f"✅ {_stu_q[0].get('name','자녀')}에게 매칭 신청을 보냈습니다.")
+                                    st.balloons()
+                                    st.rerun()
+                        except Exception as e:
+                            st.error(f"매칭 신청 실패: {e}")
+            else:
+                # ── 자녀 ID 신규 생성 ──
+                st.caption("자녀의 정보를 입력하고 학생 계정을 생성합니다. 학부모 동의로 자동 인증됩니다.")
+                with st.form("pdash_create_form"):
+                    cc1, cc2 = st.columns(2)
+                    with cc1:
+                        _cn_name = st.text_input("자녀 이름 *")
+                        _cn_email = st.text_input("자녀 이메일 *",
+                                                  help="자녀가 사용할 이메일. 없으면 학부모 이메일에 +child 추가.")
+                        _cn_birth = st.date_input("자녀 생년월일 *", value=None,
+                                                  min_value=date(2005, 1, 1), max_value=date.today())
+                    with cc2:
+                        _cn_grade = st.number_input("학년", min_value=1, max_value=12, value=6)
+                        _cn_school = st.text_input("재학 학교")
+                        _cn_rel = st.selectbox(
+                            "관계",
+                            ["mother", "father", "guardian", "grandparent", "other"],
+                            format_func=lambda x: {"mother":"모", "father":"부", "guardian":"후견인",
+                                                   "grandparent":"조부모", "other":"기타"}.get(x, x),
+                        )
+                    _cn_pw1 = st.text_input("자녀 초기 비밀번호 * (6자 이상)", type="password")
+                    _cn_pw2 = st.text_input("비밀번호 확인 *", type="password")
+                    _cn_primary = st.checkbox("🌟 주 보호자로 설정", value=True)
+                    _cn_consent = st.checkbox(
+                        "✅ 본인은 자녀의 보호자임을 확인하며, 캠페인 자료 열람·설문 참여에 동의합니다.",
+                        value=False,
+                    )
+                    _cn_submit = st.form_submit_button("🆕 자녀 계정 생성", type="primary",
+                                                       use_container_width=True)
+
+                if _cn_submit:
+                    if not (_cn_name and _cn_email and _cn_pw1 and _cn_birth and _cn_consent):
+                        st.error("필수 항목과 보호자 동의를 모두 확인해주세요.")
+                    elif _cn_pw1 != _cn_pw2:
+                        st.error("비밀번호가 일치하지 않습니다.")
+                    elif len(_cn_pw1) < 6:
+                        st.error("비밀번호는 6자 이상이어야 합니다.")
+                    else:
+                        with st.spinner("자녀 계정 생성 중..."):
+                            _uid_child, _err_child = _campaign_create_auth_user(_cn_email, _cn_pw1, _cn_name)
+                            if _err_child:
+                                st.error(f"❌ {_err_child}")
+                            else:
+                                try:
+                                    # users INSERT (학생)
+                                    supabase.table("users").insert({
+                                        "id": _uid_child,
+                                        "email": _cn_email,
+                                        "name": _cn_name,
+                                        "role": "user",
+                                        "role_v2": "student",
+                                        "is_campaign_only": True,
+                                        "signup_source": "parent_create",
+                                        "birth_date": _cn_birth.isoformat(),
+                                        "grade": int(_cn_grade),
+                                        "school_name": _cn_school or None,
+                                        "guardian_name": _u_p.get("name"),
+                                        "guardian_phone": _u_p.get("phone"),
+                                        "parent_consent_at": datetime.now().isoformat(),
+                                        "parent_consent_by": _u_p.get("id"),
+                                        "status": "active",
+                                    }).execute()
+                                    # parent_student_links INSERT (verified — 학부모가 직접 생성했으니 자동 인증)
+                                    if _cn_primary:
+                                        supabase.table("parent_student_links").update({
+                                            "is_primary": False
+                                        }).eq("parent_id", _u_p.get("id")).execute()
+                                    supabase.table("parent_student_links").insert({
+                                        "parent_id": _u_p.get("id"),
+                                        "student_id": _uid_child,
+                                        "relationship": _cn_rel,
+                                        "is_primary": _cn_primary,
+                                        "consent_method": "self_create",
+                                        "consent_at": datetime.now().isoformat(),
+                                        "verification_status": "verified",
+                                        "verification_method": "parent_self_create",
+                                        "verified_at": datetime.now().isoformat(),
+                                    }).execute()
+                                    st.success(f"🎉 자녀 계정 ({_cn_name})이 생성되어 매칭 완료되었습니다.")
+                                    st.balloons()
+                                    st.info(f"📧 자녀 이메일: **{_cn_email}** / 비밀번호로 캠페인 로그인 가능.")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"❌ 저장 실패: {e}")
+
+        # ── 탭 3: 결제·구독 ──
+        with pt3:
+            st.markdown(f"##### 💳 {_y_cur}년 구독 상태")
+            if _has_subscription:
+                st.success(
+                    f"✅ **{_y_cur}년 구독 중** — 등록된 모든 자녀가 유료 자료를 무제한 열람할 수 있습니다."
+                )
+            else:
+                st.warning(
+                    f"❌ **{_y_cur}년 구독 미가입**\n\n"
+                    f"- 학생은 무료 자료를 자유롭게 이용할 수 있습니다.\n"
+                    f"- 학생은 무료로 설문 참여 및 봉사 점수를 받을 수 있습니다.\n"
+                    f"- **연 10,000원 결제 시** 모든 유료 자료 + 자녀 추가 권한이 활성화됩니다."
+                )
+                if st.button("💳 연 10,000원 결제하기", type="primary", use_container_width=True,
+                             key="pdash_pay_now"):
+                    st.info("🚧 결제 게이트웨이 연동은 Phase 9에서 활성화됩니다. (토스/카카오/이니시스 PG)")
+
+            st.divider()
+            st.caption(
+                "📌 **정책 안내**\n"
+                "- 학생: 무료 (모든 무료 자료 + 설문 + 봉사 점수)\n"
+                "- 학부모: 연 1만원 (모든 유료 자료 무제한 + 등록된 모든 자녀 동시 권한)\n"
+                "- 다자녀: 학부모 1회 결제로 모든 자녀 권한 부여"
+            )
 
     elif page == "institution_dashboard":
         _u = user or {}
