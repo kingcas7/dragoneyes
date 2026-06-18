@@ -9428,18 +9428,28 @@ else:
                     st.rerun()
             with _hb_logout:
                 if st.button("🚪 로그아웃", key="cmp_hdr_logout", use_container_width=True):
-                    # ⭐ 완전 로그아웃: supabase + session_state + query_params
+                    # ⭐ 완전 로그아웃: supabase + session_state + query_params + JS로 URL 정리 + reload
                     try: supabase.auth.sign_out()
                     except Exception: pass
                     for k in list(st.session_state.keys()):
                         del st.session_state[k]
                     try: st.query_params.clear()
                     except Exception: pass
-                    # 캠페인 모드로 로그인 페이지 복귀
-                    st.session_state["login_mode"] = "campaign"
-                    st.session_state["user"] = None
-                    st.session_state["current_page"] = None
-                    st.rerun()
+                    # ⭐ JS로 URL의 모든 query string 제거 + page reload (sid 자동 복원 차단)
+                    st.markdown(
+                        "<script>"
+                        "try {"
+                        "  const w = window.top || window;"
+                        "  w.history.replaceState({}, '', w.location.pathname);"
+                        "  setTimeout(function(){ w.location.reload(); }, 50);"
+                        "} catch(e) {"
+                        "  try { window.history.replaceState({}, '', window.location.pathname); } catch(e2){}"
+                        "  try { window.location.reload(); } catch(e2){}"
+                        "}"
+                        "</script>",
+                        unsafe_allow_html=True,
+                    )
+                    st.stop()
         st.markdown(
             '<div style="background:linear-gradient(135deg,#047857 0%,#10b981 100%);'
             'border-left:5px solid #34d399;border-radius:8px;padding:0.7rem 1.2rem;'
@@ -16028,22 +16038,28 @@ else:
             if st.button("🚪 로그아웃",
                          use_container_width=True,
                          key="campaign_landing_logout"):
-                # ⭐ 완전 로그아웃: supabase auth + session_state + query_params 모두 정리
-                try:
-                    supabase.auth.sign_out()
-                except Exception:
-                    pass
+                # ⭐ 완전 로그아웃: supabase + session_state + query_params + JS reload
+                try: supabase.auth.sign_out()
+                except Exception: pass
                 for k in list(st.session_state.keys()):
                     del st.session_state[k]
-                try:
-                    st.query_params.clear()
-                except Exception:
-                    pass
-                # 캠페인 모드 유지 (로그인 페이지에서 캠페인 모드로 시작)
-                st.session_state["login_mode"] = "campaign"
-                st.session_state["user"] = None
-                st.session_state["current_page"] = None
-                st.rerun()
+                try: st.query_params.clear()
+                except Exception: pass
+                # ⭐ URL에서 sid 강제 제거 + 페이지 reload (자동 로그인 차단)
+                st.markdown(
+                    "<script>"
+                    "try {"
+                    "  const w = window.top || window;"
+                    "  w.history.replaceState({}, '', w.location.pathname);"
+                    "  setTimeout(function(){ w.location.reload(); }, 50);"
+                    "} catch(e) {"
+                    "  try { window.history.replaceState({}, '', window.location.pathname); } catch(e2){}"
+                    "  try { window.location.reload(); } catch(e2){}"
+                    "}"
+                    "</script>",
+                    unsafe_allow_html=True,
+                )
+                st.stop()
 
     # ══════════════════════════════════════════════════════════════
     # 🏫 Phase 4 (v17): 교육기관 대시보드 — 소속 학생 명단 / 일괄 등록 / 통계
