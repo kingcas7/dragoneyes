@@ -3475,13 +3475,25 @@ else:
                 obs.observe(root.body, { childList: true, subtree: true });
                 setTimeout(function(){ try { obs.disconnect(); } catch(e){} }, 10000);
             } catch(e){}
-            // ⭐ 1초간 cancel 반복 (큐 잔여 발화 제거)
+            // ⭐ 캠페인 컨텍스트 — 빨강/보라 마이크 floating button 제거
+            const _removeMics = function(){
+                try {
+                    const root = (window.top || window).document;
+                    ['dragon-mic-btn', 'a11y-mic-floating', 'a11y-mic-toggle'].forEach(function(id){
+                        const el = root.getElementById(id);
+                        if (el) el.remove();
+                    });
+                } catch(e){}
+            };
+            _removeMics();
+            // ⭐ 1초간 cancel 반복 + iframe re-patch + mic 재제거 (Streamlit 재inject 차단)
             let _kc = 0;
             const _ki = setInterval(function(){
                 try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch(e){}
                 try { window.parent.speechSynthesis && window.parent.speechSynthesis.cancel(); } catch(e){}
                 try { window.top.speechSynthesis && window.top.speechSynthesis.cancel(); } catch(e){}
                 _patchAllIframes();
+                _removeMics();
                 _kc++;
                 if (_kc > 20) clearInterval(_ki);
             }, 50);
@@ -15813,25 +15825,24 @@ else:
             unsafe_allow_html=True,
         )
 
-        # 가운데 정렬 — 양옆 빈 컬럼 + 큰 카드 2개
-        _pad_l, _cat1, _cat_gap, _cat2, _pad_r = st.columns([1, 5, 0.3, 5, 1])
+        # 가운데 정렬 — 더 큰 양옆 여백 + 작아진 카드 2개 (50% 축소)
+        _pad_l, _cat1, _cat_gap, _cat2, _pad_r = st.columns([3, 4, 0.3, 4, 3])
 
-        # 카테고리 카드 공통 CSS — 큰 박스, hover 효과
+        # 카테고리 카드 공통 CSS — 컴팩트 박스
         st.markdown("""
         <style>
         .campaign-cat-card {
             background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
             border: 2px solid #c7d2fe;
-            border-radius: 20px;
-            padding: 32px 24px;
+            border-radius: 14px;
+            padding: 16px 14px;
             text-align: center;
-            min-height: 240px;
+            min-height: 130px;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            gap: 8px;
-            transition: all 0.2s;
+            gap: 4px;
         }
         .campaign-cat-card.inst {
             background: linear-gradient(135deg, #ecfeff 0%, #cffafe 100%);
@@ -15841,19 +15852,9 @@ else:
             background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
             border-color: #fbbf24;
         }
-        .campaign-cat-emoji { font-size: 4rem; line-height: 1; }
-        .campaign-cat-title { font-size: 1.7rem; font-weight: 800; color: #0f172a; margin: 4px 0; }
-        .campaign-cat-desc  { font-size: 0.95rem; color: #475569; line-height: 1.5; }
-        .campaign-cat-card .stButton > button {
-            margin-top: 12px;
-            background: linear-gradient(135deg, #0ea5e9, #0284c7) !important;
-            color: white !important;
-            border: none !important;
-            border-radius: 10px !important;
-            padding: 10px 24px !important;
-            font-weight: 700 !important;
-            font-size: 1rem !important;
-        }
+        .campaign-cat-emoji { font-size: 2.2rem; line-height: 1; }
+        .campaign-cat-title { font-size: 1.15rem; font-weight: 800; color: #0f172a; margin: 2px 0; }
+        .campaign-cat-desc  { font-size: 0.78rem; color: #475569; line-height: 1.4; }
         </style>
         """, unsafe_allow_html=True)
 
@@ -15929,8 +15930,21 @@ else:
             if st.button("🚪 로그아웃",
                          use_container_width=True,
                          key="campaign_landing_logout"):
+                # ⭐ 완전 로그아웃: supabase auth + session_state + query_params 모두 정리
+                try:
+                    supabase.auth.sign_out()
+                except Exception:
+                    pass
                 for k in list(st.session_state.keys()):
                     del st.session_state[k]
+                try:
+                    st.query_params.clear()
+                except Exception:
+                    pass
+                # 캠페인 모드 유지 (로그인 페이지에서 캠페인 모드로 시작)
+                st.session_state["login_mode"] = "campaign"
+                st.session_state["user"] = None
+                st.session_state["current_page"] = None
                 st.rerun()
 
     # ══════════════════════════════════════════════════════════════
