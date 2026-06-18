@@ -9418,13 +9418,24 @@ else:
 
             with _hb_back:
                 if st.button("← 뒤로", key="cmp_hdr_back", use_container_width=True,
-                             help="이전 페이지로 돌아가기"):
-                    _prev = st.session_state.get("prev_page") or "campaign_landing"
+                             help="이전 캠페인 페이지로 돌아가기"):
+                    # 캠페인 컨텍스트 내에서만 이동 — 모니터링 페이지로 빠지지 않게
+                    _prev = st.session_state.get("prev_page") or ""
+                    _campaign_pages = (
+                        "campaign_landing", "campaign_materials", "campaign_status",
+                        "campaign_signup_select", "campaign_signup_institution",
+                        "campaign_signup_parent", "campaign_signup_student",
+                        "institution_dashboard", "institution_approval",
+                    )
+                    # 통계 페이지에서 뒤로 = 캠페인 홈 (statsFromCampaign 플래그 정리)
                     if _curr_page_hdr == "monitoring_stats" and _stats_from_cmp:
                         st.session_state.pop("_stats_from_campaign", None)
                         st.session_state["current_page"] = "campaign_landing"
-                    else:
+                    # prev_page가 캠페인 페이지면 그쪽으로, 아니면 캠페인 홈
+                    elif _prev in _campaign_pages:
                         st.session_state["current_page"] = _prev
+                    else:
+                        st.session_state["current_page"] = "campaign_landing"
                     st.rerun()
             with _hb_home:
                 if st.button("🏠 홈", key="cmp_hdr_home", use_container_width=True,
