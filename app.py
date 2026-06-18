@@ -9055,7 +9055,7 @@ else:
         or ((user or {}).get("role_v2") in ("student", "parent", "institution_admin"))
     )
 
-    # ⭐ 캠페인 페이지/사용자 — 음성 발화 자체 무력화 (speechSynthesis.speak 패치)
+    # ⭐ 캠페인 페이지/사용자 — 음성 발화 자체 무력화 (가장 깊은 patch)
     #    rerun 후 JS context가 reset되므로 매 render마다 재적용 필요.
     if _hide_a11y_toolbar:
         st.session_state["voice_guide_enabled"] = False
@@ -9064,27 +9064,37 @@ else:
             "<script>"
             "(function(){"
             "  const _noop = function(){ return false; };"
+            "  const _fakeUtt = function(){"
+            "    this.text=''; this.lang=''; this.rate=0; this.pitch=0; this.volume=0;"
+            "    this.voice=null; this.onstart=null; this.onend=null; this.onerror=null;"
+            "  };"
             "  const _patchWin = function(w){"
             "    try {"
             "      if (w && w.speechSynthesis) {"
             "        try { w.speechSynthesis.cancel(); } catch(e){}"
             "        try { w.speechSynthesis.speak = _noop; } catch(e){}"
+            "        try { w.speechSynthesis.pause = _noop; } catch(e){}"
+            "        try { w.speechSynthesis.resume = _noop; } catch(e){}"
             "      }"
+            "      try { w.SpeechSynthesisUtterance = _fakeUtt; } catch(e){}"
             "      try { w._dragoneyesSpeak = _noop; } catch(e){}"
             "      try { w.__a11ySpeak = _noop; } catch(e){}"
             "      try { w.__a11yEnabled = false; } catch(e){}"
             "      try { w.__a11yForceMute = true; } catch(e){}"
+            "      try { w.__dragonDictationEnabled = false; } catch(e){}"
             "    } catch(e){}"
             "  };"
             "  _patchWin(window);"
             "  try { _patchWin(window.parent); } catch(e){}"
             "  try { _patchWin(window.top); } catch(e){}"
-            "  let _kc = 0;"
-            "  const _ki = setInterval(function(){"
-            "    try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch(e){}"
-            "    try { if (window.parent && window.parent.speechSynthesis) window.parent.speechSynthesis.cancel(); } catch(e){}"
-            "    try { if (window.top && window.top.speechSynthesis) window.top.speechSynthesis.cancel(); } catch(e){}"
-            "    _kc++; if (_kc > 20) clearInterval(_ki);"
+            "  // 영구 patch — 100ms마다 재적용 (다른 코드가 다시 inject해도 즉시 차단)"
+            "  setInterval(function(){"
+            "    _patchWin(window);"
+            "    try { _patchWin(window.parent); } catch(e){}"
+            "    try { _patchWin(window.top); } catch(e){}"
+            "    try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch(e){}"
+            "    try { window.parent.speechSynthesis && window.parent.speechSynthesis.cancel(); } catch(e){}"
+            "    try { window.top.speechSynthesis && window.top.speechSynthesis.cancel(); } catch(e){}"
             "  }, 100);"
             "})();"
             "</script>",
