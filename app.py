@@ -2459,46 +2459,97 @@ def _a11y_render_floating_mic():
                 return t;
             };
 
+            // ⭐ 페이지별 워크플로우 가이드 — 메뉴 나열 X, 다음 음성 명령 안내 O
+            //   사용자 요청: '어차피 Tab으로 하면 되니까 페이지 소개만으로 족하고,
+            //   다음 단계 음성 명령을 이어지게 안내해줘.'
+            const _pageWorkflow = [
+                {
+                    match: ['드래곤아이즈 모니터링', '드래곤아이즈 홈'],
+                    speak: '드래곤아이즈 홈입니다. 온라인 유해 콘텐츠를 모니터링하는 페이지입니다. ' +
+                           '모니터링을 시작하시려면 음성 명령 마이크에서 엔터 키를 누른 후 모니터링이라고 말씀하세요. ' +
+                           '드래곤파더에게 질문하시려면 F3 키로 받아쓰기를 켜고 사용하세요.',
+                    next: '다음 음성 명령: 모니터링',
+                },
+                {
+                    match: ['모니터링 페이지', '드래곤아이즈 자동', '추천 리스트', '텍스트 분석', '유튜브 분석'],
+                    speak: '모니터링 페이지입니다. 텍스트 분석, 유튜브 분석, 드래곤아이즈 추천, 보고서 목록, 탐색 히스토리 탭이 있습니다. ' +
+                           '분석된 영상 목록을 보시려면 엔터를 누른 후 탐색 히스토리라고 말씀하세요.',
+                    next: '다음 음성 명령: 탐색 히스토리',
+                },
+                {
+                    match: ['탐색 히스토리', '탐색이력', '히스토리'],
+                    speak: '탐색 히스토리 페이지입니다. 분석된 영상 목록이 표시됩니다. ' +
+                           '동영상을 시청하시려면 엔터를 누른 후 동영상 재생이라고 말씀하세요. ' +
+                           '항목을 지정하려면 첫 번째 동영상 재생처럼 순서를 함께 말씀하세요.',
+                    next: '다음 음성 명령: 동영상 재생',
+                },
+                {
+                    match: ['보고서 작성', '보고서 작성 페이지'],
+                    speak: '보고서 작성 페이지입니다. 심각도, 분류, 메모를 차례로 입력합니다. ' +
+                           '심각도라고 말씀하시거나 1단계부터 5단계까지 또는 안전, 낮은위험, 중간위험, 높은위험, 매우위험 중 하나를 말씀하세요.',
+                    next: '다음 음성 명령: 심각도 → 분류 → 메모 → 제출',
+                },
+                {
+                    match: ['모니터링 통계'],
+                    speak: '모니터링 통계 페이지입니다. 어제까지 누적된 분석, 위험 발견, 조치 통계를 표시합니다. ' +
+                           '날짜 범위를 변경하거나 통계 음성 듣기 버튼을 사용하세요.',
+                    next: '다음 음성 명령: 홈',
+                },
+                {
+                    match: ['보고서 목록', '보고서 페이지'],
+                    speak: '보고서 목록 페이지입니다. 제출된 보고서를 확인할 수 있습니다. ' +
+                           '항목을 선택하시려면 엔터를 누른 후 첫 번째 보고서처럼 순서를 말씀하세요.',
+                    next: '다음 음성 명령: 보고서 열기 / 홈',
+                },
+                {
+                    match: ['드래곤파더'],
+                    speak: '드래곤파더 AI 챗봇 페이지입니다. 받아쓰기를 켜고 보라색 마이크에 질문하세요. ' +
+                           '답변은 자동으로 음성 안내됩니다.',
+                    next: '다음 음성 명령: 홈',
+                },
+            ];
+
             const announcePageMenus = function(force) {
                 if (!w._dragoneyesSpeak) return;
-                // 음성 토글 OFF여도 마이크 사용자(시각장애인)에게는 안내 보장
+                // ⭐ server-side force_announce가 이미 발화 중이면 skip (중복 방지)
+                try {
+                    if (w.speechSynthesis && w.speechSynthesis.speaking) {
+                        console.log('[A11y workflow] SKIP — TTS already speaking');
+                        return;
+                    }
+                    // suppress 윈도우 안이면 skip
+                    const _sup = (w.top || w).__a11ySuppressFocusUntil || 0;
+                    if (Date.now() < _sup) {
+                        console.log('[A11y workflow] SKIP — suppress window active');
+                        return;
+                    }
+                } catch(_) {}
                 const titleEl = w.document.querySelector('h1, h2, [data-testid="stMarkdownContainer"] h1, [data-testid="stMarkdownContainer"] h2');
                 const title = titleEl ? _extractMenuText(titleEl) : '';
-                // 큰 클릭 가능 요소만 (Streamlit 카드·버튼·링크)
-                const btns = Array.from(w.document.querySelectorAll(
-                    'button, a[href], [role="button"], [data-testid="stMetric"]'
-                )).filter(b => {
-                    const t = _extractMenuText(b);
-                    if (!t || t.length > 80) return false;
-                    if (!b.offsetParent) return false;
-                    // mic·toggle 버튼 자체는 안내 안 함
-                    if (b.id === 'a11y-mic-floating' || b.id === 'a11y-mic-toggle') return false;
-                    return true;
-                });
-                if (btns.length === 0) return;
+                if (!title) return;
 
                 // 같은 페이지 반복 안내 차단
-                const pageKey = title + '|' + btns.length + '|' + (btns[0] && _extractMenuText(btns[0]));
+                const pageKey = title;
                 if (!force && pageKey === _lastAnnouncedPageKey) return;
                 _lastAnnouncedPageKey = pageKey;
 
-                // 메뉴 텍스트 수집 (중복 제거)
-                const seen = new Set();
-                const menus = [];
-                for (const b of btns) {
-                    const t = _extractMenuText(b);
-                    if (t && !seen.has(t)) { seen.add(t); menus.push(t); }
-                    if (menus.length >= 12) break;
+                // 페이지 매칭 — 제목에 키워드 포함되면 해당 워크플로우 발화
+                let _matched = null;
+                for (const wf of _pageWorkflow) {
+                    for (const k of wf.match) {
+                        if (title.indexOf(k) >= 0) { _matched = wf; break; }
+                    }
+                    if (_matched) break;
                 }
 
-                let text = '';
-                if (title) text += title + " 페이지가 열렸습니다. ";
-                text += "사용 가능한 메뉴는 " + menus.join(", ") + " 입니다. ";
-                text += "마이크 버튼을 누르고 원하는 메뉴 이름을 말씀하세요.";
-                w._dragoneyesSpeak(text.substring(0, 2500));
-                showDiag('<b>📢 페이지 메뉴 안내 중</b><br>' + menus.length + '개 메뉴<br>' +
-                    menus.slice(0,6).map((m,i) => (i+1)+'. '+m).join('<br>') +
-                    (menus.length > 6 ? '<br>... 외 ' + (menus.length-6) + '개' : ''), 8000);
+                if (_matched) {
+                    w._dragoneyesSpeak(_matched.speak.substring(0, 2500));
+                    showDiag('<b>📢 ' + title + '</b><br><span style="color:#4ade80;">▶ ' + _matched.next + '</span>', 10000);
+                } else {
+                    // 폴백 — 페이지 제목만 짧게 (메뉴 나열 X)
+                    w._dragoneyesSpeak(title + ' 페이지가 열렸습니다. Tab 키로 항목을 탐색하실 수 있습니다.');
+                    showDiag('<b>📢 ' + title + '</b><br>Tab으로 항목 탐색', 5000);
+                }
             };
 
             // 디바운싱 (큰 DOM 변화 → 1.5초 후 안내)
