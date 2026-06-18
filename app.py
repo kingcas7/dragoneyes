@@ -15721,7 +15721,7 @@ else:
 
     elif page == "campaign_landing":
         # ══════════════════════════════════════════════════════════════
-        # 🎓 Phase 3 (v17): 캠페인 홈 — 역할별 대시보드 진입점
+        # 🎓 Phase 5 (v17): 캠페인 홈 — 두 카테고리 카드 (중앙) + 3아이콘 미리보기
         # ══════════════════════════════════════════════════════════════
         _u = user or {}
         _role_v2 = (_u.get("role_v2") or "user").lower()
@@ -15729,147 +15729,342 @@ else:
         _is_parent = (_role_v2 == "parent")
         _is_inst = (_role_v2 == "institution_admin")
 
-        # ⭐ 우측 상단 작은 버튼 — 모니터링 전환 (학생 제외)
-        if not _is_student:
-            _topl, _topr = st.columns([6, 1])
-            with _topr:
-                if st.button("🛡️ 모니터링", key="cmp_to_mon_top",
-                             help="모니터링 시스템으로 이동",
-                             use_container_width=True):
-                    st.session_state["current_page"] = "home_landing"
-                    st.rerun()
+        # ⭐ 슬로건 아래 가로 3아이콘 미리보기 (참고 정보)
+        _ic1, _ic2, _ic3 = st.columns(3)
+        with _ic1:
+            with st.container(border=True):
+                st.markdown("##### 🏫 교육기관 전용 대시보드")
+                st.caption("학생 보호 교육 · 행동강령 · 저작권 등 미개척 분야 커리큘럼")
+        with _ic2:
+            with st.container(border=True):
+                st.markdown("##### 📋 학생 설문 + 봉사 점수")
+                st.caption("50문항 성실 완료 → 교육부 인정 봉사시간 (4~6시간)")
+        with _ic3:
+            with st.container(border=True):
+                st.markdown("##### 👨‍👩‍👧 학부모 자료·자녀 관리")
+                st.caption("연 1만원 — 모든 유료 자료 무제한 + 자녀 설문 모니터링")
 
-        st.markdown("## 🎓 온라인 유해컨텐츠 근절 캠페인")
-        st.caption("교육기관 · 학부모 · 학생이 함께 만드는 안전한 온라인 환경")
-        st.divider()
+        st.markdown("")
+        st.markdown("")
 
-        # 상단 안내 배너 (사용자 결정 #10)
-        if _is_student:
-            st.warning(
-                "⚠️ **학생 사용자는 유해 컨텐츠 모니터링 시스템에 접근할 수 없습니다.** "
-                "캠페인 자료 열람·설문·봉사 점수 획득만 가능합니다."
-            )
-        else:
-            st.info(
-                "📌 **드래곤아이즈 모니터링을 체험하시려면 로그아웃 후 "
-                "모니터링 시스템으로 새롭게 로그인해 주세요.**"
-            )
-
-        # ── 사용자 인사 + 역할 표시 ──
+        # ── 사용자 인사 ──
         _role_label = {
             "institution_admin": "🏫 교육기관",
             "parent": "👨‍👩‍👧 학부모",
             "student": "🎒 학생",
         }.get(_role_v2, "사용자")
-        st.markdown(f"### 안녕하세요, **{_u.get('name','사용자')}**님 ({_role_label})")
-
-        st.divider()
-
-        # ──────────────────────────────────────────────────
-        # 역할별 대시보드 진입
-        # ──────────────────────────────────────────────────
-        if _is_inst:
-            st.markdown("#### 🏫 교육기관 메뉴")
-            ic1, ic2, ic3 = st.columns(3)
-            with ic1:
-                with st.container(border=True):
-                    st.markdown("##### 👥 학생 관리")
-                    st.caption("소속 학생 명단 · 진행률 · QR 일괄 발급")
-                    if st.button("학생 관리 열기", use_container_width=True, key="cmp_inst_students",
-                                 type="primary"):
-                        st.session_state["current_page"] = "institution_dashboard"
-                        st.rerun()
-            with ic2:
-                with st.container(border=True):
-                    st.markdown("##### 📋 설문지 관리")
-                    st.caption("학교 커스텀 설문 등록·배포")
-                    if st.button("설문 관리 열기", use_container_width=True, key="cmp_inst_surveys"):
-                        st.info("Phase 7에서 활성화됩니다.")
-            with ic3:
-                with st.container(border=True):
-                    st.markdown("##### 🏆 봉사 점수")
-                    st.caption("학생별 봉사 시간 · 일괄 발급")
-                    if st.button("봉사 점수 열기", use_container_width=True, key="cmp_inst_volunteer"):
-                        st.info("Phase 8에서 활성화됩니다.")
-
-        elif _is_parent:
-            st.markdown("#### 👨‍👩‍👧 학부모 메뉴")
-            pc1, pc2, pc3 = st.columns(3)
-            with pc1:
-                with st.container(border=True):
-                    st.markdown("##### 👨‍👩‍👧‍👦 자녀 관리")
-                    st.caption("자녀 등록 · 매칭 · 다자녀 추가")
-                    if st.button("자녀 관리 열기", use_container_width=True, key="cmp_parent_children"):
-                        st.info("Phase 6에서 활성화됩니다.")
-            with pc2:
-                with st.container(border=True):
-                    st.markdown("##### 💳 결제·구독")
-                    st.caption("연 1만원 — 모든 유료 자료 무제한")
-                    if st.button("결제 열기", use_container_width=True, key="cmp_parent_pay"):
-                        st.info("Phase 9에서 활성화됩니다.")
-            with pc3:
-                with st.container(border=True):
-                    st.markdown("##### 📊 자녀 설문 모니터링")
-                    st.caption("자녀별 설문 진행률 · 결과")
-                    if st.button("모니터링 열기", use_container_width=True, key="cmp_parent_monitor"):
-                        st.info("Phase 7에서 활성화됩니다.")
-
-        elif _is_student:
-            st.markdown("#### 🎒 학생 메뉴")
-            sc1, sc2, sc3 = st.columns(3)
-            with sc1:
-                with st.container(border=True):
-                    st.markdown("##### 📚 학습 자료")
-                    st.caption("무료 자료 + 학부모 결제 시 유료 자료")
-                    if st.button("자료 열기", use_container_width=True, key="cmp_stu_materials"):
-                        st.info("Phase 5에서 활성화됩니다.")
-            with sc2:
-                with st.container(border=True):
-                    st.markdown("##### 📋 설문 참여")
-                    st.caption("50문항 — 성실 완료 시 봉사 4~6시간")
-                    if st.button("설문 열기", use_container_width=True, key="cmp_stu_surveys"):
-                        st.info("Phase 7에서 활성화됩니다.")
-            with sc3:
-                with st.container(border=True):
-                    st.markdown("##### 🏆 내 봉사 시간")
-                    st.caption("누적 시간 · 인증서 출력 · 이메일")
-                    if st.button("봉사 인벤토리 열기", use_container_width=True, key="cmp_stu_volunteer"):
-                        st.info("Phase 8에서 활성화됩니다.")
-        else:
-            # 본부 admin이 캠페인 페이지에 들어온 경우 — 안내 (모니터링 버튼은 우측 상단에 이미 있음)
-            st.info(
-                "📝 **본부 관리자/일반 사용자**는 캠페인 사용자 등록 후 이용 가능합니다. "
-                "캠페인 시스템은 교육기관·학부모·학생 전용입니다. "
-                "모니터링 시스템 이용은 우측 상단 **🛡️ 모니터링** 버튼을 눌러주세요."
+        _hi_l, _hi_c, _hi_r = st.columns([1, 4, 1])
+        with _hi_c:
+            st.markdown(
+                f'<div style="text-align:center; font-size:1.1rem; color:#475569;">'
+                f'안녕하세요, <strong>{_u.get("name","사용자")}</strong>님 ({_role_label})'
+                f'</div>',
+                unsafe_allow_html=True,
             )
 
-        st.divider()
+        st.markdown("")
 
-        # ── 모니터링 통계 공유 (사용자 결정 #D) ──
-        st.markdown("##### 📊 모니터링 통계 공유 (모든 사용자)")
-        st.caption(
-            "정부/공인기관 제공 자료로 학생을 포함한 모든 사용자가 조회할 수 있습니다."
+        # ─────────────────────────────────────────────────────
+        # ⭐ 화면 중앙 — 두 카테고리 카드 (큰 클릭 박스)
+        # ─────────────────────────────────────────────────────
+        st.markdown(
+            '<div style="text-align:center; font-size:1.5rem; font-weight:700; '
+            'color:#0f172a; margin:8px 0 16px 0;">'
+            '아래에서 원하시는 카테고리를 선택해 주세요'
+            '</div>',
+            unsafe_allow_html=True,
         )
-        if st.button("📊 모니터링 통계 보기", use_container_width=True, key="cmp_landing_stats"):
-            # ⭐ 통계 페이지에서 돌아올 때 캠페인으로 복귀하도록 플래그 설정
-            st.session_state["_stats_from_campaign"] = True
-            st.session_state["current_page"] = "monitoring_stats"
-            st.rerun()
 
+        # 가운데 정렬 — 양옆 빈 컬럼 + 큰 카드 2개
+        _pad_l, _cat1, _cat_gap, _cat2, _pad_r = st.columns([1, 5, 0.3, 5, 1])
+
+        # 카테고리 카드 공통 CSS — 큰 박스, hover 효과
+        st.markdown("""
+        <style>
+        .campaign-cat-card {
+            background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+            border: 2px solid #c7d2fe;
+            border-radius: 20px;
+            padding: 32px 24px;
+            text-align: center;
+            min-height: 240px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+        .campaign-cat-card.inst {
+            background: linear-gradient(135deg, #ecfeff 0%, #cffafe 100%);
+            border-color: #67e8f9;
+        }
+        .campaign-cat-card.fam {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border-color: #fbbf24;
+        }
+        .campaign-cat-emoji { font-size: 4rem; line-height: 1; }
+        .campaign-cat-title { font-size: 1.7rem; font-weight: 800; color: #0f172a; margin: 4px 0; }
+        .campaign-cat-desc  { font-size: 0.95rem; color: #475569; line-height: 1.5; }
+        .campaign-cat-card .stButton > button {
+            margin-top: 12px;
+            background: linear-gradient(135deg, #0ea5e9, #0284c7) !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 10px !important;
+            padding: 10px 24px !important;
+            font-weight: 700 !important;
+            font-size: 1rem !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+        with _cat1:
+            st.markdown(
+                '<div class="campaign-cat-card inst">'
+                '<div class="campaign-cat-emoji">🏫</div>'
+                '<div class="campaign-cat-title">교육기관</div>'
+                '<div class="campaign-cat-desc">'
+                '교사 · 교장 · 교육청 담당자<br>'
+                '소속 학교 등록 / 학생 관리 / 자료 검수'
+                '</div></div>',
+                unsafe_allow_html=True,
+            )
+            if st.button("🏫 교육기관으로 시작하기",
+                         use_container_width=True,
+                         type="primary",
+                         key="cmp_cat_inst"):
+                if _is_inst and _u.get("institution_id"):
+                    # 이미 기관 연결됨 → 자료/대시보드
+                    st.session_state["current_page"] = "campaign_materials"
+                else:
+                    # 기관 미연결 (신규 등록 필요) → 가입/등록 폼
+                    st.session_state["current_page"] = "campaign_signup_institution"
+                st.rerun()
+
+        with _cat2:
+            st.markdown(
+                '<div class="campaign-cat-card fam">'
+                '<div class="campaign-cat-emoji">👨‍👩‍👧🎒</div>'
+                '<div class="campaign-cat-title">학생 · 학부모</div>'
+                '<div class="campaign-cat-desc">'
+                '학생 본인 또는 보호자<br>'
+                '자료 학습 / 설문 참여 / 봉사 점수'
+                '</div></div>',
+                unsafe_allow_html=True,
+            )
+            if st.button("👨‍👩‍👧 학생·학부모로 시작하기",
+                         use_container_width=True,
+                         type="primary",
+                         key="cmp_cat_fam"):
+                if _is_parent or _is_student:
+                    # 이미 가입된 학생/학부모 → 자료 페이지
+                    st.session_state["current_page"] = "campaign_materials"
+                elif _role_v2 in ("user", "", None):
+                    # 미가입 → 가입 선택 페이지 (학생/학부모 카드)
+                    st.session_state["current_page"] = "campaign_signup_select"
+                else:
+                    st.session_state["current_page"] = "campaign_materials"
+                st.rerun()
+
+        st.markdown("")
         st.divider()
 
-        # ── 하단 로그아웃 (모니터링 전환은 우측 상단에 이미 있음) ──
-        _logoutc1, _logoutc2, _logoutc3 = st.columns([2, 1, 2])
-        with _logoutc2:
-            if st.button("🚪 로그아웃", use_container_width=True, key="campaign_landing_logout"):
-                st.session_state.user = None
-                st.session_state["login_mode"] = "monitoring"
-                st.session_state["current_page"] = None
+        # ── 하단: 모니터링 통계 공유 + 로그아웃 + 모니터링 전환 ──
+        _bc1, _bc2, _bc3 = st.columns(3)
+        with _bc1:
+            if st.button("📊 모니터링 통계 보기",
+                         use_container_width=True,
+                         key="cmp_landing_stats",
+                         help="정부/공인기관 제공 자료 — 모든 사용자 조회 가능"):
+                st.session_state["_stats_from_campaign"] = True
+                st.session_state["current_page"] = "monitoring_stats"
+                st.rerun()
+        with _bc2:
+            if not _is_student:
+                if st.button("🛡️ 모니터링 시스템",
+                             use_container_width=True,
+                             key="cmp_to_mon_bottom"):
+                    st.session_state["current_page"] = "home_landing"
+                    st.rerun()
+        with _bc3:
+            if st.button("🚪 로그아웃",
+                         use_container_width=True,
+                         key="campaign_landing_logout"):
+                for k in list(st.session_state.keys()):
+                    del st.session_state[k]
                 st.rerun()
 
     # ══════════════════════════════════════════════════════════════
     # 🏫 Phase 4 (v17): 교육기관 대시보드 — 소속 학생 명단 / 일괄 등록 / 통계
     # ══════════════════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════
+    # 📚 Phase 5 (v17): 캠페인 자료 — 커리큘럼 / 무료 자료 / 유료 자료
+    #     다운로드 차단 — 웹에서만 열람 (PDF 뷰어 + 동영상 스트리밍)
+    # ══════════════════════════════════════════════════════════════
+    elif page == "campaign_materials":
+        _u_cm = user or {}
+        _role_v2_cm = (_u_cm.get("role_v2") or "user").lower()
+        _is_student_cm = (_role_v2_cm == "student") or bool(_u_cm.get("is_campaign_only"))
+        _is_parent_cm = (_role_v2_cm == "parent")
+        _is_inst_cm = (_role_v2_cm == "institution_admin")
+
+        # 헤더
+        _hh1, _hh2 = st.columns([6, 1])
+        with _hh1:
+            st.markdown("## 📚 드래곤아이즈 캠페인 커리큘럼")
+            st.caption("교육 콘텐츠 · 학습 자료 · 동영상 강의")
+        with _hh2:
+            if st.button("← 캠페인 홈", key="cm_back_landing", use_container_width=True):
+                st.session_state["current_page"] = "campaign_landing"
+                st.rerun()
+
+        # 학부모 결제 상태 (자료 접근 권한)
+        _has_subscription = False
+        if _is_parent_cm:
+            try:
+                _y = date.today().year
+                _has_subscription = supabase.rpc(
+                    "has_active_parent_subscription",
+                    {"p_user_id": _u_cm.get("id"), "p_year": _y}
+                ).execute().data
+            except Exception:
+                _has_subscription = False
+
+        # ⭐ 다운로드 차단 CSS + JS (우클릭 · 단축키)
+        st.markdown(
+            "<style>"
+            ".cm-mat-card { user-select:none; -webkit-user-select:none; }"
+            ".cm-mat-card * { user-select:none; -webkit-user-select:none; }"
+            "</style>"
+            "<script>"
+            "(function(){"
+            "  document.addEventListener('contextmenu', function(e){"
+            "    if (e.target && e.target.closest && e.target.closest('.cm-mat-card')) {"
+            "      e.preventDefault();"
+            "    }"
+            "  });"
+            "  document.addEventListener('keydown', function(e){"
+            "    if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'p' || e.key === 'u')) {"
+            "      const t = document.activeElement;"
+            "      if (t && t.closest && t.closest('.cm-mat-card')) {"
+            "        e.preventDefault();"
+            "      }"
+            "    }"
+            "  });"
+            "})();"
+            "</script>",
+            unsafe_allow_html=True,
+        )
+
+        # 자료 조회
+        try:
+            _mats = supabase.table("campaign_materials").select("*").eq(
+                "is_published", True).is_("deleted_at", "null").order(
+                "display_order").order("published_at", desc=True).execute().data or []
+        except Exception:
+            _mats = []
+
+        _free_mats = [m for m in _mats if m.get("tier") == "free"]
+        _paid_mats = [m for m in _mats if m.get("tier") == "paid"]
+
+        # 탭: 무료 / 유료 / 커리큘럼 안내
+        cm_tab1, cm_tab2, cm_tab3 = st.tabs(
+            [f"🆓 무료 자료 ({len(_free_mats)})",
+             f"💎 유료 자료 ({len(_paid_mats)})",
+             "📖 커리큘럼 안내"]
+        )
+
+        def _render_material_card(m, can_view):
+            with st.container(border=True):
+                st.markdown(
+                    f'<div class="cm-mat-card">'
+                    f'<div style="font-size:1.1rem; font-weight:700;">'
+                    f'{ {"pdf":"📄","video":"🎬","audio":"🎙️","interactive":"🧩"}.get(m.get("type"),"📚") } '
+                    f'{m.get("title","")}</div>'
+                    f'<div style="color:#64748b; font-size:0.88rem; margin:4px 0;">'
+                    f'{m.get("description","") or ""}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+                _c1, _c2 = st.columns([3, 1])
+                with _c1:
+                    if m.get("duration_seconds"):
+                        st.caption(f"⏱️ {m['duration_seconds']//60}분 {m['duration_seconds']%60}초")
+                    if m.get("page_count"):
+                        st.caption(f"📃 {m['page_count']}페이지")
+                    if m.get("topic_tags"):
+                        st.caption("🏷️ " + ", ".join(m["topic_tags"]))
+                with _c2:
+                    if can_view:
+                        if st.button("🔍 열람",
+                                     key=f"cm_view_{m['id']}",
+                                     use_container_width=True,
+                                     type="primary"):
+                            st.session_state["_cm_viewing_id"] = m["id"]
+                            st.rerun()
+                    else:
+                        st.caption("🔒 결제 필요")
+
+        # ── 탭 1: 무료 자료 ──
+        with cm_tab1:
+            if not _free_mats:
+                st.info("등록된 무료 자료가 없습니다. 곧 업로드 예정입니다.")
+            else:
+                for m in _free_mats:
+                    _render_material_card(m, can_view=True)
+
+        # ── 탭 2: 유료 자료 ──
+        with cm_tab2:
+            if not _paid_mats:
+                st.info("등록된 유료 자료가 없습니다.")
+            else:
+                # 접근 권한 판정
+                _can_view_paid = (
+                    _is_inst_cm  # 교육기관은 계약 기반 (TODO Phase 9 검증)
+                    or (_is_parent_cm and _has_subscription)
+                    or (_is_student_cm)  # 학생: 학부모 결제 권한 상속 (TODO Phase 6)
+                )
+                if not _can_view_paid:
+                    if _is_parent_cm:
+                        st.warning(
+                            "💳 **유료 자료를 보시려면 연 1만원 구독이 필요합니다.** "
+                            "결제 후 자녀와 함께 모든 유료 자료를 무제한 열람하실 수 있습니다. "
+                            "(결제 기능은 Phase 9에서 활성화)"
+                        )
+                    else:
+                        st.info("📝 유료 자료 접근 권한이 없습니다.")
+                for m in _paid_mats:
+                    _render_material_card(m, can_view=_can_view_paid)
+
+        # ── 탭 3: 커리큘럼 안내 ──
+        with cm_tab3:
+            st.markdown("##### 📖 드래곤아이즈 캠페인 커리큘럼 개요")
+            st.markdown(
+                "- 🛡️ **온라인 안전·디지털 시민의식** — 그루밍·도박·딥페이크 인식\n"
+                "- 📜 **저작권 침해 방지** — 불법 복제물 · 합법 출처 활용법 (미개척 분야)\n"
+                "- 🚨 **유해 콘텐츠 노출 시 행동강령** — 신고 절차 · 보호 매뉴얼\n"
+                "- 👥 **건전한 SNS 사용** — 사이버 폭력 예방 · 디지털 발자국\n"
+                "- 💬 **AI 시대 디지털 윤리** — 챗봇·딥페이크·개인정보\n"
+            )
+            st.caption("커리큘럼은 교육부 인가 기준에 부합하며, 각 학교의 의무 교육과 보완적으로 사용됩니다.")
+
+        # 자료 열람 모달 (placeholder — Phase 5 후속에서 PDF/동영상 뷰어 구현)
+        if st.session_state.get("_cm_viewing_id"):
+            _vid = st.session_state["_cm_viewing_id"]
+            _v_mat = next((m for m in _mats if m["id"] == _vid), None)
+            if _v_mat:
+                st.divider()
+                st.markdown(f"### 🔍 {_v_mat.get('title','')}")
+                st.caption(_v_mat.get("description", "") or "")
+                st.info(
+                    "🚧 **자료 뷰어는 Phase 5 후속에서 활성화됩니다.** "
+                    "PDF 뷰어(다운로드 차단) · 동영상 스트리밍 · 시청 토큰 시스템 구축 예정."
+                )
+                if st.button("← 목록으로 돌아가기", key="cm_close_viewer"):
+                    st.session_state.pop("_cm_viewing_id", None)
+                    st.rerun()
+
     elif page == "institution_dashboard":
         _u = user or {}
         _role_v2 = (_u.get("role_v2") or "").lower()
