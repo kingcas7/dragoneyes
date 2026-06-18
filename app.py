@@ -7834,6 +7834,28 @@ if st.session_state.user is None:
             )
             st.session_state["_login_announced"] = True
 
+    # ── 캠페인 모드 — 위쪽 여백 + 박스 압축 CSS (한 화면에 다 보이게) ──
+    if _login_mode_pre == "campaign":
+        st.markdown(
+            "<style>"
+            # 상단 여백 거의 0
+            ".block-container { padding-top: 0.25rem !important; padding-bottom: 0.5rem !important; }"
+            # Streamlit 기본 헤더 영역 숨김
+            "header[data-testid='stHeader'] { height: 0 !important; min-height: 0 !important; }"
+            # 모드 토글 버튼 작게 (70px → 48px)
+            ".login-mode-toggle .stButton > button { height: 48px !important; font-size: 13px !important; padding: 4px 12px !important; }"
+            # 로그인 박스 내부 padding 축소
+            ".login-right-card { padding: 20px 24px !important; }"
+            # 폼 헤더 마진 축소
+            ".login-form-header { margin-bottom: 8px !important; }"
+            # st.text_input 사이 간격 축소
+            ".stTextInput { margin-bottom: 4px !important; }"
+            # 기본 element 간 vertical gap 압축
+            ".main .block-container [data-testid='stVerticalBlock'] { gap: 0.4rem !important; }"
+            "</style>",
+            unsafe_allow_html=True,
+        )
+
     # ── 로그인 페이지 전용 CSS ──
     st.markdown("""
     <style>
