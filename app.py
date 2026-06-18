@@ -9046,8 +9046,11 @@ else:
     _curr_page = st.session_state.get("current_page", "") or ""
     # ⭐ 사용자 요청: 캠페인 페이지에서는 접근성 toolbar 자체 숨김
     #    (모니터링 전용 기능 — 캠페인 사용자는 불필요)
+    #    monitoring_stats가 캠페인에서 진입한 경우도 캠페인 컨텍스트로 취급
     _hide_a11y_toolbar = (
         _curr_page.startswith("campaign_")
+        or _curr_page in ("institution_dashboard", "institution_approval")
+        or (_curr_page == "monitoring_stats" and bool(st.session_state.get("_stats_from_campaign")))
         or bool((user or {}).get("is_campaign_only"))
         or ((user or {}).get("role_v2") in ("student", "parent", "institution_admin"))
     )
