@@ -4760,43 +4760,21 @@ if "token" in params and st.session_state.user is None and "logged_out" not in p
             del st.query_params["token"]
 
 # 신규 sid (refresh_token) 방식
-# ⭐ 로그아웃 직후엔 sid가 남아있어도 자동 복원 skip + user 강제 None + 페이지 컨텍스트 완전 초기화
-# 2단계 처리: (1) session_state·supabase·query_params 정리 + st.rerun()
-#            (2) rerun 후 user None인 상태로 logged_out 플래그 제거 → 로그인 페이지로
+# ⭐ URL에 ?logged_out=1로 직접 진입한 경우 (캠페인 헤더 logout button JS reload 경로 등)
 if "logged_out" in params:
-    _logout_done = st.session_state.get("_logout_done", False)
-    # ⭐ supabase 클라이언트 자체 정리 (메모리 캐시된 token 삭제)
+    # supabase + session_state + query_params 모두 정리
     try: supabase.auth.sign_out()
     except Exception: pass
-    # session_state 완전 정리 (모든 키 제거 — _logout_done 만 유지)
     try:
         for _k in list(st.session_state.keys()):
-            if _k != "_logout_done":
-                try: del st.session_state[_k]
-                except Exception: pass
+            try: del st.session_state[_k]
+            except Exception: pass
     except Exception:
         pass
-    # query_params 정리
-    try:
-        for _q in ("sid", "page", "token"):
-            if _q in st.query_params:
-                del st.query_params[_q]
-    except Exception:
-        pass
-
-    if not _logout_done:
-        # 첫 번째 처리: fresh rerun으로 다른 복원 코드 모두 우회
-        st.session_state["_logout_done"] = True
-        st.rerun()
-    else:
-        # 두 번째 처리: logged_out 플래그 제거 + flag 정리 (정상 로그인 페이지로)
-        try:
-            if "logged_out" in st.query_params:
-                del st.query_params["logged_out"]
-        except Exception:
-            pass
-        try: del st.session_state["_logout_done"]
-        except Exception: pass
+    try: st.query_params.clear()
+    except Exception: pass
+    # 캠페인 로그인 모드 default
+    st.session_state["login_mode"] = "campaign"
 
 if "sid" in params and st.session_state.user is None and "logged_out" not in params:
     try:
@@ -9507,39 +9485,38 @@ else:
                         st.rerun()
             with _hb_logout:
                 if st.button("🚪 로그아웃", key="cmp_hdr_logout", use_container_width=True):
-                    # ⭐ 완전 로그아웃: supabase + session_state + query_params + cookie/localStorage + reload
+                    # ⭐ 단순화: JS reload 없이 streamlit 내부 처리만으로 완전 로그아웃
+                    # 1. supabase 클라이언트 메모리 token 정리
                     try: supabase.auth.sign_out()
                     except Exception: pass
-                    for k in list(st.session_state.keys()):
-                        del st.session_state[k]
+                    # 2. session_state 완전 클리어
+                    try: st.session_state.clear()
+                    except Exception:
+                        for k in list(st.session_state.keys()):
+                            try: del st.session_state[k]
+                            except Exception: pass
+                    # 3. query_params 완전 클리어 (sid/page 등 모두)
                     try: st.query_params.clear()
                     except Exception: pass
-                    # ⭐ cookie + localStorage + sessionStorage 정리 + reload (자동 복원 차단)
-                    st.markdown(
+                    # 4. 캠페인 로그인 모드 set + rerun
+                    st.session_state["login_mode"] = "campaign"
+                    # 5. cookie/localStorage는 streamlit이 markdown render할 기회 없으므로
+                    #    별도로 components.html 통해 정리 시도 (백그라운드, rerun에 영향 X)
+                    st.components.v1.html(
                         "<script>"
+                        "try { (window.top||window).localStorage.clear(); } catch(e){}"
+                        "try { (window.top||window).sessionStorage.clear(); } catch(e){}"
                         "try {"
-                        "  const w = window.top || window;"
-                        "  // localStorage / sessionStorage 정리"
-                        "  try { w.localStorage.clear(); } catch(e){}"
-                        "  try { w.sessionStorage.clear(); } catch(e){}"
-                        "  // cookie 정리 (supabase auth token 포함)"
-                        "  try {"
-                        "    w.document.cookie.split(';').forEach(function(c){"
-                        "      const eq = c.indexOf('=');"
-                        "      const name = eq > -1 ? c.substr(0, eq).trim() : c.trim();"
-                        "      w.document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';"
-                        "    });"
-                        "  } catch(e){}"
-                        "  // URL을 pathname + logged_out=1만으로"
-                        "  w.history.replaceState({}, '', w.location.pathname + '?logged_out=1');"
-                        "  setTimeout(function(){ w.location.reload(); }, 100);"
-                        "} catch(e) {"
-                        "  try { window.location.href = window.location.pathname + '?logged_out=1'; } catch(e2){}"
-                        "}"
+                        "  (window.top||window).document.cookie.split(';').forEach(function(c){"
+                        "    const eq = c.indexOf('=');"
+                        "    const name = eq > -1 ? c.substr(0, eq).trim() : c.trim();"
+                        "    (window.top||window).document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';"
+                        "  });"
+                        "} catch(e){}"
                         "</script>",
-                        unsafe_allow_html=True,
+                        height=0,
                     )
-                    st.stop()
+                    st.rerun()
         st.markdown(
             '<div style="background:linear-gradient(135deg,#047857 0%,#10b981 100%);'
             'border-left:5px solid #34d399;border-radius:8px;padding:0.7rem 1.2rem;'
