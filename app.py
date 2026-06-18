@@ -8248,9 +8248,12 @@ if st.session_state.user is None:
                 st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # ⭐ 모드별 컬럼 비율 분기 — 캠페인 모드 좌측 카드 좁히기 (로그인 박스가 안 가리게)
+    # ⭐ 모드별 레이아웃 분기
+    #   모니터링: 7:3 좌(정보)/우(로그인) — 기존
+    #   캠페인: 1컬럼 가운데 정렬 — 로그인 박스 + 그 아래 캠페인 정보 (Streamlit native)
     if _login_mode == "campaign":
-        left_col, right_col = st.columns([5, 4], gap="medium")
+        _pad_l, right_col, _pad_r = st.columns([1, 2, 1])
+        left_col = st.empty()  # 캠페인 모드는 좌측 미사용 — 빈 placeholder
     else:
         left_col, right_col = st.columns([7, 3], gap="medium")
 
@@ -8304,7 +8307,9 @@ if st.session_state.user is None:
                 f'{_stat_rows_html}'
                 f'</div>'
             )
-        st.markdown(f"""
+        # ⭐ 캠페인 모드는 좌측 카드 미출력 (1컬럼 가운데 로그인 박스만)
+        if _login_mode != "campaign":
+            st.markdown(f"""
         <div class="login-left-card">
             <div class="login-brand">
                 <div class="login-brand-logo">🐉</div>
@@ -8354,7 +8359,7 @@ if st.session_state.user is None:
                 </div>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
 
     with right_col:
         # ⭐ 모드별 우측 카드 헤더 분기
@@ -8471,6 +8476,18 @@ if st.session_state.user is None:
                 st.rerun()
 
         st.markdown("</div>", unsafe_allow_html=True)
+
+        # ⭐ 캠페인 모드 — 로그인 박스 아래에 캠페인 정보 카드 (Streamlit native)
+        if _login_mode == "campaign":
+            st.markdown("")
+            with st.container(border=True):
+                st.markdown("##### 🎓 온라인 유해컨텐츠 근절 캠페인")
+                st.caption("교육기관 · 학부모 · 학생이 함께 만드는 안전한 온라인 환경")
+                st.markdown(
+                    "- 🏫 **교육기관 전용 대시보드** — 학생 보호 교육·행동강령·저작권 등 미개척 분야 커리큘럼\n"
+                    "- 📋 **학생 설문 + 봉사 점수** — 50문항 성실 완료 → 교육부 인정 봉사시간 (4~6시간)\n"
+                    "- 👨‍👩‍👧 **학부모 자료·자녀 관리** — 연 1만원으로 모든 유료 자료 무제한 + 자녀 설문 모니터링"
+                )
 
     # ── 하단 푸터 배너 (COMPANY_INFO 일원화) ──
     st.markdown(f"""
