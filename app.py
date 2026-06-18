@@ -9267,48 +9267,101 @@ else:
                             st.session_state["ann_popup_idx"] = min(_unread_total - 1, _ann_idx + 1)
                             st.rerun()
 
-    # ── 상단 헤더 ──
-    _show_admin_btn = is_admin or is_super
-    try:
-        _unread_cnt = len(get_unread_announcements(user["id"]))
-    except:
-        _unread_cnt = 0
-    _notice_label = f"{t('hdr_notice')} 🔴{_unread_cnt}" if _unread_cnt > 0 else t("hdr_notice")
+    # ⭐ 캠페인 컨텍스트일 때 — 모니터링 헤더(타이틀·메뉴·슬로건) 전체 SKIP + 캠페인 헤더 대체
+    _curr_page_hdr = st.session_state.get("current_page", "") or ""
+    _is_campaign_hdr = (
+        _curr_page_hdr.startswith("campaign_")
+        or _curr_page_hdr == "institution_dashboard"
+        or _curr_page_hdr == "institution_approval"
+        or bool((user or {}).get("is_campaign_only"))
+        or ((user or {}).get("role_v2") in ("student", "parent", "institution_admin"))
+    )
+    if _is_campaign_hdr:
+        # 캠페인 전용 헤더 — 모니터링 UI/메뉴/슬로건 완전 차단
+        _hdr_l, _hdr_r = st.columns([7, 3])
+        with _hdr_l:
+            st.markdown(
+                '<div style="font-size:1.6rem; font-weight:700; padding:4px 0;">'
+                '🎓 드래곤아이즈 온라인 유해컨텐츠 근절 캠페인</div>',
+                unsafe_allow_html=True,
+            )
+        with _hdr_r:
+            _hb1, _hb2 = st.columns([1, 1])
+            with _hb1:
+                if st.button("🏠 캠페인 홈", key="cmp_hdr_home", use_container_width=True):
+                    st.session_state["current_page"] = "campaign_landing"
+                    st.rerun()
+            with _hb2:
+                if st.button("🚪 로그아웃", key="cmp_hdr_logout", use_container_width=True):
+                    for k in list(st.session_state.keys()):
+                        del st.session_state[k]
+                    st.rerun()
+        st.markdown(
+            '<div style="background:linear-gradient(135deg,#047857 0%,#10b981 100%);'
+            'border-left:5px solid #34d399;border-radius:8px;padding:0.7rem 1.2rem;'
+            'margin:0 0 0.5rem 0;color:white;font-size:0.95rem;line-height:1.5;">'
+            '🎓 <strong>우리 모두가 함께 아동·청소년들의 건전한 온라인 문화를 만들어 갑시다.</strong><br>'
+            '이 곳은 건전한 온라인 캠페인을 통해 학생들의 봉사활동을 지원합니다.'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        # 모니터링 헤더 블록은 통째로 SKIP — 아래 if-else 구조 종료
+        _skip_monitoring_header = True
+    else:
+        _skip_monitoring_header = False
 
-    st.markdown("""
-    <style>
-    /* 헤더 버튼 박스 제거 — 텍스트만 표시 */
-    div[data-testid="stHorizontalBlock"] button[kind="secondary"] {
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        padding: 0.25rem 0.3rem !important;
-        font-size: 1.0rem !important;
-        color: #94a3b8 !important;
-        transition: color 0.2s;
-    }
-    div[data-testid="stHorizontalBlock"] button[kind="secondary"]:hover {
-        background: transparent !important;
-        color: #f1f5f9 !important;
-        border: none !important;
-    }
-    div[data-testid="stHorizontalBlock"] button[kind="secondary"] p {
-        font-size: 1.0rem !important;
-        padding: 0 !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+    # ── 상단 헤더 (모니터링) — 캠페인 컨텍스트면 미표시 ──
+    if _skip_monitoring_header:
+        _show_admin_btn = False  # 캠페인 컨텍스트에선 미사용
+    else:
+        _show_admin_btn = is_admin or is_super
+        try:
+            _unread_cnt = len(get_unread_announcements(user["id"]))
+        except:
+            _unread_cnt = 0
+        _notice_label = f"{t('hdr_notice')} 🔴{_unread_cnt}" if _unread_cnt > 0 else t("hdr_notice")
 
-    if _show_admin_btn:
+        st.markdown("""
+        <style>
+        /* 헤더 버튼 박스 제거 — 텍스트만 표시 */
+        div[data-testid="stHorizontalBlock"] button[kind="secondary"] {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0.25rem 0.3rem !important;
+            font-size: 1.0rem !important;
+            color: #94a3b8 !important;
+            transition: color 0.2s;
+        }
+        div[data-testid="stHorizontalBlock"] button[kind="secondary"]:hover {
+            background: transparent !important;
+            color: #f1f5f9 !important;
+            border: none !important;
+        }
+        div[data-testid="stHorizontalBlock"] button[kind="secondary"] p {
+            font-size: 1.0rem !important;
+            padding: 0 !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+    # ⭐ 캠페인 컨텍스트일 때 — h1/h_right를 빈 placeholder로 만들고 안 그림
+    if _skip_monitoring_header:
+        h1 = st.container()       # 빈 컨테이너 (안에 아무것도 안 그림)
+        h_right = st.container()  # 빈 컨테이너
+    elif _show_admin_btn:
         h1, h_right = st.columns([3, 7])
     else:
         h1, h_right = st.columns([3, 7])
 
-    with h1:
-        title_text = t("app_title").replace("🐉 ", "").replace("🐉 ", "")
-        st.markdown(f'<div style="font-size:1.6rem; font-weight:700; display:flex; align-items:center; gap:6px; margin:0; padding:4px 0">🐉 {title_text}</div>', unsafe_allow_html=True)
+    if not _skip_monitoring_header:
+        with h1:
+            title_text = t("app_title").replace("🐉 ", "").replace("🐉 ", "")
+            st.markdown(f'<div style="font-size:1.6rem; font-weight:700; display:flex; align-items:center; gap:6px; margin:0; padding:4px 0">🐉 {title_text}</div>', unsafe_allow_html=True)
 
     with h_right:
+      # ⭐ 캠페인 컨텍스트면 메뉴 버튼 그리기 skip
+      if not _skip_monitoring_header:
         # 🤝 파트너페이지 노출: 본부관리자·파트너관리자 모두 접근 가능
         #    본부관리자는 영업 내용 파악·파트너 지원을 위해 열람 필요
         #    조건 확장: 모든 admin role, 본부 직책 role_v2, agency, super 포함
@@ -9385,31 +9438,32 @@ else:
                     del st.session_state[k]
                 st.rerun()
 
-    st.markdown(f"""
-    <div style="
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        align-items: center;
-        gap: 16px;
-        background: linear-gradient(135deg, #0f3460 0%, #16213e 100%);
-        border-left: 5px solid #e94560;
-        border-radius: 8px;
-        padding: 0.6rem 1.2rem;
-        margin-bottom: -0.5rem;
-    ">
-        <div style="color:white; font-size:0.88rem; line-height:1.6;">
-            🛡️ <strong>{t("banner_line1")}</strong><br>
-            {t("banner_line2")}
+    if not _skip_monitoring_header:
+        st.markdown(f"""
+        <div style="
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            align-items: center;
+            gap: 16px;
+            background: linear-gradient(135deg, #0f3460 0%, #16213e 100%);
+            border-left: 5px solid #e94560;
+            border-radius: 8px;
+            padding: 0.6rem 1.2rem;
+            margin-bottom: -0.5rem;
+        ">
+            <div style="color:white; font-size:0.88rem; line-height:1.6;">
+                🛡️ <strong>{t("banner_line1")}</strong><br>
+                {t("banner_line2")}
+            </div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; justify-content:flex-end;">
+                <span style="color:#94a3b8; font-size:0.68rem; font-weight:600; letter-spacing:0.05em; white-space:nowrap; margin-right:2px;">🛡️ {t("badge_intl")}</span>
+                <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #2563eb55;color:#60a5fa;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;">🇺🇸 {t("badge_ncmec")}</span>
+                <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #7c3aed55;color:#a78bfa;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;">🌍 WeProtect Global Alliance</span>
+                <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #059669aa;color:#34d399;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;">🇬🇧 {t("badge_iwf")}</span>
+                <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #d9770655;color:#fb923c;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;">⚙️ Tech Coalition</span>
+            </div>
         </div>
-        <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; justify-content:flex-end;">
-            <span style="color:#94a3b8; font-size:0.68rem; font-weight:600; letter-spacing:0.05em; white-space:nowrap; margin-right:2px;">🛡️ {t("badge_intl")}</span>
-            <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #2563eb55;color:#60a5fa;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;">🇺🇸 {t("badge_ncmec")}</span>
-            <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #7c3aed55;color:#a78bfa;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;">🌍 WeProtect Global Alliance</span>
-            <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #059669aa;color:#34d399;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;">🇬🇧 {t("badge_iwf")}</span>
-            <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #d9770655;color:#fb923c;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;">⚙️ Tech Coalition</span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
     # ══════════════════════════════
     # ══════════════════════════════
