@@ -16166,6 +16166,324 @@ else:
                 st.session_state["current_page"] = "campaign_landing"
                 st.rerun()
 
+        # ⭐ 본부 admin 전용 관리 패널 (캠페인 등록 / 자료 업로드 / 자료 수정)
+        _cm_is_hq_admin = (
+            is_superadmin(_u_cm)
+            or (_u_cm.get("role") == "admin" and not _u_cm.get("partner_id"))
+        )
+        if _cm_is_hq_admin:
+            with st.expander("🔧 관리자 패널 (캠페인·자료 업로드/수정)", expanded=False):
+                # 캠페인 목록 조회 (자료 등록 전 캠페인 선택용)
+                try:
+                    _cmps = supabase.table("campaigns").select(
+                        "id, year, code, title, status").order(
+                        "year", desc=True).order("created_at", desc=True).execute().data or []
+                except Exception:
+                    _cmps = []
+
+                # 자료 목록 조회 (수정용)
+                try:
+                    _all_mats = supabase.table("campaign_materials").select(
+                        "*").is_("deleted_at", "null").order(
+                        "created_at", desc=True).execute().data or []
+                except Exception:
+                    _all_mats = []
+
+                _adm_tab1, _adm_tab2, _adm_tab3 = st.tabs([
+                    f"📝 자료 업로드",
+                    f"✏️ 자료 수정/삭제 ({len(_all_mats)})",
+                    f"🎯 캠페인 관리 ({len(_cmps)})",
+                ])
+
+                # ── 탭 1: 자료 업로드 ──
+                with _adm_tab1:
+                    if not _cmps:
+                        st.warning("⚠️ 먼저 '🎯 캠페인 관리' 탭에서 캠페인을 등록해주세요.")
+                    else:
+                        with st.form("cm_admin_upload_form"):
+                            _cmp_opts = {f"[{c.get('year','-')}] {c.get('title','-')} ({c.get('status','draft')})": c["id"]
+                                         for c in _cmps}
+                            _sel_cmp_label = st.selectbox("캠페인 선택 *", list(_cmp_opts.keys()))
+                            _sel_cmp_id = _cmp_opts.get(_sel_cmp_label)
+
+                            uc1, uc2 = st.columns(2)
+                            with uc1:
+                                _u_title = st.text_input("자료 제목 *", placeholder="예: 그루밍 예방 가이드")
+                                _u_type = st.selectbox(
+                                    "자료 유형 *",
+                                    ["pdf", "video", "audio", "interactive", "other"],
+                                    format_func=lambda x: {"pdf":"📄 PDF","video":"🎬 동영상",
+                                                           "audio":"🎙️ 오디오","interactive":"🧩 인터랙티브",
+                                                           "other":"📚 기타"}.get(x, x),
+                                )
+                                _u_tier = st.selectbox(
+                                    "접근 권한 *",
+                                    ["free", "paid"],
+                                    format_func=lambda x: {"free":"🆓 무료","paid":"💎 유료"}.get(x, x),
+                                )
+                            with uc2:
+                                _u_storage = st.text_input(
+                                    "자료 URL *",
+                                    placeholder="https://... (PDF·동영상 호스팅 URL)",
+                                    help="Supabase Storage / YouTube / Vimeo / CDN URL",
+                                )
+                                _u_thumb = st.text_input("썸네일 URL", placeholder="(선택)")
+                                _u_duration = st.number_input("재생 시간 (초)", min_value=0, value=0,
+                                                              help="동영상·오디오인 경우")
+
+                            _u_desc = st.text_area("설명", height=80,
+                                                   placeholder="자료 내용 요약")
+
+                            uc3, uc4, uc5 = st.columns(3)
+                            with uc3:
+                                _u_grade_min = st.number_input("최소 학년", min_value=1, max_value=12, value=1)
+                            with uc4:
+                                _u_grade_max = st.number_input("최대 학년", min_value=1, max_value=12, value=12)
+                            with uc5:
+                                _u_page = st.number_input("페이지 수 (PDF)", min_value=0, value=0)
+
+                            _u_tags = st.text_input(
+                                "주제 태그 (쉼표 구분)",
+                                placeholder="그루밍, 도박, 저작권, 사이버폭력",
+                            )
+
+                            uc6, uc7 = st.columns(2)
+                            with uc6:
+                                _u_published = st.checkbox("✅ 즉시 공개 (is_published)", value=True)
+                            with uc7:
+                                _u_order = st.number_input("표시 순서", min_value=0, value=0)
+
+                            _u_submit = st.form_submit_button(
+                                "📤 자료 업로드", type="primary", use_container_width=True)
+
+                        if _u_submit:
+                            if not _u_title or not _u_storage:
+                                st.error("자료 제목과 URL은 필수입니다.")
+                            else:
+                                try:
+                                    _payload = {
+                                        "campaign_id": _sel_cmp_id,
+                                        "type": _u_type,
+                                        "title": _u_title,
+                                        "description": _u_desc or None,
+                                        "thumbnail_url": _u_thumb or None,
+                                        "tier": _u_tier,
+                                        "storage_url": _u_storage,
+                                        "view_only": True,
+                                        "duration_seconds": int(_u_duration) if _u_duration else None,
+                                        "page_count": int(_u_page) if _u_page else None,
+                                        "target_grade_min": int(_u_grade_min),
+                                        "target_grade_max": int(_u_grade_max),
+                                        "topic_tags": [t.strip() for t in (_u_tags or "").split(",") if t.strip()] or None,
+                                        "display_order": int(_u_order),
+                                        "is_published": bool(_u_published),
+                                        "published_at": datetime.now().isoformat() if _u_published else None,
+                                        "created_by": _u_cm.get("id"),
+                                    }
+                                    supabase.table("campaign_materials").insert(_payload).execute()
+                                    st.success(f"✅ 자료 '{_u_title}' 업로드 완료")
+                                    st.balloons()
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"❌ 업로드 실패: {e}")
+
+                # ── 탭 2: 자료 수정/삭제 ──
+                with _adm_tab2:
+                    if not _all_mats:
+                        st.info("등록된 자료가 없습니다.")
+                    else:
+                        _cmp_name_map = {c["id"]: f"[{c.get('year','-')}] {c.get('title','-')}" for c in _cmps}
+                        for _m in _all_mats:
+                            _m_id = _m["id"]
+                            _m_badge = ("🟢" if _m.get("is_published") else "⚪")
+                            _m_tier_badge = ("🆓" if _m.get("tier") == "free" else "💎")
+                            _m_type_emoji = {"pdf":"📄","video":"🎬","audio":"🎙️",
+                                             "interactive":"🧩"}.get(_m.get("type"), "📚")
+                            with st.expander(
+                                f"{_m_badge} {_m_tier_badge} {_m_type_emoji} **{_m.get('title','')}** "
+                                f"· {_cmp_name_map.get(_m.get('campaign_id'),'?')}",
+                                expanded=False,
+                            ):
+                                with st.form(f"cm_edit_form_{_m_id}"):
+                                    ec1, ec2 = st.columns(2)
+                                    with ec1:
+                                        _e_title = st.text_input("제목", value=_m.get("title","") or "")
+                                        _e_type = st.selectbox(
+                                            "유형",
+                                            ["pdf", "video", "audio", "interactive", "other"],
+                                            index=["pdf","video","audio","interactive","other"].index(
+                                                _m.get("type") if _m.get("type") in ["pdf","video","audio","interactive","other"] else "other"),
+                                        )
+                                        _e_tier = st.selectbox(
+                                            "접근 권한",
+                                            ["free", "paid"],
+                                            index=["free","paid"].index(_m.get("tier","free")),
+                                        )
+                                    with ec2:
+                                        _e_storage = st.text_input("자료 URL", value=_m.get("storage_url","") or "")
+                                        _e_thumb = st.text_input("썸네일 URL", value=_m.get("thumbnail_url","") or "")
+                                        _e_duration = st.number_input(
+                                            "재생 시간 (초)", min_value=0,
+                                            value=int(_m.get("duration_seconds") or 0))
+
+                                    _e_desc = st.text_area("설명", value=_m.get("description","") or "", height=80)
+
+                                    ec3, ec4, ec5 = st.columns(3)
+                                    with ec3:
+                                        _e_grade_min = st.number_input(
+                                            "최소 학년", min_value=1, max_value=12,
+                                            value=int(_m.get("target_grade_min") or 1))
+                                    with ec4:
+                                        _e_grade_max = st.number_input(
+                                            "최대 학년", min_value=1, max_value=12,
+                                            value=int(_m.get("target_grade_max") or 12))
+                                    with ec5:
+                                        _e_page = st.number_input(
+                                            "페이지 수", min_value=0,
+                                            value=int(_m.get("page_count") or 0))
+
+                                    _e_tags = st.text_input(
+                                        "주제 태그 (쉼표 구분)",
+                                        value=", ".join(_m.get("topic_tags") or []),
+                                    )
+
+                                    ec6, ec7 = st.columns(2)
+                                    with ec6:
+                                        _e_published = st.checkbox(
+                                            "✅ 공개 중", value=bool(_m.get("is_published")))
+                                    with ec7:
+                                        _e_order = st.number_input(
+                                            "표시 순서", min_value=0,
+                                            value=int(_m.get("display_order") or 0))
+
+                                    eb1, eb2 = st.columns(2)
+                                    with eb1:
+                                        _e_save = st.form_submit_button(
+                                            "💾 수정 저장", type="primary", use_container_width=True)
+                                    with eb2:
+                                        _e_delete = st.form_submit_button(
+                                            "🗑️ 삭제 (soft delete)", use_container_width=True)
+
+                                if _e_save:
+                                    try:
+                                        _update = {
+                                            "title": _e_title,
+                                            "type": _e_type,
+                                            "tier": _e_tier,
+                                            "storage_url": _e_storage,
+                                            "thumbnail_url": _e_thumb or None,
+                                            "duration_seconds": int(_e_duration) if _e_duration else None,
+                                            "description": _e_desc or None,
+                                            "target_grade_min": int(_e_grade_min),
+                                            "target_grade_max": int(_e_grade_max),
+                                            "page_count": int(_e_page) if _e_page else None,
+                                            "topic_tags": [t.strip() for t in (_e_tags or "").split(",") if t.strip()] or None,
+                                            "is_published": bool(_e_published),
+                                            "display_order": int(_e_order),
+                                            "updated_at": datetime.now().isoformat(),
+                                        }
+                                        # 발행 상태 변경 시 published_at 업데이트
+                                        if _e_published and not _m.get("published_at"):
+                                            _update["published_at"] = datetime.now().isoformat()
+                                        supabase.table("campaign_materials").update(_update).eq(
+                                            "id", _m_id).execute()
+                                        st.success("✅ 수정 완료")
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"수정 실패: {e}")
+                                if _e_delete:
+                                    try:
+                                        supabase.table("campaign_materials").update({
+                                            "deleted_at": datetime.now().isoformat(),
+                                            "is_published": False,
+                                        }).eq("id", _m_id).execute()
+                                        st.warning(f"🗑️ '{_m.get('title','')}' 삭제됨")
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"삭제 실패: {e}")
+
+                # ── 탭 3: 캠페인 관리 (생성/수정) ──
+                with _adm_tab3:
+                    st.markdown("##### ➕ 신규 캠페인 등록")
+                    with st.form("cm_admin_campaign_form"):
+                        ccc1, ccc2 = st.columns(2)
+                        with ccc1:
+                            _nc_year = st.number_input("연도 *", min_value=2026, max_value=2035,
+                                                       value=date.today().year)
+                            _nc_code = st.text_input("코드", placeholder=f"CAMP-{date.today().year}",
+                                                     help="UNIQUE 외부 식별자 (선택)")
+                        with ccc2:
+                            _nc_status = st.selectbox("상태",
+                                                      ["draft", "active", "closed", "archived"],
+                                                      format_func=lambda x: {"draft":"📝 작성중",
+                                                                              "active":"🟢 활성",
+                                                                              "closed":"🔴 종료",
+                                                                              "archived":"📦 보관"}.get(x, x))
+                        _nc_title = st.text_input("캠페인 명 *",
+                                                  placeholder="2026년 온라인 유해컨텐츠 근절 캠페인")
+                        _nc_subtitle = st.text_input("부제목")
+                        _nc_desc = st.text_area("설명", height=80)
+
+                        ccc3, ccc4 = st.columns(2)
+                        with ccc3:
+                            _nc_grade_min = st.number_input("대상 최소 학년", min_value=1, max_value=12, value=1)
+                        with ccc4:
+                            _nc_grade_max = st.number_input("대상 최대 학년", min_value=1, max_value=12, value=12)
+
+                        _nc_submit = st.form_submit_button("➕ 캠페인 등록",
+                                                           type="primary", use_container_width=True)
+
+                    if _nc_submit:
+                        if not _nc_title:
+                            st.error("캠페인 명은 필수입니다.")
+                        else:
+                            try:
+                                supabase.table("campaigns").insert({
+                                    "year": int(_nc_year),
+                                    "code": _nc_code or None,
+                                    "title": _nc_title,
+                                    "subtitle": _nc_subtitle or None,
+                                    "description": _nc_desc or None,
+                                    "target_grade_min": int(_nc_grade_min),
+                                    "target_grade_max": int(_nc_grade_max),
+                                    "status": _nc_status,
+                                    "created_by": _u_cm.get("id"),
+                                    "start_at": datetime.now().isoformat() if _nc_status == "active" else None,
+                                }).execute()
+                                st.success(f"✅ 캠페인 '{_nc_title}' 등록 완료")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"❌ 등록 실패: {e}")
+
+                    # 기존 캠페인 목록
+                    if _cmps:
+                        st.divider()
+                        st.markdown("##### 📋 등록된 캠페인")
+                        for _c in _cmps:
+                            _c_id = _c["id"]
+                            _c_status_emoji = {"draft":"📝","active":"🟢",
+                                               "closed":"🔴","archived":"📦"}.get(_c.get("status"), "?")
+                            cic1, cic2 = st.columns([4, 1])
+                            cic1.markdown(f"{_c_status_emoji} **[{_c.get('year','-')}] {_c.get('title','-')}** "
+                                          f"`{_c.get('status','-')}`")
+                            with cic2:
+                                _new_status = st.selectbox(
+                                    "상태", ["draft", "active", "closed", "archived"],
+                                    index=["draft","active","closed","archived"].index(
+                                        _c.get("status") if _c.get("status") in ["draft","active","closed","archived"] else "draft"),
+                                    key=f"cmp_status_{_c_id}",
+                                    label_visibility="collapsed",
+                                )
+                                if _new_status != _c.get("status"):
+                                    try:
+                                        supabase.table("campaigns").update({
+                                            "status": _new_status,
+                                            "updated_at": datetime.now().isoformat(),
+                                        }).eq("id", _c_id).execute()
+                                        st.rerun()
+                                    except Exception:
+                                        pass
+
         # 학부모 결제 상태 (자료 접근 권한)
         _has_subscription = False
         if _is_parent_cm:
