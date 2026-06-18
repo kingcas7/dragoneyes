@@ -12869,8 +12869,97 @@ else:
                 sheet_name="파트너정보",
             )
 
-        # ─── 정보 표시 (수정 불가, 본부 권한) ───
-        st.markdown("##### 🔒 파트너 분류 및 계약 정보 (본부 관리)")
+        # ─── 파트너 분류·계약·상태 — 본부 권한이면 편집, 아니면 읽기 전용 ───
+        _is_hq_admin = bool(
+            is_superadmin(user)
+            or (user.get("role") == "admin" and not user.get("partner_id"))
+        )
+
+        if _is_hq_admin:
+            # ⭐ 본부 관리자 — 편집 가능 (총판↔대리점 전환, 상태 변경 등)
+            with st.expander("🔧 파트너 분류·계약·상태 변경 (본부 관리자)", expanded=False):
+                st.caption("✏️ 총판 ↔ 대리점 전환, 계약 활성화, 파트너십 상태 변경. 저장 시 즉시 적용됩니다.")
+                with st.form(f"partner_classification_form_{target_partner_id}"):
+                    cls_c1, cls_c2, cls_c3 = st.columns(3)
+                    with cls_c1:
+                        st.markdown("**파트너 유형** (복수 선택)")
+                        ed_is_dist = st.checkbox("총판", value=bool(partner_pi.get("is_distributor")), key=f"ed_dist_{target_partner_id}")
+                        ed_is_res  = st.checkbox("대리점", value=bool(partner_pi.get("is_reseller")), key=f"ed_res_{target_partner_id}")
+                        ed_is_ro   = st.checkbox("유관기관", value=bool(partner_pi.get("is_related_org")), key=f"ed_ro_{target_partner_id}")
+                    with cls_c2:
+                        st.markdown("**보유 계약**")
+                        ed_has_sales = st.checkbox("판매 계약", value=bool(partner_pi.get("has_sales_contract")), key=f"ed_sales_{target_partner_id}")
+                        ed_has_cust  = st.checkbox("고객관리 계약", value=bool(partner_pi.get("has_customer_contract")), key=f"ed_cust_{target_partner_id}")
+                        ed_has_org   = st.checkbox("유관기관 계약", value=bool(partner_pi.get("has_org_admin_contract")), key=f"ed_org_{target_partner_id}")
+                    with cls_c3:
+                        st.markdown("**파트너십 상태**")
+                        _status_options = ["active", "pilot", "suspended"]
+                        _status_labels  = {"active": "🟢 정상 (active)", "pilot": "🟡 시범 (pilot)", "suspended": "🔴 정지 (suspended)"}
+                        _cur_status = partner_pi.get("partnership_status", "active")
+                        if _cur_status not in _status_options:
+                            _cur_status = "active"
+                        ed_status = st.selectbox(
+                            "상태", _status_options,
+                            index=_status_options.index(_cur_status),
+                            format_func=lambda x: _status_labels[x],
+                            key=f"ed_status_{target_partner_id}",
+                        )
+
+                    # 대리점이면 상위 총판 선택
+                    _all_dists_ed = [p for p in (get_all_agencies() or [])
+                                     if p.get("is_distributor") and p["id"] != target_partner_id]
+                    _parent_opts_ed = {"(없음 / 독립)": None}
+                    for _d in _all_dists_ed:
+                        _parent_opts_ed[_d["name"]] = _d["id"]
+                    _cur_parent_id = partner_pi.get("parent_partner_id")
+                    _cur_parent_name = "(없음 / 독립)"
+                    if _cur_parent_id:
+                        for _n, _i in _parent_opts_ed.items():
+                            if _i == _cur_parent_id:
+                                _cur_parent_name = _n
+                                break
+                    ed_parent_name = st.selectbox(
+                        "🔗 상위 총판 (대리점인 경우만 의미 있음)",
+                        list(_parent_opts_ed.keys()),
+                        index=list(_parent_opts_ed.keys()).index(_cur_parent_name) if _cur_parent_name in _parent_opts_ed else 0,
+                        key=f"ed_parent_{target_partner_id}",
+                        help="대리점인 경우 소속 총판 선택. 총판은 보통 (없음 / 독립).",
+                    )
+                    ed_parent_id = _parent_opts_ed[ed_parent_name]
+
+                    st.caption(
+                        "💡 총판 → 대리점 전환 시 상위 총판을 함께 지정하세요. "
+                        "대리점 → 총판 전환 시 상위 총판은 자동으로 '없음'으로 비워집니다."
+                    )
+
+                    _save_clf = st.form_submit_button("💾 분류·상태 변경 저장", type="primary", use_container_width=True)
+
+                    if _save_clf:
+                        # 검증: 최소 1개 유형
+                        if not (ed_is_dist or ed_is_res or ed_is_ro):
+                            st.error("⚠️ 파트너 유형을 최소 1개 선택하세요.")
+                        else:
+                            # 총판이면 상위 총판은 비움 (총판은 독립)
+                            _new_parent = None if ed_is_dist and not ed_is_res else ed_parent_id
+                            try:
+                                supabase.table("partners").update({
+                                    "is_distributor":   ed_is_dist,
+                                    "is_reseller":      ed_is_res,
+                                    "is_related_org":   ed_is_ro,
+                                    "has_sales_contract":    ed_has_sales,
+                                    "has_customer_contract": ed_has_cust,
+                                    "has_org_admin_contract": ed_has_org,
+                                    "partnership_status": ed_status,
+                                    "parent_partner_id":  _new_parent,
+                                    "updated_at": datetime.now().isoformat(),
+                                }).eq("id", target_partner_id).execute()
+                                st.success("✅ 분류·상태 변경 저장 완료")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"❌ 저장 실패: {e}")
+
+        # 항상 현재 상태 요약 표시 (읽기 전용 metric)
+        st.markdown("##### 🔒 파트너 분류 및 계약 정보 (본부 관리)" + (" — 위 expander에서 변경 가능" if _is_hq_admin else ""))
         info_col1, info_col2, info_col3 = st.columns(3)
         with info_col1:
             partner_types = []
@@ -12888,10 +12977,10 @@ else:
             status_emoji = {"active": "🟢 정상", "pilot": "🟡 시범", "suspended": "🔴 정지"}
             ps = partner_pi.get("partnership_status", "active")
             st.metric("파트너십 상태", status_emoji.get(ps, ps))
-        
+
         if partner_pi.get("company_updated_at"):
             st.caption(f"🕒 최근 회사 정보 수정: {str(partner_pi['company_updated_at'])[:19].replace('T',' ')}")
-        
+
         st.divider()
         
         # ─── 입력 폼 (수정 가능) ───
