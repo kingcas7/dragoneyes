@@ -395,10 +395,14 @@ def _a11y_main_speak(text, *, once_key=None):
 
 
 def _a11y_force_announce(text, *, lang=None, once_key=None, speed=1.0):
-    """voice_guide_enabled 무시하고 강제 발화 (음성 OFF 사용자도 들음).
-    시각장애인 진입 시 키보드 안내용. once_key로 세션당 1회 제한.
+    """키보드 안내용 발화 (announce보다 강한 재시도 로직 + focusin suppress).
+    ⚠️ voice_guide_enabled가 켜져 있을 때만 발화한다 (음성 OFF면 no-op).
+    사용자가 음성 안내를 켜지 않았는데 안내가 나오는 문제 방지. once_key로 세션당 1회 제한.
     """
     if not text:
+        return
+    # 음성 안내 OFF → 발화하지 않음 (사용자 명시 ON일 때만)
+    if not st.session_state.get("voice_guide_enabled"):
         return
     if once_key:
         _flag = f"_a11y_force_announced_{once_key}"
@@ -1512,6 +1516,36 @@ def _a11y_render_keyboard_mic():
 def _a11y_render_floating_mic():
     """음성 명령 floating 마이크 버튼 — 자체 완결형 (closure 의존 X)."""
     if not st.session_state.get("voice_guide_enabled"):
+        # 음성 안내 OFF → 이전에 부모 window DOM에 삽입된 마이크/토글/진단 박스를 제거.
+        #   (단순 early-return 시 한 번 삽입된 빨간 마이크가 영구히 안 사라지는 문제 수정)
+        _a11y_components.html(
+            """
+            <script>
+            (function() {
+                try {
+                    const w = window.parent || window;
+                    // 진행 중인 음성 인식 중지
+                    try {
+                        if (w._dragoneyesRecogInstance) { w._dragoneyesRecogInstance.abort(); }
+                    } catch(_) {}
+                    w._dragoneyesRecogInstance = null;
+                    w._dragoneyesIsListening = false;
+                    w._dragoneyesContinuousMode = false;
+                    // 진행 중인 음성 발화 중지
+                    try { if (w.speechSynthesis) w.speechSynthesis.cancel(); } catch(_) {}
+                    // 삽입돼 있던 DOM 요소 제거
+                    ['a11y-mic-floating', 'a11y-mic-toggle', 'a11y-mic-diag'].forEach(function(id) {
+                        const el = w.document.getElementById(id);
+                        if (el && el.parentNode) el.parentNode.removeChild(el);
+                    });
+                    // 다시 켤 때 재삽입되도록 설치 가드 리셋
+                    w.__a11yMicInstalled = false;
+                } catch (e) { console.error('[A11y] floating mic cleanup error:', e); }
+            })();
+            </script>
+            """,
+            height=0,
+        )
         return
     _a11y_components.html(
         """
