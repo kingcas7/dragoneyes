@@ -4760,16 +4760,33 @@ if "token" in params and st.session_state.user is None:
             del st.query_params["token"]
 
 # 신규 sid (refresh_token) 방식
-# ⭐ 로그아웃 직후엔 sid가 남아있어도 자동 복원 skip (logged_out=1 플래그 체크)
+# ⭐ 로그아웃 직후엔 sid가 남아있어도 자동 복원 skip + user 강제 None + 페이지 컨텍스트 완전 초기화
 if "logged_out" in params:
+    # session_state도 강제 정리 (혹시 모를 잔여)
     try:
-        if "sid" in st.query_params:
-            del st.query_params["sid"]
-        if "page" in st.query_params:
-            del st.query_params["page"]
-        del st.query_params["logged_out"]
+        st.session_state.user = None
+        st.session_state.access_token = None
+        st.session_state.refresh_token = None
+        # 페이지/모드/캠페인 잔여 컨텍스트 완전 정리 — 빈 페이지 차단
+        for _k in ("current_page", "login_mode", "_stats_from_campaign",
+                   "_cmp_user_picked", "_cmp_login_role"):
+            st.session_state.pop(_k, None)
+        for _k in list(st.session_state.keys()):
+            if isinstance(_k, str) and (_k.startswith("_a11y_") or _k.startswith("_stats_")
+                                        or _k.startswith("_cmp_") or _k.startswith("_login_")):
+                st.session_state.pop(_k, None)
     except Exception:
         pass
+    # query_params 정리
+    try:
+        for _q in ("sid", "page", "token", "logged_out"):
+            if _q in st.query_params:
+                del st.query_params[_q]
+    except Exception:
+        pass
+    # supabase 추가 정리
+    try: supabase.auth.sign_out()
+    except Exception: pass
 
 if "sid" in params and st.session_state.user is None and "logged_out" not in params:
     try:
@@ -9261,10 +9278,15 @@ else:
         "campaign_signup_parent", "campaign_signup_student",
         "institution_dashboard", "institution_approval", "monitoring_stats",
     )
+    # ⭐ query_params.page는 'sid 복원이 default home_landing으로 덮었을 때'만 적용 — 사용자가
+    #    버튼 클릭으로 session_state를 변경하면 그게 우선 (그렇지 않으면 페이지 이동이 차단됨)
+    _ss_cp = st.session_state.get("current_page") or ""
     if _qp_page and _qp_page in _qp_cmp_pages:
-        # 캠페인 관련 페이지는 query_params 절대 우선
-        st.session_state["current_page"] = _qp_page
-    elif not st.session_state.get("current_page"):
+        # session_state가 비었거나, sid 복원이 강제로 home_landing/monitoring으로 set한 경우만 덮어쓰기
+        # (이미 캠페인 페이지 안에 있고 사용자가 그 안에서 이동하는 경우엔 건드리지 않음)
+        if (not _ss_cp) or (_ss_cp in ("home_landing", "monitoring_dashboard")) or (_ss_cp not in _qp_cmp_pages):
+            st.session_state["current_page"] = _qp_page
+    elif not _ss_cp:
         # current_page가 비어있을 때만 캠페인 사용자 default 적용
         if _is_cmp_persist:
             st.session_state["current_page"] = "campaign_landing"
@@ -9406,7 +9428,8 @@ else:
     _curr_page_hdr = st.session_state.get("current_page", "") or ""
     # _stats_from_campaign 플래그가 있으면 monitoring_stats도 캠페인 컨텍스트로 취급
     _stats_from_cmp = bool(st.session_state.get("_stats_from_campaign"))
-    _is_campaign_hdr = (
+    # ⭐ user None일 때는 캠페인 헤더 진입 자체 차단 (로그아웃 후 빈 페이지 방지)
+    _is_campaign_hdr = bool(user) and (
         _curr_page_hdr.startswith("campaign_")
         or _curr_page_hdr in ("institution_dashboard", "institution_approval",
                               "campaign_status", "parent_dashboard")
@@ -9474,23 +9497,34 @@ else:
                         st.rerun()
             with _hb_logout:
                 if st.button("🚪 로그아웃", key="cmp_hdr_logout", use_container_width=True):
-                    # ⭐ 완전 로그아웃: supabase + session_state + query_params + JS로 URL 정리 + reload
+                    # ⭐ 완전 로그아웃: supabase + session_state + query_params + cookie/localStorage + reload
                     try: supabase.auth.sign_out()
                     except Exception: pass
                     for k in list(st.session_state.keys()):
                         del st.session_state[k]
                     try: st.query_params.clear()
                     except Exception: pass
-                    # ⭐ logged_out=1 플래그 + reload — sid 자동 복원 차단
+                    # ⭐ cookie + localStorage + sessionStorage 정리 + reload (자동 복원 차단)
                     st.markdown(
                         "<script>"
                         "try {"
                         "  const w = window.top || window;"
+                        "  // localStorage / sessionStorage 정리"
+                        "  try { w.localStorage.clear(); } catch(e){}"
+                        "  try { w.sessionStorage.clear(); } catch(e){}"
+                        "  // cookie 정리 (supabase auth token 포함)"
+                        "  try {"
+                        "    w.document.cookie.split(';').forEach(function(c){"
+                        "      const eq = c.indexOf('=');"
+                        "      const name = eq > -1 ? c.substr(0, eq).trim() : c.trim();"
+                        "      w.document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';"
+                        "    });"
+                        "  } catch(e){}"
+                        "  // URL을 pathname + logged_out=1만으로"
                         "  w.history.replaceState({}, '', w.location.pathname + '?logged_out=1');"
-                        "  setTimeout(function(){ w.location.reload(); }, 50);"
+                        "  setTimeout(function(){ w.location.reload(); }, 100);"
                         "} catch(e) {"
-                        "  try { window.history.replaceState({}, '', window.location.pathname + '?logged_out=1'); } catch(e2){}"
-                        "  try { window.location.reload(); } catch(e2){}"
+                        "  try { window.location.href = window.location.pathname + '?logged_out=1'; } catch(e2){}"
                         "}"
                         "</script>",
                         unsafe_allow_html=True,
