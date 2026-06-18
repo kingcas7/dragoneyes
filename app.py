@@ -9049,7 +9049,7 @@ else:
     #    monitoring_stats가 캠페인에서 진입한 경우도 캠페인 컨텍스트로 취급
     _hide_a11y_toolbar = (
         _curr_page.startswith("campaign_")
-        or _curr_page in ("institution_dashboard", "institution_approval")
+        or _curr_page in ("institution_dashboard", "institution_approval", "campaign_status")
         or (_curr_page == "monitoring_stats" and bool(st.session_state.get("_stats_from_campaign")))
         or bool((user or {}).get("is_campaign_only"))
         or ((user or {}).get("role_v2") in ("student", "parent", "institution_admin"))
@@ -9255,7 +9255,7 @@ else:
         _cp_now = st.session_state.get("current_page") or ""
         _cp_cmp_pages = (
             _cp_now.startswith("campaign_")
-            or _cp_now in ("institution_dashboard", "institution_approval")
+            or _cp_now in ("institution_dashboard", "institution_approval", "campaign_status")
             or (_cp_now == "monitoring_stats" and bool(st.session_state.get("_stats_from_campaign")))
         )
         if _cp_cmp_pages and st.query_params.get("page") != _cp_now:
@@ -9389,32 +9389,38 @@ else:
     _stats_from_cmp = bool(st.session_state.get("_stats_from_campaign"))
     _is_campaign_hdr = (
         _curr_page_hdr.startswith("campaign_")
-        or _curr_page_hdr == "institution_dashboard"
-        or _curr_page_hdr == "institution_approval"
+        or _curr_page_hdr in ("institution_dashboard", "institution_approval", "campaign_status")
         or (_curr_page_hdr == "monitoring_stats" and _stats_from_cmp)
         or bool((user or {}).get("is_campaign_only"))
         or ((user or {}).get("role_v2") in ("student", "parent", "institution_admin"))
     )
     if _is_campaign_hdr:
         # 캠페인 전용 헤더 — 모니터링 UI/메뉴/슬로건 완전 차단
-        _hdr_l, _hdr_r = st.columns([6, 4])
+        _hdr_l, _hdr_r = st.columns([5, 5])
         with _hdr_l:
             st.markdown(
-                '<div style="font-size:1.5rem; font-weight:700; padding:4px 0;">'
+                '<div style="font-size:1.4rem; font-weight:700; padding:4px 0;">'
                 '🎓 드래곤아이즈 온라인 유해컨텐츠 근절 캠페인</div>',
                 unsafe_allow_html=True,
             )
         with _hdr_r:
-            # ← 뒤로가기 / 🏠 캠페인 홈 / 🚪 로그아웃 — 3버튼
-            _hb_back, _hb_home, _hb_logout = st.columns([1, 1, 1])
+            # 학생 사용자는 모니터링 시스템 버튼 미표시
+            _u_hdr = user or {}
+            _hdr_role_v2 = (_u_hdr.get("role_v2") or "").lower()
+            _hdr_is_student = (_hdr_role_v2 == "student") or bool(_u_hdr.get("is_campaign_only"))
+
+            # ← 뒤로 / 🏠 홈 / 🛡️ 모니터링 시스템(학생 제외) / 🚪 로그아웃
+            if _hdr_is_student:
+                _hb_back, _hb_home, _hb_logout = st.columns([1, 1, 1])
+                _hb_mon = None
+            else:
+                _hb_back, _hb_home, _hb_mon, _hb_logout = st.columns([1, 1, 1.4, 1])
+
             with _hb_back:
-                # 뒤로가기 — 이전 페이지로 (없으면 캠페인 홈)
                 if st.button("← 뒤로", key="cmp_hdr_back", use_container_width=True,
                              help="이전 페이지로 돌아가기"):
                     _prev = st.session_state.get("prev_page") or "campaign_landing"
-                    # 캠페인 컨텍스트 유지하며 이동
                     if _curr_page_hdr == "monitoring_stats" and _stats_from_cmp:
-                        # 통계에서 뒤로 = 캠페인 홈
                         st.session_state.pop("_stats_from_campaign", None)
                         st.session_state["current_page"] = "campaign_landing"
                     else:
@@ -9426,6 +9432,15 @@ else:
                     st.session_state.pop("_stats_from_campaign", None)
                     st.session_state["current_page"] = "campaign_landing"
                     st.rerun()
+            if _hb_mon is not None:
+                with _hb_mon:
+                    if st.button("🛡️ 모니터링 시스템", key="cmp_hdr_to_monitor",
+                                 use_container_width=True,
+                                 help="유해 컨텐츠 모니터링 시스템으로 이동"):
+                        # 캠페인 플래그 정리
+                        st.session_state.pop("_stats_from_campaign", None)
+                        st.session_state["current_page"] = "home_landing"
+                        st.rerun()
             with _hb_logout:
                 if st.button("🚪 로그아웃", key="cmp_hdr_logout", use_container_width=True):
                     # ⭐ 완전 로그아웃: supabase + session_state + query_params + JS로 URL 정리 + reload
@@ -16017,10 +16032,11 @@ else:
         st.markdown("")
         st.divider()
 
-        # ── 하단: 모니터링 통계 공유 + 로그아웃 + 모니터링 전환 ──
-        _bc1, _bc2, _bc3 = st.columns(3)
+        # ── 하단: 📊 드래곤아이즈 모니터링 통계 보기 + 캠페인 현황 보기 ──
+        #   (모니터링 시스템·로그아웃은 상단 헤더로 이동)
+        _bc1, _bc2 = st.columns(2)
         with _bc1:
-            if st.button("📊 모니터링 통계 보기",
+            if st.button("📊 드래곤아이즈 모니터링 통계 보기",
                          use_container_width=True,
                          key="cmp_landing_stats",
                          help="정부/공인기관 제공 자료 — 모든 사용자 조회 가능"):
@@ -16028,42 +16044,90 @@ else:
                 st.session_state["current_page"] = "monitoring_stats"
                 st.rerun()
         with _bc2:
-            if not _is_student:
-                if st.button("🛡️ 모니터링 시스템",
-                             use_container_width=True,
-                             key="cmp_to_mon_bottom"):
-                    st.session_state["current_page"] = "home_landing"
-                    st.rerun()
-        with _bc3:
-            if st.button("🚪 로그아웃",
+            if st.button("🎓 캠페인 현황 보기",
                          use_container_width=True,
-                         key="campaign_landing_logout"):
-                # ⭐ 완전 로그아웃: supabase + session_state + query_params + JS reload
-                try: supabase.auth.sign_out()
-                except Exception: pass
-                for k in list(st.session_state.keys()):
-                    del st.session_state[k]
-                try: st.query_params.clear()
-                except Exception: pass
-                # ⭐ URL에서 sid 강제 제거 + 페이지 reload (자동 로그인 차단)
-                st.markdown(
-                    "<script>"
-                    "try {"
-                    "  const w = window.top || window;"
-                    "  w.history.replaceState({}, '', w.location.pathname);"
-                    "  setTimeout(function(){ w.location.reload(); }, 50);"
-                    "} catch(e) {"
-                    "  try { window.history.replaceState({}, '', window.location.pathname); } catch(e2){}"
-                    "  try { window.location.reload(); } catch(e2){}"
-                    "}"
-                    "</script>",
-                    unsafe_allow_html=True,
-                )
-                st.stop()
+                         key="cmp_landing_campaign_status",
+                         help="학교별 참여 학생 수 · 봉사 점수 발급 · 만족도 통계"):
+                st.session_state["current_page"] = "campaign_status"
+                st.rerun()
 
     # ══════════════════════════════════════════════════════════════
     # 🏫 Phase 4 (v17): 교육기관 대시보드 — 소속 학생 명단 / 일괄 등록 / 통계
     # ══════════════════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════
+    # 🎓 Phase 10 (v17): 캠페인 현황 — 학교별 참여 통계 + 만족도 (placeholder)
+    # ══════════════════════════════════════════════════════════════
+    elif page == "campaign_status":
+        _hh1, _hh2 = st.columns([6, 1])
+        with _hh1:
+            st.markdown("## 🎓 캠페인 현황")
+            st.caption("학교별 참여 학생 수 · 봉사 점수 발급 · 학생/학부모 만족도")
+        with _hh2:
+            if st.button("← 캠페인 홈", key="cmp_status_back", use_container_width=True):
+                st.session_state["current_page"] = "campaign_landing"
+                st.rerun()
+
+        st.divider()
+
+        # 전체 KPI (placeholder — 실제 데이터는 Phase 10 본격 구현 시)
+        kc1, kc2, kc3, kc4 = st.columns(4)
+        try:
+            _total_inst = supabase.table("institutions").select(
+                "id", count="exact").eq("status", "approved").execute()
+            _inst_cnt = _total_inst.count if hasattr(_total_inst, "count") else 0
+        except Exception:
+            _inst_cnt = 0
+        try:
+            _total_stu = supabase.table("users").select(
+                "id", count="exact").eq("role_v2", "student").is_("deleted_at", "null").execute()
+            _stu_cnt = _total_stu.count if hasattr(_total_stu, "count") else 0
+        except Exception:
+            _stu_cnt = 0
+        try:
+            _total_volunteer = supabase.table("volunteer_credits").select(
+                "id", count="exact").eq("status", "issued").execute()
+            _vol_cnt = _total_volunteer.count if hasattr(_total_volunteer, "count") else 0
+        except Exception:
+            _vol_cnt = 0
+        kc1.metric("🏫 참여 교육기관", f"{_inst_cnt}곳")
+        kc2.metric("🎒 등록 학생", f"{_stu_cnt}명")
+        kc3.metric("🏆 봉사 점수 발급", f"{_vol_cnt}건")
+        kc4.metric("⭐ 평균 만족도", "—")
+
+        st.divider()
+
+        # 탭: 학교별 / 봉사 점수 / 만족도
+        cs_tab1, cs_tab2, cs_tab3 = st.tabs(
+            ["🏫 학교별 참여 현황", "🏆 봉사 점수 발급 현황", "⭐ 학생·학부모 만족도"]
+        )
+        with cs_tab1:
+            st.info(
+                "📊 **학교별 참여 학생 수 + 진행률**\n\n"
+                "- 시·도 교육청 → 산하 학교 일괄 모니터링\n"
+                "- 상급 기관이 하급 기관 전체 참여도 한눈에 확인\n"
+                "- 학년별·반별 진행률 차트\n"
+                "- CSV / 엑셀 다운로드\n\n"
+                "🚧 **Phase 10에서 본격 구현 예정**"
+            )
+        with cs_tab2:
+            st.info(
+                "🏆 **봉사 점수 발급 현황**\n\n"
+                "- 학교별 · 학년별 발급 건수\n"
+                "- 평균 봉사 시간\n"
+                "- 1365 봉사포털 연동 상태\n"
+                "- 인증서 PDF 일괄 다운로드\n\n"
+                "🚧 **Phase 8 후속 + Phase 10에서 본격 구현 예정**"
+            )
+        with cs_tab3:
+            st.info(
+                "⭐ **학생/학부모 만족도 + 개선점 접수**\n\n"
+                "- 자료별 평점 (별 5점)\n"
+                "- 자유 의견 / 개선점 접수\n"
+                "- 모든 사용자 열람 가능 (투명성)\n"
+                "- 교육기관 피드백 정리\n\n"
+                "🚧 **Phase 10에서 본격 구현 예정**"
+            )
+
     # ══════════════════════════════════════════════════════════════
     # 📚 Phase 5 (v17): 캠페인 자료 — 커리큘럼 / 무료 자료 / 유료 자료
     #     다운로드 차단 — 웹에서만 열람 (PDF 뷰어 + 동영상 스트리밍)
