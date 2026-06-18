@@ -56,10 +56,9 @@ CREATE INDEX IF NOT EXISTS idx_institutions_type      ON public.institutions(typ
 CREATE INDEX IF NOT EXISTS idx_institutions_region    ON public.institutions(region) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_institutions_status    ON public.institutions(status) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_institutions_neis_id   ON public.institutions(neis_id) WHERE neis_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_institutions_name_trgm ON public.institutions USING gin (name gin_trgm_ops);
-
--- pg_trgm 확장 (학교명 fuzzy 검색용)
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
+-- 학교명 검색은 일반 B-tree + LIKE 'name%' 으로 충분. fuzzy 검색이 필요해지면
+-- 별도 SQL로 pg_trgm + GIN 인덱스 추가 (Supabase extensions 스키마 명시 필요).
+CREATE INDEX IF NOT EXISTS idx_institutions_name      ON public.institutions(name) WHERE deleted_at IS NULL;
 
 
 -- ─────────────────────────────────────────────────────────────
