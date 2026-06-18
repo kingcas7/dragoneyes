@@ -4733,8 +4733,8 @@ if "req_id" in params and st.session_state.get("current_page") != "consent_page"
     st.session_state.current_page = "consent_page"
 
 # ─── 🔐 세션 복원: sid (refresh_token) 사용 ───
-# 옛 token 파라미터 호환 (기존 세션 마이그레이션)
-if "token" in params and st.session_state.user is None:
+# 옛 token 파라미터 호환 (기존 세션 마이그레이션) — 로그아웃 직후엔 skip
+if "token" in params and st.session_state.user is None and "logged_out" not in params:
     try:
         token = params["token"]
         result = supabase.auth.get_user(token)
@@ -4761,32 +4761,42 @@ if "token" in params and st.session_state.user is None:
 
 # 신규 sid (refresh_token) 방식
 # ⭐ 로그아웃 직후엔 sid가 남아있어도 자동 복원 skip + user 강제 None + 페이지 컨텍스트 완전 초기화
+# 2단계 처리: (1) session_state·supabase·query_params 정리 + st.rerun()
+#            (2) rerun 후 user None인 상태로 logged_out 플래그 제거 → 로그인 페이지로
 if "logged_out" in params:
-    # session_state도 강제 정리 (혹시 모를 잔여)
+    _logout_done = st.session_state.get("_logout_done", False)
+    # ⭐ supabase 클라이언트 자체 정리 (메모리 캐시된 token 삭제)
+    try: supabase.auth.sign_out()
+    except Exception: pass
+    # session_state 완전 정리 (모든 키 제거 — _logout_done 만 유지)
     try:
-        st.session_state.user = None
-        st.session_state.access_token = None
-        st.session_state.refresh_token = None
-        # 페이지/모드/캠페인 잔여 컨텍스트 완전 정리 — 빈 페이지 차단
-        for _k in ("current_page", "login_mode", "_stats_from_campaign",
-                   "_cmp_user_picked", "_cmp_login_role"):
-            st.session_state.pop(_k, None)
         for _k in list(st.session_state.keys()):
-            if isinstance(_k, str) and (_k.startswith("_a11y_") or _k.startswith("_stats_")
-                                        or _k.startswith("_cmp_") or _k.startswith("_login_")):
-                st.session_state.pop(_k, None)
+            if _k != "_logout_done":
+                try: del st.session_state[_k]
+                except Exception: pass
     except Exception:
         pass
     # query_params 정리
     try:
-        for _q in ("sid", "page", "token", "logged_out"):
+        for _q in ("sid", "page", "token"):
             if _q in st.query_params:
                 del st.query_params[_q]
     except Exception:
         pass
-    # supabase 추가 정리
-    try: supabase.auth.sign_out()
-    except Exception: pass
+
+    if not _logout_done:
+        # 첫 번째 처리: fresh rerun으로 다른 복원 코드 모두 우회
+        st.session_state["_logout_done"] = True
+        st.rerun()
+    else:
+        # 두 번째 처리: logged_out 플래그 제거 + flag 정리 (정상 로그인 페이지로)
+        try:
+            if "logged_out" in st.query_params:
+                del st.query_params["logged_out"]
+        except Exception:
+            pass
+        try: del st.session_state["_logout_done"]
+        except Exception: pass
 
 if "sid" in params and st.session_state.user is None and "logged_out" not in params:
     try:
