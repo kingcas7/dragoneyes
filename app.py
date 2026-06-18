@@ -8248,8 +8248,11 @@ if st.session_state.user is None:
                 st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # ── 70:30 레이아웃 ──
-    left_col, right_col = st.columns([7, 3], gap="medium")
+    # ⭐ 모드별 컬럼 비율 분기 — 캠페인 모드 좌측 카드 좁히기 (로그인 박스가 안 가리게)
+    if _login_mode == "campaign":
+        left_col, right_col = st.columns([5, 4], gap="medium")
+    else:
+        left_col, right_col = st.columns([7, 3], gap="medium")
 
     with left_col:
         # ⭐ 캠페인 모드일 때 미션 박스 / 특징 카드 / 통계를 캠페인 컨텐츠로 교체
@@ -8262,28 +8265,15 @@ if st.session_state.user is None:
             _feat2_icon, _feat2_title, _feat2_desc = "📋", "학생 설문 + 봉사 점수", "50문항 성실 완료 → 교육부 인정 봉사시간 (4~6시간) 발급"
             _feat3_icon, _feat3_title, _feat3_desc = "👨‍👩‍👧 ", "학부모 자료·자녀 관리", "연 1만원으로 모든 유료 자료 무제한 + 자녀 설문 모니터링"
             _stats_title = "🎯 캠페인 정책 요약"
-            _stat_rows_html = """
-                <div class="login-stat-row">
-                    <div class="login-stat-header"><span class="login-stat-label">🎒 학생</span><span class="login-stat-value">무료</span></div>
-                    <div class="login-stat-bar"><div class="login-stat-fill" style="background:#10b981;width:100%;"></div></div>
-                </div>
-                <div class="login-stat-row">
-                    <div class="login-stat-header"><span class="login-stat-label">👨‍👩‍👧 학부모 (연간)</span><span class="login-stat-value">10,000원</span></div>
-                    <div class="login-stat-bar"><div class="login-stat-fill" style="background:#3b82f6;width:80%;"></div></div>
-                </div>
-                <div class="login-stat-row">
-                    <div class="login-stat-header"><span class="login-stat-label">🏫 교육기관</span><span class="login-stat-value">계약</span></div>
-                    <div class="login-stat-bar"><div class="login-stat-fill" style="background:#8b5cf6;width:60%;"></div></div>
-                </div>
-                <div class="login-stat-row">
-                    <div class="login-stat-header"><span class="login-stat-label">🏆 봉사 시간 (성실 완료 시)</span><span class="login-stat-value">4~6시간</span></div>
-                    <div class="login-stat-bar"><div class="login-stat-fill" style="background:#f59e0b;width:75%;"></div></div>
-                </div>
-                <div class="login-stat-row">
-                    <div class="login-stat-header"><span class="login-stat-label">📚 자료 형식 (PDF·동영상)</span><span class="login-stat-value">열람 전용</span></div>
-                    <div class="login-stat-bar"><div class="login-stat-fill" style="background:#64748b;width:50%;"></div></div>
-                </div>
-            """
+            # ⭐ 들여쓰기 제거 — Streamlit markdown이 4-space indent를 코드블록으로 처리해
+            #    raw HTML이 텍스트로 표시되던 버그 회피
+            _stat_rows_html = (
+'<div class="login-stat-row"><div class="login-stat-header"><span class="login-stat-label">🎒 학생</span><span class="login-stat-value">무료</span></div><div class="login-stat-bar"><div class="login-stat-fill" style="background:#10b981;width:100%;"></div></div></div>'
+'<div class="login-stat-row"><div class="login-stat-header"><span class="login-stat-label">👨‍👩‍👧 학부모 (연간)</span><span class="login-stat-value">10,000원</span></div><div class="login-stat-bar"><div class="login-stat-fill" style="background:#3b82f6;width:80%;"></div></div></div>'
+'<div class="login-stat-row"><div class="login-stat-header"><span class="login-stat-label">🏫 교육기관</span><span class="login-stat-value">계약</span></div><div class="login-stat-bar"><div class="login-stat-fill" style="background:#8b5cf6;width:60%;"></div></div></div>'
+'<div class="login-stat-row"><div class="login-stat-header"><span class="login-stat-label">🏆 봉사 시간 (성실 완료 시)</span><span class="login-stat-value">4~6시간</span></div><div class="login-stat-bar"><div class="login-stat-fill" style="background:#f59e0b;width:75%;"></div></div></div>'
+'<div class="login-stat-row"><div class="login-stat-header"><span class="login-stat-label">📚 자료 형식 (PDF·동영상)</span><span class="login-stat-value">열람 전용</span></div><div class="login-stat-bar"><div class="login-stat-fill" style="background:#64748b;width:50%;"></div></div></div>'
+            )
         else:
             _mission_class  = "login-mission"
             _mission_icon   = "🛡️"
@@ -8293,28 +8283,19 @@ if st.session_state.user is None:
             _feat2_icon, _feat2_title, _feat2_desc = "🤖", t("login_feature2_title"), t("login_feature2_desc")
             _feat3_icon, _feat3_title, _feat3_desc = "📊", t("login_feature3_title"), t("login_feature3_desc")
             _stats_title = t("login_stats_title")
-            _stat_rows_html = f"""
-                <div class="login-stat-row">
-                    <div class="login-stat-header"><span class="login-stat-label">{t("login_cat_grooming")}</span><span class="login-stat-value">{_stats.get('grooming', 38)}%</span></div>
-                    <div class="login-stat-bar"><div class="login-stat-fill" style="background:#dc2626;width:{_stats.get('grooming', 38)}%;"></div></div>
-                </div>
-                <div class="login-stat-row">
-                    <div class="login-stat-header"><span class="login-stat-label">{t("login_cat_gambling")}</span><span class="login-stat-value">{_stats.get('gambling', 24)}%</span></div>
-                    <div class="login-stat-bar"><div class="login-stat-fill" style="background:#d97706;width:{_stats.get('gambling', 24)}%;"></div></div>
-                </div>
-                <div class="login-stat-row">
-                    <div class="login-stat-header"><span class="login-stat-label">{t("login_cat_sextortion")}</span><span class="login-stat-value">{_stats.get('sextortion', 16)}%</span></div>
-                    <div class="login-stat-bar"><div class="login-stat-fill" style="background:#db2777;width:{_stats.get('sextortion', 16)}%;"></div></div>
-                </div>
-                <div class="login-stat-row">
-                    <div class="login-stat-header"><span class="login-stat-label">{t("login_cat_inappropriate")}</span><span class="login-stat-value">{_stats.get('inappropriate', 12)}%</span></div>
-                    <div class="login-stat-bar"><div class="login-stat-fill" style="background:#7c3aed;width:{_stats.get('inappropriate', 12)}%;"></div></div>
-                </div>
-                <div class="login-stat-row">
-                    <div class="login-stat-header"><span class="login-stat-label">{t("login_cat_other")}</span><span class="login-stat-value">{_stats.get('other', 10)}%</span></div>
-                    <div class="login-stat-bar"><div class="login-stat-fill" style="background:#64748b;width:{_stats.get('other', 10)}%;"></div></div>
-                </div>
-            """
+            # ⭐ 들여쓰기 제거 — Streamlit markdown 코드블록 처리 회피
+            _gr  = _stats.get('grooming', 38)
+            _gb  = _stats.get('gambling', 24)
+            _sx  = _stats.get('sextortion', 16)
+            _ip  = _stats.get('inappropriate', 12)
+            _ot  = _stats.get('other', 10)
+            _stat_rows_html = (
+                f'<div class="login-stat-row"><div class="login-stat-header"><span class="login-stat-label">{t("login_cat_grooming")}</span><span class="login-stat-value">{_gr}%</span></div><div class="login-stat-bar"><div class="login-stat-fill" style="background:#dc2626;width:{_gr}%;"></div></div></div>'
+                f'<div class="login-stat-row"><div class="login-stat-header"><span class="login-stat-label">{t("login_cat_gambling")}</span><span class="login-stat-value">{_gb}%</span></div><div class="login-stat-bar"><div class="login-stat-fill" style="background:#d97706;width:{_gb}%;"></div></div></div>'
+                f'<div class="login-stat-row"><div class="login-stat-header"><span class="login-stat-label">{t("login_cat_sextortion")}</span><span class="login-stat-value">{_sx}%</span></div><div class="login-stat-bar"><div class="login-stat-fill" style="background:#db2777;width:{_sx}%;"></div></div></div>'
+                f'<div class="login-stat-row"><div class="login-stat-header"><span class="login-stat-label">{t("login_cat_inappropriate")}</span><span class="login-stat-value">{_ip}%</span></div><div class="login-stat-bar"><div class="login-stat-fill" style="background:#7c3aed;width:{_ip}%;"></div></div></div>'
+                f'<div class="login-stat-row"><div class="login-stat-header"><span class="login-stat-label">{t("login_cat_other")}</span><span class="login-stat-value">{_ot}%</span></div><div class="login-stat-bar"><div class="login-stat-fill" style="background:#64748b;width:{_ot}%;"></div></div></div>'
+            )
         st.markdown(f"""
         <div class="login-left-card">
             <div class="login-brand">
