@@ -7702,51 +7702,101 @@ if st.session_state.user is None:
         "grooming": 38, "gambling": 24, "sextortion": 16, "inappropriate": 12, "other": 10
     }
 
+    # ══════════════════════════════════════════════════════════════════
+    # 🆕 Phase 2 (v17): 로그인 모드 토글 — 모니터링 ↔ 캠페인
+    # ══════════════════════════════════════════════════════════════════
+    # 사용자가 어디로 가는지 명확히 선택. 선택에 따라 좌측 카드 / 우측
+    # 헤더 / 회원가입 분기. 학생 사용자는 모니터링 모드 로그인 시도해도
+    # 자동으로 캠페인으로 리다이렉트 (DB role_v2='student' 가드).
+    _login_mode = st.session_state.get("login_mode", "monitoring")
+
+    st.markdown("""
+    <style>
+    .login-mode-toggle { margin: 0 0 16px 0; }
+    .login-mode-toggle .stButton > button {
+        height: 70px; font-size: 16px; font-weight: 700; border-radius: 14px;
+        line-height: 1.3; white-space: pre-line;
+    }
+    .campaign-mission {
+        background: linear-gradient(135deg, #047857 0%, #10b981 100%) !important;
+    }
+    .student-warning {
+        background: #fef3c7; border: 1px solid #f59e0b; color: #78350f;
+        padding: 10px 14px; border-radius: 8px; font-size: 13px;
+        margin-bottom: 12px; text-align: center; font-weight: 600;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    with st.container():
+        st.markdown('<div class="login-mode-toggle">', unsafe_allow_html=True)
+        _mt1, _mt2 = st.columns(2)
+        with _mt1:
+            _btn_mon = ("🛡️ 모니터링 시스템\n유해 컨텐츠 감시·분석"
+                        + (" ✓" if _login_mode == "monitoring" else ""))
+            if st.button(_btn_mon,
+                         type="primary" if _login_mode == "monitoring" else "secondary",
+                         use_container_width=True,
+                         key="login_mode_monitoring"):
+                st.session_state["login_mode"] = "monitoring"
+                st.rerun()
+        with _mt2:
+            _btn_cmp = ("🎓 캠페인 시스템\n교육·설문·봉사 점수"
+                        + (" ✓" if _login_mode == "campaign" else ""))
+            if st.button(_btn_cmp,
+                         type="primary" if _login_mode == "campaign" else "secondary",
+                         use_container_width=True,
+                         key="login_mode_campaign"):
+                st.session_state["login_mode"] = "campaign"
+                st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
     # ── 70:30 레이아웃 ──
     left_col, right_col = st.columns([7, 3], gap="medium")
 
     with left_col:
-        st.markdown(f"""
-        <div class="login-left-card">
-            <div class="login-brand">
-                <div class="login-brand-logo">🐉</div>
-                <div>
-                    <p class="login-brand-name">{t("login_title").replace("🐉 ", "")}</p>
-                    <p class="login-brand-sub">{t("login_brand_sub")}</p>
+        # ⭐ 캠페인 모드일 때 미션 박스 / 특징 카드 / 통계를 캠페인 컨텐츠로 교체
+        if _login_mode == "campaign":
+            _mission_class  = "login-mission campaign-mission"
+            _mission_icon   = "🎓"
+            _mission_title  = "온라인 유해컨텐츠 근절 캠페인"
+            _mission_desc   = "교육기관·학부모·학생이 함께 만드는 안전한 온라인 환경"
+            _feat1_icon, _feat1_title, _feat1_desc = "🏫", "교육기관 전용 대시보드", "학생 보호 교육·행동강령·저작권 등 미개척 분야 커리큘럼"
+            _feat2_icon, _feat2_title, _feat2_desc = "📋", "학생 설문 + 봉사 점수", "50문항 성실 완료 → 교육부 인정 봉사시간 (4~6시간) 발급"
+            _feat3_icon, _feat3_title, _feat3_desc = "👨‍👩‍👧 ", "학부모 자료·자녀 관리", "연 1만원으로 모든 유료 자료 무제한 + 자녀 설문 모니터링"
+            _stats_title = "🎯 캠페인 정책 요약"
+            _stat_rows_html = """
+                <div class="login-stat-row">
+                    <div class="login-stat-header"><span class="login-stat-label">🎒 학생</span><span class="login-stat-value">무료</span></div>
+                    <div class="login-stat-bar"><div class="login-stat-fill" style="background:#10b981;width:100%;"></div></div>
                 </div>
-            </div>
-            <div class="login-mission">
-                <div class="login-mission-icon">🛡️</div>
-                <div class="login-mission-content">
-                    <p class="login-mission-title">{t("login_mission_title")}</p>
-                    <p class="login-mission-desc">{t("login_mission_desc")}</p>
+                <div class="login-stat-row">
+                    <div class="login-stat-header"><span class="login-stat-label">👨‍👩‍👧 학부모 (연간)</span><span class="login-stat-value">10,000원</span></div>
+                    <div class="login-stat-bar"><div class="login-stat-fill" style="background:#3b82f6;width:80%;"></div></div>
                 </div>
-            </div>
-            <div class="login-features">
-                <div class="login-feature">
-                    <div class="login-feature-icon">🛡️</div>
-                    <div class="login-feature-text">
-                        <p class="login-feature-title">{t("login_feature1_title")}</p>
-                        <p class="login-feature-desc">{t("login_feature1_desc")}</p>
-                    </div>
+                <div class="login-stat-row">
+                    <div class="login-stat-header"><span class="login-stat-label">🏫 교육기관</span><span class="login-stat-value">계약</span></div>
+                    <div class="login-stat-bar"><div class="login-stat-fill" style="background:#8b5cf6;width:60%;"></div></div>
                 </div>
-                <div class="login-feature">
-                    <div class="login-feature-icon">🤖</div>
-                    <div class="login-feature-text">
-                        <p class="login-feature-title">{t("login_feature2_title")}</p>
-                        <p class="login-feature-desc">{t("login_feature2_desc")}</p>
-                    </div>
+                <div class="login-stat-row">
+                    <div class="login-stat-header"><span class="login-stat-label">🏆 봉사 시간 (성실 완료 시)</span><span class="login-stat-value">4~6시간</span></div>
+                    <div class="login-stat-bar"><div class="login-stat-fill" style="background:#f59e0b;width:75%;"></div></div>
                 </div>
-                <div class="login-feature">
-                    <div class="login-feature-icon">📊</div>
-                    <div class="login-feature-text">
-                        <p class="login-feature-title">{t("login_feature3_title")}</p>
-                        <p class="login-feature-desc">{t("login_feature3_desc")}</p>
-                    </div>
+                <div class="login-stat-row">
+                    <div class="login-stat-header"><span class="login-stat-label">📚 자료 형식 (PDF·동영상)</span><span class="login-stat-value">열람 전용</span></div>
+                    <div class="login-stat-bar"><div class="login-stat-fill" style="background:#64748b;width:50%;"></div></div>
                 </div>
-            </div>
-            <div class="login-stats-box">
-                <p class="login-stats-title">{t("login_stats_title")}</p>
+            """
+        else:
+            _mission_class  = "login-mission"
+            _mission_icon   = "🛡️"
+            _mission_title  = t("login_mission_title")
+            _mission_desc   = t("login_mission_desc")
+            _feat1_icon, _feat1_title, _feat1_desc = "🛡️", t("login_feature1_title"), t("login_feature1_desc")
+            _feat2_icon, _feat2_title, _feat2_desc = "🤖", t("login_feature2_title"), t("login_feature2_desc")
+            _feat3_icon, _feat3_title, _feat3_desc = "📊", t("login_feature3_title"), t("login_feature3_desc")
+            _stats_title = t("login_stats_title")
+            _stat_rows_html = f"""
                 <div class="login-stat-row">
                     <div class="login-stat-header"><span class="login-stat-label">{t("login_cat_grooming")}</span><span class="login-stat-value">{_stats.get('grooming', 38)}%</span></div>
                     <div class="login-stat-bar"><div class="login-stat-fill" style="background:#dc2626;width:{_stats.get('grooming', 38)}%;"></div></div>
@@ -7767,6 +7817,49 @@ if st.session_state.user is None:
                     <div class="login-stat-header"><span class="login-stat-label">{t("login_cat_other")}</span><span class="login-stat-value">{_stats.get('other', 10)}%</span></div>
                     <div class="login-stat-bar"><div class="login-stat-fill" style="background:#64748b;width:{_stats.get('other', 10)}%;"></div></div>
                 </div>
+            """
+        st.markdown(f"""
+        <div class="login-left-card">
+            <div class="login-brand">
+                <div class="login-brand-logo">🐉</div>
+                <div>
+                    <p class="login-brand-name">{t("login_title").replace("🐉 ", "")}</p>
+                    <p class="login-brand-sub">{t("login_brand_sub")}</p>
+                </div>
+            </div>
+            <div class="{_mission_class}">
+                <div class="login-mission-icon">{_mission_icon}</div>
+                <div class="login-mission-content">
+                    <p class="login-mission-title">{_mission_title}</p>
+                    <p class="login-mission-desc">{_mission_desc}</p>
+                </div>
+            </div>
+            <div class="login-features">
+                <div class="login-feature">
+                    <div class="login-feature-icon">{_feat1_icon}</div>
+                    <div class="login-feature-text">
+                        <p class="login-feature-title">{_feat1_title}</p>
+                        <p class="login-feature-desc">{_feat1_desc}</p>
+                    </div>
+                </div>
+                <div class="login-feature">
+                    <div class="login-feature-icon">{_feat2_icon}</div>
+                    <div class="login-feature-text">
+                        <p class="login-feature-title">{_feat2_title}</p>
+                        <p class="login-feature-desc">{_feat2_desc}</p>
+                    </div>
+                </div>
+                <div class="login-feature">
+                    <div class="login-feature-icon">{_feat3_icon}</div>
+                    <div class="login-feature-text">
+                        <p class="login-feature-title">{_feat3_title}</p>
+                        <p class="login-feature-desc">{_feat3_desc}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="login-stats-box">
+                <p class="login-stats-title">{_stats_title}</p>
+                {_stat_rows_html}
             </div>
             <div class="login-badges">
                 <p class="login-badges-title">{t("login_badges_title")}</p>
@@ -7781,13 +7874,29 @@ if st.session_state.user is None:
         """, unsafe_allow_html=True)
 
     with right_col:
+        # ⭐ 모드별 우측 카드 헤더 분기
+        if _login_mode == "campaign":
+            _form_title = "🎓 캠페인 로그인"
+            _form_subtitle = "교육기관 · 학부모 · 학생"
+        else:
+            _form_title = t("login_form_title")
+            _form_subtitle = t("login_form_subtitle")
+
         st.markdown(f"""
         <div class="login-right-card">
             <div class="login-form-header">
-                <p class="login-form-title">{t("login_form_title")}</p>
-                <p class="login-form-subtitle">{t("login_form_subtitle")}</p>
+                <p class="login-form-title">{_form_title}</p>
+                <p class="login-form-subtitle">{_form_subtitle}</p>
             </div>
         """, unsafe_allow_html=True)
+
+        # ⭐ 캠페인 모드 — 학생 안내 배너
+        if _login_mode == "campaign":
+            st.markdown(
+                '<div class="student-warning">⚠️ 학생 사용자는 유해 컨텐츠 모니터링 시스템에 접근할 수 없습니다. '
+                '캠페인 자료 열람·설문·봉사 점수만 가능합니다.</div>',
+                unsafe_allow_html=True,
+            )
 
         email = st.text_input(t("email"), placeholder="email@example.com", label_visibility="visible")
         password = st.text_input(t("password"), type="password", placeholder="••••••••", label_visibility="visible")
@@ -7797,8 +7906,27 @@ if st.session_state.user is None:
                 with st.spinner(t("analyzing")):
                     ok, msg = login(email, password)
                 if ok:
-                    # 접근성: 로그인 성공 음성 안내 (rerun 직전이므로 즉시 발화)
-                    accessibility.announce("로그인 성공. 메인 페이지로 이동합니다.")
+                    # ⭐ Phase 2 (v17): 학생 차단 가드 + 모드별 라우팅
+                    _u = st.session_state.get("user") or {}
+                    _role_v2  = (_u.get("role_v2") or "").lower()
+                    _is_student = (_role_v2 == "student") or bool(_u.get("is_campaign_only"))
+
+                    if _login_mode == "monitoring" and _is_student:
+                        # 학생이 모니터링 모드 시도 → 차단 + 캠페인으로 강제 이동
+                        accessibility.announce(
+                            "학생 사용자는 모니터링 시스템에 접근할 수 없습니다. "
+                            "캠페인 시스템으로 이동합니다."
+                        )
+                        st.warning("⚠️ 학생 사용자는 모니터링 시스템에 접근할 수 없습니다. 캠페인 시스템으로 이동합니다.")
+                        st.session_state["login_mode"] = "campaign"
+                        st.session_state["current_page"] = "campaign_landing"
+                    elif _login_mode == "campaign":
+                        # 캠페인 모드 (학생/학부모/기관 모두) → 캠페인 홈
+                        accessibility.announce("로그인 성공. 캠페인 페이지로 이동합니다.")
+                        st.session_state["current_page"] = "campaign_landing"
+                    else:
+                        # 모니터링 모드 (기존 동작) → 기존 라우팅
+                        accessibility.announce("로그인 성공. 메인 페이지로 이동합니다.")
                     st.rerun()
                 else:
                     accessibility.announce(f"로그인 실패. {msg}")
@@ -7806,6 +7934,13 @@ if st.session_state.user is None:
             else:
                 accessibility.announce("이메일과 비밀번호를 모두 입력하세요.")
                 st.warning(t("login_warn"))
+
+        # ⭐ 캠페인 모드 — 회원가입 안내 (Phase 3에서 활성화 예정)
+        if _login_mode == "campaign":
+            st.caption(
+                "🆕 처음이신가요? **교육기관 / 학부모 / 학생** 회원가입은 "
+                "다음 단계 업데이트에서 활성화됩니다. 지금은 등록된 계정으로만 로그인 가능."
+            )
 
         # 카카오 로그인 버튼 (비활성, Coming Soon)
         st.markdown(f"""
@@ -14815,6 +14950,85 @@ else:
         if st.button("🏠 홈으로 돌아가기", key="mon_stat_back_home"):
             st.session_state.current_page = "home_landing"
             st.rerun()
+
+    elif page == "campaign_landing":
+        # ══════════════════════════════════════════════════════════════
+        # 🎓 Phase 2 (v17): 캠페인 홈 placeholder (Phase 3에서 본격 구현)
+        # ══════════════════════════════════════════════════════════════
+        # 로그인 모드='campaign'으로 진입한 사용자가 만나는 임시 페이지.
+        # Phase 3에서 교육기관/학부모/학생 3카드 + 라우팅 추가 예정.
+        st.markdown("## 🎓 온라인 유해컨텐츠 근절 캠페인")
+        st.caption("교육기관 · 학부모 · 학생이 함께 만드는 안전한 온라인 환경")
+        st.divider()
+
+        _u = user or {}
+        _role_v2 = (_u.get("role_v2") or "user").lower()
+        _is_student = (_role_v2 == "student") or bool(_u.get("is_campaign_only"))
+
+        # 학생 안내 (모니터링 차단 명시)
+        if _is_student:
+            st.warning(
+                "⚠️ **학생 사용자는 유해 컨텐츠 모니터링 시스템에 접근할 수 없습니다.** "
+                "캠페인 자료 열람, 설문 참여, 봉사 점수 획득만 가능합니다."
+            )
+        else:
+            st.info(
+                "📌 **드래곤아이즈 모니터링 시스템을 체험하시려면 로그아웃 후 "
+                "모니터링 시스템으로 새롭게 로그인해 주세요.**"
+            )
+
+        st.markdown("### 🚧 캠페인 페이지 준비 중")
+        st.markdown(
+            "현재 캠페인 시스템은 **단계별로 구축 중**입니다. "
+            "Phase 1(데이터베이스) 완료, **Phase 2(로그인 페이지) 적용 중** — "
+            "Phase 3 이후 교육기관/학부모/학생 전용 페이지가 순차 활성화됩니다."
+        )
+
+        _cmp1, _cmp2, _cmp3 = st.columns(3)
+        with _cmp1:
+            st.markdown("##### 🏫 교육기관")
+            st.caption(
+                "- 교육부 / 시도교육청 / 초·중·고 등록\n"
+                "- 학생 명단 일괄 관리\n"
+                "- 봉사 점수 일괄 발급\n"
+                "- 연단위 / 일괄 계약"
+            )
+        with _cmp2:
+            st.markdown("##### 👨‍👩‍👧 학부모")
+            st.caption(
+                "- 자녀 등록 (다자녀 가능)\n"
+                "- 연 1만원 — 모든 유료 자료 무제한\n"
+                "- 자녀 설문 모니터링\n"
+                "- 자녀와 동시 열람"
+            )
+        with _cmp3:
+            st.markdown("##### 🎒 학생")
+            st.caption(
+                "- 무료 자료 학습\n"
+                "- 50문항 설문 참여\n"
+                "- 봉사 시간 4~6시간 인정\n"
+                "- 활동 내역 출력 / 이메일"
+            )
+
+        st.divider()
+        st.markdown("##### 📊 모든 사용자 공유 — 모니터링 통계")
+        st.caption(
+            "모니터링 통계 페이지는 정부/공인기관 제공 자료로 학생을 포함한 모든 사용자가 조회할 수 있습니다. "
+            "다음 업데이트에서 이 페이지에서도 통계를 바로 보실 수 있게 연동됩니다."
+        )
+
+        _ba1, _ba2 = st.columns(2)
+        with _ba1:
+            if st.button("🚪 로그아웃", use_container_width=True, key="campaign_landing_logout"):
+                st.session_state.user = None
+                st.session_state["login_mode"] = "monitoring"
+                st.session_state["current_page"] = None
+                st.rerun()
+        with _ba2:
+            if not _is_student and st.button("🛡️ 모니터링 시스템 전환", use_container_width=True,
+                                              type="primary", key="campaign_landing_to_monitor"):
+                st.session_state["current_page"] = "home_landing"
+                st.rerun()
 
     elif page == "home_landing":
         lang = st.session_state.get("lang", "ko")
