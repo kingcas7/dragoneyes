@@ -9191,6 +9191,7 @@ else:
         _cp_cmp_pages = (
             _cp_now.startswith("campaign_")
             or _cp_now in ("institution_dashboard", "institution_approval")
+            or (_cp_now == "monitoring_stats" and bool(st.session_state.get("_stats_from_campaign")))
         )
         if _cp_cmp_pages and st.query_params.get("page") != _cp_now:
             st.query_params["page"] = _cp_now
@@ -9319,32 +9320,60 @@ else:
 
     # ⭐ 캠페인 컨텍스트일 때 — 모니터링 헤더(타이틀·메뉴·슬로건) 전체 SKIP + 캠페인 헤더 대체
     _curr_page_hdr = st.session_state.get("current_page", "") or ""
+    # _stats_from_campaign 플래그가 있으면 monitoring_stats도 캠페인 컨텍스트로 취급
+    _stats_from_cmp = bool(st.session_state.get("_stats_from_campaign"))
     _is_campaign_hdr = (
         _curr_page_hdr.startswith("campaign_")
         or _curr_page_hdr == "institution_dashboard"
         or _curr_page_hdr == "institution_approval"
+        or (_curr_page_hdr == "monitoring_stats" and _stats_from_cmp)
         or bool((user or {}).get("is_campaign_only"))
         or ((user or {}).get("role_v2") in ("student", "parent", "institution_admin"))
     )
     if _is_campaign_hdr:
         # 캠페인 전용 헤더 — 모니터링 UI/메뉴/슬로건 완전 차단
-        _hdr_l, _hdr_r = st.columns([7, 3])
+        _hdr_l, _hdr_r = st.columns([6, 4])
         with _hdr_l:
             st.markdown(
-                '<div style="font-size:1.6rem; font-weight:700; padding:4px 0;">'
+                '<div style="font-size:1.5rem; font-weight:700; padding:4px 0;">'
                 '🎓 드래곤아이즈 온라인 유해컨텐츠 근절 캠페인</div>',
                 unsafe_allow_html=True,
             )
         with _hdr_r:
-            _hb1, _hb2 = st.columns([1, 1])
-            with _hb1:
-                if st.button("🏠 캠페인 홈", key="cmp_hdr_home", use_container_width=True):
+            # ← 뒤로가기 / 🏠 캠페인 홈 / 🚪 로그아웃 — 3버튼
+            _hb_back, _hb_home, _hb_logout = st.columns([1, 1, 1])
+            with _hb_back:
+                # 뒤로가기 — 이전 페이지로 (없으면 캠페인 홈)
+                if st.button("← 뒤로", key="cmp_hdr_back", use_container_width=True,
+                             help="이전 페이지로 돌아가기"):
+                    _prev = st.session_state.get("prev_page") or "campaign_landing"
+                    # 캠페인 컨텍스트 유지하며 이동
+                    if _curr_page_hdr == "monitoring_stats" and _stats_from_cmp:
+                        # 통계에서 뒤로 = 캠페인 홈
+                        st.session_state.pop("_stats_from_campaign", None)
+                        st.session_state["current_page"] = "campaign_landing"
+                    else:
+                        st.session_state["current_page"] = _prev
+                    st.rerun()
+            with _hb_home:
+                if st.button("🏠 홈", key="cmp_hdr_home", use_container_width=True,
+                             help="캠페인 홈으로"):
+                    st.session_state.pop("_stats_from_campaign", None)
                     st.session_state["current_page"] = "campaign_landing"
                     st.rerun()
-            with _hb2:
+            with _hb_logout:
                 if st.button("🚪 로그아웃", key="cmp_hdr_logout", use_container_width=True):
+                    # ⭐ 완전 로그아웃: supabase + session_state + query_params
+                    try: supabase.auth.sign_out()
+                    except Exception: pass
                     for k in list(st.session_state.keys()):
                         del st.session_state[k]
+                    try: st.query_params.clear()
+                    except Exception: pass
+                    # 캠페인 모드로 로그인 페이지 복귀
+                    st.session_state["login_mode"] = "campaign"
+                    st.session_state["user"] = None
+                    st.session_state["current_page"] = None
                     st.rerun()
         st.markdown(
             '<div style="background:linear-gradient(135deg,#047857 0%,#10b981 100%);'
@@ -15758,10 +15787,14 @@ else:
                 st.caption(f"📅 마지막 일배치 갱신: {_last_agg}")
 
         # 홈으로 돌아가기 — 캠페인에서 왔으면 캠페인으로, 아니면 모니터링 홈으로
+        # ⭐ pop 대신 get — 페이지 머무는 동안 캠페인 컨텍스트 유지 (헤더 판정용)
         st.divider()
-        _back_to_campaign = st.session_state.pop("_stats_from_campaign", False)
+        _back_to_campaign = bool(st.session_state.get("_stats_from_campaign"))
         if _back_to_campaign:
-            if st.button("← 캠페인 홈으로 돌아가기", key="mon_stat_back_campaign", type="primary"):
+            if st.button("← 캠페인 홈으로 돌아가기", key="mon_stat_back_campaign", type="primary",
+                         use_container_width=True):
+                # 캠페인으로 돌아갈 때 플래그 정리
+                st.session_state.pop("_stats_from_campaign", None)
                 st.session_state.current_page = "campaign_landing"
                 st.rerun()
         else:
