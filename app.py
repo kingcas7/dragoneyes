@@ -9151,6 +9151,44 @@ else:
     # 🎤 voice_open 처리는 user 정의 직후 (toolbar 렌더링 전)에서 이미 수행됨
     # → widget key 변경이 가능한 시점이라 'cannot be modified' 에러 없음
 
+    # ⭐ Phase 5 (v17): 새로고침 후에도 페이지 상태 유지
+    #    1) current_page가 None인데 query_params에 page가 있으면 복원
+    #    2) 캠페인 사용자(role_v2/is_campaign_only)는 default를 campaign_landing으로
+    #    3) current_page 변경 시 query_params 동기화
+    _cur_page_for_persist = st.session_state.get("current_page")
+    _u_persist = st.session_state.get("user") or {}
+    _is_cmp_persist = (
+        bool(_u_persist.get("is_campaign_only"))
+        or ((_u_persist.get("role_v2") or "").lower() in ("student", "parent", "institution_admin"))
+    )
+    if not _cur_page_for_persist:
+        _qp_page = None
+        try:
+            _qp_page = st.query_params.get("page")
+        except Exception:
+            pass
+        # 1) query_params 우선
+        if _qp_page and _qp_page not in ("", "None"):
+            st.session_state["current_page"] = _qp_page
+        # 2) 캠페인 사용자 default
+        elif _is_cmp_persist:
+            st.session_state["current_page"] = "campaign_landing"
+    # 3) 변경된 current_page를 query_params에 저장 (캠페인 관련 페이지만)
+    try:
+        _cp_now = st.session_state.get("current_page") or ""
+        _cp_cmp_pages = (
+            _cp_now.startswith("campaign_")
+            or _cp_now in ("institution_dashboard", "institution_approval")
+        )
+        if _cp_cmp_pages and st.query_params.get("page") != _cp_now:
+            st.query_params["page"] = _cp_now
+        elif (not _cp_cmp_pages) and st.query_params.get("page", "").startswith("campaign_"):
+            # 모니터링 페이지로 전환 시 query_params 정리
+            try: del st.query_params["page"]
+            except Exception: pass
+    except Exception:
+        pass
+
     page = st.session_state.current_page
 
     # ── 미확인 공지 팝업 (시각장애인 음성 친화) ──
