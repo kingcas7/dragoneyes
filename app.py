@@ -6366,6 +6366,489 @@ def get_month_count(user_id):
     res = supabase.table("reports").select("id").eq("user_id", user_id).gte("created_at", f"{this_month}-01").execute()
     return len(res.data)
 
+# ══════════════════════════════════════════════════════════════════
+# 🎓 Phase 3 (v17): 캠페인 회원가입 헬퍼 함수들
+# ══════════════════════════════════════════════════════════════════
+
+def _campaign_create_auth_user(email, password, name):
+    """Supabase Auth 사용자 생성. 성공 시 user_id 반환, 실패 시 None + 에러 메시지."""
+    try:
+        _r = sb_admin().auth.admin.create_user({
+            "email": email,
+            "password": password,
+            "email_confirm": True,
+            "user_metadata": {"name": name},
+        })
+        _uid = _r.user.id if getattr(_r, "user", None) else None
+        if not _uid:
+            return None, "Auth 응답에 사용자 ID가 없습니다."
+        return _uid, None
+    except Exception as e:
+        return None, f"Auth 생성 실패: {str(e)[:200]}"
+
+
+def _campaign_calc_age(birth_date):
+    """만 나이 계산. birth_date가 None이면 None 반환."""
+    if not birth_date:
+        return None
+    from datetime import date as _d
+    today = _d.today()
+    return today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+
+
+def render_campaign_signup_page(page_key):
+    """캠페인 회원가입 페이지 렌더링.
+    page_key: 'campaign_signup_select' | 'campaign_signup_institution'
+            | 'campaign_signup_parent' | 'campaign_signup_student'
+    """
+    # 상단 헤더 + 로그인으로 돌아가기
+    _h1, _h2 = st.columns([6, 1])
+    with _h1:
+        st.markdown("## 🎓 캠페인 회원가입")
+    with _h2:
+        if st.button("← 로그인", key=f"signup_back_login_{page_key}", use_container_width=True):
+            st.session_state["current_page"] = None
+            st.rerun()
+    st.divider()
+
+    if page_key == "campaign_signup_select":
+        _render_signup_select()
+    elif page_key == "campaign_signup_institution":
+        _render_signup_institution()
+    elif page_key == "campaign_signup_parent":
+        _render_signup_parent()
+    elif page_key == "campaign_signup_student":
+        _render_signup_student()
+    else:
+        st.error("알 수 없는 회원가입 페이지입니다.")
+
+
+def _render_signup_select():
+    """3카드 — 교육기관 / 학부모 / 학생 선택."""
+    st.markdown("### 어떤 자격으로 가입하시나요?")
+    st.caption("선택에 따라 가입 폼과 권한이 달라집니다.")
+    st.markdown("")
+
+    _c1, _c2, _c3 = st.columns(3, gap="large")
+    with _c1:
+        with st.container(border=True):
+            st.markdown("##### 🏫 교육기관")
+            st.markdown(
+                "- 교육부 / 시도교육청 / 초·중·고\n"
+                "- 교육부 인가 청소년 교육시설\n"
+                "- 소속 학생 일괄 관리\n"
+                "- 봉사 점수 일괄 발급\n"
+                "- 연단위 / 일괄 계약"
+            )
+            if st.button("🏫 교육기관으로 가입", type="primary", use_container_width=True, key="signup_card_inst"):
+                st.session_state["current_page"] = "campaign_signup_institution"
+                st.rerun()
+    with _c2:
+        with st.container(border=True):
+            st.markdown("##### 👨‍👩‍👧 학부모")
+            st.markdown(
+                "- 자녀 등록 (다자녀 가능)\n"
+                "- 연 1만원 — 모든 유료 자료\n"
+                "- 자녀 설문 모니터링\n"
+                "- 모니터링 시스템도 동일 ID로 이용\n"
+                "- 만 14세 미만 자녀 동의 처리"
+            )
+            if st.button("👨‍👩‍👧 학부모로 가입", type="primary", use_container_width=True, key="signup_card_parent"):
+                st.session_state["current_page"] = "campaign_signup_parent"
+                st.rerun()
+    with _c3:
+        with st.container(border=True):
+            st.markdown("##### 🎒 학생")
+            st.markdown(
+                "- 무료 자료 학습\n"
+                "- 50문항 설문 → 봉사 4~6시간\n"
+                "- 활동 내역 출력 / 이메일\n"
+                "- ⚠️ 모니터링 시스템 접근 불가\n"
+                "- 만 14세 미만 학부모 동의 필요"
+            )
+            if st.button("🎒 학생으로 가입", type="primary", use_container_width=True, key="signup_card_stu"):
+                st.session_state["current_page"] = "campaign_signup_student"
+                st.rerun()
+
+
+def _render_signup_institution():
+    """교육기관 회원가입 — 기존 기관 선택 또는 신규 등록 신청."""
+    st.markdown("### 🏫 교육기관 가입")
+    st.caption("등록된 기관의 관리자로 가입하거나, 신규 기관 등록을 신청할 수 있습니다.")
+
+    # 기존 기관 목록 (approved만)
+    try:
+        _insts = supabase.table("institutions").select(
+            "id, type, name, region, district"
+        ).eq("status", "approved").is_("deleted_at", "null").order("name").limit(2000).execute().data or []
+    except Exception:
+        _insts = []
+
+    _mode = st.radio(
+        "가입 방식",
+        ["📋 등록된 기관에서 선택", "🆕 신규 기관 등록 신청"],
+        horizontal=True, key="inst_signup_mode",
+    )
+    _is_new_inst = (_mode == "🆕 신규 기관 등록 신청")
+
+    with st.form("inst_signup_form"):
+        st.markdown("##### 👤 가입자 정보 (기관 담당자)")
+        c1, c2 = st.columns(2)
+        with c1:
+            _name = st.text_input("이름 *", placeholder="홍길동")
+            _email = st.text_input("이메일 *", placeholder="staff@school.kr")
+        with c2:
+            _phone = st.text_input("연락처", placeholder="010-0000-0000")
+            _title = st.text_input("직책", placeholder="예: 학생부장")
+
+        c3, c4 = st.columns(2)
+        with c3:
+            _pw1 = st.text_input("비밀번호 * (6자 이상)", type="password")
+        with c4:
+            _pw2 = st.text_input("비밀번호 확인 *", type="password")
+
+        st.divider()
+        st.markdown("##### 🏫 기관 정보")
+
+        _inst_id_selected = None
+        _new_inst_data = {}
+        if _is_new_inst:
+            ic1, ic2 = st.columns(2)
+            with ic1:
+                _new_inst_data["type"] = st.selectbox(
+                    "기관 유형 *",
+                    ["elementary", "middle", "high", "special",
+                     "metro_office", "district_office", "youth_facility", "other"],
+                    format_func=lambda x: {
+                        "elementary":"초등학교", "middle":"중학교", "high":"고등학교",
+                        "special":"특수학교", "metro_office":"시·도 교육청",
+                        "district_office":"교육지원청", "youth_facility":"교육부 인가 청소년 시설",
+                        "other":"기타 정규 교육기관",
+                    }.get(x, x),
+                )
+                _new_inst_data["name"] = st.text_input("기관명 *", placeholder="(예) 서울중앙초등학교")
+                _new_inst_data["region"] = st.text_input("시도", placeholder="서울특별시")
+                _new_inst_data["district"] = st.text_input("시군구", placeholder="강남구")
+            with ic2:
+                _new_inst_data["address"] = st.text_input("주소", placeholder="(상세 주소)")
+                _new_inst_data["phone"] = st.text_input("대표 전화")
+                _new_inst_data["representative"] = st.text_input("교장/대표자")
+                _new_inst_data["code"] = st.text_input("기관 코드 (선택)", placeholder="NEIS 학교 코드 등")
+            st.info("📌 신규 기관 등록은 본부 관리자 승인 후 활성화됩니다. (검토 1~3일 소요)")
+        else:
+            if not _insts:
+                st.warning("등록된 기관이 없습니다. '신규 기관 등록 신청'을 선택해주세요.")
+                _inst_id_selected = None
+            else:
+                _opts = {f'{i["name"]} ({i.get("region","")} {i.get("district","")})': i["id"]
+                         for i in _insts}
+                _sel_label = st.selectbox("소속 기관 선택 *", list(_opts.keys()))
+                _inst_id_selected = _opts.get(_sel_label)
+
+        st.markdown("")
+        _agree = st.checkbox("개인정보 수집·이용 및 서비스 이용약관에 동의합니다.", value=False)
+
+        _submitted = st.form_submit_button("✅ 가입 신청", type="primary", use_container_width=True)
+
+    if _submitted:
+        if not _agree:
+            st.error("약관에 동의해주세요.")
+            return
+        if not _name or not _email or not _pw1:
+            st.error("필수 항목(이름·이메일·비밀번호)을 입력해주세요.")
+            return
+        if _pw1 != _pw2:
+            st.error("비밀번호가 일치하지 않습니다.")
+            return
+        if len(_pw1) < 6:
+            st.error("비밀번호는 6자 이상이어야 합니다.")
+            return
+        if _is_new_inst and not _new_inst_data.get("name"):
+            st.error("기관명을 입력해주세요.")
+            return
+        if not _is_new_inst and not _inst_id_selected:
+            st.error("소속 기관을 선택해주세요.")
+            return
+
+        # 1. Auth 생성
+        with st.spinner("가입 처리 중..."):
+            _uid, _err = _campaign_create_auth_user(_email, _pw1, _name)
+            if _err:
+                st.error(f"❌ {_err}")
+                return
+
+            # 2. 신규 기관이면 institution_requests에 add 신청
+            _final_inst_id = _inst_id_selected
+            if _is_new_inst:
+                try:
+                    _req = supabase.table("institution_requests").insert({
+                        "request_type": "add",
+                        "requested_by": _uid,
+                        "requested_data": _new_inst_data,
+                        "note": f"가입 시 신규 등록 신청 — 담당자 {_name}",
+                    }).execute()
+                    _final_inst_id = None  # 승인 전까지 미연결
+                except Exception as e:
+                    st.warning(f"기관 신청 저장 실패(가입은 진행): {e}")
+
+            # 3. public.users INSERT
+            try:
+                supabase.table("users").insert({
+                    "id": _uid,
+                    "email": _email,
+                    "name": _name,
+                    "phone": _phone or None,
+                    "role": "user",
+                    "role_v2": "institution_admin",
+                    "is_campaign_only": False,  # 기관 사용자는 모니터링 연동 가능
+                    "institution_id": _final_inst_id,
+                    "status": "active",
+                    "preferences": {"campaign_title": _title or ""},
+                }).execute()
+            except Exception as e:
+                st.error(f"❌ 사용자 정보 저장 실패: {e}")
+                return
+
+        st.success("🎉 가입 신청 완료! 로그인 페이지에서 로그인해주세요.")
+        st.balloons()
+        st.session_state["current_page"] = None
+        if st.button("🚪 로그인 페이지로 이동", type="primary"):
+            st.rerun()
+
+
+def _render_signup_parent():
+    """학부모 회원가입."""
+    st.markdown("### 👨‍👩‍👧 학부모 가입")
+    st.caption("가입 후 자녀를 등록하실 수 있습니다. 자녀는 가입 후 대시보드에서 추가 가능.")
+
+    with st.form("parent_signup_form"):
+        st.markdown("##### 👤 학부모 정보")
+        c1, c2 = st.columns(2)
+        with c1:
+            _name = st.text_input("이름 *", placeholder="홍길동")
+            _email = st.text_input("이메일 *", placeholder="parent@example.com")
+        with c2:
+            _phone = st.text_input("연락처 *", placeholder="010-0000-0000")
+            _relationship = st.selectbox(
+                "관계", ["mother", "father", "guardian", "grandparent", "other"],
+                format_func=lambda x: {"mother":"모", "father":"부", "guardian":"후견인",
+                                       "grandparent":"조부모", "other":"기타"}.get(x, x),
+            )
+
+        c3, c4 = st.columns(2)
+        with c3:
+            _pw1 = st.text_input("비밀번호 * (6자 이상)", type="password")
+        with c4:
+            _pw2 = st.text_input("비밀번호 확인 *", type="password")
+
+        st.divider()
+        st.caption("📌 학부모 회원은 모니터링 시스템도 동일 ID로 이용 가능합니다.")
+        st.caption("📌 연 1만원 결제 시 등록된 모든 자녀가 유료 자료를 무제한 열람할 수 있습니다.")
+        st.markdown("")
+
+        _agree = st.checkbox("개인정보 수집·이용 및 서비스 이용약관에 동의합니다.", value=False)
+        _consent = st.checkbox("만 14세 미만 자녀를 등록할 경우 보호자 권한으로 동의함을 확인합니다.", value=False)
+
+        _submitted = st.form_submit_button("✅ 학부모 가입", type="primary", use_container_width=True)
+
+    if _submitted:
+        if not (_agree and _consent):
+            st.error("약관과 보호자 동의 항목 모두 체크해주세요.")
+            return
+        if not _name or not _email or not _pw1 or not _phone:
+            st.error("필수 항목을 입력해주세요.")
+            return
+        if _pw1 != _pw2:
+            st.error("비밀번호가 일치하지 않습니다.")
+            return
+        if len(_pw1) < 6:
+            st.error("비밀번호는 6자 이상이어야 합니다.")
+            return
+
+        with st.spinner("가입 처리 중..."):
+            _uid, _err = _campaign_create_auth_user(_email, _pw1, _name)
+            if _err:
+                st.error(f"❌ {_err}")
+                return
+            try:
+                supabase.table("users").insert({
+                    "id": _uid,
+                    "email": _email,
+                    "name": _name,
+                    "phone": _phone or None,
+                    "notify_phone": _phone or None,
+                    "role": "user",
+                    "role_v2": "parent",
+                    "is_campaign_only": False,
+                    "status": "active",
+                    "preferences": {"parent_relationship_default": _relationship},
+                }).execute()
+            except Exception as e:
+                st.error(f"❌ 저장 실패: {e}")
+                return
+
+        st.success("🎉 학부모 가입 완료! 로그인 후 자녀를 등록해주세요.")
+        st.balloons()
+        st.session_state["current_page"] = None
+        if st.button("🚪 로그인 페이지로 이동", type="primary"):
+            st.rerun()
+
+
+def _render_signup_student():
+    """학생 회원가입 — 3경로 (자가/학교일괄/학부모생성)."""
+    st.markdown("### 🎒 학생 가입")
+    st.warning(
+        "⚠️ **학생은 캠페인 시스템만 이용 가능합니다.** "
+        "유해 컨텐츠 모니터링 시스템에는 접근할 수 없습니다."
+    )
+
+    _path = st.radio(
+        "가입 경로",
+        ["✏️ 직접 가입 (자가)", "🏫 학교에서 받은 일괄 가입 코드", "👨‍👩‍👧 학부모가 등록"],
+        horizontal=True, key="stu_signup_path",
+    )
+    _signup_source = {
+        "✏️ 직접 가입 (자가)": "self",
+        "🏫 학교에서 받은 일괄 가입 코드": "institution_bulk",
+        "👨‍👩‍👧 학부모가 등록": "parent_create",
+    }[_path]
+
+    if _signup_source == "parent_create":
+        st.info("학부모가 자녀를 등록하시려면 먼저 **학부모 회원가입** 후 로그인하여 대시보드에서 자녀를 추가해주세요.")
+        if st.button("👨‍👩‍👧 학부모 가입으로 이동", use_container_width=True):
+            st.session_state["current_page"] = "campaign_signup_parent"
+            st.rerun()
+        return
+
+    # 학교 기관 목록
+    try:
+        _insts = supabase.table("institutions").select("id, name, region, district").eq(
+            "status", "approved").is_("deleted_at", "null").in_(
+            "type", ["elementary", "middle", "high", "special"]).order("name").limit(2000).execute().data or []
+    except Exception:
+        _insts = []
+
+    with st.form("student_signup_form"):
+        st.markdown("##### 👤 학생 정보")
+        c1, c2 = st.columns(2)
+        with c1:
+            _name = st.text_input("이름 *")
+            _email = st.text_input("이메일 *", placeholder="student@example.com",
+                                   help="학생 본인 이메일. 없으면 학부모 동의 후 학부모 이메일도 가능.")
+            _birth = st.date_input("생년월일 *", value=None, min_value=date(2005, 1, 1), max_value=date.today())
+        with c2:
+            _grade = st.number_input("학년", min_value=1, max_value=12, value=6, step=1)
+            if _insts:
+                _opts = {f'{i["name"]} ({i.get("region","")} {i.get("district","")})': i["id"] for i in _insts}
+                _opts = {"(직접 입력)": None, **_opts}
+                _sel = st.selectbox("재학 중 학교", list(_opts.keys()))
+                _inst_id = _opts.get(_sel)
+            else:
+                _inst_id = None
+            _school_name = st.text_input("학교명 (위에서 안 나오면 직접 입력)", value="")
+
+        c3, c4 = st.columns(2)
+        with c3:
+            _pw1 = st.text_input("비밀번호 * (6자 이상)", type="password")
+        with c4:
+            _pw2 = st.text_input("비밀번호 확인 *", type="password")
+
+        # 학교 일괄 코드
+        _bulk_code = None
+        if _signup_source == "institution_bulk":
+            _bulk_code = st.text_input("학교 일괄 가입 코드 *",
+                                       placeholder="학교에서 받은 코드 입력",
+                                       help="학교가 발급한 일괄 등록 코드 — 추후 활성화")
+
+        # 학부모 정보 (자가 가입 시 옵션)
+        st.divider()
+        st.markdown("##### 👨‍👩‍👧 보호자 정보 (만 14세 미만은 필수)")
+        pc1, pc2 = st.columns(2)
+        with pc1:
+            _parent_name = st.text_input("보호자 이름")
+            _parent_email = st.text_input("보호자 이메일", placeholder="보호자에게 동의 요청 메일 발송")
+        with pc2:
+            _parent_phone = st.text_input("보호자 연락처")
+
+        st.markdown("")
+        _agree = st.checkbox("개인정보 수집·이용 및 서비스 이용약관에 동의합니다.", value=False)
+
+        _submitted = st.form_submit_button("✅ 학생 가입", type="primary", use_container_width=True)
+
+    if _submitted:
+        if not _agree:
+            st.error("약관에 동의해주세요.")
+            return
+        if not _name or not _email or not _pw1 or not _birth:
+            st.error("필수 항목(이름·이메일·비밀번호·생년월일)을 입력해주세요.")
+            return
+        if _pw1 != _pw2:
+            st.error("비밀번호가 일치하지 않습니다.")
+            return
+        if len(_pw1) < 6:
+            st.error("비밀번호는 6자 이상이어야 합니다.")
+            return
+
+        # 만 14세 미만 → 보호자 정보 필수
+        _age = _campaign_calc_age(_birth)
+        if _age is not None and _age < 14:
+            if not (_parent_name and _parent_email):
+                st.error(f"⚠️ 만 {_age}세 학생은 보호자 정보(이름·이메일)가 필수입니다. (개인정보보호법)")
+                return
+
+        if _signup_source == "institution_bulk" and not _bulk_code:
+            st.error("학교 일괄 가입 코드를 입력해주세요.")
+            return
+
+        with st.spinner("가입 처리 중..."):
+            _uid, _err = _campaign_create_auth_user(_email, _pw1, _name)
+            if _err:
+                st.error(f"❌ {_err}")
+                return
+            try:
+                _payload = {
+                    "id": _uid,
+                    "email": _email,
+                    "name": _name,
+                    "role": "user",
+                    "role_v2": "student",
+                    "is_campaign_only": True,  # 학생은 캠페인 전용 — 모니터링 차단
+                    "signup_source": _signup_source,
+                    "birth_date": _birth.isoformat() if _birth else None,
+                    "grade": int(_grade) if _grade else None,
+                    "institution_id": _inst_id,
+                    "school_name": _school_name or None,
+                    "status": "active",
+                    "guardian_name": _parent_name or None,
+                    "guardian_phone": _parent_phone or None,
+                    "preferences": {
+                        "guardian_email": _parent_email or "",
+                        "bulk_code_used": _bulk_code or "",
+                    },
+                }
+                # 만 14세 이상이거나 보호자 정보가 있어 동의 처리된 경우
+                if _age is None or _age >= 14:
+                    _payload["parent_consent_at"] = datetime.now().isoformat()
+                # 만 14세 미만 + 보호자 정보 입력 → pending (실제 학부모 동의 메일은 Phase 4)
+                supabase.table("users").insert(_payload).execute()
+            except Exception as e:
+                st.error(f"❌ 저장 실패: {e}")
+                return
+
+        if _age is not None and _age < 14:
+            st.success("🎉 학생 가입 신청 완료! 보호자 동의 확인 후 활성화됩니다.")
+        else:
+            st.success("🎉 학생 가입 완료! 로그인 후 캠페인을 시작해주세요.")
+        st.balloons()
+        st.session_state["current_page"] = None
+        if st.button("🚪 로그인 페이지로 이동", type="primary"):
+            st.rerun()
+
+
+# ══════════════════════════════════════════════════════════════════
+# (기존) login 함수
+# ══════════════════════════════════════════════════════════════════
+
 def login(email, password):
     try:
         result = supabase.auth.sign_in_with_password({"email": email, "password": password})
@@ -7313,6 +7796,20 @@ def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="
 # 로그인 화면 (v2026.05.05 - 70:30 리디자인 + 다국어 + 카카오 버튼)
 # ══════════════════════════════
 if st.session_state.user is None:
+    # ⭐ Phase 3 (v17): 비로그인 사용자도 캠페인 회원가입 페이지 진입 가능
+    _signup_pages = (
+        "campaign_signup_select",
+        "campaign_signup_institution",
+        "campaign_signup_parent",
+        "campaign_signup_student",
+    )
+    _current_anon_page = st.session_state.get("current_page")
+
+    if _current_anon_page in _signup_pages:
+        # ── 회원가입 페이지로 진입 ──
+        render_campaign_signup_page(_current_anon_page)
+        st.stop()
+
     # ── ♿ 접근성: 음성 안내 토글 + 페이지 진입 안내 (시각장애인 지원) ──
     #    로그인 전이라 user_id 없음 → DB 저장은 생략, session만 유지
     # ♿ 접근성 — expander 없이 토글 직접 노출 (한 줄에 라벨·토글·상태배지)
@@ -7935,12 +8432,15 @@ if st.session_state.user is None:
                 accessibility.announce("이메일과 비밀번호를 모두 입력하세요.")
                 st.warning(t("login_warn"))
 
-        # ⭐ 캠페인 모드 — 회원가입 안내 (Phase 3에서 활성화 예정)
+        # ⭐ 캠페인 모드 — 회원가입 진입 버튼 (Phase 3)
         if _login_mode == "campaign":
-            st.caption(
-                "🆕 처음이신가요? **교육기관 / 학부모 / 학생** 회원가입은 "
-                "다음 단계 업데이트에서 활성화됩니다. 지금은 등록된 계정으로만 로그인 가능."
-            )
+            st.markdown("---")
+            if st.button("🆕 캠페인 회원가입 (교육기관·학부모·학생)",
+                         use_container_width=True,
+                         key="login_to_campaign_signup",
+                         help="처음 이용하시는 경우 클릭"):
+                st.session_state["current_page"] = "campaign_signup_select"
+                st.rerun()
 
         # 카카오 로그인 버튼 (비활성, Coming Soon)
         st.markdown(f"""
@@ -14953,10 +15453,8 @@ else:
 
     elif page == "campaign_landing":
         # ══════════════════════════════════════════════════════════════
-        # 🎓 Phase 2 (v17): 캠페인 홈 placeholder (Phase 3에서 본격 구현)
+        # 🎓 Phase 3 (v17): 캠페인 홈 — 역할별 대시보드 진입점
         # ══════════════════════════════════════════════════════════════
-        # 로그인 모드='campaign'으로 진입한 사용자가 만나는 임시 페이지.
-        # Phase 3에서 교육기관/학부모/학생 3카드 + 라우팅 추가 예정.
         st.markdown("## 🎓 온라인 유해컨텐츠 근절 캠페인")
         st.caption("교육기관 · 학부모 · 학생이 함께 만드는 안전한 온라인 환경")
         st.divider()
@@ -14964,59 +15462,125 @@ else:
         _u = user or {}
         _role_v2 = (_u.get("role_v2") or "user").lower()
         _is_student = (_role_v2 == "student") or bool(_u.get("is_campaign_only"))
+        _is_parent = (_role_v2 == "parent")
+        _is_inst = (_role_v2 == "institution_admin")
 
-        # 학생 안내 (모니터링 차단 명시)
+        # 상단 안내 배너 (사용자 결정 #10)
         if _is_student:
             st.warning(
                 "⚠️ **학생 사용자는 유해 컨텐츠 모니터링 시스템에 접근할 수 없습니다.** "
-                "캠페인 자료 열람, 설문 참여, 봉사 점수 획득만 가능합니다."
+                "캠페인 자료 열람·설문·봉사 점수 획득만 가능합니다."
             )
         else:
             st.info(
-                "📌 **드래곤아이즈 모니터링 시스템을 체험하시려면 로그아웃 후 "
+                "📌 **드래곤아이즈 모니터링을 체험하시려면 로그아웃 후 "
                 "모니터링 시스템으로 새롭게 로그인해 주세요.**"
             )
 
-        st.markdown("### 🚧 캠페인 페이지 준비 중")
-        st.markdown(
-            "현재 캠페인 시스템은 **단계별로 구축 중**입니다. "
-            "Phase 1(데이터베이스) 완료, **Phase 2(로그인 페이지) 적용 중** — "
-            "Phase 3 이후 교육기관/학부모/학생 전용 페이지가 순차 활성화됩니다."
-        )
-
-        _cmp1, _cmp2, _cmp3 = st.columns(3)
-        with _cmp1:
-            st.markdown("##### 🏫 교육기관")
-            st.caption(
-                "- 교육부 / 시도교육청 / 초·중·고 등록\n"
-                "- 학생 명단 일괄 관리\n"
-                "- 봉사 점수 일괄 발급\n"
-                "- 연단위 / 일괄 계약"
-            )
-        with _cmp2:
-            st.markdown("##### 👨‍👩‍👧 학부모")
-            st.caption(
-                "- 자녀 등록 (다자녀 가능)\n"
-                "- 연 1만원 — 모든 유료 자료 무제한\n"
-                "- 자녀 설문 모니터링\n"
-                "- 자녀와 동시 열람"
-            )
-        with _cmp3:
-            st.markdown("##### 🎒 학생")
-            st.caption(
-                "- 무료 자료 학습\n"
-                "- 50문항 설문 참여\n"
-                "- 봉사 시간 4~6시간 인정\n"
-                "- 활동 내역 출력 / 이메일"
-            )
+        # ── 사용자 인사 + 역할 표시 ──
+        _role_label = {
+            "institution_admin": "🏫 교육기관",
+            "parent": "👨‍👩‍👧 학부모",
+            "student": "🎒 학생",
+        }.get(_role_v2, "사용자")
+        st.markdown(f"### 안녕하세요, **{_u.get('name','사용자')}**님 ({_role_label})")
 
         st.divider()
-        st.markdown("##### 📊 모든 사용자 공유 — 모니터링 통계")
-        st.caption(
-            "모니터링 통계 페이지는 정부/공인기관 제공 자료로 학생을 포함한 모든 사용자가 조회할 수 있습니다. "
-            "다음 업데이트에서 이 페이지에서도 통계를 바로 보실 수 있게 연동됩니다."
-        )
 
+        # ──────────────────────────────────────────────────
+        # 역할별 대시보드 진입
+        # ──────────────────────────────────────────────────
+        if _is_inst:
+            st.markdown("#### 🏫 교육기관 메뉴")
+            ic1, ic2, ic3 = st.columns(3)
+            with ic1:
+                with st.container(border=True):
+                    st.markdown("##### 👥 학생 관리")
+                    st.caption("소속 학생 명단 · 진행률 · QR 일괄 발급")
+                    if st.button("학생 관리 열기", use_container_width=True, key="cmp_inst_students",
+                                 help="Phase 4에서 활성화"):
+                        st.info("Phase 4에서 활성화됩니다.")
+            with ic2:
+                with st.container(border=True):
+                    st.markdown("##### 📋 설문지 관리")
+                    st.caption("학교 커스텀 설문 등록·배포")
+                    if st.button("설문 관리 열기", use_container_width=True, key="cmp_inst_surveys"):
+                        st.info("Phase 7에서 활성화됩니다.")
+            with ic3:
+                with st.container(border=True):
+                    st.markdown("##### 🏆 봉사 점수")
+                    st.caption("학생별 봉사 시간 · 일괄 발급")
+                    if st.button("봉사 점수 열기", use_container_width=True, key="cmp_inst_volunteer"):
+                        st.info("Phase 8에서 활성화됩니다.")
+
+        elif _is_parent:
+            st.markdown("#### 👨‍👩‍👧 학부모 메뉴")
+            pc1, pc2, pc3 = st.columns(3)
+            with pc1:
+                with st.container(border=True):
+                    st.markdown("##### 👨‍👩‍👧‍👦 자녀 관리")
+                    st.caption("자녀 등록 · 매칭 · 다자녀 추가")
+                    if st.button("자녀 관리 열기", use_container_width=True, key="cmp_parent_children"):
+                        st.info("Phase 6에서 활성화됩니다.")
+            with pc2:
+                with st.container(border=True):
+                    st.markdown("##### 💳 결제·구독")
+                    st.caption("연 1만원 — 모든 유료 자료 무제한")
+                    if st.button("결제 열기", use_container_width=True, key="cmp_parent_pay"):
+                        st.info("Phase 9에서 활성화됩니다.")
+            with pc3:
+                with st.container(border=True):
+                    st.markdown("##### 📊 자녀 설문 모니터링")
+                    st.caption("자녀별 설문 진행률 · 결과")
+                    if st.button("모니터링 열기", use_container_width=True, key="cmp_parent_monitor"):
+                        st.info("Phase 7에서 활성화됩니다.")
+
+        elif _is_student:
+            st.markdown("#### 🎒 학생 메뉴")
+            sc1, sc2, sc3 = st.columns(3)
+            with sc1:
+                with st.container(border=True):
+                    st.markdown("##### 📚 학습 자료")
+                    st.caption("무료 자료 + 학부모 결제 시 유료 자료")
+                    if st.button("자료 열기", use_container_width=True, key="cmp_stu_materials"):
+                        st.info("Phase 5에서 활성화됩니다.")
+            with sc2:
+                with st.container(border=True):
+                    st.markdown("##### 📋 설문 참여")
+                    st.caption("50문항 — 성실 완료 시 봉사 4~6시간")
+                    if st.button("설문 열기", use_container_width=True, key="cmp_stu_surveys"):
+                        st.info("Phase 7에서 활성화됩니다.")
+            with sc3:
+                with st.container(border=True):
+                    st.markdown("##### 🏆 내 봉사 시간")
+                    st.caption("누적 시간 · 인증서 출력 · 이메일")
+                    if st.button("봉사 인벤토리 열기", use_container_width=True, key="cmp_stu_volunteer"):
+                        st.info("Phase 8에서 활성화됩니다.")
+        else:
+            # 본부 admin이 캠페인 페이지에 들어온 경우 — 안내
+            st.info(
+                "📝 **본부 관리자/일반 사용자**는 캠페인 사용자 등록 후 이용 가능합니다. "
+                "캠페인 시스템은 교육기관·학부모·학생 전용입니다."
+            )
+            if st.button("🛡️ 모니터링 시스템으로 가기", type="primary", use_container_width=True,
+                         key="cmp_landing_to_mon_general"):
+                st.session_state["current_page"] = "home_landing"
+                st.rerun()
+
+        st.divider()
+
+        # ── 모니터링 통계 공유 (사용자 결정 #D) ──
+        st.markdown("##### 📊 모니터링 통계 공유 (모든 사용자)")
+        st.caption(
+            "정부/공인기관 제공 자료로 학생을 포함한 모든 사용자가 조회할 수 있습니다."
+        )
+        if st.button("📊 모니터링 통계 보기", use_container_width=True, key="cmp_landing_stats"):
+            st.session_state["current_page"] = "monitoring_stats"
+            st.rerun()
+
+        st.divider()
+
+        # ── 하단 버튼 ──
         _ba1, _ba2 = st.columns(2)
         with _ba1:
             if st.button("🚪 로그아웃", use_container_width=True, key="campaign_landing_logout"):
@@ -15025,8 +15589,13 @@ else:
                 st.session_state["current_page"] = None
                 st.rerun()
         with _ba2:
-            if not _is_student and st.button("🛡️ 모니터링 시스템 전환", use_container_width=True,
-                                              type="primary", key="campaign_landing_to_monitor"):
+            # 학생은 모니터링 접근 불가 — 버튼 자체를 안 보여줌
+            if not _is_student and st.button(
+                "🛡️ 모니터링 시스템 전환",
+                use_container_width=True, type="primary",
+                key="campaign_landing_to_monitor",
+                help="로그아웃 없이 모니터링 페이지로 이동",
+            ):
                 st.session_state["current_page"] = "home_landing"
                 st.rerun()
 
