@@ -303,23 +303,10 @@ def _a11y_main_install_once():
                                 console.log('[A11y main focusin] SKIP — large container', _tagU);
                                 return;
                             }
-                            // ⭐ Gate 2: 접근성 박스(상단 토글바) 안의 element는
-                            //   사용자가 직접 Tab해도 일일이 안 읽음 (사용자 요청)
-                            try {
-                                const _details = el.closest && el.closest('details');
-                                if (_details) {
-                                    const _sum = _details.querySelector('summary');
-                                    const _sumText = ((_sum && _sum.innerText) || '').replace(/\s+/g, '');
-                                    if (_sumText.indexOf('접근성') >= 0) {
-                                        // 단, '음성 명령 (Enter)' 버튼은 가장 자주 쓰는 활성화 입구라 발화 유지
-                                        const _isMic = (text.indexOf('음성 명령') >= 0 || text.indexOf('음성명령') >= 0) && text.indexOf('Enter') >= 0;
-                                        if (!_isMic) {
-                                            console.log('[A11y main focusin] SKIP — inside accessibility toolbar');
-                                            return;
-                                        }
-                                    }
-                                }
-                            } catch(_){}
+                            // ⭐ Gate 2 제거됨 (사용자 요청)
+                            //   접근성 박스 안에서도 Tab 이동 시 안내 필요.
+                            //   isTrusted=false 자동 focus는 이미 Gate 1로 차단.
+                            //   사용자가 직접 Tab한 경우 = 의도 → 발화.
                             if (window.__a11yLastFocusText === text && (now - (window.__a11yLastFocusTime || 0)) < 1500) return;
                             window.__a11yLastFocusText = text;
                             window.__a11yLastFocusTime = now;
@@ -645,21 +632,9 @@ def _a11y_inject_shortcuts():
                         console.log('[A11y focusin] SKIP — large container', _tagU2);
                         return;
                     }}
-                    // ⭐ Gate 2: 접근성 박스 안 element는 발화 안 함 (mic 버튼 예외)
-                    try {{
-                        const _details = e.target && e.target.closest && e.target.closest('details');
-                        if (_details) {{
-                            const _sum = _details.querySelector('summary');
-                            const _sumText = ((_sum && _sum.innerText) || '').replace(/\\s+/g, '');
-                            if (_sumText.indexOf('접근성') >= 0) {{
-                                const _isMic = (text.indexOf('음성 명령') >= 0 || text.indexOf('음성명령') >= 0) && text.indexOf('Enter') >= 0;
-                                if (!_isMic) {{
-                                    console.log('[A11y focusin] SKIP — inside accessibility toolbar');
-                                    return;
-                                }}
-                            }}
-                        }}
-                    }} catch(_){{}}
+                    // ⭐ Gate 2 제거됨 (사용자 요청)
+                    //   접근성 박스 안에서도 Tab 이동 시 안내 필요.
+                    //   isTrusted=false 자동 focus는 Gate 1로 차단.
                     if (w.__a11yLastFocusText === text && (now - (w.__a11yLastFocusTime || 0)) < 1500) return;
                     w.__a11yLastFocusText = text;
                     w.__a11yLastFocusTime = now;
