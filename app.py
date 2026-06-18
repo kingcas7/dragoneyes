@@ -4760,7 +4760,18 @@ if "token" in params and st.session_state.user is None:
             del st.query_params["token"]
 
 # 신규 sid (refresh_token) 방식
-if "sid" in params and st.session_state.user is None:
+# ⭐ 로그아웃 직후엔 sid가 남아있어도 자동 복원 skip (logged_out=1 플래그 체크)
+if "logged_out" in params:
+    try:
+        if "sid" in st.query_params:
+            del st.query_params["sid"]
+        if "page" in st.query_params:
+            del st.query_params["page"]
+        del st.query_params["logged_out"]
+    except Exception:
+        pass
+
+if "sid" in params and st.session_state.user is None and "logged_out" not in params:
     try:
         rt = params["sid"]
         # Supabase에 refresh_token으로 세션 갱신
@@ -9230,26 +9241,32 @@ else:
     # → widget key 변경이 가능한 시점이라 'cannot be modified' 에러 없음
 
     # ⭐ Phase 5 (v17): 새로고침 후에도 페이지 상태 유지
-    #    1) current_page가 None인데 query_params에 page가 있으면 복원
-    #    2) 캠페인 사용자(role_v2/is_campaign_only)는 default를 campaign_landing으로
+    #    1) query_params에 page가 있으면 우선 복원 (sid 자동 로그인 시 home_landing 강제 set 덮어쓰기)
+    #    2) 캠페인 사용자는 default를 campaign_landing으로
     #    3) current_page 변경 시 query_params 동기화
-    _cur_page_for_persist = st.session_state.get("current_page")
     _u_persist = st.session_state.get("user") or {}
     _is_cmp_persist = (
         bool(_u_persist.get("is_campaign_only"))
         or ((_u_persist.get("role_v2") or "").lower() in ("student", "parent", "institution_admin"))
     )
-    if not _cur_page_for_persist:
-        _qp_page = None
-        try:
-            _qp_page = st.query_params.get("page")
-        except Exception:
-            pass
-        # 1) query_params 우선
-        if _qp_page and _qp_page not in ("", "None"):
-            st.session_state["current_page"] = _qp_page
-        # 2) 캠페인 사용자 default
-        elif _is_cmp_persist:
+    # query_params.page 우선 (sid 복원 코드가 current_page='home_landing' 강제 set한 것도 덮어쓰기)
+    _qp_page = None
+    try:
+        _qp_page = st.query_params.get("page")
+    except Exception:
+        pass
+    _qp_cmp_pages = (
+        "campaign_landing", "campaign_materials", "campaign_status", "parent_dashboard",
+        "campaign_signup_select", "campaign_signup_institution",
+        "campaign_signup_parent", "campaign_signup_student",
+        "institution_dashboard", "institution_approval", "monitoring_stats",
+    )
+    if _qp_page and _qp_page in _qp_cmp_pages:
+        # 캠페인 관련 페이지는 query_params 절대 우선
+        st.session_state["current_page"] = _qp_page
+    elif not st.session_state.get("current_page"):
+        # current_page가 비어있을 때만 캠페인 사용자 default 적용
+        if _is_cmp_persist:
             st.session_state["current_page"] = "campaign_landing"
     # 3) 변경된 current_page를 query_params에 저장 (캠페인 관련 페이지만)
     try:
@@ -9464,15 +9481,15 @@ else:
                         del st.session_state[k]
                     try: st.query_params.clear()
                     except Exception: pass
-                    # ⭐ JS로 URL의 모든 query string 제거 + page reload (sid 자동 복원 차단)
+                    # ⭐ logged_out=1 플래그 + reload — sid 자동 복원 차단
                     st.markdown(
                         "<script>"
                         "try {"
                         "  const w = window.top || window;"
-                        "  w.history.replaceState({}, '', w.location.pathname);"
+                        "  w.history.replaceState({}, '', w.location.pathname + '?logged_out=1');"
                         "  setTimeout(function(){ w.location.reload(); }, 50);"
                         "} catch(e) {"
-                        "  try { window.history.replaceState({}, '', window.location.pathname); } catch(e2){}"
+                        "  try { window.history.replaceState({}, '', window.location.pathname + '?logged_out=1'); } catch(e2){}"
                         "  try { window.location.reload(); } catch(e2){}"
                         "}"
                         "</script>",
