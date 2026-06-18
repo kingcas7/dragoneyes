@@ -8931,6 +8931,43 @@ else:
         or bool((user or {}).get("is_campaign_only"))
         or ((user or {}).get("role_v2") in ("student", "parent", "institution_admin"))
     )
+
+    # ⭐ 캠페인 페이지/사용자 — 음성 발화 자체 무력화 (speechSynthesis.speak 패치)
+    #    rerun 후 JS context가 reset되므로 매 render마다 재적용 필요.
+    if _hide_a11y_toolbar:
+        st.session_state["voice_guide_enabled"] = False
+        st.session_state["dictation_enabled"] = False
+        st.markdown(
+            "<script>"
+            "(function(){"
+            "  const _noop = function(){ return false; };"
+            "  const _patchWin = function(w){"
+            "    try {"
+            "      if (w && w.speechSynthesis) {"
+            "        try { w.speechSynthesis.cancel(); } catch(e){}"
+            "        try { w.speechSynthesis.speak = _noop; } catch(e){}"
+            "      }"
+            "      try { w._dragoneyesSpeak = _noop; } catch(e){}"
+            "      try { w.__a11ySpeak = _noop; } catch(e){}"
+            "      try { w.__a11yEnabled = false; } catch(e){}"
+            "      try { w.__a11yForceMute = true; } catch(e){}"
+            "    } catch(e){}"
+            "  };"
+            "  _patchWin(window);"
+            "  try { _patchWin(window.parent); } catch(e){}"
+            "  try { _patchWin(window.top); } catch(e){}"
+            "  let _kc = 0;"
+            "  const _ki = setInterval(function(){"
+            "    try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch(e){}"
+            "    try { if (window.parent && window.parent.speechSynthesis) window.parent.speechSynthesis.cancel(); } catch(e){}"
+            "    try { if (window.top && window.top.speechSynthesis) window.top.speechSynthesis.cancel(); } catch(e){}"
+            "    _kc++; if (_kc > 20) clearInterval(_ki);"
+            "  }, 100);"
+            "})();"
+            "</script>",
+            unsafe_allow_html=True,
+        )
+
     _voice_on_now = bool(st.session_state.get("voice_guide_enabled"))
     _dict_on_now  = bool(st.session_state.get("dictation_enabled"))
     # ⭐ expander 자동 펼침 조건:
