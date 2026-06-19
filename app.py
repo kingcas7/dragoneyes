@@ -3404,6 +3404,14 @@ NAVER_CLIENT_ID, NAVER_CLIENT_SECRET = get_naver_keys()
 
 st.set_page_config(page_title="DragonEyes / 드래곤아이즈", page_icon="🐉", layout="wide")
 
+# ══════════════════════════════════════════════════════════
+# 🔇 시스템 전체 음성 안내 kill switch
+# ══════════════════════════════════════════════════════════
+# True  = 모든 사용자에게 음성 안내/받아쓰기/TTS 완전 OFF (코드는 보존)
+# False = 정상 작동 (사용자별 preference 따름)
+# 다시 켜려면 이 한 줄만 False로 바꾸면 됨.
+GLOBAL_VOICE_DISABLED = True
+
 # ── 접근성: session_state 초기화 + 키보드 단축키 inject (1회) ──
 accessibility.init_state()
 
@@ -3420,7 +3428,8 @@ _is_campaign_user = bool(
     or (_u_top.get("role_v2") in ("student", "parent", "institution_admin"))
 )
 _is_campaign_page = (st.session_state.get("current_page", "") or "").startswith("campaign_")
-_is_campaign_ctx = _is_campaign_login_mode or _is_campaign_user or _is_campaign_page
+# ⭐ kill switch가 True면 캠페인 컨텍스트와 같은 차단 로직을 모든 곳에 적용
+_is_campaign_ctx = GLOBAL_VOICE_DISABLED or _is_campaign_login_mode or _is_campaign_user or _is_campaign_page
 
 if not _is_campaign_ctx:
     accessibility.inject_shortcuts()
@@ -7949,7 +7958,7 @@ if st.session_state.user is None:
     # ⭐ 캠페인 모드 진입 시 — 접근성 기능 자체를 강제 OFF (모니터링 전용)
     #    음성 안내/받아쓰기는 모니터링 시스템 전용 기능이므로 캠페인에서는 완전 차단.
     _login_mode_pre = st.session_state.get("login_mode", "monitoring")
-    if _login_mode_pre == "campaign":
+    if _login_mode_pre == "campaign" or GLOBAL_VOICE_DISABLED:
         # 강제로 OFF (혹시 켜져있어도 캠페인에서는 무조건 끔)
         st.session_state["voice_guide_enabled"] = False
         st.session_state["dictation_enabled"] = False
@@ -9064,7 +9073,8 @@ else:
     #    (모니터링 전용 기능 — 캠페인 사용자는 불필요)
     #    monitoring_stats가 캠페인에서 진입한 경우도 캠페인 컨텍스트로 취급
     _hide_a11y_toolbar = (
-        _curr_page.startswith("campaign_")
+        GLOBAL_VOICE_DISABLED
+        or _curr_page.startswith("campaign_")
         or _curr_page in ("institution_dashboard", "institution_approval",
                           "campaign_status", "parent_dashboard")
         or (_curr_page == "monitoring_stats" and bool(st.session_state.get("_stats_from_campaign")))
