@@ -3410,7 +3410,7 @@ st.set_page_config(page_title="DragonEyes / 드래곤아이즈", page_icon="🐉
 # True  = 모든 사용자에게 음성 안내/받아쓰기/TTS 완전 OFF (코드는 보존)
 # False = 정상 작동 (사용자별 preference 따름)
 # 다시 켜려면 이 한 줄만 False로 바꾸면 됨.
-GLOBAL_VOICE_DISABLED = True
+GLOBAL_VOICE_DISABLED = False
 
 # ── 접근성: session_state 초기화 + 키보드 단축키 inject (1회) ──
 accessibility.init_state()
