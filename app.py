@@ -23202,13 +23202,63 @@ else:
                     f"</div></div>",
                     unsafe_allow_html=True,
                 )
-                # 박스 바로 아래 바로가기 버튼 (학생 dashboard로 이동 → QR/링크 확인)
-                if st.button("👉 캠페인 참여 바로가기",
-                              key="mv_promo_to_csd",
+                # 박스 바로 아래 빨간 버튼 — 클릭 시 이메일로 본인 배포 링크 발송
+                if st.button("📤 설문조사 시작하기 (이메일로 링크 받기)",
+                              key="mv_promo_send_email",
                               type="primary",
                               use_container_width=True):
-                    st.session_state["current_page"] = "campaign_student_dashboard"
-                    st.rerun()
+                    # 학생 전용 — 다른 역할은 dashboard로 이동
+                    if _u_mv.get("role_v2") != "student":
+                        st.session_state["current_page"] = "campaign_student_dashboard"
+                        st.rerun()
+                    # 본인 토큰 조회
+                    try:
+                        _mvb_tok = supabase.table("student_survey_tokens").select(
+                            "access_token, response_count"
+                        ).eq("student_id", _u_mv.get("id")).limit(1).execute().data or []
+                        _mvb_tok_row = _mvb_tok[0] if _mvb_tok else None
+                    except Exception as _mvbe:
+                        _mvb_tok_row = None
+                        st.error(f"토큰 조회 실패: {_mvbe}")
+                    if not _mvb_tok_row or not _mvb_tok_row.get("access_token"):
+                        st.error("⚠️ 설문 토큰이 없습니다. 학교·학년·반 정보를 먼저 등록해주세요.")
+                    else:
+                        _mvb_token = _mvb_tok_row.get("access_token")
+                        _mvb_frontend = os.getenv("SURVEY_FRONTEND_URL", "").rstrip("/")
+                        if _mvb_frontend:
+                            _mvb_url = f"{_mvb_frontend}/?token={_mvb_token}"
+                        else:
+                            _mvb_url = f"https://dragoneyes-production.up.railway.app/?survey_token={_mvb_token}"
+                        _mvb_resp = _mvb_tok_row.get("response_count") or 0
+                        _mvb_subject = f"[드래곤아이즈 캠페인] {_u_mv.get('name','')}님의 설문 배포 링크"
+                        _mvb_body = (
+                            f"{_u_mv.get('name','')}님, 안녕하세요!\n\n"
+                            f"드래곤아이즈 캠페인 학습 자료 학습을 완료해주셔서 감사합니다.\n\n"
+                            f"━━━━━━━━━━━━━━━━━━━━━━━\n"
+                            f"📋 내 설문 배포 링크:\n{_mvb_url}\n"
+                            f"━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                            f"🎯 목표: {_threshold}명 응답 → 🏆 봉사시간 {_hours}시간 자동 발급 ({_band_kr})\n"
+                            f"📊 현재 진행: {_mvb_resp} / {_threshold}명\n\n"
+                            f"이 링크를 카카오톡·SNS·이메일로 친구·가족에게 공유하세요.\n"
+                            f"응답이 모이면 자동으로 봉사 활동 인증서가 발급됩니다.\n\n"
+                            f"감사합니다.\n드래곤아이즈 캠페인 팀"
+                        )
+                        try:
+                            supabase.table("notice_email_queue").insert({
+                                "notice_id": None,
+                                "recipient_user_id": _u_mv.get("id"),
+                                "recipient_email": _u_mv.get("email") or "noreply@dragoneyes.kr",
+                                "recipient_name": _u_mv.get("name"),
+                                "subject": _mvb_subject,
+                                "body_html": _mvb_body.replace("\n", "<br>"),
+                                "body_text": _mvb_body,
+                                "status": "pending",
+                            }).execute()
+                            st.session_state["_mv_cta_sent_url"] = _mvb_url
+                            st.session_state["_mv_cta_sent_email"] = _u_mv.get("email") or ""
+                            st.rerun()
+                        except Exception as _mqe:
+                            st.error(f"이메일 큐 적재 실패: {_mqe}")
             elif _is_locked_mv:
                 st.caption("🔒 프리미엄 자료 — 결제 후 봉사시간 안내가 표시됩니다.")
         with _hh_gap:
@@ -23218,6 +23268,30 @@ else:
                 st.session_state["current_page"] = "materials_library"
                 st.session_state.pop("_ml_view_id", None)
                 st.rerun()
+
+        # 상단 빨간 버튼으로 이메일 발송 후 표시되는 success 박스
+        if st.session_state.get("_mv_cta_sent_url"):
+            _mv_sent_url = st.session_state["_mv_cta_sent_url"]
+            _mv_sent_email = st.session_state.get("_mv_cta_sent_email", "")
+            with st.container(border=True):
+                st.success(
+                    f"✅ **설문조사 시작 완료!** `{_mv_sent_email}` 로 배포 링크가 발송되었습니다."
+                )
+                st.markdown("**📋 내 설문 배포 링크 (즉시 복사·공유 가능):**")
+                st.code(_mv_sent_url, language=None)
+                _mvb1, _mvb2 = st.columns([1, 1])
+                with _mvb1:
+                    if st.button("✖️ 닫기", key="mv_cta_close", use_container_width=True):
+                        st.session_state.pop("_mv_cta_sent_url", None)
+                        st.session_state.pop("_mv_cta_sent_email", None)
+                        st.rerun()
+                with _mvb2:
+                    if st.button("→ 내 dashboard로 (QR 보기)",
+                                  key="mv_cta_to_csd", type="primary", use_container_width=True):
+                        st.session_state.pop("_mv_cta_sent_url", None)
+                        st.session_state.pop("_mv_cta_sent_email", None)
+                        st.session_state["current_page"] = "campaign_student_dashboard"
+                        st.rerun()
 
         # 설문 시작 — 학생 본인일 때만 표시
         if _u_mv.get("role_v2") == "student" and not _is_locked_mv and _eff_band in _band_thresholds:
