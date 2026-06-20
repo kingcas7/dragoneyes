@@ -18653,16 +18653,20 @@ else:
 
         # 상급 기관(metro/district/nation)이면 추가 탭 (참여 분류·강연·만족도)
         if _inst_scope in ("nation", "metro", "district"):
-            ins_tab1, ins_tab2, ins_tab3, ins_tab4, ins_tab5, ins_tab6, ins_tab7 = st.tabs(
+            (ins_tab1, ins_tab2, ins_tab3, ins_tab4, ins_tab5,
+             ins_tab6, ins_tab7, ins_tab8, ins_tab9) = st.tabs(
                 ["📋 학생 명단", "📤 학생 일괄 등록", "📊 진행률",
                  "🎓 캠페인 참여 현황", "🌐 산하·지역 기관 통계",
-                 "📢 외부강사 강연", "📝 만족도 조사 (1·2차)"]
+                 "📢 외부강사 강연", "📝 만족도 조사 (1·2차)",
+                 "👨‍🎓 학생 정보 관리", "👥 교사 계정 관리"]
             )
         else:
-            # 학교 단위 — 강연 등록은 본인 학교만
-            ins_tab1, ins_tab2, ins_tab3, ins_tab4, ins_tab6 = st.tabs(
+            # 학교 단위 — 본교 운영 중심
+            (ins_tab1, ins_tab2, ins_tab3, ins_tab4,
+             ins_tab6, ins_tab8, ins_tab9) = st.tabs(
                 ["📋 학생 명단", "📤 학생 일괄 등록", "📊 진행률",
-                 "🎓 캠페인 참여 현황", "📢 외부강사 강연"]
+                 "🎓 캠페인 참여 현황", "📢 외부강사 강연",
+                 "👨‍🎓 학생 정보 관리", "👥 교사 계정 관리"]
             )
             ins_tab5 = None
             ins_tab7 = None
@@ -19390,6 +19394,318 @@ else:
                                         st.rerun()
                                     except Exception as _e:
                                         st.error(f"실패: {_e}")
+
+        # ── 탭 8: 👨‍🎓 학생 정보 관리 (반·학년별 조회·수정·불이익 조치) ──
+        with ins_tab8:
+            st.caption("학교 학생 정보 실시간 조회·수정. 학생에게 불이익이 가지 않게 안전하게 관리하세요.")
+
+            # 학교 단위는 본교만, 상급 기관은 산하 학교 선택
+            if _inst_scope == "school":
+                _stu_target_inst = _inst_id
+            else:
+                try:
+                    _vis_stu = supabase.rpc("get_visible_institutions",
+                                              {"p_inst_id": _inst_id}).execute().data or []
+                    _vis_stu = [r for r in _vis_stu if r.get("type") in
+                                 ("elementary","middle","high","special","youth_facility")]
+                except Exception:
+                    _vis_stu = []
+                if _vis_stu:
+                    _stu_opts_inst = {f"{r['name']} ({r.get('region','')} {r.get('district','') or ''})": r["id"]
+                                       for r in _vis_stu}
+                    _stu_sel_inst = st.selectbox("학교 선택", list(_stu_opts_inst.keys()), key="stu_inst_sel")
+                    _stu_target_inst = _stu_opts_inst.get(_stu_sel_inst)
+                else:
+                    _stu_target_inst = None
+                    st.info("권한 범위 내 학교가 없습니다.")
+
+            if _stu_target_inst:
+                # 반별 통계
+                try:
+                    _class_summary = supabase.rpc(
+                        "get_class_summary", {"p_inst_id": _stu_target_inst}
+                    ).execute().data or []
+                except Exception:
+                    _class_summary = []
+
+                # KPI
+                _all_stu_inst = sum(int(r.get("student_count") or 0) for r in _class_summary)
+                _all_compl_inst = sum(int(r.get("survey_completed") or 0) for r in _class_summary)
+                _all_h_inst = sum(float(r.get("total_hours") or 0) for r in _class_summary)
+                _kc1, _kc2, _kc3, _kc4 = st.columns(4)
+                _kc1.metric("👥 전체 학생", f"{_all_stu_inst}")
+                _kc2.metric("✅ 설문 완료", f"{_all_compl_inst}",
+                            f"{(_all_compl_inst/_all_stu_inst*100 if _all_stu_inst else 0):.1f}%")
+                _kc3.metric("🕐 누적 봉사", f"{_all_h_inst:.1f}h")
+                _kc4.metric("📊 반 수", f"{len(_class_summary)}")
+
+                # 반별 요약 표
+                if _class_summary:
+                    with st.expander("📊 학년·반별 요약", expanded=False):
+                        import pandas as _pd_cls
+                        _cls_rows = [{
+                            "학년": r.get("grade") or "-",
+                            "반": r.get("class_no") or "-",
+                            "학생 수": int(r.get("student_count") or 0),
+                            "설문 완료": int(r.get("survey_completed") or 0),
+                            "누적 봉사(h)": f"{float(r.get('total_hours') or 0):.1f}",
+                            "인증(h)": f"{float(r.get('issued_hours') or 0):.1f}",
+                            "1인당 평균(h)": f"{float(r.get('avg_hours') or 0):.2f}",
+                        } for r in _class_summary]
+                        st.dataframe(_pd_cls.DataFrame(_cls_rows),
+                                     use_container_width=True, hide_index=True)
+
+                st.divider()
+
+                # 학생 목록 (필터)
+                _fc1, _fc2, _fc3 = st.columns([1, 1, 2])
+                with _fc1:
+                    _grades_opt = ["전체"] + [str(g) for g in sorted(set(
+                        int(r.get("grade")) for r in _class_summary if r.get("grade")
+                    ))]
+                    _grade_filter = st.selectbox("학년", _grades_opt, key="stu_grade_filter")
+                with _fc2:
+                    _classes_opt = ["전체"] + [str(c) for c in sorted(set(
+                        int(r.get("class_no")) for r in _class_summary if r.get("class_no")
+                    ))]
+                    _class_filter = st.selectbox("반", _classes_opt, key="stu_class_filter")
+                with _fc3:
+                    _stu_name_filter = st.text_input("이름/이메일 검색", key="stu_name_filter")
+
+                # 학생 데이터 조회
+                try:
+                    _stu_q = supabase.table("users").select(
+                        "id, name, email, grade, class_no, school_name, status, "
+                        "parent_consent_at, created_at, last_login_at, deleted_at"
+                    ).eq("institution_id", _stu_target_inst)\
+                     .eq("role_v2", "student")\
+                     .is_("deleted_at", "null")\
+                     .order("grade").order("class_no").order("name")\
+                     .limit(2000).execute().data or []
+                except Exception as _e:
+                    _stu_q = []
+                    st.error(f"학생 조회 실패: {_e}")
+
+                # Python 필터
+                _stu_show = _stu_q
+                if _grade_filter != "전체":
+                    _stu_show = [s for s in _stu_show if str(s.get("grade") or "") == _grade_filter]
+                if _class_filter != "전체":
+                    _stu_show = [s for s in _stu_show if str(s.get("class_no") or "") == _class_filter]
+                if _stu_name_filter:
+                    _q = _stu_name_filter.lower()
+                    _stu_show = [s for s in _stu_show
+                                  if _q in (s.get("name","").lower())
+                                  or _q in (s.get("email","").lower())]
+
+                st.caption(f"표시 {len(_stu_show)}명 / 전체 {len(_stu_q)}명")
+
+                # 학생별 expander
+                for _s in _stu_show[:100]:  # 최대 100명 표시
+                    _consent = "✅" if _s.get("parent_consent_at") else "⏳"
+                    _status_emoji = {"active":"✅","inactive":"⏸️","suspended":"🚫"}.get(_s.get("status"),"·")
+                    with st.expander(
+                        f"{_status_emoji} **{_s.get('name','')}** · "
+                        f"{_s.get('grade','-')}학년 {_s.get('class_no','-')}반 · "
+                        f"{_s.get('email','')} · 동의 {_consent}",
+                        expanded=False
+                    ):
+                        # 학생 봉사·설문 조회
+                        try:
+                            _s_vc = supabase.table("volunteer_credits").select(
+                                "hours_decimal, status"
+                            ).eq("student_id", _s["id"]).execute().data or []
+                            _s_h = sum(float(r.get("hours_decimal") or 0) for r in _s_vc
+                                        if r.get("status") in ("earned","issued"))
+                        except Exception:
+                            _s_h = 0.0
+                        try:
+                            _s_resp = supabase.table("survey_responses").select(
+                                "status"
+                            ).eq("student_id", _s["id"]).execute().data or []
+                            _s_compl = sum(1 for r in _s_resp if r.get("status") == "completed")
+                        except Exception:
+                            _s_compl = 0
+
+                        _sk_a, _sk_b, _sk_c = st.columns(3)
+                        _sk_a.metric("🕐 봉사 시간", f"{_s_h:.1f}h")
+                        _sk_b.metric("✅ 설문 완료", f"{_s_compl}")
+                        _sk_c.metric("📅 최근 로그인",
+                                      (_s.get("last_login_at") or "-")[:10])
+
+                        # 정보 수정
+                        st.markdown("##### ✏️ 정보 수정")
+                        _e1, _e2 = st.columns(2)
+                        with _e1:
+                            _new_name = st.text_input("이름", value=_s.get("name","") or "",
+                                                       key=f"st_n_{_s['id']}")
+                            _new_grade = st.number_input("학년", min_value=1, max_value=12,
+                                                          value=int(_s.get("grade") or 6),
+                                                          key=f"st_g_{_s['id']}")
+                            _new_class = st.number_input("반", min_value=0, max_value=30,
+                                                          value=int(_s.get("class_no") or 0),
+                                                          key=f"st_c_{_s['id']}")
+                        with _e2:
+                            _new_email = st.text_input("이메일", value=_s.get("email","") or "",
+                                                        key=f"st_e_{_s['id']}")
+                            _new_status = st.selectbox(
+                                "계정 상태",
+                                ["active","inactive","suspended"],
+                                index=["active","inactive","suspended"].index(_s.get("status") or "active"),
+                                format_func=lambda x: {"active":"✅ 활성","inactive":"⏸️ 비활성","suspended":"🚫 정지"}.get(x, x),
+                                key=f"st_s_{_s['id']}"
+                            )
+
+                        _bc1, _bc2 = st.columns(2)
+                        with _bc1:
+                            if st.button("💾 저장", key=f"st_save_{_s['id']}",
+                                          type="primary", use_container_width=True):
+                                try:
+                                    supabase.table("users").update({
+                                        "name": _new_name,
+                                        "grade": int(_new_grade),
+                                        "class_no": int(_new_class) if _new_class > 0 else None,
+                                        "email": _new_email,
+                                        "status": _new_status,
+                                    }).eq("id", _s["id"]).execute()
+                                    st.success("저장됨"); st.rerun()
+                                except Exception as _e:
+                                    st.error(f"실패: {_e}")
+                        with _bc2:
+                            # 정지/비활성 해제 (학생 불이익 방지)
+                            if _s.get("status") in ("suspended", "inactive"):
+                                if st.button("🔓 정지 해제", key=f"st_unl_{_s['id']}",
+                                              use_container_width=True):
+                                    try:
+                                        supabase.table("users").update({
+                                            "status": "active"
+                                        }).eq("id", _s["id"]).execute()
+                                        st.success("활성화 완료"); st.rerun()
+                                    except Exception as _e:
+                                        st.error(f"실패: {_e}")
+                            else:
+                                st.caption("💡 학생에게 불이익 발생 시 정지/비활성 후 다시 해제")
+
+        # ── 탭 9: 👥 교사 계정 관리 (다중 institution_admin 초대·관리) ──
+        with ins_tab9:
+            st.caption(
+                "**학교 공용 계정 + 개별 교사 계정 모두 관리**. "
+                "여러 선생님이 같은 학교에 institution_admin 계정으로 접속해 "
+                "학생 정보 모니터링·관리 가능."
+            )
+
+            # 대상 학교
+            if _inst_scope == "school":
+                _teach_target_inst = _inst_id
+            else:
+                try:
+                    _vis_t = supabase.rpc("get_visible_institutions",
+                                            {"p_inst_id": _inst_id}).execute().data or []
+                    _vis_t = [r for r in _vis_t if r.get("type") in
+                               ("elementary","middle","high","special","youth_facility")]
+                except Exception:
+                    _vis_t = []
+                if _vis_t:
+                    _t_opts = {f"{r['name']} ({r.get('region','')} {r.get('district','') or ''})": r["id"]
+                                for r in _vis_t}
+                    _t_sel = st.selectbox("학교 선택", list(_t_opts.keys()), key="teach_inst_sel")
+                    _teach_target_inst = _t_opts.get(_t_sel)
+                else:
+                    _teach_target_inst = None
+                    st.info("권한 범위 내 학교가 없습니다.")
+
+            if _teach_target_inst:
+                # 교사 list
+                try:
+                    _teachers = supabase.rpc(
+                        "get_school_teachers", {"p_inst_id": _teach_target_inst}
+                    ).execute().data or []
+                except Exception:
+                    _teachers = []
+
+                st.markdown(f"##### 등록된 교사 계정 ({len(_teachers)}명)")
+                _role_lbl = {
+                    "principal":"🎓 교장","vice_principal":"👔 교감",
+                    "shared":"🔑 공용 계정","admin":"⚙️ 행정",
+                    "homeroom":"🏠 담임","subject":"📚 교과",
+                }
+                for _t in _teachers:
+                    with st.container(border=True):
+                        _tc1, _tc2 = st.columns([4, 1])
+                        with _tc1:
+                            st.markdown(
+                                f"{_role_lbl.get(_t.get('teacher_role'), '👤 일반')} "
+                                f"**{_t.get('name','')}** · {_t.get('email','')}"
+                            )
+                            _ll = (_t.get("last_login_at") or "")[:16]
+                            _ca = (_t.get("created_at") or "")[:10]
+                            st.caption(f"최근 로그인 {_ll or '없음'} · 가입 {_ca}")
+                            if _t.get("teacher_charge"):
+                                st.caption(f"담당: {_t.get('teacher_charge')}")
+                        with _tc2:
+                            if st.button("🔑 비번 재설정", key=f"th_pw_{_t['id']}",
+                                          use_container_width=True):
+                                try:
+                                    _new_pw = "Dragon!2026"
+                                    sb_admin().auth.admin.update_user_by_id(
+                                        _t["id"], {"password": _new_pw}
+                                    )
+                                    st.success(f"비번 재설정: `{_new_pw}` (즉시 변경 안내)")
+                                except Exception as _e:
+                                    st.error(f"실패: {_e}")
+
+                st.divider()
+
+                # 신규 교사 초대
+                with st.expander("➕ 신규 교사 계정 초대", expanded=False):
+                    with st.form(f"th_new_form_{_teach_target_inst}"):
+                        _th1, _th2 = st.columns(2)
+                        with _th1:
+                            _th_name = st.text_input("이름 *")
+                            _th_email = st.text_input("이메일 *", placeholder="teacher@school.kr")
+                        with _th2:
+                            _th_role = st.selectbox(
+                                "역할",
+                                ["shared","principal","vice_principal","homeroom","subject","admin"],
+                                format_func=lambda x: _role_lbl.get(x, x),
+                                index=0,  # 기본 공용 계정
+                            )
+                            _th_pw = st.text_input("초기 비밀번호 * (6자 이상)",
+                                                    value="Dragon!2026", type="password")
+                        _th_charge = st.text_input("담당 (선택, 예: 1학년 3반 담임)")
+                        if st.form_submit_button("📤 계정 생성 + 초대 메일", type="primary",
+                                                  use_container_width=True):
+                            if not _th_name or not _th_email or len(_th_pw) < 6:
+                                st.error("이름·이메일·비밀번호(6자 이상) 필수")
+                            else:
+                                try:
+                                    # Auth 계정 생성
+                                    _new_uid = sb_admin().auth.admin.create_user({
+                                        "email": _th_email, "password": _th_pw,
+                                        "email_confirm": True,
+                                        "user_metadata": {"name": _th_name},
+                                    }).user.id
+                                    # users INSERT
+                                    supabase.table("users").insert({
+                                        "id": _new_uid,
+                                        "email": _th_email,
+                                        "name": _th_name,
+                                        "role": "user",
+                                        "role_v2": "institution_admin",
+                                        "institution_id": _teach_target_inst,
+                                        "teacher_role": _th_role,
+                                        "teacher_charge": ({"description": _th_charge} if _th_charge else None),
+                                        "status": "active",
+                                    }).execute()
+                                    st.success(
+                                        f"✅ {_th_name}님 계정 생성 완료!\n\n"
+                                        f"이메일: `{_th_email}`\n"
+                                        f"초기 비밀번호: `{_th_pw}`\n\n"
+                                        f"교사분께 직접 안내해주세요."
+                                    )
+                                    st.rerun()
+                                except Exception as _e:
+                                    st.error(f"실패: {_e}")
 
 
     # ══════════════════════════════════════════════════════════════
