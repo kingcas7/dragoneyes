@@ -17376,14 +17376,18 @@ else:
     elif page == "parent_dashboard":
         _u_p = user or {}
         _role_v2_p = (_u_p.get("role_v2") or "").lower()
+        # ⭐ 본부 admin은 모든 캠페인 페이지 미리보기 가능
+        _is_hq_admin_p = (_u_p.get("role") == "admin" and not _u_p.get("partner_id"))
 
         # 권한 가드
-        if _role_v2_p != "parent":
+        if _role_v2_p != "parent" and not _is_hq_admin_p:
             st.error("🚫 학부모 전용 페이지입니다.")
             if st.button("🏠 캠페인 홈으로", key="pdash_back_unauth"):
                 st.session_state["current_page"] = "campaign_landing"
                 st.rerun()
             st.stop()
+        if _is_hq_admin_p and _role_v2_p != "parent":
+            st.info("🛠️ **본부 관리자 미리보기 모드** — 본인의 자녀/구독 데이터는 없을 수 있습니다.")
 
         # 헤더
         _ph1, _ph2 = st.columns([6, 1])
@@ -17883,9 +17887,11 @@ else:
         _u = user or {}
         _role_v2 = (_u.get("role_v2") or "").lower()
         _inst_id = _u.get("institution_id")
+        # ⭐ 본부 admin은 모든 캠페인 페이지 미리보기 가능
+        _is_hq_admin_inst = (_u.get("role") == "admin" and not _u.get("partner_id"))
 
         # 권한 가드
-        if _role_v2 != "institution_admin":
+        if _role_v2 != "institution_admin" and not _is_hq_admin_inst:
             st.error("🚫 교육기관 관리자 전용 페이지입니다.")
             if st.button("🏠 캠페인 홈으로", key="inst_dash_back"):
                 go_to("campaign_landing"); st.rerun()
@@ -17895,9 +17901,23 @@ else:
         _h1, _h2 = st.columns([6, 1])
         with _h1:
             st.markdown("## 🏫 교육기관 대시보드")
+            if _is_hq_admin_inst and _role_v2 != "institution_admin":
+                st.info("🛠️ **본부 관리자 미리보기 모드** — 본인의 기관 데이터는 없을 수 있습니다.")
         with _h2:
             if st.button("← 캠페인 홈", key="inst_dash_back_top", use_container_width=True):
                 go_to("campaign_landing"); st.rerun()
+
+        # ⭐ 본부 admin이고 institution_id가 없으면 첫 번째 기관을 임시 표시 (미리보기)
+        if _is_hq_admin_inst and not _inst_id:
+            try:
+                _first_inst = supabase.table("institutions").select("id")\
+                    .eq("status", "approved").is_("deleted_at", "null")\
+                    .order("created_at", desc=True).limit(1).execute().data or []
+                if _first_inst:
+                    _inst_id = _first_inst[0].get("id")
+                    st.caption(f"👀 미리보기 대상: 가장 최근 승인된 기관 (id={_inst_id})")
+            except Exception:
+                pass
 
         # 기관 정보 표시
         if not _inst_id:
