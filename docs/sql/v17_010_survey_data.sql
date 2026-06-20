@@ -10,15 +10,16 @@
 -- ─────────────────────────────────────────────────────────────
 -- 1. 캠페인 INSERT (2026)
 -- ─────────────────────────────────────────────────────────────
-INSERT INTO public.campaigns (year, name, description, status, started_at)
+INSERT INTO public.campaigns (year, code, title, description, status, start_at)
 VALUES (
     2026,
+    'CAMP-2026',
     '2026 온라인 유해콘텐츠 근절 캠페인',
     '드래곤아이즈 학사모 캠페인 · 청소년의 온라인 안전과 저작권 인식 향상',
     'active',
     NOW()
 )
-ON CONFLICT (year) DO UPDATE SET status='active';
+ON CONFLICT (code) DO UPDATE SET status='active';
 
 
 -- ─────────────────────────────────────────────────────────────
