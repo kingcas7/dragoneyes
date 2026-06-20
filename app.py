@@ -17021,6 +17021,47 @@ else:
 
         st.divider()
 
+        # ──────────────────────────────────────────────────────
+        # 📣 캠페인 안내 (campaign_overview_content audience='parent')
+        # ──────────────────────────────────────────────────────
+        try:
+            _p_overview = supabase.table("campaign_overview_content")\
+                .select("title, body_md, section_key, sort_order")\
+                .eq("audience", "parent").eq("is_active", True)\
+                .order("sort_order").execute()
+            _p_ov_rows = _p_overview.data or []
+        except Exception:
+            _p_ov_rows = []
+
+        if _p_ov_rows:
+            with st.expander("📣 캠페인 안내 (목적·자녀 토론 가이드·프리미엄 안내)", expanded=False):
+                for _sec in _p_ov_rows:
+                    _title = _sec.get("title") or ""
+                    _body = _sec.get("body_md") or ""
+                    _key = _sec.get("section_key")
+                    if _key == "parent_discussion":
+                        st.markdown(
+                            f'<div style="background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);'
+                            f'border-left:6px solid #f59e0b;border-radius:10px;padding:16px 20px;margin:10px 0;">'
+                            f'<div style="font-size:1.1rem;font-weight:700;color:#92400e;margin-bottom:6px;">{_title}</div>'
+                            f'<div style="color:#0f172a;font-size:0.92rem;line-height:1.7;">{_body}</div>'
+                            f'</div>',
+                            unsafe_allow_html=True,
+                        )
+                    elif _key == "premium_recommend":
+                        st.markdown(
+                            f'<div style="background:linear-gradient(135deg,#ede9fe 0%,#ddd6fe 100%);'
+                            f'border-left:6px solid #8b5cf6;border-radius:10px;padding:16px 20px;margin:10px 0;">'
+                            f'<div style="font-size:1.1rem;font-weight:700;color:#5b21b6;margin-bottom:6px;">{_title}</div>'
+                            f'<div style="color:#0f172a;font-size:0.92rem;line-height:1.7;">{_body}</div>'
+                            f'</div>',
+                            unsafe_allow_html=True,
+                        )
+                    else:
+                        with st.container(border=True):
+                            st.markdown(f"##### {_title}")
+                            st.markdown(_body)
+
         # 탭: 자녀 목록 / 자녀 등록 / 결제·구독
         pt1, pt2, pt3 = st.tabs(["👨‍👩‍👧‍👦 자녀 목록", "➕ 자녀 등록", "💳 결제·구독"])
 
@@ -17060,6 +17101,69 @@ else:
                                 "⚠️ 자녀가 사이트에서 매칭을 확인해야 인증 완료됩니다. "
                                 "(자녀에게 알림 발송 — 추후 활성화)"
                             )
+
+                        # ─── 🎒 캠페인 둘러보기 + 🔗 자녀 설문 링크/QR (verified만) ───
+                        if _l.get("verification_status") == "verified" and _stu.get("id"):
+                            st.markdown("")
+                            st.markdown("##### 🎒 자녀의 캠페인 현황")
+                            _cb1, _cb2 = st.columns([1, 1])
+                            with _cb1:
+                                if st.button("📊 내 자녀의 캠페인 둘러보기",
+                                             key=f"pdash_view_child_{_l['id']}",
+                                             type="primary", use_container_width=True):
+                                    st.session_state["_viewing_child_id"] = _stu.get("id")
+                                    st.session_state["current_page"] = "campaign_student_dashboard"
+                                    st.rerun()
+                            with _cb2:
+                                # 자녀 봉사 시간 조회
+                                try:
+                                    _vc_q = supabase.table("volunteer_credits").select(
+                                        "hours_decimal, status"
+                                    ).eq("student_id", _stu.get("id")).execute()
+                                    _hrs = sum(float(r.get("hours_decimal") or 0)
+                                               for r in (_vc_q.data or [])
+                                               if r.get("status") in ("earned","issued"))
+                                    st.metric("🕐 자녀 누적 봉사", f"{_hrs:.1f}시간")
+                                except Exception:
+                                    st.caption("봉사 정보 조회 실패")
+
+                            # 자녀 설문 토큰 조회 → 링크/QR 공유
+                            try:
+                                _ctok = supabase.table("student_survey_tokens").select(
+                                    "access_token, response_count"
+                                ).eq("student_id", _stu.get("id")).limit(1).execute()
+                                _ctok_row = _ctok.data[0] if _ctok.data else None
+                            except Exception:
+                                _ctok_row = None
+
+                            if _ctok_row and _ctok_row.get("access_token"):
+                                _ctoken = _ctok_row["access_token"]
+                                _base_url = "https://dragoneyes-production.up.railway.app"
+                                _surl = f"{_base_url}/?survey_token={_ctoken}"
+                                with st.container(border=True):
+                                    st.markdown("**🔗 자녀의 설문 링크/QR 공유**")
+                                    st.caption("이 링크를 SNS·메신저에 공유하면 응답자의 답변이 자녀의 봉사 점수에 반영됩니다.")
+                                    _ql, _qr = st.columns([3, 1])
+                                    with _ql:
+                                        st.code(_surl, language=None)
+                                        st.caption(f"📩 누적 응답자: {_ctok_row.get('response_count', 0)}명")
+                                    with _qr:
+                                        try:
+                                            import qrcode, io, base64
+                                            _q = qrcode.make(_surl)
+                                            _buf = io.BytesIO()
+                                            _q.save(_buf, format="PNG")
+                                            _b64 = base64.b64encode(_buf.getvalue()).decode()
+                                            st.markdown(
+                                                f'<img src="data:image/png;base64,{_b64}" '
+                                                f'style="width:100%;max-width:140px;border:1px solid #e5e7eb;border-radius:8px;" />',
+                                                unsafe_allow_html=True,
+                                            )
+                                        except Exception:
+                                            st.caption("📱 QR 생성 실패")
+                            else:
+                                st.info("자녀의 설문 토큰이 아직 발급되지 않았어요. (자녀의 학교/학년 정보 등록 후 자동 발급)")
+
                         st.markdown("")
                         _ac1, _ac2 = st.columns([1, 1])
                         with _ac1:
@@ -17245,6 +17349,27 @@ else:
                 st.success(
                     f"✅ **{_y_cur}년 구독 중** — 등록된 모든 자녀가 유료 자료를 무제한 열람할 수 있습니다."
                 )
+                # 결제 내역
+                try:
+                    _pays = supabase.table("payments").select(
+                        "id, provider, amount, status, paid_at, created_at"
+                    ).eq("target_type", "parent").eq("target_id", _u_p.get("id"))\
+                     .order("created_at", desc=True).limit(10).execute().data or []
+                    if _pays:
+                        st.markdown("##### 📜 결제 내역")
+                        for _p in _pays:
+                            _status_emoji = {"completed":"✅","pending":"⏳","failed":"❌",
+                                            "cancelled":"🚫","refunded":"↩️"}.get(_p.get("status"),"·")
+                            with st.container(border=True):
+                                _pc1, _pc2, _pc3 = st.columns([2,1,1])
+                                with _pc1:
+                                    st.markdown(f"**{_status_emoji} {_p.get('provider','-').upper()}** · "
+                                                f"{(_p.get('paid_at') or _p.get('created_at') or '')[:10]}")
+                                with _pc2:
+                                    st.markdown(f"💰 {int(_p.get('amount') or 0):,}원")
+                                with _pc3:
+                                    st.caption(_p.get('status','-'))
+                except Exception: pass
             else:
                 st.warning(
                     f"❌ **{_y_cur}년 구독 미가입**\n\n"
@@ -17252,16 +17377,87 @@ else:
                     f"- 학생은 무료로 설문 참여 및 봉사 점수를 받을 수 있습니다.\n"
                     f"- **연 10,000원 결제 시** 모든 유료 자료 + 자녀 추가 권한이 활성화됩니다."
                 )
-                if st.button("💳 연 10,000원 결제하기", type="primary", use_container_width=True,
-                             key="pdash_pay_now"):
-                    st.info("🚧 결제 게이트웨이 연동은 Phase 9에서 활성화됩니다. (토스/카카오/이니시스 PG)")
+
+                # ─── 결제 게이트웨이 선택 ───
+                st.markdown("##### 🏦 결제 수단 선택")
+                try:
+                    _providers = supabase.table("payment_providers").select(
+                        "code, label, enabled, regulatory_status, sandbox_mode"
+                    ).execute().data or []
+                except Exception:
+                    _providers = [
+                        {"code":"toss","label":"토스페이먼츠","enabled":False,"regulatory_status":"pending","sandbox_mode":True},
+                        {"code":"kakao","label":"카카오페이","enabled":False,"regulatory_status":"pending","sandbox_mode":True},
+                        {"code":"inicis","label":"이니시스","enabled":False,"regulatory_status":"pending","sandbox_mode":True},
+                        {"code":"naver","label":"네이버페이","enabled":False,"regulatory_status":"pending","sandbox_mode":True},
+                    ]
+
+                _pg_cols = st.columns(min(4, len(_providers)) or 1)
+                _selected_pg = st.session_state.get("_pdash_selected_pg")
+                for _i, _pg in enumerate(_providers):
+                    with _pg_cols[_i % len(_pg_cols)]:
+                        with st.container(border=True):
+                            _emoji = {"toss":"💙","kakao":"💛","inicis":"💜","naver":"💚"}.get(_pg.get("code"),"💳")
+                            st.markdown(f"### {_emoji}")
+                            st.markdown(f"**{_pg.get('label','')}**")
+                            _enabled = bool(_pg.get("enabled"))
+                            _reg = _pg.get("regulatory_status","pending")
+                            if not _enabled:
+                                st.caption(f"🚧 신고 {_reg}")
+                            else:
+                                _is_sel = (_selected_pg == _pg.get("code"))
+                                if st.button(("✅ 선택됨" if _is_sel else "선택"),
+                                             key=f"pdash_pg_pick_{_pg.get('code')}",
+                                             type=("primary" if _is_sel else "secondary"),
+                                             use_container_width=True,
+                                             disabled=_is_sel):
+                                    st.session_state["_pdash_selected_pg"] = _pg.get("code")
+                                    st.rerun()
+
+                st.markdown("")
+                _selected_pg = st.session_state.get("_pdash_selected_pg")
+                _enabled_codes = {p.get("code") for p in _providers if p.get("enabled")}
+
+                if not _enabled_codes:
+                    st.error(
+                        "🚧 모든 결제 게이트웨이가 **신고/심사 대기 중**입니다. "
+                        "현재는 결제를 진행할 수 없으며, 신고 완료 후 활성화됩니다. "
+                        "본부 관리자(support@dragoneyes.kr)에게 문의 가능."
+                    )
+                elif not _selected_pg:
+                    st.info("위에서 결제 수단을 먼저 선택해주세요.")
+                else:
+                    if st.button(f"💳 {_selected_pg.upper()}로 연 10,000원 결제하기",
+                                 type="primary", use_container_width=True, key="pdash_pay_go"):
+                        # PG 연동 (Phase 9)
+                        try:
+                            # 결제 로그 생성 (pending)
+                            supabase.table("payments").insert({
+                                "provider": _selected_pg,
+                                "target_type": "parent",
+                                "target_id": _u_p.get("id"),
+                                "amount": 10000,
+                                "currency": "KRW",
+                                "product_type": "parent_yearly_10k",
+                                "product_year": _y_cur,
+                                "status": "pending",
+                                "created_by": _u_p.get("id"),
+                            }).execute()
+                            st.info(
+                                "🚧 결제 게이트웨이 연동 (Phase 9)이 활성화되면 "
+                                f"{_selected_pg.upper()} 결제창으로 자동 이동합니다. "
+                                "지금은 결제 로그만 생성되었습니다 (status='pending')."
+                            )
+                        except Exception as _e:
+                            st.error(f"결제 로그 생성 실패: {_e}")
 
             st.divider()
             st.caption(
                 "📌 **정책 안내**\n"
                 "- 학생: 무료 (모든 무료 자료 + 설문 + 봉사 점수)\n"
                 "- 학부모: 연 1만원 (모든 유료 자료 무제한 + 등록된 모든 자녀 동시 권한)\n"
-                "- 다자녀: 학부모 1회 결제로 모든 자녀 권한 부여"
+                "- 다자녀: 학부모 1회 결제로 모든 자녀 권한 부여\n"
+                "- PG 4종 (토스/카카오/이니시스/네이버) — 관할 신고 완료 후 순차 활성화"
             )
 
     elif page == "institution_dashboard":
