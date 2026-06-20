@@ -16448,6 +16448,16 @@ else:
         render_survey_respond_page()
 
     # ══════════════════════════════════════════════════════════════
+    # 🆕 캠페인 회원가입 페이지 — 로그인 상태(본부 admin 미리보기 등)에서도 진입
+    # ══════════════════════════════════════════════════════════════
+    elif page in ("campaign_signup_select", "campaign_signup_institution",
+                  "campaign_signup_parent", "campaign_signup_student"):
+        _is_hq_preview = (user and user.get("role") == "admin" and not user.get("partner_id"))
+        if _is_hq_preview:
+            st.info("🛠️ **본부 관리자 미리보기 모드** — 실제 가입은 비로그인 상태에서 진행해주세요.")
+        render_campaign_signup_page(page)
+
+    # ══════════════════════════════════════════════════════════════
     # 🎒 Phase 7+8 (v17): 학생 설문+봉사 dashboard — 캠페인 안내 + 자료 + 설문 + 봉사 + 내 링크/QR
     # ══════════════════════════════════════════════════════════════
     elif page == "campaign_student_dashboard":
@@ -16455,18 +16465,24 @@ else:
         _role_v2_csd = (_u_csd.get("role_v2") or "user").lower()
         _is_student_csd = (_role_v2_csd == "student") or bool(_u_csd.get("is_campaign_only"))
         _is_parent_csd = (_role_v2_csd == "parent")
+        # ⭐ 본부 admin은 모든 캠페인 페이지 미리보기 가능
+        _is_hq_admin_csd = (_u_csd.get("role") == "admin" and not _u_csd.get("partner_id"))
 
         # 학부모가 '내 자녀 캠페인 둘러보기'로 진입한 경우: 보고 있는 자녀 ID
         _viewing_child_id = st.session_state.get("_viewing_child_id")
         _target_student_id = _viewing_child_id if (_is_parent_csd and _viewing_child_id) else _u_csd.get("id")
 
-        # 학생/학부모 자녀 — 둘 다 진입 가능. 그 외는 차단
-        if not (_is_student_csd or (_is_parent_csd and _viewing_child_id)):
+        # 학생/학부모 자녀/본부 admin — 진입 가능. 그 외는 차단
+        if not (_is_student_csd or (_is_parent_csd and _viewing_child_id) or _is_hq_admin_csd):
             st.warning("이 페이지는 학생 본인 또는 학부모(자녀 둘러보기)만 접근할 수 있어요.")
             if st.button("← 캠페인 홈으로", key="csd_back_unauth"):
                 st.session_state["current_page"] = "campaign_landing"
                 st.rerun()
             st.stop()
+
+        # 본부 admin 미리보기 모드 안내
+        if _is_hq_admin_csd and not _is_student_csd and not (_is_parent_csd and _viewing_child_id):
+            st.info("🛠️ **본부 관리자 미리보기 모드** — 본인 데이터(봉사 시간/토큰)는 없을 수 있습니다.")
 
         # 헤더
         _hh1, _hh2 = st.columns([6, 1])
