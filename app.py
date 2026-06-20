@@ -16906,6 +16906,72 @@ else:
         if _is_hq_admin_csd and not _is_student_csd and not (_is_parent_csd and _viewing_child_id):
             st.info("🛠️ **본부 관리자 미리보기 모드** — 본인 데이터(봉사 시간/토큰)는 없을 수 있습니다.")
 
+        # ⭐ 학교 등록 상태 확인 + 등록/변경 섹션 (학생 본인일 때만)
+        if _is_student_csd and not (_is_parent_csd and _viewing_child_id):
+            try:
+                _stu_self = supabase.table("users").select(
+                    "institution_id, school_name, grade"
+                ).eq("id", _u_csd.get("id")).single().execute().data or {}
+            except Exception:
+                _stu_self = {}
+
+            _has_school = bool(_stu_self.get("institution_id") or _stu_self.get("school_name"))
+            with st.expander(
+                f"🏫 내 학교 정보 {'✅ ' + (_stu_self.get('school_name') or '') if _has_school else '⚠️ 미등록 — 등록 필요'}",
+                expanded=not _has_school  # 미등록 시 자동 열기
+            ):
+                if not _has_school:
+                    st.warning(
+                        "**학교가 등록되지 않았습니다.** 봉사 시간 인정과 학년대 매칭 설문을 위해 "
+                        "학교를 등록해 주세요."
+                    )
+                _csd_school_q = st.text_input(
+                    "학교명 검색 (2자 이상)",
+                    key="csd_school_search_q",
+                    placeholder="예: 서울대학교사범대학부설중학교"
+                )
+                _csd_school_band = st.selectbox(
+                    "학교급",
+                    ["전체", "elementary", "middle", "high", "special"],
+                    format_func=lambda x: {"전체":"전체","elementary":"초","middle":"중",
+                                           "high":"고","special":"특수"}.get(x, x),
+                    key="csd_school_search_band"
+                )
+                _csd_picked_school = None
+                if _csd_school_q and len(_csd_school_q.strip()) >= 2:
+                    _tfilter = None if _csd_school_band == "전체" else _csd_school_band
+                    _csd_results = neis_search_schools(_csd_school_q, type_filter=_tfilter, limit=20)
+                    if _csd_results:
+                        _csd_opts = ["(선택)"] + [
+                            f"{r['name']} · {r['kind_label']} · {r['region']}"
+                            for r in _csd_results
+                        ]
+                        _csd_pick = st.selectbox(f"🔍 검색 결과 ({len(_csd_results)}건)",
+                                                  _csd_opts, key="csd_school_pick")
+                        if _csd_pick != _csd_opts[0]:
+                            _csd_picked_school = _csd_results[_csd_opts.index(_csd_pick) - 1]
+                    else:
+                        st.caption("검색 결과 없음.")
+
+                _csd_grade_new = st.number_input("학년", min_value=1, max_value=12,
+                                                  value=int(_stu_self.get("grade") or 6),
+                                                  key="csd_grade_update")
+
+                if st.button("💾 학교/학년 저장", type="primary",
+                             use_container_width=True, key="csd_school_save"):
+                    try:
+                        _upd = {"grade": int(_csd_grade_new)}
+                        if _csd_picked_school:
+                            _inst_id_new = neis_upsert_institution(_csd_picked_school)
+                            if _inst_id_new:
+                                _upd["institution_id"] = _inst_id_new
+                                _upd["school_name"] = _csd_picked_school["name"]
+                        supabase.table("users").update(_upd).eq("id", _u_csd.get("id")).execute()
+                        st.success("✅ 저장 완료. 학년대 매칭 설문 토큰이 자동 발급됩니다.")
+                        st.rerun()
+                    except Exception as _e:
+                        st.error(f"저장 실패: {_e}")
+
         # 헤더
         _hh1, _hh2 = st.columns([6, 1])
         with _hh1:
@@ -17941,6 +18007,55 @@ else:
                                 "(자녀에게 알림 발송 — 추후 활성화)"
                             )
 
+                        # ⭐ 자녀 학교 정보 변경 (verified만)
+                        if _l.get("verification_status") == "verified" and _stu.get("id"):
+                            with st.expander(
+                                f"🏫 자녀 학교 정보: {_stu.get('school_name') or '⚠️ 미등록'}",
+                                expanded=False
+                            ):
+                                _chsch_q = st.text_input(
+                                    "학교명 검색 (NEIS)",
+                                    key=f"pdash_chsch_q_{_l['id']}",
+                                    placeholder="예: 서울대학교사범대학부설중학교"
+                                )
+                                _chsch_picked = None
+                                if _chsch_q and len(_chsch_q.strip()) >= 2:
+                                    _chsch_res = neis_search_schools(_chsch_q, limit=15)
+                                    if _chsch_res:
+                                        _chsch_opts = ["(선택)"] + [
+                                            f"{r['name']} · {r['kind_label']} · {r['region']}"
+                                            for r in _chsch_res
+                                        ]
+                                        _chsch_pick = st.selectbox(
+                                            f"검색 결과 ({len(_chsch_res)}건)",
+                                            _chsch_opts,
+                                            key=f"pdash_chsch_pick_{_l['id']}"
+                                        )
+                                        if _chsch_pick != _chsch_opts[0]:
+                                            _chsch_picked = _chsch_res[_chsch_opts.index(_chsch_pick) - 1]
+                                            st.success(f"선택: **{_chsch_picked['name']}**")
+                                _chsch_grade = st.number_input(
+                                    "학년", min_value=1, max_value=12,
+                                    value=int(_stu.get("grade") or 6),
+                                    key=f"pdash_chsch_grade_{_l['id']}"
+                                )
+                                if st.button("💾 자녀 학교/학년 저장",
+                                             key=f"pdash_chsch_save_{_l['id']}",
+                                             type="primary", use_container_width=True):
+                                    try:
+                                        _upd_ch = {"grade": int(_chsch_grade)}
+                                        if _chsch_picked:
+                                            _inst_id_ch = neis_upsert_institution(_chsch_picked)
+                                            if _inst_id_ch:
+                                                _upd_ch["institution_id"] = _inst_id_ch
+                                                _upd_ch["school_name"] = _chsch_picked["name"]
+                                        supabase.table("users").update(_upd_ch)\
+                                            .eq("id", _stu.get("id")).execute()
+                                        st.success("✅ 저장 완료. 학년대 매칭 설문 토큰이 자동 발급됩니다.")
+                                        st.rerun()
+                                    except Exception as _e:
+                                        st.error(f"실패: {_e}")
+
                         # ─── 🎒 캠페인 둘러보기 + 🔗 자녀 설문 링크/QR (verified만) ───
                         if _l.get("verification_status") == "verified" and _stu.get("id"):
                             st.markdown("")
@@ -18099,6 +18214,41 @@ else:
             else:
                 # ── 자녀 ID 신규 생성 ──
                 st.caption("자녀의 정보를 입력하고 학생 계정을 생성합니다. 학부모 동의로 자동 인증됩니다.")
+
+                # ⭐ NEIS 학교 검색 (폼 밖에 위치 — 실시간 검색 위해)
+                st.markdown("##### 🏫 자녀 재학 학교 검색 (NEIS)")
+                _cn_ns1, _cn_ns2 = st.columns([3, 1])
+                with _cn_ns1:
+                    _cn_school_q = st.text_input(
+                        "학교명 검색 (2자 이상)",
+                        key="pdash_create_school_q",
+                        placeholder="예: 서울대학교사범대학부설중학교"
+                    )
+                with _cn_ns2:
+                    _cn_school_band = st.selectbox(
+                        "학교급",
+                        ["전체", "elementary", "middle", "high", "special"],
+                        format_func=lambda x: {"전체":"전체","elementary":"초","middle":"중",
+                                               "high":"고","special":"특수"}.get(x, x),
+                        key="pdash_create_school_band"
+                    )
+                _cn_selected_school = None
+                if _cn_school_q and len(_cn_school_q.strip()) >= 2:
+                    _tfilter = None if _cn_school_band == "전체" else _cn_school_band
+                    _cn_results = neis_search_schools(_cn_school_q, type_filter=_tfilter, limit=20)
+                    if _cn_results:
+                        _cn_opts = ["(선택 안 함 — 학교명 직접 입력)"] + [
+                            f"{r['name']} · {r['kind_label']} · {r['region']}"
+                            for r in _cn_results
+                        ]
+                        _cn_picked = st.selectbox(f"🔍 검색 결과 ({len(_cn_results)}건)",
+                                                   _cn_opts, key="pdash_create_school_pick")
+                        if _cn_picked != _cn_opts[0]:
+                            _cn_selected_school = _cn_results[_cn_opts.index(_cn_picked) - 1]
+                            st.success(f"✅ 선택: **{_cn_selected_school['name']}** ({_cn_selected_school['region']})")
+                    else:
+                        st.info("🔍 검색 결과 없음. 학교명을 정확히 입력하거나 폼에서 직접 입력해주세요.")
+
                 with st.form("pdash_create_form"):
                     cc1, cc2 = st.columns(2)
                     with cc1:
@@ -18109,7 +18259,12 @@ else:
                                                   min_value=date(2005, 1, 1), max_value=date.today())
                     with cc2:
                         _cn_grade = st.number_input("학년", min_value=1, max_value=12, value=6)
-                        _cn_school = st.text_input("재학 학교")
+                        if _cn_selected_school:
+                            st.text_input("선택한 학교 (NEIS)",
+                                          value=_cn_selected_school["name"], disabled=True)
+                            _cn_school = _cn_selected_school["name"]
+                        else:
+                            _cn_school = st.text_input("재학 학교 (직접 입력)")
                         _cn_rel = st.selectbox(
                             "관계",
                             ["mother", "father", "guardian", "grandparent", "other"],
@@ -18139,6 +18294,10 @@ else:
                             if _err_child:
                                 st.error(f"❌ {_err_child}")
                             else:
+                                # ⭐ NEIS 선택 학교 → institutions upsert → institution_id 확보
+                                _child_inst_id = None
+                                if _cn_selected_school:
+                                    _child_inst_id = neis_upsert_institution(_cn_selected_school)
                                 try:
                                     # users INSERT (학생)
                                     supabase.table("users").insert({
@@ -18151,6 +18310,7 @@ else:
                                         "signup_source": "parent_create",
                                         "birth_date": _cn_birth.isoformat(),
                                         "grade": int(_cn_grade),
+                                        "institution_id": _child_inst_id,
                                         "school_name": _cn_school or None,
                                         "guardian_name": _u_p.get("name"),
                                         "guardian_phone": _u_p.get("phone"),
