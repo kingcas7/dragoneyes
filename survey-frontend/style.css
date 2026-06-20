@@ -1,0 +1,43 @@
+/* 드래곤아이즈 캠페인 설문 — 추가 스타일 */
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+               "Noto Sans KR", "Malgun Gothic", "맑은 고딕", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 다운로드/캡처 방지 (소프트) */
+.sr-page * {
+  user-select: text;
+  -webkit-user-select: text;
+}
+input, textarea, select {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+/* 라디오/체크박스 포커스 강조 */
+input[type="radio"]:focus,
+input[type="checkbox"]:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* 스무스 스크롤 */
+html { scroll-behavior: smooth; }
+
+/* 모바일 최적화 */
+@media (max-width: 640px) {
+  h1 { font-size: 1.125rem; }
+  .sticky { padding-bottom: env(safe-area-inset-bottom); }
+}
+
+/* 인쇄 차단 */
+@media print {
+  body { display: none !important; }
+}

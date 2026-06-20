@@ -18228,8 +18228,12 @@ else:
                             st.error("설문 토큰이 없습니다. 학교/학년 정보를 확인해주세요.")
                         else:
                             _ctoken = _my_tok_csd_row.get("access_token")
-                            _cbase = "https://dragoneyes-production.up.railway.app"
-                            _csurvey_url = f"{_cbase}/?survey_token={_ctoken}"
+                            _cfrontend = os.getenv("SURVEY_FRONTEND_URL", "").rstrip("/")
+                            if _cfrontend:
+                                _csurvey_url = f"{_cfrontend}/?token={_ctoken}"
+                            else:
+                                _cbase = "https://dragoneyes-production.up.railway.app"
+                                _csurvey_url = f"{_cbase}/?survey_token={_ctoken}"
                             _csubject = f"[드래곤아이즈 캠페인] {_u_csd.get('name','')}님의 설문 링크"
                             _cbody = (
                                 f"{_u_csd.get('name','')}님, 안녕하세요!\n\n"
@@ -18274,9 +18278,13 @@ else:
         # 내 설문 링크/QR 공유
         if _tok_row and _tok_row.get("access_token"):
             _token = _tok_row["access_token"]
-            # Streamlit Cloud / Railway의 base URL 추정
-            _base_url = "https://dragoneyes-production.up.railway.app"
-            _survey_url = f"{_base_url}/?survey_token={_token}"
+            # 정적 응답 페이지 URL (Vercel/Netlify) — 미설정 시 Streamlit fallback
+            _frontend_url = os.getenv("SURVEY_FRONTEND_URL", "").rstrip("/")
+            if _frontend_url:
+                _survey_url = f"{_frontend_url}/?token={_token}"
+            else:
+                _base_url = "https://dragoneyes-production.up.railway.app"
+                _survey_url = f"{_base_url}/?survey_token={_token}"
 
             with st.container(border=True):
                 st.markdown("#### 🔗 내 설문 링크 / QR 코드")
@@ -19289,8 +19297,12 @@ else:
 
                             if _ctok_row and _ctok_row.get("access_token"):
                                 _ctoken = _ctok_row["access_token"]
-                                _base_url = "https://dragoneyes-production.up.railway.app"
-                                _surl = f"{_base_url}/?survey_token={_ctoken}"
+                                _frontend_url = os.getenv("SURVEY_FRONTEND_URL", "").rstrip("/")
+                                if _frontend_url:
+                                    _surl = f"{_frontend_url}/?token={_ctoken}"
+                                else:
+                                    _base_url = "https://dragoneyes-production.up.railway.app"
+                                    _surl = f"{_base_url}/?survey_token={_ctoken}"
                                 with st.container(border=True):
                                     st.markdown("**🔗 자녀의 설문 링크/QR 공유**")
                                     st.caption("이 링크를 SNS·메신저에 공유하면 응답자의 답변이 자녀의 봉사 점수에 반영됩니다.")
@@ -23137,8 +23149,12 @@ else:
                             st.error("설문 토큰이 없습니다. 학교/학년 정보를 확인해주세요.")
                         else:
                             _token = _my_tok_row.get("access_token")
-                            _base_url = "https://dragoneyes-production.up.railway.app"
-                            _survey_url = f"{_base_url}/?survey_token={_token}"
+                            _frontend_url = os.getenv("SURVEY_FRONTEND_URL", "").rstrip("/")
+                            if _frontend_url:
+                                _survey_url = f"{_frontend_url}/?token={_token}"
+                            else:
+                                _base_url = "https://dragoneyes-production.up.railway.app"
+                                _survey_url = f"{_base_url}/?survey_token={_token}"
                             _subject = f"[드래곤아이즈 캠페인] {_u_mv.get('name','')}님의 설문 링크"
                             _body = (
                                 f"{_u_mv.get('name','')}님, 안녕하세요!\n\n"
