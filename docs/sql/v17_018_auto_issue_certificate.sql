@@ -23,12 +23,13 @@ RETURNS TABLE (
     threshold INT,
     hours_award NUMERIC(4,2)
 ) LANGUAGE SQL IMMUTABLE AS $$
-    SELECT * FROM (VALUES
+    SELECT t.threshold, t.hours_award
+    FROM (VALUES
         ('elementary', 20, 4.0::NUMERIC(4,2)),
         ('middle',     30, 5.0::NUMERIC(4,2)),
         ('high',       50, 8.0::NUMERIC(4,2))
     ) AS t(band, threshold, hours_award)
-    WHERE band = p_band;
+    WHERE t.band = p_band;
 $$;
 
 
