@@ -22894,7 +22894,8 @@ else:
             except Exception: pass
         _eff_band = _mv_band if _mv_band in _band_thresholds else _student_band_mv
 
-        _hh1, _hh_promo, _hh2 = st.columns([3, 4, 1.2])
+        # 박스 컬럼 너비 40% 축소 — 4 → 2.4, 남은 1.6은 spacer로
+        _hh1, _hh_promo, _hh_gap, _hh2 = st.columns([3, 2.4, 1.6, 1.2])
         with _hh1:
             _band_lbl = {"elementary":"🎒 초등","middle":"📚 중학",
                           "high":"🎓 고등","all":"🌐 전체"}.get(_mv_row.get("target_band"))
@@ -22906,23 +22907,23 @@ else:
                 f"👁 조회 {_mv_row.get('view_count') or 0}회"
             )
         with _hh_promo:
-            # 봉사시간 안내 — 컴팩트 박스 (제목 라인과 비슷한 높이)
+            # 봉사시간 안내 — 컴팩트 박스 (텍스트 가운데 정렬)
             if _eff_band in _band_thresholds and not _is_locked_mv:
                 _threshold, _hours, _band_kr = _band_thresholds[_eff_band]
                 st.markdown(
                     f"<div style='background:linear-gradient(135deg,#1d4ed8,#3b82f6);"
-                    f"border-radius:8px;padding:7px 14px;color:white;"
+                    f"border-radius:8px;padding:7px 12px;color:white;"
                     f"box-shadow:0 1px 4px rgba(59,130,246,0.25);"
-                    f"display:flex;align-items:center;justify-content:space-between;"
-                    f"gap:10px;min-height:48px;'>"
-                    f"<div style='font-size:0.88rem;line-height:1.3;'>"
-                    f"📋 설문 <b>{_threshold}명</b> ({_band_kr}) → "
-                    f"🏆 봉사시간 <b>{_hours}시간</b> 받자!"
+                    f"display:flex;align-items:center;justify-content:center;"
+                    f"min-height:48px;text-align:center;'>"
+                    f"<div style='font-size:0.85rem;line-height:1.35;font-weight:600;'>"
+                    f"📋 설문 <b>{_threshold}명</b> ({_band_kr})<br>"
+                    f"→ 🏆 봉사시간 <b>{_hours}시간</b> 받자!"
                     f"</div></div>",
                     unsafe_allow_html=True,
                 )
-                # 박스 바로 아래 바로가기 버튼 (캠페인 학생 dashboard로 이동 → QR/링크 확인)
-                if st.button("👉 캠페인 참여 바로가기 (내 QR·링크 보기)",
+                # 박스 바로 아래 바로가기 버튼 (학생 dashboard로 이동 → QR/링크 확인)
+                if st.button("👉 캠페인 참여 바로가기",
                               key="mv_promo_to_csd",
                               type="primary",
                               use_container_width=True):
@@ -22930,6 +22931,8 @@ else:
                     st.rerun()
             elif _is_locked_mv:
                 st.caption("🔒 프리미엄 자료 — 결제 후 봉사시간 안내가 표시됩니다.")
+        with _hh_gap:
+            st.markdown("")  # spacer (박스 너비 축소로 인한 여백)
         with _hh2:
             if st.button("← 학습자료실", key="mv_back_top", use_container_width=True):
                 st.session_state["current_page"] = "materials_library"
