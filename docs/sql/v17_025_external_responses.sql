@@ -55,16 +55,10 @@ CREATE INDEX IF NOT EXISTS idx_esr_submitted    ON public.external_survey_respon
 CREATE INDEX IF NOT EXISTS idx_esr_valid        ON public.external_survey_responses(is_valid)
     WHERE is_valid = TRUE;
 
--- 같은 응답자가 같은 token으로 너무 짧은 시간에 중복 제출 차단 (어뷰즈 방지)
--- DATE_TRUNC는 STABLE이라 직접 인덱스 표현식에 사용 불가 → generated column 우회
-ALTER TABLE public.external_survey_responses
-    ADD COLUMN IF NOT EXISTS submitted_at_minute TIMESTAMPTZ
-    GENERATED ALWAYS AS (DATE_TRUNC('minute', submitted_at)) STORED;
-
-CREATE UNIQUE INDEX IF NOT EXISTS uniq_esr_token_resp_minute
-    ON public.external_survey_responses(token_id, respondent_name,
-                                          COALESCE(respondent_age, 0),
-                                          submitted_at_minute);
+-- 중복 차단용 일반 인덱스 (함수에서 SELECT EXISTS로 5분 이내 체크)
+-- (DATE_TRUNC는 STABLE/generated column 모두 사용 불가하여 인덱스 대신 함수 로직으로 처리)
+CREATE INDEX IF NOT EXISTS idx_esr_token_name_time
+    ON public.external_survey_responses(token_id, respondent_name, submitted_at DESC);
 
 
 -- ─────────────────────────────────────────────────────────────
@@ -170,6 +164,7 @@ DECLARE
     v_tok        public.student_survey_tokens;
     v_response_id UUID;
     v_is_valid   BOOLEAN := TRUE;
+    v_dup_exists BOOLEAN;
 BEGIN
     -- 토큰 검증
     SELECT * INTO v_tok FROM public.student_survey_tokens
@@ -184,6 +179,17 @@ BEGIN
     -- 응답자 이름 필수
     IF p_respondent_name IS NULL OR LENGTH(TRIM(p_respondent_name)) < 1 THEN
         RETURN jsonb_build_object('ok', FALSE, 'error', 'name_required');
+    END IF;
+
+    -- 중복 제출 차단 (같은 token + 같은 응답자명 + 5분 이내)
+    SELECT EXISTS(
+        SELECT 1 FROM public.external_survey_responses
+         WHERE token_id = v_tok.id
+           AND respondent_name = TRIM(p_respondent_name)
+           AND submitted_at > NOW() - INTERVAL '5 minutes'
+    ) INTO v_dup_exists;
+    IF v_dup_exists THEN
+        RETURN jsonb_build_object('ok', FALSE, 'error', 'duplicate_recent');
     END IF;
 
     -- 무결성 — 너무 짧은 시간(60초 미만)이면 무효 처리
