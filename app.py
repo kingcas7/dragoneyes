@@ -9676,7 +9676,10 @@ else:
         or _curr_page in ("institution_dashboard", "institution_approval",
                           "institution_management",
                           "campaign_status", "parent_dashboard",
-                          "survey_respond", "payment_callback")
+                          "survey_respond", "payment_callback",
+                          "materials_library", "material_view", "materials_management",
+                          "terms_management", "payment_management", "notices",
+                          "campaign_consent")
         or (_curr_page == "monitoring_stats" and bool(st.session_state.get("_stats_from_campaign")))
         or bool((user or {}).get("is_campaign_only"))
         or ((user or {}).get("role_v2") in ("student", "parent", "institution_admin"))
@@ -9898,7 +9901,10 @@ else:
         _cp_cmp_pages = (
             _cp_now.startswith("campaign_")
             or _cp_now in ("institution_dashboard", "institution_approval",
-                           "campaign_status", "parent_dashboard")
+                           "institution_management",
+                           "campaign_status", "parent_dashboard",
+                           "materials_library", "material_view", "materials_management",
+                           "terms_management", "payment_management", "notices")
             or (_cp_now == "monitoring_stats" and bool(st.session_state.get("_stats_from_campaign")))
         )
         if _cp_cmp_pages and st.query_params.get("page") != _cp_now:
@@ -10036,7 +10042,9 @@ else:
         or _curr_page_hdr in ("institution_dashboard", "institution_approval",
                               "institution_management",
                               "campaign_status", "parent_dashboard",
-                              "survey_respond", "payment_callback")
+                              "survey_respond", "payment_callback",
+                              "materials_library", "material_view", "materials_management",
+                              "terms_management", "payment_management", "notices")
         or (_curr_page_hdr == "monitoring_stats" and _stats_from_cmp)
         or bool((user or {}).get("is_campaign_only"))
         or ((user or {}).get("role_v2") in ("student", "parent", "institution_admin"))
