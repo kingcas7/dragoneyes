@@ -7262,13 +7262,13 @@ def _render_signup_institution():
                         _ext = _biz_lic.name.rsplit(".", 1)[-1].lower() if "." in _biz_lic.name else "bin"
                         _biz_lic_path = f"business_licenses/{_uid}_{int(datetime.now().timestamp())}.{_ext}"
                         _biz_lic.seek(0)
-                        sb_admin().storage.from_("documents").upload(
+                        sb_admin().storage.from_("Documents").upload(
                             _biz_lic_path,
                             _biz_lic.read(),
                             {"content-type": _biz_lic.type or "application/octet-stream"},
                         )
                         # signed URL (1년 유효 — 본부 admin이 검토용)
-                        _biz_lic_url = sb_admin().storage.from_("documents")\
+                        _biz_lic_url = sb_admin().storage.from_("Documents")\
                             .create_signed_url(_biz_lic_path, 60 * 60 * 24 * 365)["signedURL"]
                 except Exception as _se:
                     st.warning(f"사업자등록증 업로드 실패 (가입은 진행됨): {_se}")
