@@ -9644,6 +9644,29 @@ else:
     #   사용자가 펼치지 않으면 한 줄만 차지하므로 관리 페이지 UI 산만함 최소화.
     #   음성 ON/받아쓰기 ON 상태면 자동 펼침으로 끄기 쉽게.
     _curr_page = st.session_state.get("current_page", "") or ""
+
+    # ⭐ 캠페인 사용 동의 가드 (학생/학부모/기관 admin)
+    #    본부 admin은 면제. 미동의 또는 약관 버전 변경 시 campaign_consent로 강제 이동.
+    if user and user.get("role_v2") in ("student","parent","institution_admin"):
+        _consent_pages = (
+            "campaign_landing","campaign_materials","campaign_status",
+            "campaign_student_dashboard","parent_dashboard",
+            "institution_dashboard","notices","payment_callback",
+            "payment_management",
+        )
+        if _curr_page in _consent_pages and _curr_page != "campaign_consent":
+            try:
+                _cc = supabase.rpc(
+                    "check_campaign_consent", {"p_user_id": user.get("id")}
+                ).execute().data or []
+                _cc_row = _cc[0] if _cc else {}
+                if _cc_row.get("needs_consent"):
+                    st.session_state["_consent_redirected_from"] = _curr_page
+                    st.session_state["current_page"] = "campaign_consent"
+                    st.rerun()
+            except Exception:
+                pass
+
     # ⭐ 사용자 요청: 캠페인 페이지에서는 접근성 toolbar 자체 숨김
     #    (모니터링 전용 기능 — 캠페인 사용자는 불필요)
     #    monitoring_stats가 캠페인에서 진입한 경우도 캠페인 컨텍스트로 취급
@@ -9853,7 +9876,7 @@ else:
         "campaign_signup_select", "campaign_signup_institution",
         "campaign_signup_parent", "campaign_signup_student",
         "institution_dashboard", "institution_approval", "institution_management",
-        "payment_management",
+        "payment_management", "terms_management", "campaign_consent",
         "monitoring_stats",
     )
     # ⭐ query_params.page는 'sid 복원이 default home_landing으로 덮었을 때'만 적용 — 사용자가
@@ -16735,6 +16758,158 @@ else:
         st.stop()
 
 
+    elif page == "campaign_consent":
+        # ══════════════════════════════════════════════════════════════
+        # 📜 캠페인 이용 동의 페이지 — 첫 로그인 가드 (학생은 보호자 정보 필수)
+        # ══════════════════════════════════════════════════════════════
+        _u_cc = user or {}
+        _role_cc = (_u_cc.get("role_v2") or "").lower()
+        _is_student_cc = (_role_cc == "student")
+        _from_page = st.session_state.get("_consent_redirected_from") or "campaign_landing"
+
+        st.markdown("## 📜 캠페인 이용 동의서")
+        st.caption(
+            f"안녕하세요, **{_u_cc.get('name','사용자')}님**. "
+            "드래곤아이즈 온라인 유해컨텐츠 근절 캠페인 사이트를 이용하시려면 아래 약관에 동의해주세요. "
+            "약관이 변경된 경우에도 재동의가 필요합니다."
+        )
+
+        # 활성 약관 로드
+        try:
+            _ctv = supabase.table("campaign_terms_versions").select(
+                "version, title, body_md, requires_guardian_info, effective_from"
+            ).eq("is_active", True).order(
+                "effective_from", desc=True
+            ).limit(1).execute().data or []
+            _ctv_row = _ctv[0] if _ctv else {}
+        except Exception as _e:
+            _ctv_row = {}
+            st.error(f"약관 조회 실패: {_e}")
+
+        if not _ctv_row:
+            st.error("⚠️ 활성 약관이 없습니다. 본부 admin에 문의해주세요.")
+            if st.button("🏠 캠페인 홈으로", key="cc_no_terms_back"):
+                st.session_state["current_page"] = "campaign_landing"
+                st.rerun()
+            st.stop()
+
+        _ctv_ver = _ctv_row.get("version") or ""
+        _ctv_title = _ctv_row.get("title") or "캠페인 이용 동의서"
+        _ctv_body = _ctv_row.get("body_md") or ""
+        _ctv_req_gd = bool(_ctv_row.get("requires_guardian_info")) and _is_student_cc
+
+        with st.container(border=True):
+            st.markdown(f"### {_ctv_title}")
+            st.caption(f"버전: `{_ctv_ver}` · 시행: {(_ctv_row.get('effective_from') or '')[:10]}")
+            with st.expander("📖 약관 본문 보기", expanded=True):
+                st.markdown(_ctv_body)
+
+        st.markdown("---")
+        st.markdown("##### ✅ 동의")
+        _agree_all = st.checkbox(
+            f"**드래곤아이즈 온라인 유해컨텐츠 근절 캠페인 사이트 이용 동의서 ({_ctv_ver})** "
+            "에 모두 동의합니다.",
+            key="cc_agree_all",
+        )
+
+        # 학생일 때 보호자 정보 5종
+        _gd_payload = {"name":"", "phone":"", "contact":"", "email":"", "address":""}
+        if _ctv_req_gd:
+            st.markdown("---")
+            st.markdown("##### 👨‍👩‍👧 보호자 정보 (학생 필수)")
+            st.caption(
+                "개인정보보호법상 학생 회원은 보호자 정보 등록이 필요합니다. "
+                "보호자 정보는 본교 교사 외에는 마스킹되어 공유되지 않습니다. "
+                "추후 학생 dashboard에서 직접 수정 가능합니다."
+            )
+            # 기존값 prefill
+            try:
+                _existing = supabase.rpc(
+                    "get_my_guardian_info", {"p_user_id": _u_cc.get("id")}
+                ).execute().data or []
+                if _existing:
+                    _g0 = _existing[0]
+                    _gd_payload["name"]    = _g0.get("guardian_name") or ""
+                    _gd_payload["phone"]   = _g0.get("guardian_phone") or ""
+                    _gd_payload["contact"] = _g0.get("guardian_contact") or ""
+                    _gd_payload["email"]   = _g0.get("guardian_email") or ""
+                    _gd_payload["address"] = _g0.get("guardian_address") or ""
+            except Exception: pass
+
+            _gc1, _gc2 = st.columns(2)
+            with _gc1:
+                _gd_payload["name"] = st.text_input("보호자 이름 *",
+                                                     value=_gd_payload["name"], key="cc_g_name")
+                _gd_payload["phone"] = st.text_input("전화(핸드폰) *",
+                                                      value=_gd_payload["phone"], key="cc_g_phone",
+                                                      placeholder="010-1234-5678")
+                _gd_payload["contact"] = st.text_input("추가 연락처 (선택)",
+                                                        value=_gd_payload["contact"], key="cc_g_contact",
+                                                        placeholder="집/직장 등")
+            with _gc2:
+                _gd_payload["email"] = st.text_input("보호자 이메일 *",
+                                                      value=_gd_payload["email"], key="cc_g_email",
+                                                      placeholder="parent@example.com")
+                _gd_payload["address"] = st.text_area("거주지 주소 *",
+                                                       value=_gd_payload["address"], key="cc_g_addr",
+                                                       height=88,
+                                                       placeholder="시·도 시·군·구 도로명 + 상세주소")
+
+        st.markdown("")
+        _btn1, _btn2 = st.columns([2, 1])
+        with _btn1:
+            if st.button("✅ 동의하고 시작하기",
+                          key="cc_submit", type="primary", use_container_width=True):
+                _err = None
+                if not _agree_all:
+                    _err = "약관에 먼저 동의해주세요."
+                elif _ctv_req_gd:
+                    if not all([_gd_payload["name"].strip(),
+                                  _gd_payload["phone"].strip(),
+                                  _gd_payload["email"].strip(),
+                                  _gd_payload["address"].strip()]):
+                        _err = "보호자 정보(이름·전화·이메일·거주지)는 모두 필수입니다."
+                if _err:
+                    st.error(_err)
+                else:
+                    try:
+                        _payload = {
+                            "p_user_id": _u_cc.get("id"),
+                            "p_terms_version": _ctv_ver,
+                        }
+                        if _ctv_req_gd:
+                            _payload.update({
+                                "p_guardian_name":    _gd_payload["name"].strip(),
+                                "p_guardian_phone":   _gd_payload["phone"].strip(),
+                                "p_guardian_contact": _gd_payload["contact"].strip() or None,
+                                "p_guardian_email":   _gd_payload["email"].strip(),
+                                "p_guardian_address": _gd_payload["address"].strip(),
+                            })
+                        supabase.rpc("accept_campaign_terms", _payload).execute()
+                        # session_state user 정보도 갱신
+                        if user:
+                            user["campaign_terms_version"] = _ctv_ver
+                            user["campaign_terms_agreed_at"] = datetime.now().isoformat()
+                            st.session_state["user"] = user
+                        st.success("✅ 동의 완료. 캠페인을 이용하실 수 있습니다.")
+                        st.session_state["current_page"] = _from_page
+                        st.session_state.pop("_consent_redirected_from", None)
+                        st.rerun()
+                    except Exception as _ae:
+                        st.error(f"동의 처리 실패: {_ae}")
+        with _btn2:
+            if st.button("🚪 동의 거부 후 로그아웃",
+                          key="cc_decline", use_container_width=True):
+                try: supabase.auth.sign_out()
+                except Exception: pass
+                try: st.session_state.clear()
+                except Exception: pass
+                try: st.query_params.clear()
+                except Exception: pass
+                st.session_state["login_mode"] = "campaign"
+                st.rerun()
+
+
     elif page == "campaign_landing":
         # ══════════════════════════════════════════════════════════════
         # 🎓 Phase 5 (v17): 캠페인 홈 — 두 카테고리 카드 (중앙) + 3아이콘 미리보기
@@ -16958,7 +17133,7 @@ else:
                         st.session_state["current_page"] = "institution_management"
                         st.session_state["_im_tab"] = "notices"
                         st.rerun()
-                # 2행: 결제 기록 (환불 포함) — 추가 슬롯
+                # 2행: 결제 기록 · 약관 관리
                 _hb1, _hb2, _hb3, _hb4 = st.columns(4)
                 with _hb1:
                     if st.button("💳 결제 기록 관리",
@@ -16966,6 +17141,13 @@ else:
                                   key="hq_payment_mgmt",
                                   help="학부모 구독 · 기관 계약 결제 조회 · 환불 처리 · 매출 KPI"):
                         st.session_state["current_page"] = "payment_management"
+                        st.rerun()
+                with _hb2:
+                    if st.button("📜 약관 관리",
+                                  use_container_width=True,
+                                  key="hq_terms_mgmt",
+                                  help="캠페인 이용 동의서 버전 관리 · 동의자 통계"):
+                        st.session_state["current_page"] = "terms_management"
                         st.rerun()
 
         # ── 하단: 📊 드래곤아이즈 모니터링 통계 보기 + 캠페인 현황 보기 ──
@@ -22218,6 +22400,222 @@ else:
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     key="dl_refunds",
                 )
+
+
+    # ══════════════════════════════════════════════════════════════
+    # 📜 본부 admin 전용 — 캠페인 이용 약관 관리
+    # ══════════════════════════════════════════════════════════════
+    elif page == "terms_management":
+        _u_tm = user or {}
+        _is_hq_tm = (_u_tm.get("role") == "admin" and not _u_tm.get("partner_id"))
+        if not _is_hq_tm:
+            st.error("🚫 본부 관리자 전용 페이지입니다.")
+            if st.button("🏠 캠페인 홈", key="tm_back_unauth"):
+                st.session_state["current_page"] = "campaign_landing"; st.rerun()
+            st.stop()
+
+        _hh1, _hh2 = st.columns([6, 1])
+        with _hh1:
+            st.markdown("## 📜 캠페인 약관 관리 (본부 admin)")
+            st.caption(
+                "캠페인 이용 동의서 버전·본문을 관리합니다. "
+                "새 버전 발행 시 기존 활성 약관은 비활성화되며, 모든 사용자는 다음 접속 시 자동으로 재동의 페이지로 이동합니다."
+            )
+        with _hh2:
+            if st.button("← 캠페인 홈", key="tm_back_top", use_container_width=True):
+                st.session_state["current_page"] = "campaign_landing"; st.rerun()
+        st.divider()
+
+        # 동의 통계 KPI
+        try:
+            _all_versions = supabase.table("campaign_terms_versions").select(
+                "id, version, title, body_md, requires_guardian_info, "
+                "effective_from, is_active, created_at, updated_at"
+            ).order("effective_from", desc=True).limit(50).execute().data or []
+        except Exception as _e:
+            _all_versions = []; st.error(f"약관 조회 실패: {_e}")
+
+        _active_ver_row = next((v for v in _all_versions if v.get("is_active")), None)
+        _active_ver = (_active_ver_row or {}).get("version")
+
+        try:
+            _accs = supabase.table("campaign_terms_acceptances").select(
+                "user_id, terms_version, accepted_at"
+            ).limit(50000).execute().data or []
+        except Exception:
+            _accs = []
+
+        # 활성 버전 동의자 수 by role
+        _active_acc_user_ids = {a.get("user_id") for a in _accs
+                                  if a.get("terms_version") == _active_ver}
+        try:
+            _users_q = supabase.table("users").select(
+                "id, role_v2"
+            ).in_("role_v2", ["student","parent","institution_admin"])\
+             .is_("deleted_at","null").limit(50000).execute().data or []
+        except Exception:
+            _users_q = []
+        _users_by_role = {"student":0,"parent":0,"institution_admin":0}
+        _agreed_by_role = {"student":0,"parent":0,"institution_admin":0}
+        for u in _users_q:
+            _r = u.get("role_v2")
+            if _r in _users_by_role:
+                _users_by_role[_r] += 1
+                if u.get("id") in _active_acc_user_ids:
+                    _agreed_by_role[_r] += 1
+
+        _total_users = sum(_users_by_role.values())
+        _total_agreed = sum(_agreed_by_role.values())
+        _agree_rate = round(_total_agreed / _total_users * 100, 1) if _total_users else 0
+
+        _kc1, _kc2, _kc3, _kc4, _kc5 = st.columns(5)
+        _kc1.metric("📜 활성 버전", _active_ver or "—")
+        _kc2.metric("✅ 동의 완료", f"{_total_agreed:,}/{_total_users:,}",
+                     f"{_agree_rate}%")
+        _kc3.metric("🎒 학생",
+                     f"{_agreed_by_role['student']:,}/{_users_by_role['student']:,}")
+        _kc4.metric("👨‍👩‍👧 학부모",
+                     f"{_agreed_by_role['parent']:,}/{_users_by_role['parent']:,}")
+        _kc5.metric("🏫 기관 admin",
+                     f"{_agreed_by_role['institution_admin']:,}/{_users_by_role['institution_admin']:,}")
+
+        st.divider()
+
+        # 탭: 현재 활성 약관 / 신규 발행 / 전체 버전 이력
+        _tmt1, _tmt2, _tmt3 = st.tabs(
+            ["📋 현재 활성 약관", "➕ 신규 버전 발행", "📜 전체 버전 이력"]
+        )
+
+        with _tmt1:
+            if not _active_ver_row:
+                st.warning("⚠️ 활성 약관이 없습니다. '신규 버전 발행' 탭에서 첫 약관을 발행해주세요.")
+            else:
+                st.markdown(f"### {_active_ver_row.get('title')}")
+                st.caption(
+                    f"버전: `{_active_ver_row.get('version')}` · "
+                    f"시행: {(_active_ver_row.get('effective_from') or '')[:10]} · "
+                    f"학생 보호자 정보 필수: "
+                    f"{'✅' if _active_ver_row.get('requires_guardian_info') else '❌'}"
+                )
+                with st.expander("📖 약관 본문 보기", expanded=False):
+                    st.markdown(_active_ver_row.get("body_md") or "")
+
+                st.markdown("---")
+                st.markdown("##### ✏️ 본문 수정 (소소한 오타·문구 수정)")
+                st.caption(
+                    "⚠️ 본문 수정은 버전을 변경하지 않으므로 재동의를 요구하지 않습니다. "
+                    "중대한 내용 변경 시에는 반드시 **신규 버전 발행** 탭을 사용해주세요."
+                )
+                with st.form("tm_active_edit"):
+                    _ed_title = st.text_input("제목", value=_active_ver_row.get("title") or "",
+                                                key="tm_ed_title")
+                    _ed_body = st.text_area("본문 (Markdown)",
+                                              value=_active_ver_row.get("body_md") or "",
+                                              height=400, key="tm_ed_body")
+                    _ed_req_gd = st.checkbox("학생 동의 시 보호자 정보 필수",
+                                                value=bool(_active_ver_row.get("requires_guardian_info")),
+                                                key="tm_ed_req_gd")
+                    if st.form_submit_button("💾 저장 (재동의 없이)", type="primary",
+                                                use_container_width=True):
+                        try:
+                            supabase.table("campaign_terms_versions").update({
+                                "title": _ed_title.strip(),
+                                "body_md": _ed_body,
+                                "requires_guardian_info": bool(_ed_req_gd),
+                            }).eq("id", _active_ver_row.get("id")).execute()
+                            st.success("✅ 저장 완료. 사용자는 재동의 없이 갱신된 본문을 보게 됩니다.")
+                            st.rerun()
+                        except Exception as _ue:
+                            st.error(f"저장 실패: {_ue}")
+
+        with _tmt2:
+            st.markdown("##### ➕ 신규 약관 버전 발행")
+            st.caption(
+                "🚨 **신규 버전 발행 시 기존 활성 약관은 자동 비활성화**되고, "
+                "모든 캠페인 사용자(학생/학부모/기관 admin)는 다음 접속 시 자동으로 동의 페이지로 이동합니다."
+            )
+            with st.form("tm_new_version"):
+                _nv_ver = st.text_input("새 버전 *", key="tm_nv_ver",
+                                          placeholder="예: v1.1 또는 2026-12-01")
+                _nv_title = st.text_input("제목 *", key="tm_nv_title",
+                                            value="드래곤아이즈 온라인 유해컨텐츠 근절 캠페인 사이트 이용 동의서")
+                _nv_body = st.text_area("본문 (Markdown) *", key="tm_nv_body",
+                                          height=400,
+                                          value=(_active_ver_row.get("body_md") if _active_ver_row else ""),
+                                          help="현재 활성 약관 본문이 복사되어 있습니다. 수정 후 발행하세요.")
+                _nv_req_gd = st.checkbox("학생 동의 시 보호자 정보 필수",
+                                            value=True, key="tm_nv_req_gd")
+                if st.form_submit_button("🚀 신규 버전 발행 (재동의 트리거)",
+                                            type="primary", use_container_width=True):
+                    if not _nv_ver.strip() or not _nv_title.strip() or not _nv_body.strip():
+                        st.error("버전·제목·본문 모두 필수입니다.")
+                    else:
+                        try:
+                            # 1) 기존 활성 약관 비활성화
+                            supabase.table("campaign_terms_versions").update({
+                                "is_active": False
+                            }).eq("is_active", True).execute()
+                            # 2) 신규 약관 INSERT
+                            supabase.table("campaign_terms_versions").insert({
+                                "version": _nv_ver.strip(),
+                                "title": _nv_title.strip(),
+                                "body_md": _nv_body,
+                                "requires_guardian_info": bool(_nv_req_gd),
+                                "is_active": True,
+                                "created_by": _u_tm.get("id"),
+                            }).execute()
+                            st.success(
+                                f"🎉 신규 버전 `{_nv_ver}` 발행 완료. "
+                                "모든 사용자는 다음 접속 시 자동으로 동의 페이지로 이동합니다."
+                            )
+                            st.rerun()
+                        except Exception as _ne:
+                            st.error(f"발행 실패: {_ne}")
+
+        with _tmt3:
+            st.markdown("##### 📜 전체 버전 이력")
+            if not _all_versions:
+                st.info("등록된 약관이 없습니다.")
+            else:
+                import pandas as _pd_tm
+                _df_tm = _pd_tm.DataFrame([{
+                    "버전": v.get("version"),
+                    "제목": v.get("title"),
+                    "활성": "✅" if v.get("is_active") else "—",
+                    "보호자정보 필수": "✅" if v.get("requires_guardian_info") else "—",
+                    "시행일": (v.get("effective_from") or "")[:10],
+                    "본문 길이": len(v.get("body_md") or ""),
+                    "동의자 수": sum(1 for a in _accs if a.get("terms_version") == v.get("version")),
+                } for v in _all_versions])
+                st.dataframe(_df_tm, use_container_width=True, hide_index=True)
+
+                # 비활성 버전 활성화 (롤백)
+                st.markdown("---")
+                st.markdown("##### 🔄 이전 버전으로 롤백")
+                _inactive = [v for v in _all_versions if not v.get("is_active")]
+                if _inactive:
+                    _rb_pick = st.selectbox(
+                        "활성화할 버전",
+                        ["—"] + [f"{v.get('version')} — {v.get('title')}" for v in _inactive],
+                        key="tm_rb_pick",
+                    )
+                    if _rb_pick != "—":
+                        _rb_ver = _rb_pick.split(" — ")[0]
+                        if st.button(f"🔄 `{_rb_ver}`(으)로 롤백",
+                                      key="tm_rb_btn", type="primary"):
+                            try:
+                                supabase.table("campaign_terms_versions").update({
+                                    "is_active": False
+                                }).eq("is_active", True).execute()
+                                supabase.table("campaign_terms_versions").update({
+                                    "is_active": True
+                                }).eq("version", _rb_ver).execute()
+                                st.success(f"롤백 완료 — `{_rb_ver}` 활성화됨")
+                                st.rerun()
+                            except Exception as _re:
+                                st.error(f"롤백 실패: {_re}")
+                else:
+                    st.caption("롤백할 비활성 버전이 없습니다.")
 
 
     # ══════════════════════════════════════════════════════════════
