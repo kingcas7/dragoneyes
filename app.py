@@ -9272,6 +9272,7 @@ else:
         pass
     _qp_cmp_pages = (
         "campaign_landing", "campaign_materials", "campaign_status", "parent_dashboard",
+        "campaign_student_dashboard", "survey_respond",
         "campaign_signup_select", "campaign_signup_institution",
         "campaign_signup_parent", "campaign_signup_student",
         "institution_dashboard", "institution_approval", "monitoring_stats",
@@ -16085,13 +16086,13 @@ else:
                     # 학부모 → 자녀 관리 대시보드 (자녀 등록 / 매칭 / 다자녀)
                     st.session_state["current_page"] = "parent_dashboard"
                 elif _is_student:
-                    # 학생 → 자료 페이지
-                    st.session_state["current_page"] = "campaign_materials"
+                    # 학생 → 학생 dashboard (설문+봉사+자료 통합)
+                    st.session_state["current_page"] = "campaign_student_dashboard"
                 elif _role_v2 in ("user", "", None):
                     # 미가입 → 가입 선택 페이지 (학생/학부모 카드)
                     st.session_state["current_page"] = "campaign_signup_select"
                 else:
-                    st.session_state["current_page"] = "campaign_materials"
+                    st.session_state["current_page"] = "campaign_student_dashboard"
                 st.rerun()
 
         st.markdown("")
@@ -16192,6 +16193,278 @@ else:
                 "- 교육기관 피드백 정리\n\n"
                 "🚧 **Phase 10에서 본격 구현 예정**"
             )
+
+    # ══════════════════════════════════════════════════════════════
+    # 🎒 Phase 7+8 (v17): 학생 설문+봉사 dashboard — 캠페인 안내 + 자료 + 설문 + 봉사 + 내 링크/QR
+    # ══════════════════════════════════════════════════════════════
+    elif page == "campaign_student_dashboard":
+        _u_csd = user or {}
+        _role_v2_csd = (_u_csd.get("role_v2") or "user").lower()
+        _is_student_csd = (_role_v2_csd == "student") or bool(_u_csd.get("is_campaign_only"))
+        _is_parent_csd = (_role_v2_csd == "parent")
+
+        # 학부모가 '내 자녀 캠페인 둘러보기'로 진입한 경우: 보고 있는 자녀 ID
+        _viewing_child_id = st.session_state.get("_viewing_child_id")
+        _target_student_id = _viewing_child_id if (_is_parent_csd and _viewing_child_id) else _u_csd.get("id")
+
+        # 학생/학부모 자녀 — 둘 다 진입 가능. 그 외는 차단
+        if not (_is_student_csd or (_is_parent_csd and _viewing_child_id)):
+            st.warning("이 페이지는 학생 본인 또는 학부모(자녀 둘러보기)만 접근할 수 있어요.")
+            if st.button("← 캠페인 홈으로", key="csd_back_unauth"):
+                st.session_state["current_page"] = "campaign_landing"
+                st.rerun()
+            st.stop()
+
+        # 헤더
+        _hh1, _hh2 = st.columns([6, 1])
+        with _hh1:
+            if _is_parent_csd and _viewing_child_id:
+                _child_name = ""
+                try:
+                    _c = supabase.table("users").select("name").eq("id", _viewing_child_id).limit(1).execute()
+                    if _c.data:
+                        _child_name = _c.data[0].get("name", "")
+                except Exception: pass
+                st.markdown(f"## 🎒 {_child_name}님의 캠페인 둘러보기")
+                st.caption("자녀의 설문 링크와 봉사 점수 현황을 확인하실 수 있습니다.")
+            else:
+                st.markdown("## 🎒 학생 설문 + 봉사 점수")
+                st.caption("드래곤아이즈 온라인 유해콘텐츠 근절 캠페인 — 나의 학습·설문·봉사 현황")
+        with _hh2:
+            if st.button("← 캠페인 홈", key="csd_back", use_container_width=True):
+                # 자녀 둘러보기 모드면 학부모 dashboard로
+                if _is_parent_csd and _viewing_child_id:
+                    st.session_state.pop("_viewing_child_id", None)
+                    st.session_state["current_page"] = "parent_dashboard"
+                else:
+                    st.session_state["current_page"] = "campaign_landing"
+                st.rerun()
+
+        st.divider()
+
+        # ──────────────────────────────────────────────────────
+        # 1) 캠페인 개괄 안내 (campaign_overview_content / audience='student')
+        # ──────────────────────────────────────────────────────
+        try:
+            _overview = supabase.table("campaign_overview_content")\
+                .select("title, body_md, sort_order, section_key")\
+                .eq("audience", "student")\
+                .eq("is_active", True)\
+                .order("sort_order").execute()
+            _ov_rows = _overview.data or []
+        except Exception:
+            _ov_rows = []
+
+        # intro / purpose / benefits / steps / closing — 카드 형태
+        if _ov_rows:
+            for _sec in _ov_rows:
+                _title = _sec.get("title") or ""
+                _body = _sec.get("body_md") or ""
+                # intro/closing은 강조 박스, 나머지는 일반 카드
+                if _sec.get("section_key") in ("intro", "closing"):
+                    st.markdown(
+                        f'<div style="background:linear-gradient(135deg,#ecfeff 0%,#cffafe 100%);'
+                        f'border-left:6px solid #06b6d4;border-radius:10px;padding:18px 22px;margin:12px 0;">'
+                        f'<div style="font-size:1.15rem;font-weight:700;color:#0e7490;margin-bottom:6px;">{_title}</div>'
+                        f'<div style="color:#0f172a;font-size:0.95rem;line-height:1.7;">{_body}</div>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    with st.container(border=True):
+                        st.markdown(f"### {_title}")
+                        st.markdown(_body)
+        else:
+            st.info("캠페인 안내 컨텐츠가 준비 중입니다.")
+
+        st.divider()
+
+        # ──────────────────────────────────────────────────────
+        # 2) 학습 교재 — 무료 + 프리미엄
+        # ──────────────────────────────────────────────────────
+        st.markdown("### 📚 학습 교재")
+
+        # 결제 여부 확인 (학생 본인 또는 부모 결제)
+        _has_premium = False
+        try:
+            _now_year = date.today().year
+            # 학생인 경우 — 학부모가 결제했는지 확인
+            if _is_student_csd:
+                _psl = supabase.table("parent_student_links").select("parent_id")\
+                    .eq("student_id", _target_student_id).eq("status", "verified").execute()
+                _parent_ids = [r.get("parent_id") for r in (_psl.data or []) if r.get("parent_id")]
+                if _parent_ids:
+                    _sub = supabase.table("parent_subscriptions").select("id")\
+                        .in_("parent_id", _parent_ids).eq("status", "active").eq("year", _now_year).limit(1).execute()
+                    _has_premium = bool(_sub.data)
+            elif _is_parent_csd:
+                # 학부모 본인 결제 확인
+                _sub = supabase.table("parent_subscriptions").select("id")\
+                    .eq("parent_id", _u_csd.get("id")).eq("status", "active").eq("year", _now_year).limit(1).execute()
+                _has_premium = bool(_sub.data)
+        except Exception:
+            _has_premium = False
+
+        # 무료 자료
+        try:
+            _free_mats = supabase.table("campaign_materials").select(
+                "id, title, description, type, thumbnail_url, tier"
+            ).eq("tier", "free").is_("deleted_at", "null").order("created_at", desc=False).limit(20).execute()
+            _free_rows = _free_mats.data or []
+        except Exception:
+            _free_rows = []
+
+        st.markdown("#### 🆓 기본 교재 (무료)")
+        if _free_rows:
+            _cols = st.columns(min(3, len(_free_rows)) or 1)
+            for _i, _m in enumerate(_free_rows):
+                with _cols[_i % len(_cols)]:
+                    with st.container(border=True):
+                        st.markdown(f"**📄 {_m.get('title','(제목 없음)')}**")
+                        st.caption(_m.get('description','') or "")
+                        if st.button("👁️ 열람", key=f"csd_view_free_{_m.get('id')}", use_container_width=True):
+                            st.session_state["_viewing_material_id"] = _m.get("id")
+                            st.session_state["current_page"] = "campaign_materials"
+                            st.rerun()
+        else:
+            st.info("기본 교재가 아직 등록되지 않았습니다. 관리자 페이지에서 자료를 추가해주세요.")
+
+        # 프리미엄 자료
+        try:
+            _paid_mats = supabase.table("campaign_materials").select(
+                "id, title, description, type, thumbnail_url, tier"
+            ).eq("tier", "paid").is_("deleted_at", "null").order("created_at", desc=False).limit(20).execute()
+            _paid_rows = _paid_mats.data or []
+        except Exception:
+            _paid_rows = []
+
+        st.markdown("")
+        st.markdown(f"#### 💎 프리미엄 교재 {'(✅ 해금됨)' if _has_premium else '(🔒 학부모 결제 필요)'}")
+        if _paid_rows:
+            _cols = st.columns(min(3, len(_paid_rows)) or 1)
+            for _i, _m in enumerate(_paid_rows):
+                with _cols[_i % len(_cols)]:
+                    with st.container(border=True):
+                        _lock_icon = "🔓" if _has_premium else "🔒"
+                        st.markdown(f"**{_lock_icon} {_m.get('title','(제목 없음)')}**")
+                        st.caption(_m.get('description','') or "")
+                        if _has_premium:
+                            if st.button("👁️ 열람", key=f"csd_view_paid_{_m.get('id')}", use_container_width=True):
+                                st.session_state["_viewing_material_id"] = _m.get("id")
+                                st.session_state["current_page"] = "campaign_materials"
+                                st.rerun()
+                        else:
+                            st.button("🔒 잠금 (결제 필요)", key=f"csd_locked_{_m.get('id')}",
+                                      use_container_width=True, disabled=True)
+        else:
+            st.info("프리미엄 교재가 아직 등록되지 않았습니다.")
+
+        if not _has_premium:
+            st.markdown(
+                '<div style="background:#fef3c7;border-left:4px solid #f59e0b;border-radius:8px;'
+                'padding:12px 16px;margin:12px 0;color:#78350f;font-size:0.9rem;">'
+                '💡 <strong>프리미엄 교재</strong>는 학부모 결제 시 자동으로 해금됩니다 · 연 1만원'
+                '</div>',
+                unsafe_allow_html=True,
+            )
+
+        st.divider()
+
+        # ──────────────────────────────────────────────────────
+        # 3) 내 설문 응시 + 봉사 점수 + 내 링크/QR
+        # ──────────────────────────────────────────────────────
+        st.markdown("### 📋 설문 응시 + 봉사 점수")
+
+        # 내 token 조회
+        try:
+            _tok = supabase.table("student_survey_tokens").select(
+                "access_token, survey_id, response_count, last_response_at"
+            ).eq("student_id", _target_student_id).limit(1).execute()
+            _tok_row = _tok.data[0] if _tok.data else None
+        except Exception:
+            _tok_row = None
+
+        # 봉사 점수 합계
+        try:
+            _vc = supabase.table("volunteer_credits").select(
+                "hours_decimal, status"
+            ).eq("student_id", _target_student_id).execute()
+            _vc_rows = _vc.data or []
+            _hours_earned = sum(float(r.get("hours_decimal") or 0) for r in _vc_rows if r.get("status") in ("earned","issued"))
+            _hours_issued = sum(float(r.get("hours_decimal") or 0) for r in _vc_rows if r.get("status") == "issued")
+        except Exception:
+            _hours_earned = 0.0
+            _hours_issued = 0.0
+
+        # KPI 3종
+        _k1, _k2, _k3 = st.columns(3)
+        with _k1:
+            with st.container(border=True):
+                st.markdown(f"**🕐 누적 봉사 시간**")
+                st.markdown(f"### {_hours_earned:.1f}시간")
+                st.caption(f"인증 완료: {_hours_issued:.1f}시간")
+        with _k2:
+            with st.container(border=True):
+                st.markdown(f"**📩 내 설문 응답 수**")
+                _rc = (_tok_row or {}).get("response_count") or 0
+                st.markdown(f"### {_rc}명")
+                st.caption("내 링크/QR로 응답한 인원")
+        with _k3:
+            with st.container(border=True):
+                st.markdown(f"**🎯 응시 가능 설문**")
+                _band = "—"
+                try:
+                    _b = supabase.rpc("get_student_band", {"p_student_id": _target_student_id}).execute()
+                    _band = {"elementary":"초등","middle":"중학","high":"고등"}.get(_b.data or "", "미지정")
+                except Exception: pass
+                st.markdown(f"### {_band}")
+                st.caption("학년대 매칭")
+
+        st.markdown("")
+
+        # 내 설문 링크/QR 공유
+        if _tok_row and _tok_row.get("access_token"):
+            _token = _tok_row["access_token"]
+            # Streamlit Cloud / Railway의 base URL 추정
+            _base_url = "https://dragoneyes-production.up.railway.app"
+            _survey_url = f"{_base_url}/?survey_token={_token}"
+
+            with st.container(border=True):
+                st.markdown("#### 🔗 내 설문 링크 / QR 코드")
+                st.caption("이 링크나 QR을 친구·지인에게 공유하면 그들의 응답이 **내 봉사 점수**에 반영됩니다.")
+
+                _u1, _u2 = st.columns([3, 1])
+                with _u1:
+                    st.code(_survey_url, language=None)
+                with _u2:
+                    # QR 코드 생성 (qrcode 라이브러리)
+                    try:
+                        import qrcode, io, base64
+                        _qr = qrcode.make(_survey_url)
+                        _buf = io.BytesIO()
+                        _qr.save(_buf, format="PNG")
+                        _b64 = base64.b64encode(_buf.getvalue()).decode()
+                        st.markdown(
+                            f'<img src="data:image/png;base64,{_b64}" '
+                            f'style="width:100%;max-width:160px;border:1px solid #e5e7eb;border-radius:8px;" />',
+                            unsafe_allow_html=True,
+                        )
+                    except ImportError:
+                        st.caption("📱 QR (qrcode 라이브러리 미설치)")
+                    except Exception as _e:
+                        st.caption(f"QR 생성 실패: {_e}")
+
+                # 본인 응시 버튼
+                if _is_student_csd:
+                    st.markdown("")
+                    if st.button("✏️ 내가 직접 설문 응시하기 (봉사 시간 적립)",
+                                 key="csd_self_survey", type="primary", use_container_width=True):
+                        st.session_state["_survey_token"] = _token
+                        st.session_state["current_page"] = "survey_respond"
+                        st.rerun()
+        else:
+            st.warning("아직 발급된 설문 토큰이 없어요. 학교 등록 또는 학년 정보를 확인해주세요.")
+
 
     # ══════════════════════════════════════════════════════════════
     # 📚 Phase 5 (v17): 캠페인 자료 — 커리큘럼 / 무료 자료 / 유료 자료
