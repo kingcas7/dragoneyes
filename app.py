@@ -17708,7 +17708,7 @@ else:
                                 st.rerun()
 
         # ──────────────────────────────────────────────────────
-        # ⭐ 학습자료실/캠페인 참여 진입 버튼 — 항상 표시 (가운데 정렬)
+        # ⭐ 설문조사 시작 버튼 — 이메일로 본인 배포자 링크 발송
         # ──────────────────────────────────────────────────────
         st.markdown(
             "<style>"
@@ -17725,12 +17725,95 @@ else:
         )
         _cta_l, _cta_m, _cta_r = st.columns([1, 3, 1])
         with _cta_m:
-            if st.button("👉 학습자료실 가기 (학습 + 캠페인 참여)",
-                          key="csd_cta_to_library",
+            if st.button("📤 설문조사 시작하기 (이메일로 내 배포 링크 받기)",
+                          key="csd_cta_start_survey",
                           type="primary",
                           use_container_width=True):
-                st.session_state["current_page"] = "materials_library"
-                st.rerun()
+                # ① 본인 토큰 조회
+                try:
+                    _cta_tok = supabase.table("student_survey_tokens").select(
+                        "access_token, response_count"
+                    ).eq("student_id", _target_student_id).limit(1).execute().data or []
+                    _cta_tok_row = _cta_tok[0] if _cta_tok else None
+                except Exception as _cte:
+                    _cta_tok_row = None
+                    st.error(f"토큰 조회 실패: {_cte}")
+                if not _cta_tok_row or not _cta_tok_row.get("access_token"):
+                    st.error("⚠️ 설문 토큰이 없습니다. 학교·학년·반 정보를 먼저 등록해주세요.")
+                else:
+                    # ② 학년대 임계값 (이메일 본문용)
+                    _cta_band_meta = {
+                        "elementary": (20, 4, "초등학생"),
+                        "middle":     (30, 5, "중학생"),
+                        "high":       (50, 8, "고등학생"),
+                    }
+                    _cta_band = None
+                    try:
+                        _cta_band = supabase.rpc("get_student_band",
+                                                  {"p_student_id": _target_student_id}).execute().data
+                    except Exception: pass
+                    _cta_thr, _cta_hr, _cta_kr = _cta_band_meta.get(_cta_band, (30, 5, "—"))
+                    # ③ 설문 URL 생성
+                    _cta_ftoken = _cta_tok_row["access_token"]
+                    _cta_frontend = os.getenv("SURVEY_FRONTEND_URL", "").rstrip("/")
+                    if _cta_frontend:
+                        _cta_url = f"{_cta_frontend}/?token={_cta_ftoken}"
+                    else:
+                        _cta_url = f"https://dragoneyes-production.up.railway.app/?survey_token={_cta_ftoken}"
+                    # ④ 이메일 큐 적재
+                    _cta_to = _u_csd.get("email") or "noreply@dragoneyes.kr"
+                    _cta_name = _u_csd.get("name") or ""
+                    _cta_subject = f"[드래곤아이즈 캠페인] {_cta_name}님의 설문 배포 링크"
+                    _cta_body = (
+                        f"{_cta_name}님, 안녕하세요!\n\n"
+                        f"드래곤아이즈 온라인 유해컨텐츠 근절 캠페인에 참여해주셔서 감사합니다.\n\n"
+                        f"━━━━━━━━━━━━━━━━━━━━━━━\n"
+                        f"📋 내 설문 배포 링크:\n{_cta_url}\n"
+                        f"━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                        f"🎯 목표: {_cta_thr}명 응답 → 🏆 봉사시간 {_cta_hr}시간 자동 발급 ({_cta_kr})\n"
+                        f"📊 현재 진행: {_cta_tok_row.get('response_count') or 0} / {_cta_thr}명\n\n"
+                        f"이 링크를 카카오톡·SNS·이메일로 친구·가족에게 공유하세요.\n"
+                        f"응답이 모이면 자동으로 봉사 활동 인증서가 발급됩니다.\n\n"
+                        f"감사합니다.\n드래곤아이즈 캠페인 팀"
+                    )
+                    try:
+                        supabase.table("notice_email_queue").insert({
+                            "notice_id": None,
+                            "recipient_user_id": _u_csd.get("id"),
+                            "recipient_email": _cta_to,
+                            "recipient_name": _cta_name,
+                            "subject": _cta_subject,
+                            "body_html": _cta_body.replace("\n", "<br>"),
+                            "body_text": _cta_body,
+                            "status": "pending",
+                        }).execute()
+                        st.session_state["_csd_cta_sent_url"] = _cta_url
+                        st.session_state["_csd_cta_sent_email"] = _cta_to
+                        st.rerun()
+                    except Exception as _qe:
+                        st.error(f"이메일 큐 적재 실패: {_qe}")
+
+        # 이메일 발송 결과 박스 (rerun 후 표시)
+        if st.session_state.get("_csd_cta_sent_url"):
+            _sent_url = st.session_state["_csd_cta_sent_url"]
+            _sent_email = st.session_state.get("_csd_cta_sent_email", "")
+            with st.container(border=True):
+                st.success(
+                    f"✅ **설문조사 시작 완료!** `{_sent_email}` 로 배포 링크가 발송되었습니다."
+                )
+                st.markdown("**📋 내 설문 배포 링크 (즉시 복사·공유 가능):**")
+                st.code(_sent_url, language=None)
+                _cb1, _cb2 = st.columns([1, 1])
+                with _cb1:
+                    if st.button("✖️ 닫기", key="csd_cta_close", use_container_width=True):
+                        st.session_state.pop("_csd_cta_sent_url", None)
+                        st.session_state.pop("_csd_cta_sent_email", None)
+                        st.rerun()
+                with _cb2:
+                    if st.button("🔗 QR/링크 자세히 보기 ↓", key="csd_cta_scroll", use_container_width=True):
+                        st.session_state.pop("_csd_cta_sent_url", None)
+                        st.session_state.pop("_csd_cta_sent_email", None)
+                        st.rerun()
 
         st.markdown("")
 
