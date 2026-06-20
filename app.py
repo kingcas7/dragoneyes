@@ -17514,9 +17514,9 @@ else:
 
             _has_school = bool(_stu_self.get("institution_id") or _stu_self.get("school_name"))
             _expander_label = (
-                f"🏫 내 학교 정보 — ✅ {_stu_self.get('school_name')}"
+                f"🏫 내(자녀) 학교 정보 — ✅ {_stu_self.get('school_name')}"
                 if _has_school else
-                "🏫 내 학교 정보 — ⚠️ 미등록 (등록 필요)"
+                "🏫 내(자녀) 학교 정보 — ⚠️ 미등록 (등록 필요)"
             )
             with st.expander(_expander_label, expanded=not _has_school):
                 if not _has_school:
