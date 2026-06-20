@@ -9681,6 +9681,7 @@ else:
         "campaign_status", "parent_dashboard",
         "survey_respond", "payment_callback",
         "materials_library", "material_view", "materials_management",
+        "surveys_management",
         "terms_management", "payment_management", "notices",
         "campaign_consent",
     )
@@ -9903,6 +9904,7 @@ else:
         "institution_dashboard", "institution_approval", "institution_management",
         "payment_management", "terms_management", "campaign_consent",
         "materials_library", "material_view", "materials_management",
+        "surveys_management",
         "monitoring_stats",
     )
     # ⭐ query_params.page는 'sid 복원이 default home_landing으로 덮었을 때'만 적용 — 사용자가
@@ -9926,6 +9928,7 @@ else:
                            "institution_management",
                            "campaign_status", "parent_dashboard",
                            "materials_library", "material_view", "materials_management",
+        "surveys_management",
                            "terms_management", "payment_management", "notices")
             or (_cp_now == "monitoring_stats" and bool(st.session_state.get("_stats_from_campaign")))
         )
@@ -10066,6 +10069,7 @@ else:
                               "campaign_status", "parent_dashboard",
                               "survey_respond", "payment_callback",
                               "materials_library", "material_view", "materials_management",
+        "surveys_management",
                               "terms_management", "payment_management", "notices")
         or (_curr_page_hdr == "monitoring_stats" and _stats_from_cmp)
         or bool((user or {}).get("is_campaign_only"))
@@ -17210,6 +17214,13 @@ else:
                                   help="학습자료 CRUD · PDF 업로드 · 학년대·tier 분류"):
                         st.session_state["current_page"] = "materials_management"
                         st.rerun()
+                with _hb4:
+                    if st.button("📋 설문지 관리",
+                                  use_container_width=True,
+                                  key="hq_surveys_mgmt",
+                                  help="설문지 CRUD · 문항 관리 · 학년대별"):
+                        st.session_state["current_page"] = "surveys_management"
+                        st.rerun()
 
         # ── 하단: 📊 드래곤아이즈 모니터링 통계 보기 + 캠페인 현황 보기 ──
         #   (모니터링 시스템·로그아웃은 상단 헤더로 이동)
@@ -23607,6 +23618,385 @@ else:
                                     st.success("삭제 완료"); st.rerun()
                                 except Exception as _ue:
                                     st.error(f"삭제 실패: {_ue}")
+
+
+    # ══════════════════════════════════════════════════════════════
+    # 📋 본부 admin 전용 — 설문지 관리 (CRUD + 문항 관리)
+    # ══════════════════════════════════════════════════════════════
+    elif page == "surveys_management":
+        _u_sm = user or {}
+        _is_hq_sm = (_u_sm.get("role") == "admin" and not _u_sm.get("partner_id"))
+        if not _is_hq_sm:
+            st.error("🚫 본부 관리자 전용 페이지입니다.")
+            if st.button("🏠 캠페인 홈", key="sm_back_unauth"):
+                st.session_state["current_page"] = "campaign_landing"; st.rerun()
+            st.stop()
+
+        _hh1, _hh2 = st.columns([6, 1])
+        with _hh1:
+            st.markdown("## 📋 설문지 관리 (본부 admin)")
+            st.caption(
+                "학년대별 설문지(초/중/고)와 문항 CRUD. 학생 dashboard '설문지 미리보기'에 표시됩니다."
+            )
+        with _hh2:
+            if st.button("← 캠페인 홈", key="sm_back_top", use_container_width=True):
+                st.session_state["current_page"] = "campaign_landing"; st.rerun()
+        st.divider()
+
+        # 결과 메시지 표시 (rerun 후 유지)
+        if st.session_state.get("_sm_last_ok"):
+            st.success(st.session_state.pop("_sm_last_ok"))
+        if st.session_state.get("_sm_last_err"):
+            st.error(st.session_state.pop("_sm_last_err"))
+
+        # 캠페인 조회 (현재 연도)
+        try:
+            from datetime import datetime as _dt_sm
+            _cur_y = _dt_sm.now().year
+            _campaigns = supabase.table("campaigns").select(
+                "id, year, title"
+            ).order("year", desc=True).limit(10).execute().data or []
+        except Exception:
+            _campaigns = []
+        _default_campaign_id = (_campaigns[0].get("id") if _campaigns else None)
+
+        # 전체 설문지 조회
+        try:
+            _all_surveys = supabase.table("surveys").select(
+                "id, campaign_id, scope, title, description, target_band, "
+                "target_minutes, total_questions, status, published_at, created_at"
+            ).order("target_band").order("created_at", desc=True)\
+             .limit(200).execute().data or []
+        except Exception as _e:
+            _all_surveys = []
+            st.error(f"설문지 조회 실패: {_e}")
+
+        # KPI
+        _kc1, _kc2, _kc3, _kc4 = st.columns(4)
+        _kc1.metric("📋 전체", f"{len(_all_surveys)}")
+        _kc2.metric("✅ 활성", f"{sum(1 for s in _all_surveys if s.get('status')=='active')}")
+        _kc3.metric("🎒 초/중/고",
+                     f"{sum(1 for s in _all_surveys if s.get('target_band')=='elementary')}/"
+                     f"{sum(1 for s in _all_surveys if s.get('target_band')=='middle')}/"
+                     f"{sum(1 for s in _all_surveys if s.get('target_band')=='high')}")
+        # 총 문항수
+        try:
+            _all_q_cnt = supabase.table("survey_questions").select(
+                "id", count="exact"
+            ).limit(1).execute().count or 0
+        except Exception:
+            _all_q_cnt = 0
+        _kc4.metric("📝 총 문항수", f"{_all_q_cnt}")
+
+        st.divider()
+
+        _smt1, _smt2 = st.tabs(["📋 설문지 목록·편집", "➕ 신규 설문지 등록"])
+
+        # ── 신규 설문지 등록 ──
+        with _smt2:
+            with st.form("sm_new_survey"):
+                _nc1, _nc2 = st.columns(2)
+                with _nc1:
+                    _nn_title = st.text_input(
+                        "제목 *", key="sm_nn_title",
+                        placeholder="예: 온라인 유해콘텐츠 근절 캠페인 설문 (중학생용)",
+                    )
+                    _nn_band = st.selectbox(
+                        "학년대 *",
+                        ["elementary", "middle", "high"],
+                        format_func=lambda x: {
+                            "elementary":"🎒 초등학생용", "middle":"📚 중학생용",
+                            "high":"🎓 고등학생용",
+                        }.get(x, x),
+                        key="sm_nn_band",
+                    )
+                    _nn_status = st.selectbox(
+                        "상태",
+                        ["active", "draft", "closed"],
+                        format_func=lambda x: {
+                            "active":"✅ 활성", "draft":"📝 임시저장",
+                            "closed":"🚫 종료",
+                        }.get(x, x),
+                        key="sm_nn_status",
+                    )
+                with _nc2:
+                    _nn_campaign = st.selectbox(
+                        "캠페인",
+                        ["—"] + [c.get("id") for c in _campaigns],
+                        format_func=lambda x: "— 캠페인 선택 —" if x == "—"
+                                              else next((f"{c.get('year')} · {c.get('title')}"
+                                                          for c in _campaigns if c.get("id") == x), str(x)),
+                        index=(1 if _default_campaign_id else 0),
+                        key="sm_nn_campaign",
+                    )
+                    _nn_minutes = st.number_input(
+                        "예상 소요 시간 (분)", min_value=1, max_value=120, value=10,
+                        key="sm_nn_minutes",
+                    )
+                    _nn_scope = st.selectbox(
+                        "범위", ["national", "regional", "school"],
+                        format_func=lambda x: {"national":"🌐 전국","regional":"📍 지역",
+                                                "school":"🏫 학교"}.get(x, x),
+                        key="sm_nn_scope",
+                    )
+
+                _nn_desc = st.text_area(
+                    "설명", key="sm_nn_desc",
+                    placeholder="설문 안내 문구 (선택)",
+                    height=80,
+                )
+
+                if st.form_submit_button("➕ 신규 설문지 등록", type="primary",
+                                            use_container_width=True):
+                    if not _nn_title.strip():
+                        st.error("제목은 필수입니다.")
+                    elif _nn_campaign == "—":
+                        st.error("캠페인을 선택해주세요.")
+                    else:
+                        try:
+                            supabase.table("surveys").insert({
+                                "campaign_id": _nn_campaign,
+                                "scope": _nn_scope,
+                                "title": _nn_title.strip(),
+                                "description": _nn_desc.strip() or None,
+                                "target_band": _nn_band,
+                                "target_minutes": int(_nn_minutes),
+                                "total_questions": 0,
+                                "pass_integrity_score": 80,
+                                "min_completion_seconds": 600,
+                                "status": _nn_status,
+                                "published_at": (_dt_sm.now().isoformat()
+                                                  if _nn_status == "active" else None),
+                            }).execute()
+                            st.session_state["_sm_last_ok"] = (
+                                f"✅ 신규 설문지 '{_nn_title}' 등록 완료. "
+                                "이제 '설문지 목록·편집' 탭에서 문항을 추가해주세요."
+                            )
+                            st.rerun()
+                        except Exception as _ie:
+                            st.session_state["_sm_last_err"] = f"❌ 등록 실패: {_ie}"
+                            st.rerun()
+
+        # ── 설문지 목록·편집 ──
+        with _smt1:
+            if not _all_surveys:
+                st.info(
+                    "등록된 설문지가 없습니다. '➕ 신규 설문지 등록' 탭에서 추가하거나, "
+                    "기본 SEED를 적용하려면 `docs/sql/v17_010_survey_data.sql`을 SQL Editor에서 실행하세요."
+                )
+            else:
+                # 설문지 표
+                import pandas as _pd_sm
+                _df_sm = _pd_sm.DataFrame([{
+                    "학년대": {"elementary":"🎒 초","middle":"📚 중","high":"🎓 고"}.get(s.get("target_band"),"?"),
+                    "제목": s.get("title"),
+                    "상태": {"active":"✅","draft":"📝","closed":"🚫"}.get(s.get("status"),"?"),
+                    "총문항": s.get("total_questions") or 0,
+                    "예상분": s.get("target_minutes") or 0,
+                    "범위": s.get("scope"),
+                    "발행": (s.get("published_at") or "")[:10],
+                } for s in _all_surveys])
+                st.dataframe(_df_sm, use_container_width=True, hide_index=True)
+
+                # 편집할 설문지 선택
+                st.markdown("##### ✏️ 설문지 편집 / 문항 관리")
+                _opts_sm = {
+                    f"{{'elementary':'🎒','middle':'📚','high':'🎓'}}.get('{s.get('target_band')}','?') "
+                    f"{s.get('title')} (id={s.get('id','')[:8]})": s
+                    for s in _all_surveys
+                }
+                _opts_sm_clean = {
+                    f"{ {'elementary':'🎒','middle':'📚','high':'🎓'}.get(s.get('target_band'),'?') } "
+                    f"{s.get('title')}": s
+                    for s in _all_surveys
+                }
+                _pick_sm = st.selectbox("설문지 선택",
+                                          ["—"] + list(_opts_sm_clean.keys()),
+                                          key="sm_edit_pick")
+
+                if _pick_sm != "—":
+                    _es = _opts_sm_clean[_pick_sm]
+                    _es_id = _es.get("id")
+
+                    # 메타 편집
+                    with st.expander(f"📝 메타 편집 — {_es.get('title')}", expanded=False):
+                        with st.form(f"sm_meta_edit_{_es_id}"):
+                            _em1, _em2 = st.columns(2)
+                            with _em1:
+                                _et = st.text_input("제목", value=_es.get("title") or "",
+                                                      key=f"sm_et_{_es_id}")
+                                _eband = st.selectbox(
+                                    "학년대",
+                                    ["elementary","middle","high"],
+                                    index=["elementary","middle","high"].index(
+                                        _es.get("target_band") or "elementary"),
+                                    key=f"sm_eband_{_es_id}",
+                                )
+                                _estatus = st.selectbox(
+                                    "상태",
+                                    ["active","draft","closed"],
+                                    index=["active","draft","closed"].index(
+                                        _es.get("status") or "draft"),
+                                    key=f"sm_estatus_{_es_id}",
+                                )
+                            with _em2:
+                                _eminutes = st.number_input("예상 소요 분",
+                                                              min_value=1, max_value=120,
+                                                              value=int(_es.get("target_minutes") or 10),
+                                                              key=f"sm_emin_{_es_id}")
+                                _escope = st.selectbox(
+                                    "범위",
+                                    ["national","regional","school"],
+                                    index=["national","regional","school"].index(
+                                        _es.get("scope") or "national"),
+                                    key=f"sm_escope_{_es_id}",
+                                )
+                            _edesc = st.text_area("설명",
+                                                    value=_es.get("description") or "",
+                                                    key=f"sm_edesc_{_es_id}", height=80)
+                            _bm1, _bm2 = st.columns(2)
+                            with _bm1:
+                                if st.form_submit_button("💾 메타 저장", type="primary",
+                                                          use_container_width=True):
+                                    try:
+                                        supabase.table("surveys").update({
+                                            "title": _et.strip(),
+                                            "target_band": _eband,
+                                            "status": _estatus,
+                                            "target_minutes": int(_eminutes),
+                                            "scope": _escope,
+                                            "description": _edesc.strip() or None,
+                                            "published_at": (_dt_sm.now().isoformat()
+                                                              if _estatus == "active"
+                                                                 and not _es.get("published_at")
+                                                              else _es.get("published_at")),
+                                        }).eq("id", _es_id).execute()
+                                        st.session_state["_sm_last_ok"] = "✅ 메타 저장 완료"
+                                        st.rerun()
+                                    except Exception as _e: st.error(f"실패: {_e}")
+                            with _bm2:
+                                if st.form_submit_button("🗑️ 설문지 삭제 (문항 포함)",
+                                                            use_container_width=True):
+                                    try:
+                                        supabase.table("survey_questions")\
+                                            .delete().eq("survey_id", _es_id).execute()
+                                        supabase.table("surveys")\
+                                            .delete().eq("id", _es_id).execute()
+                                        st.session_state["_sm_last_ok"] = "✅ 설문지 삭제 완료"
+                                        st.rerun()
+                                    except Exception as _e: st.error(f"삭제 실패: {_e}")
+
+                    # 문항 관리
+                    st.markdown(f"##### 📝 문항 관리 — {_es.get('title')}")
+                    try:
+                        _qs = supabase.table("survey_questions").select(
+                            "id, qno, qtype, text, options, topic_tag, sort_order, required"
+                        ).eq("survey_id", _es_id).order("qno").limit(200).execute().data or []
+                    except Exception:
+                        _qs = []
+
+                    if not _qs:
+                        st.info("아직 문항이 없습니다. 아래에서 신규 문항을 추가해주세요.")
+                    else:
+                        for q in _qs:
+                            with st.container(border=True):
+                                _qe1, _qe2 = st.columns([5, 1])
+                                with _qe1:
+                                    st.markdown(
+                                        f"**Q{q.get('qno')}.** {q.get('text')}"
+                                    )
+                                    _opts_raw = q.get("options") or []
+                                    if isinstance(_opts_raw, list) and _opts_raw:
+                                        st.caption(
+                                            f"📌 {q.get('qtype')} · "
+                                            f"태그: {q.get('topic_tag') or '—'} · "
+                                            f"보기: " + " / ".join([str(o) for o in _opts_raw[:6]])
+                                            + (f" · 외 {len(_opts_raw)-6}개" if len(_opts_raw)>6 else "")
+                                        )
+                                    else:
+                                        st.caption(
+                                            f"📌 {q.get('qtype')} · "
+                                            f"태그: {q.get('topic_tag') or '—'} · 서술형"
+                                        )
+                                with _qe2:
+                                    if st.button("🗑️", key=f"sm_q_del_{q.get('id')}",
+                                                  use_container_width=True,
+                                                  help="이 문항 삭제"):
+                                        try:
+                                            supabase.table("survey_questions")\
+                                                .delete().eq("id", q.get("id")).execute()
+                                            st.session_state["_sm_last_ok"] = f"✅ Q{q.get('qno')} 삭제"
+                                            st.rerun()
+                                        except Exception as _e: st.error(f"실패: {_e}")
+
+                    # 신규 문항 추가
+                    st.markdown("##### ➕ 신규 문항 추가")
+                    with st.form(f"sm_q_new_{_es_id}"):
+                        _qn1, _qn2 = st.columns(2)
+                        _next_qno = max([q.get("qno") or 0 for q in _qs] + [0]) + 1
+                        with _qn1:
+                            _qq_no = st.number_input("문항 번호 (qno)",
+                                                       min_value=1, max_value=200,
+                                                       value=_next_qno, key=f"sm_qno_{_es_id}")
+                            _qq_type = st.selectbox(
+                                "문항 유형",
+                                ["single_choice","multi_choice","scale","long_text"],
+                                format_func=lambda x: {
+                                    "single_choice":"객관식 단답",
+                                    "multi_choice":"객관식 다중 선택",
+                                    "scale":"척도 (1~5점 등)",
+                                    "long_text":"서술형",
+                                }.get(x, x),
+                                key=f"sm_qtype_{_es_id}",
+                            )
+                            _qq_topic = st.text_input("토픽 태그", value="",
+                                                        key=f"sm_qtopic_{_es_id}",
+                                                        placeholder="인식, 경험, 그루밍, 저작권 등")
+                        with _qn2:
+                            _qq_required = st.checkbox("필수 응답", value=True,
+                                                          key=f"sm_qreq_{_es_id}")
+                            _qq_opts_raw = st.text_input(
+                                "보기 (쉼표 구분, 객관식·척도만)",
+                                key=f"sm_qopts_{_es_id}",
+                                placeholder="예: 매우 그렇다,그렇다,보통이다,그렇지 않다,전혀 그렇지 않다",
+                            )
+                        _qq_text = st.text_area("문항 텍스트 *",
+                                                  key=f"sm_qtext_{_es_id}",
+                                                  height=80,
+                                                  placeholder="예: 온라인 유해콘텐츠 문제가 심각하다고 인식하고 있다.")
+                        if st.form_submit_button("➕ 문항 추가", type="primary",
+                                                  use_container_width=True):
+                            if not _qq_text.strip():
+                                st.error("문항 텍스트는 필수입니다.")
+                            else:
+                                _opts_list = None
+                                if _qq_opts_raw.strip() and _qq_type != "long_text":
+                                    _opts_list = [o.strip() for o in _qq_opts_raw.split(",") if o.strip()]
+                                try:
+                                    supabase.table("survey_questions").insert({
+                                        "survey_id": _es_id,
+                                        "qno": int(_qq_no),
+                                        "qtype": _qq_type,
+                                        "text": _qq_text.strip(),
+                                        "options": _opts_list,
+                                        "topic_tag": _qq_topic.strip() or None,
+                                        "sort_order": int(_qq_no),
+                                        "required": bool(_qq_required),
+                                    }).execute()
+                                    # total_questions 카운트 업데이트
+                                    try:
+                                        _cnt = supabase.table("survey_questions").select(
+                                            "id", count="exact"
+                                        ).eq("survey_id", _es_id).execute().count or 0
+                                        supabase.table("surveys").update({
+                                            "total_questions": _cnt,
+                                        }).eq("id", _es_id).execute()
+                                    except Exception: pass
+                                    st.session_state["_sm_last_ok"] = f"✅ Q{_qq_no} 추가 완료"
+                                    st.rerun()
+                                except Exception as _e:
+                                    st.session_state["_sm_last_err"] = f"❌ 문항 추가 실패: {_e}"
+                                    st.rerun()
 
 
     # ══════════════════════════════════════════════════════════════
