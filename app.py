@@ -22511,75 +22511,135 @@ else:
 
         st.markdown("")
 
-        if not _mats:
-            st.info("표시할 자료가 없습니다.")
-        else:
-            # 3열 그리드 카드
-            _per_row = 3
-            for i in range(0, len(_mats), _per_row):
-                _row_mats = _mats[i:i+_per_row]
-                _cols = st.columns(_per_row)
-                for j, m in enumerate(_row_mats):
-                    with _cols[j]:
-                        _emoji = m.get("cover_emoji") or "📚"
-                        _title = m.get("title") or "—"
-                        _summary = m.get("summary") or ""
-                        _tier = m.get("tier")
-                        _band = m.get("target_band")
-                        _read = m.get("reading_time_min") or 0
-                        _locked = bool(m.get("is_locked"))
-                        _chap = m.get("chapter_no") or 0
-                        _band_lbl = {"elementary":"🎒 초등","middle":"📚 중학",
-                                       "high":"🎓 고등","all":"🌐 전체"}.get(_band, _band)
-                        _tier_lbl = "🆓 무료" if _tier=="free" else "⭐ 프리미엄"
-                        _border = "#a78bfa" if _tier=="premium" else "#c7d2fe"
-                        _bg = "linear-gradient(135deg,#ede9fe,#ddd6fe)" if _tier=="premium" \
-                              else "linear-gradient(135deg,#f8fafc,#eef2ff)"
+        # ── 자료 분리 (기본 / 프리미엄) ───────────────────────
+        _free_mats    = [m for m in _mats if m.get("tier") == "free"]
+        _premium_mats = [m for m in _mats if m.get("tier") == "premium"]
 
-                        _lock_overlay = (
-                            "<div style='position:absolute;top:8px;right:10px;"
-                            "font-size:1.4rem;'>🔒</div>"
-                        ) if _locked else ""
-                        _vc_n = m.get('view_count') or 0
-                        st.markdown(
-                            f"<div style='background:{_bg};border:2px solid {_border};"
-                            f"border-radius:12px;padding:14px;min-height:180px;"
-                            f"position:relative;'>"
-                            f"<div style='font-size:2.4rem;text-align:center;'>{_emoji}</div>"
-                            f"<div style='font-size:0.78rem;color:#64748b;text-align:center;'>"
-                            f"제 {_chap} 장 · {_band_lbl} · {_tier_lbl}</div>"
-                            f"<div style='font-size:1rem;font-weight:700;color:#0f172a;"
-                            f"text-align:center;margin:6px 0 4px;'>{_title}</div>"
-                            f"<div style='font-size:0.78rem;color:#475569;line-height:1.4;"
-                            f"text-align:center;'>{_summary}</div>"
-                            f"<div style='font-size:0.7rem;color:#94a3b8;text-align:center;"
-                            f"margin-top:6px;'>⏱ 약 {_read}분 · 👁 {_vc_n}회</div>"
-                            f"{_lock_overlay}"
-                            f"</div>",
-                            unsafe_allow_html=True,
-                        )
-                        if _locked:
-                            st.button(
-                                "🔒 프리미엄 자료 (잠금)",
-                                key=f"ml_locked_{m.get('id')}",
-                                use_container_width=True,
-                                disabled=False,
-                                on_click=lambda mid=m.get("id"): (
-                                    st.session_state.update({
-                                        "_ml_locked_pick": mid,
-                                        "current_page":"material_view",
-                                        "_ml_view_id": mid,
-                                    })
-                                ),
-                            )
-                        else:
-                            if st.button("📖 열람하기",
-                                          key=f"ml_open_{m.get('id')}",
-                                          type="primary",
-                                          use_container_width=True):
-                                st.session_state["current_page"] = "material_view"
-                                st.session_state["_ml_view_id"] = m.get("id")
-                                st.rerun()
+        # 카드 렌더링 헬퍼 (compact=True 면 50% 크기)
+        def _render_mat_card(m, compact=False):
+            _emoji = m.get("cover_emoji") or "📚"
+            _title = m.get("title") or "—"
+            _summary = m.get("summary") or ""
+            _tier = m.get("tier")
+            _band = m.get("target_band")
+            _read = m.get("reading_time_min") or 0
+            _locked = bool(m.get("is_locked"))
+            _chap = m.get("chapter_no") or 0
+            _band_lbl = {"elementary":"🎒 초등","middle":"📚 중학",
+                          "high":"🎓 고등","all":"🌐 전체"}.get(_band, _band)
+            _tier_lbl = "🆓 무료" if _tier=="free" else "⭐ 프리미엄"
+            _border = "#a78bfa" if _tier=="premium" else "#c7d2fe"
+            _bg = "linear-gradient(135deg,#ede9fe,#ddd6fe)" if _tier=="premium" \
+                  else "linear-gradient(135deg,#f8fafc,#eef2ff)"
+            _lock_overlay = (
+                "<div style='position:absolute;top:6px;right:8px;"
+                "font-size:1.1rem;'>🔒</div>"
+            ) if _locked else ""
+            _vc_n = m.get('view_count') or 0
+
+            # compact 모드: 50% 크기 (높이·폰트·이모지 축소)
+            if compact:
+                _mh = "90px"; _emoji_sz = "1.4rem"; _title_sz = "0.85rem"
+                _summary_sz = "0.65rem"; _meta_sz = "0.6rem"
+                _padding = "8px 10px"; _summary_lines = 2
+            else:
+                _mh = "180px"; _emoji_sz = "2.4rem"; _title_sz = "1rem"
+                _summary_sz = "0.78rem"; _meta_sz = "0.7rem"
+                _padding = "14px"; _summary_lines = 3
+
+            _summary_short = _summary if not compact else (
+                _summary[:60] + "…" if len(_summary) > 60 else _summary
+            )
+
+            st.markdown(
+                f"<div style='background:{_bg};border:2px solid {_border};"
+                f"border-radius:10px;padding:{_padding};min-height:{_mh};"
+                f"position:relative;'>"
+                f"<div style='font-size:{_emoji_sz};text-align:center;line-height:1;'>{_emoji}</div>"
+                f"<div style='font-size:{_meta_sz};color:#64748b;text-align:center;margin-top:2px;'>"
+                f"제 {_chap} 장 · {_band_lbl} · {_tier_lbl}</div>"
+                f"<div style='font-size:{_title_sz};font-weight:700;color:#0f172a;"
+                f"text-align:center;margin:4px 0 2px;'>{_title}</div>"
+                f"<div style='font-size:{_summary_sz};color:#475569;line-height:1.3;"
+                f"text-align:center;'>{_summary_short}</div>"
+                f"<div style='font-size:{_meta_sz};color:#94a3b8;text-align:center;"
+                f"margin-top:4px;'>⏱ {_read}분 · 👁 {_vc_n}</div>"
+                f"{_lock_overlay}"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+            if _locked:
+                if st.button(
+                    "🔒 잠금 · 결제 안내",
+                    key=f"ml_locked_{m.get('id')}",
+                    use_container_width=True,
+                ):
+                    st.session_state["current_page"] = "material_view"
+                    st.session_state["_ml_view_id"] = m.get("id")
+                    st.rerun()
+            else:
+                if st.button("📖 열람하기",
+                              key=f"ml_open_{m.get('id')}",
+                              type="primary",
+                              use_container_width=True):
+                    st.session_state["current_page"] = "material_view"
+                    st.session_state["_ml_view_id"] = m.get("id")
+                    st.rerun()
+
+        # ── 기본(무료) 학습자료 — 50% 크기, 6열 그리드 ────────
+        st.markdown("### 🆓 기본 학습자료")
+        st.caption("학년대별 무료 안전 교육 자료. 누구나 열람 가능합니다.")
+        if not _free_mats:
+            st.info("기본 학습자료가 없습니다.")
+        else:
+            # 6열 그리드 (3개면 절반만 채움)
+            _per_row_free = 6
+            for i in range(0, len(_free_mats), _per_row_free):
+                _row = _free_mats[i:i+_per_row_free]
+                _cols = st.columns(_per_row_free)
+                for j, m in enumerate(_row):
+                    with _cols[j]:
+                        _render_mat_card(m, compact=True)
+                st.markdown("")
+
+        st.divider()
+
+        # ── 프리미엄 학습자료 (공통 — 학년대 무관) ─────────────
+        st.markdown("### ⭐ 프리미엄 학습자료 — 공통")
+        _premium_caption = (
+            "심화 학습 자료입니다. 학부모 결제(연 17,000원) 또는 학교 계약으로 해금됩니다. "
+            "학년대 구분 없이 모든 학생이 열람할 수 있습니다."
+        )
+        if _has_premium:
+            _premium_caption += " — ✅ 현재 **해금 상태**입니다."
+        else:
+            _premium_caption += " — 🔒 현재 **잠금 상태**입니다."
+        st.caption(_premium_caption)
+
+        if not _premium_mats:
+            # placeholder — 프리미엄 자료가 아직 없거나 비활성
+            _pl_bg = "linear-gradient(135deg,#fef3c7,#fde68a)"
+            st.markdown(
+                f"<div style='background:{_pl_bg};border:2px dashed #f59e0b;"
+                f"border-radius:14px;padding:36px 24px;text-align:center;'>"
+                f"<div style='font-size:3.5rem;'>⭐</div>"
+                f"<div style='font-size:1.3rem;font-weight:700;color:#92400e;"
+                f"margin:10px 0 6px;'>프리미엄 학습자료 — 공통</div>"
+                f"<div style='color:#0f172a;font-size:0.95rem;line-height:1.6;'>"
+                f"심화 콘텐츠가 곧 추가됩니다.<br>"
+                f"학부모 연 구독(17,000원) 또는 학교 계약으로 사용 시 자동 해금됩니다."
+                f"</div></div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            # 3열 그리드 (큰 카드)
+            _per_row_prm = 3
+            for i in range(0, len(_premium_mats), _per_row_prm):
+                _row = _premium_mats[i:i+_per_row_prm]
+                _cols = st.columns(_per_row_prm)
+                for j, m in enumerate(_row):
+                    with _cols[j]:
+                        _render_mat_card(m, compact=False)
                 st.markdown("")
 
         if _is_hq_ml:
