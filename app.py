@@ -22837,6 +22837,11 @@ else:
 
         # ── 새 자료 등록 ──
         with _mmt1:
+            st.caption(
+                "💡 **slug**를 입력하고 등록하면 **같은 slug의 기존 자료가 있으면 자동으로 덮어쓰기**됩니다. "
+                "신규 자료를 등록하려면 slug를 비워두거나 새로운 영문 식별자(예: `advanced-grooming-1`)를 입력하세요. "
+                "SEED 자료 갱신: `basic-elementary` / `basic-middle` / `basic-high` 사용."
+            )
             with st.form("mm_new_form"):
                 _nc1, _nc2 = st.columns(2)
                 with _nc1:
@@ -22921,23 +22926,37 @@ else:
                             except Exception as _ue:
                                 st.warning(f"PDF 업로드 실패 (메타만 저장): {_ue}")
 
+                        _payload = {
+                            "slug": _nn_slug.strip() or None,
+                            "chapter_no": int(_nn_chap),
+                            "target_band": _nn_band,
+                            "tier": _nn_tier,
+                            "category_tag": _nn_cat.strip() or None,
+                            "title": _nn_title.strip(),
+                            "summary": _nn_summary.strip() or None,
+                            "cover_emoji": _nn_emoji.strip() or "📚",
+                            "reading_time_min": int(_nn_read),
+                            "body_md": _nn_body.strip() or None,
+                            "is_active": bool(_nn_active),
+                            "created_by": _u_mm.get("id"),
+                        }
+                        # PDF 업로드 성공 시에만 attachment_url 갱신
+                        # (실패 시 기존 url 유지 — upsert 케이스)
+                        if _att_url:
+                            _payload["attachment_url"] = _att_url
                         try:
-                            supabase.table("campaign_learning_materials").insert({
-                                "slug": _nn_slug.strip() or None,
-                                "chapter_no": int(_nn_chap),
-                                "target_band": _nn_band,
-                                "tier": _nn_tier,
-                                "category_tag": _nn_cat.strip() or None,
-                                "title": _nn_title.strip(),
-                                "summary": _nn_summary.strip() or None,
-                                "cover_emoji": _nn_emoji.strip() or "📚",
-                                "reading_time_min": int(_nn_read),
-                                "body_md": _nn_body.strip() or None,
-                                "attachment_url": _att_url,
-                                "is_active": bool(_nn_active),
-                                "created_by": _u_mm.get("id"),
-                            }).execute()
-                            st.success("✅ 자료 등록 완료")
+                            if _payload["slug"]:
+                                # slug가 있으면 upsert (중복 시 덮어쓰기)
+                                supabase.table("campaign_learning_materials").upsert(
+                                    _payload, on_conflict="slug"
+                                ).execute()
+                                _msg = "✅ 자료 등록/갱신 완료 (slug 기준)"
+                            else:
+                                # slug 없으면 순수 insert (신규)
+                                supabase.table("campaign_learning_materials")\
+                                    .insert(_payload).execute()
+                                _msg = "✅ 신규 자료 등록 완료"
+                            st.success(_msg)
                             st.rerun()
                         except Exception as _ie:
                             st.error(f"등록 실패: {_ie}")
