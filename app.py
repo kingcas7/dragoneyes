@@ -22740,19 +22740,28 @@ else:
                 f"👁 조회 {_mv_row.get('view_count') or 0}회"
             )
         with _hh_promo:
-            # 봉사시간 안내 박스
+            # 봉사시간 안내 — 컴팩트 박스 (제목 라인과 비슷한 높이)
             if _eff_band in _band_thresholds and not _is_locked_mv:
                 _threshold, _hours, _band_kr = _band_thresholds[_eff_band]
                 st.markdown(
                     f"<div style='background:linear-gradient(135deg,#1d4ed8,#3b82f6);"
-                    f"border-radius:12px;padding:14px 18px;color:white;"
-                    f"box-shadow:0 2px 8px rgba(59,130,246,0.3);'>"
-                    f"<div style='font-size:1.05rem;font-weight:700;line-height:1.4;'>"
-                    f"📋 설문 {_threshold}명 응답 받기 ({_band_kr})<br>"
-                    f"<span style='font-size:1.25rem;'>🏆 봉사시간 <b>{_hours}시간</b> 받자!</span>"
+                    f"border-radius:8px;padding:7px 14px;color:white;"
+                    f"box-shadow:0 1px 4px rgba(59,130,246,0.25);"
+                    f"display:flex;align-items:center;justify-content:space-between;"
+                    f"gap:10px;min-height:48px;'>"
+                    f"<div style='font-size:0.88rem;line-height:1.3;'>"
+                    f"📋 설문 <b>{_threshold}명</b> ({_band_kr}) → "
+                    f"🏆 봉사시간 <b>{_hours}시간</b> 받자!"
                     f"</div></div>",
                     unsafe_allow_html=True,
                 )
+                # 박스 바로 아래 바로가기 버튼 (캠페인 학생 dashboard로 이동 → QR/링크 확인)
+                if st.button("👉 캠페인 참여 바로가기 (내 QR·링크 보기)",
+                              key="mv_promo_to_csd",
+                              type="primary",
+                              use_container_width=True):
+                    st.session_state["current_page"] = "campaign_student_dashboard"
+                    st.rerun()
             elif _is_locked_mv:
                 st.caption("🔒 프리미엄 자료 — 결제 후 봉사시간 안내가 표시됩니다.")
         with _hh2:
