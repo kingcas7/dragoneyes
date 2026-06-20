@@ -6979,10 +6979,44 @@ def _render_signup_institution():
 
     _mode = st.radio(
         "가입 방식",
-        ["📋 등록된 기관에서 선택", "🆕 신규 기관 등록 신청"],
+        ["📋 등록된 기관에서 선택", "🏫 NEIS에서 학교 검색", "🆕 신규 기관 등록 신청"],
         horizontal=True, key="inst_signup_mode",
     )
     _is_new_inst = (_mode == "🆕 신규 기관 등록 신청")
+    _is_neis_mode = (_mode == "🏫 NEIS에서 학교 검색")
+
+    # ⭐ NEIS 검색 (폼 밖)
+    _neis_selected_school = None
+    if _is_neis_mode:
+        st.markdown("##### 🔍 NEIS 학교 검색")
+        _nq1, _nq2 = st.columns([3, 1])
+        with _nq1:
+            _neis_q = st.text_input("학교명 검색 (2자 이상)",
+                                     key="inst_signup_neis_q",
+                                     placeholder="예: 서울중앙초등학교")
+        with _nq2:
+            _neis_tf = st.selectbox("학교급",
+                                     ["전체", "elementary", "middle", "high", "special"],
+                                     format_func=lambda x: {"전체":"전체","elementary":"초","middle":"중","high":"고","special":"특수"}.get(x, x),
+                                     key="inst_signup_neis_tf")
+        if _neis_q and len(_neis_q.strip()) >= 2:
+            _tf = None if _neis_tf == "전체" else _neis_tf
+            _ns_res = neis_search_schools(_neis_q, type_filter=_tf, limit=30)
+            if _ns_res:
+                _opts_n = ["(선택 안 함)"] + [
+                    f"{r['name']} · {r['kind_label']} · {r['region']} · {r['founder_type']}"
+                    for r in _ns_res
+                ]
+                _pck = st.selectbox(f"검색 결과 ({len(_ns_res)}건)", _opts_n,
+                                     key="inst_signup_neis_pick")
+                if _pck != _opts_n[0]:
+                    _idx = _opts_n.index(_pck) - 1
+                    _neis_selected_school = _ns_res[_idx]
+                    st.success(f"✅ 선택: **{_neis_selected_school['name']}** "
+                              f"({_neis_selected_school['kind_label']} · {_neis_selected_school['region']})")
+                    st.caption(f"주소: {_neis_selected_school['address']} · 전화: {_neis_selected_school['phone']}")
+            else:
+                st.info("🔍 NEIS 검색 결과 없음.")
 
     with st.form("inst_signup_form"):
         st.markdown("##### 👤 가입자 정보 (기관 담당자)")
@@ -7005,19 +7039,30 @@ def _render_signup_institution():
 
         _inst_id_selected = None
         _new_inst_data = {}
-        if _is_new_inst:
+        if _is_neis_mode and _neis_selected_school:
+            st.info(f"🏫 NEIS 선택 학교: **{_neis_selected_school['name']}** "
+                   f"({_neis_selected_school['kind_label']} · {_neis_selected_school['region']})")
+            st.caption("가입 신청 시 NEIS 정보로 institutions에 자동 등록됩니다.")
+        elif _is_new_inst:
             ic1, ic2 = st.columns(2)
             with ic1:
                 _new_inst_data["type"] = st.selectbox(
                     "기관 유형 *",
                     ["elementary", "middle", "high", "special",
-                     "metro_office", "district_office", "youth_facility", "other"],
+                     "metro_office", "district_office",
+                     "metro_council", "local_council",
+                     "ministry", "youth_facility", "other"],
                     format_func=lambda x: {
                         "elementary":"초등학교", "middle":"중학교", "high":"고등학교",
-                        "special":"특수학교", "metro_office":"시·도 교육청",
-                        "district_office":"교육지원청", "youth_facility":"교육부 인가 청소년 시설",
-                        "other":"기타 정규 교육기관",
+                        "special":"특수학교",
+                        "metro_office":"시·도 교육청", "district_office":"교육지원청",
+                        "metro_council":"시·도의회 교육위원회",
+                        "local_council":"시·군·구의회 교육위원회",
+                        "ministry":"교육부",
+                        "youth_facility":"교육부 인가 청소년 시설",
+                        "other":"기타 (수기 등록)",
                     }.get(x, x),
+                    help="학교는 NEIS 검색 권장 · 교육청/교육위원회/예외는 수기 등록",
                 )
                 _new_inst_data["name"] = st.text_input("기관명 *", placeholder="(예) 서울중앙초등학교")
                 _new_inst_data["region"] = st.text_input("시도", placeholder="서울특별시")
@@ -7059,7 +7104,10 @@ def _render_signup_institution():
         if _is_new_inst and not _new_inst_data.get("name"):
             st.error("기관명을 입력해주세요.")
             return
-        if not _is_new_inst and not _inst_id_selected:
+        if _is_neis_mode and not _neis_selected_school:
+            st.error("NEIS에서 학교를 검색·선택해주세요.")
+            return
+        if (not _is_new_inst) and (not _is_neis_mode) and (not _inst_id_selected):
             st.error("소속 기관을 선택해주세요.")
             return
 
@@ -7070,8 +7118,14 @@ def _render_signup_institution():
                 st.error(f"❌ {_err}")
                 return
 
-            # 2. 신규 기관이면 institution_requests에 add 신청
+            # 2. NEIS 모드면 institutions에 즉시 upsert (승인 대기 X — 자동 승인)
             _final_inst_id = _inst_id_selected
+            if _is_neis_mode and _neis_selected_school:
+                _upsert_id = neis_upsert_institution(_neis_selected_school)
+                if _upsert_id:
+                    _final_inst_id = _upsert_id
+
+            # 2b. 신규 기관이면 institution_requests에 add 신청
             if _is_new_inst:
                 try:
                     _req = supabase.table("institution_requests").insert({
@@ -18120,8 +18174,11 @@ else:
 
         _type_label = {
             "ministry": "교육부", "metro_office": "시·도 교육청",
-            "district_office": "교육지원청", "elementary": "초등학교",
-            "middle": "중학교", "high": "고등학교", "special": "특수학교",
+            "district_office": "교육지원청",
+            "metro_council": "시·도의회 교육위원회",
+            "local_council": "시·군·구의회 교육위원회",
+            "elementary": "초등학교", "middle": "중학교",
+            "high": "고등학교", "special": "특수학교",
             "youth_facility": "청소년 교육시설", "other": "기타 교육기관",
         }.get(_inst.get("type"), _inst.get("type"))
 
