@@ -9607,7 +9607,9 @@ else:
         GLOBAL_VOICE_DISABLED
         or _curr_page.startswith("campaign_")
         or _curr_page in ("institution_dashboard", "institution_approval",
-                          "campaign_status", "parent_dashboard")
+                          "institution_management",
+                          "campaign_status", "parent_dashboard",
+                          "survey_respond", "payment_callback")
         or (_curr_page == "monitoring_stats" and bool(st.session_state.get("_stats_from_campaign")))
         or bool((user or {}).get("is_campaign_only"))
         or ((user or {}).get("role_v2") in ("student", "parent", "institution_admin"))
@@ -9963,7 +9965,9 @@ else:
     _is_campaign_hdr = bool(user) and (
         _curr_page_hdr.startswith("campaign_")
         or _curr_page_hdr in ("institution_dashboard", "institution_approval",
-                              "campaign_status", "parent_dashboard")
+                              "institution_management",
+                              "campaign_status", "parent_dashboard",
+                              "survey_respond", "payment_callback")
         or (_curr_page_hdr == "monitoring_stats" and _stats_from_cmp)
         or bool((user or {}).get("is_campaign_only"))
         or ((user or {}).get("role_v2") in ("student", "parent", "institution_admin"))
@@ -19192,8 +19196,9 @@ else:
             st.markdown("## 🛂 교육기관 등록 신청 관리")
             st.caption("교육기관 관리자가 가입 시 신청한 신규 기관 등록 / 정보 수정 / 삭제 요청 처리")
         with _h2:
-            if st.button("← 관리자 콘솔", key="ia_back_top", use_container_width=True):
-                go_to("home"); st.rerun()
+            if st.button("← 캠페인 홈", key="ia_back_top", use_container_width=True):
+                st.session_state["current_page"] = "campaign_landing"
+                st.rerun()
         st.divider()
 
         # 상태 필터
