@@ -16797,9 +16797,23 @@ else:
         }.get(_role_v2, "사용자")
         _hi_l, _hi_c, _hi_r = st.columns([1, 4, 1])
         with _hi_c:
+            # 이용 동의일 한 줄 표시
+            _agreed_at = (_u.get("terms_agreed_at") or "")[:10]
+            _terms_ver = _u.get("terms_version") or ""
+            if _agreed_at:
+                _agreed_line = (
+                    f"📜 이용 동의: <b>{_agreed_at}</b>"
+                    f"{' · v' + _terms_ver if _terms_ver else ''}"
+                )
+                _agreed_color = "#059669"
+            else:
+                _agreed_line = "📜 이용 동의: <b>미동의</b> — 추후 약관 갱신 시 동의 필요"
+                _agreed_color = "#dc2626"
             st.markdown(
                 f'<div style="text-align:center; font-size:1.1rem; color:#475569;">'
                 f'안녕하세요, <strong>{_u.get("name","사용자")}</strong>님 ({_role_label})'
+                f'<br><span style="font-size:0.85rem;color:{_agreed_color};">'
+                f'{_agreed_line}</span>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
