@@ -17696,6 +17696,56 @@ else:
                                 st.session_state.pop(_edit_key, None)
                                 st.rerun()
 
+        # ──────────────────────────────────────────────────────
+        # ⭐ KPI 3종 (학교 정보 바로 아래로 이동) — 누적봉사/응답수/응시가능
+        #    페이지 진입 시 점수가 가장 먼저 보이도록 정렬
+        # ──────────────────────────────────────────────────────
+        try:
+            _tok = supabase.table("student_survey_tokens").select(
+                "access_token, survey_id, response_count, last_response_at"
+            ).eq("student_id", _target_student_id).limit(1).execute()
+            _tok_row = _tok.data[0] if _tok.data else None
+        except Exception:
+            _tok_row = None
+        try:
+            _vc = supabase.table("volunteer_credits").select(
+                "hours_decimal, status"
+            ).eq("student_id", _target_student_id).execute()
+            _vc_rows = _vc.data or []
+            _hours_earned = sum(float(r.get("hours_decimal") or 0)
+                                  for r in _vc_rows if r.get("status") in ("earned","issued"))
+            _hours_issued = sum(float(r.get("hours_decimal") or 0)
+                                  for r in _vc_rows if r.get("status") == "issued")
+        except Exception:
+            _hours_earned = 0.0; _hours_issued = 0.0
+
+        _k1, _k2, _k3 = st.columns(3)
+        with _k1:
+            with st.container(border=True):
+                st.markdown(f"**🕐 누적 봉사 시간**")
+                st.markdown(f"### {_hours_earned:.1f}시간")
+                st.caption(f"인증 완료: {_hours_issued:.1f}시간")
+        with _k2:
+            with st.container(border=True):
+                st.markdown(f"**📩 내 설문 응답 수**")
+                _rc = (_tok_row or {}).get("response_count") or 0
+                st.markdown(f"### {_rc}명")
+                st.caption("내 링크/QR로 응답한 인원")
+        with _k3:
+            with st.container(border=True):
+                st.markdown(f"**🎯 응시 가능 설문**")
+                _band = "—"
+                try:
+                    _b = supabase.rpc("get_student_band",
+                                        {"p_student_id": _target_student_id}).execute()
+                    _band = {"elementary":"초등","middle":"중학",
+                              "high":"고등"}.get(_b.data or "", "미지정")
+                except Exception: pass
+                st.markdown(f"### {_band}")
+                st.caption("학년대 매칭")
+
+        st.markdown("")
+
         # 헤더
         _hh1, _hh2 = st.columns([6, 1])
         with _hh1:
@@ -18207,54 +18257,8 @@ else:
         # ──────────────────────────────────────────────────────
         # 3) 내 설문 응시 + 봉사 점수 + 내 링크/QR
         # ──────────────────────────────────────────────────────
-        st.markdown("### 📋 설문 응시 + 봉사 점수")
-
-        # 내 token 조회
-        try:
-            _tok = supabase.table("student_survey_tokens").select(
-                "access_token, survey_id, response_count, last_response_at"
-            ).eq("student_id", _target_student_id).limit(1).execute()
-            _tok_row = _tok.data[0] if _tok.data else None
-        except Exception:
-            _tok_row = None
-
-        # 봉사 점수 합계
-        try:
-            _vc = supabase.table("volunteer_credits").select(
-                "hours_decimal, status"
-            ).eq("student_id", _target_student_id).execute()
-            _vc_rows = _vc.data or []
-            _hours_earned = sum(float(r.get("hours_decimal") or 0) for r in _vc_rows if r.get("status") in ("earned","issued"))
-            _hours_issued = sum(float(r.get("hours_decimal") or 0) for r in _vc_rows if r.get("status") == "issued")
-        except Exception:
-            _hours_earned = 0.0
-            _hours_issued = 0.0
-
-        # KPI 3종
-        _k1, _k2, _k3 = st.columns(3)
-        with _k1:
-            with st.container(border=True):
-                st.markdown(f"**🕐 누적 봉사 시간**")
-                st.markdown(f"### {_hours_earned:.1f}시간")
-                st.caption(f"인증 완료: {_hours_issued:.1f}시간")
-        with _k2:
-            with st.container(border=True):
-                st.markdown(f"**📩 내 설문 응답 수**")
-                _rc = (_tok_row or {}).get("response_count") or 0
-                st.markdown(f"### {_rc}명")
-                st.caption("내 링크/QR로 응답한 인원")
-        with _k3:
-            with st.container(border=True):
-                st.markdown(f"**🎯 응시 가능 설문**")
-                _band = "—"
-                try:
-                    _b = supabase.rpc("get_student_band", {"p_student_id": _target_student_id}).execute()
-                    _band = {"elementary":"초등","middle":"중학","high":"고등"}.get(_b.data or "", "미지정")
-                except Exception: pass
-                st.markdown(f"### {_band}")
-                st.caption("학년대 매칭")
-
-        st.markdown("")
+        st.markdown("### 🔗 내 설문 링크 / QR 코드 — 친구·가족에게 공유")
+        # (KPI 3종은 페이지 상단 학교 정보 바로 아래로 이동했습니다)
 
         # 내 설문 링크/QR 공유
         if _tok_row and _tok_row.get("access_token"):
