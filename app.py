@@ -7061,7 +7061,7 @@ def _render_signup_select():
             st.markdown("##### 🎒 학생")
             st.markdown(
                 "- 무료 자료 학습\n"
-                "- 50문항 설문 → 봉사 4~6시간\n"
+                "- 50문항 설문 → 봉사 4~8시간\n"
                 "- 활동 내역 출력 / 이메일\n"
                 "- ⚠️ 모니터링 시스템 접근 불가\n"
                 "- 만 14세 미만 학부모 동의 필요"
@@ -9064,7 +9064,7 @@ if st.session_state.user is None:
             _mission_title  = "온라인 유해컨텐츠 근절 캠페인"
             _mission_desc   = "교육기관·학부모·학생이 함께 만드는 안전한 온라인 환경"
             _feat1_icon, _feat1_title, _feat1_desc = "🏫", "교육기관 전용 대시보드", "학생 보호 교육·행동강령·저작권 등 미개척 분야 커리큘럼"
-            _feat2_icon, _feat2_title, _feat2_desc = "📋", "학생 설문 + 봉사 점수", "50문항 성실 완료 → 교육부 인정 봉사시간 (4~6시간) 발급"
+            _feat2_icon, _feat2_title, _feat2_desc = "📋", "학생 설문 + 봉사 점수", "50문항 성실 완료 → 교육부 인정 봉사시간 (4~8시간) 발급"
             _feat3_icon, _feat3_title, _feat3_desc = "👨‍👩‍👧 ", "학부모 자료·자녀 관리", "연 1만 7천원으로 모든 유료 자료 무제한 + 자녀 설문 모니터링"
             _stats_title = ""  # 캠페인 모드는 stats 박스 자체 미사용
             # ⭐ 사용자 요청: 캠페인 정책 요약 박스 제거 (가려져 안 보이고 raw HTML 문제도 있음)
@@ -9074,7 +9074,7 @@ if st.session_state.user is None:
 '<div class="login-stat-row"><div class="login-stat-header"><span class="login-stat-label">🎒 학생</span><span class="login-stat-value">무료</span></div><div class="login-stat-bar"><div class="login-stat-fill" style="background:#10b981;width:100%;"></div></div></div>'
 '<div class="login-stat-row"><div class="login-stat-header"><span class="login-stat-label">👨‍👩‍👧 학부모 (연간)</span><span class="login-stat-value">17,000원</span></div><div class="login-stat-bar"><div class="login-stat-fill" style="background:#3b82f6;width:80%;"></div></div></div>'
 '<div class="login-stat-row"><div class="login-stat-header"><span class="login-stat-label">🏫 교육기관</span><span class="login-stat-value">계약</span></div><div class="login-stat-bar"><div class="login-stat-fill" style="background:#8b5cf6;width:60%;"></div></div></div>'
-'<div class="login-stat-row"><div class="login-stat-header"><span class="login-stat-label">🏆 봉사 시간 (성실 완료 시)</span><span class="login-stat-value">4~6시간</span></div><div class="login-stat-bar"><div class="login-stat-fill" style="background:#f59e0b;width:75%;"></div></div></div>'
+'<div class="login-stat-row"><div class="login-stat-header"><span class="login-stat-label">🏆 봉사 시간 (성실 완료 시)</span><span class="login-stat-value">4~8시간</span></div><div class="login-stat-bar"><div class="login-stat-fill" style="background:#f59e0b;width:75%;"></div></div></div>'
 '<div class="login-stat-row"><div class="login-stat-header"><span class="login-stat-label">📚 자료 형식 (PDF·동영상)</span><span class="login-stat-value">열람 전용</span></div><div class="login-stat-bar"><div class="login-stat-fill" style="background:#64748b;width:50%;"></div></div></div>'
             )
         else:
@@ -9284,7 +9284,7 @@ if st.session_state.user is None:
                 st.caption("교육기관 · 학부모 · 학생이 함께 만드는 안전한 온라인 환경")
                 st.markdown(
                     "- 🏫 **교육기관 전용 대시보드** — 학생 보호 교육·행동강령·저작권 등 미개척 분야 커리큘럼\n"
-                    "- 📋 **학생 설문 + 봉사 점수** — 50문항 성실 완료 → 교육부 인정 봉사시간 (4~6시간)\n"
+                    "- 📋 **학생 설문 + 봉사 점수** — 50문항 성실 완료 → 교육부 인정 봉사시간 (4~8시간)\n"
                     "- 👨‍👩‍👧 **학부모 자료·자녀 관리** — 연 1만 7천원으로 모든 유료 자료 무제한 + 자녀 설문 모니터링"
                 )
 
@@ -16717,7 +16717,7 @@ else:
         with _ic2:
             with st.container(border=True):
                 st.markdown("##### 📋 학생 설문 + 봉사 점수")
-                st.caption("50문항 성실 완료 → 교육부 인정 봉사시간 (4~6시간)")
+                st.caption("50문항 성실 완료 → 교육부 인정 봉사시간 (4~8시간)")
                 if st.button("→ 들어가기", key="cmp_ic_student", use_container_width=True):
                     if _is_student or _is_hq_admin:
                         st.session_state["current_page"] = "campaign_student_dashboard"

@@ -26,7 +26,7 @@ RETURNS TABLE (
     SELECT * FROM (VALUES
         ('elementary', 20, 4.0::NUMERIC(4,2)),
         ('middle',     30, 5.0::NUMERIC(4,2)),
-        ('high',       50, 6.0::NUMERIC(4,2))
+        ('high',       50, 8.0::NUMERIC(4,2))
     ) AS t(band, threshold, hours_award)
     WHERE band = p_band;
 $$;
