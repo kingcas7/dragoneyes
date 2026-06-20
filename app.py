@@ -16668,26 +16668,52 @@ else:
                             .execute().count or 0
                     except Exception:
                         _kids_cnt = 0
-                    # 구독 INSERT (UNIQUE parent_id+year — 중복 시 update)
+
+                    # 약관 버전 파싱 (payments.note "tos_service=...;tos_refund=...")
+                    _tos_v_svc = None; _tos_v_rfd = None
                     try:
-                        supabase.table("parent_subscriptions").insert({
-                            "parent_id": _parent_id,
-                            "year": _yr,
-                            "amount": 17000,
-                            "payment_id": (_pay_row or {}).get("id"),
-                            "status": "active",
-                            "start_date": _start,
-                            "end_date": _end,
-                            "children_at_purchase": _kids_cnt,
-                        }).execute()
+                        _pay_full = supabase.table("payments").select("note")\
+                            .eq("id", (_pay_row or {}).get("id")).limit(1).execute().data or []
+                        _note_s = (_pay_full[0].get("note") or "") if _pay_full else ""
+                        for _kv in _note_s.split(";"):
+                            if _kv.startswith("tos_service="): _tos_v_svc = _kv.split("=",1)[1]
+                            elif _kv.startswith("tos_refund="): _tos_v_rfd = _kv.split("=",1)[1]
+                    except Exception: pass
+
+                    # 구독 INSERT (UNIQUE parent_id+year — 중복 시 update)
+                    _sub_payload = {
+                        "parent_id": _parent_id,
+                        "year": _yr,
+                        "amount": 17000,
+                        "payment_id": (_pay_row or {}).get("id"),
+                        "status": "active",
+                        "start_date": _start,
+                        "end_date": _end,
+                        "children_at_purchase": _kids_cnt,
+                        "tos_version": _tos_v_svc,
+                        "refund_tos_version": _tos_v_rfd,
+                        "tos_agreed_at": datetime.now().isoformat(),
+                    }
+                    try:
+                        supabase.table("parent_subscriptions").insert(_sub_payload).execute()
                     except Exception:
                         # 이미 있으면 update
                         supabase.table("parent_subscriptions").update({
-                            "status": "active",
-                            "payment_id": (_pay_row or {}).get("id"),
-                            "start_date": _start,
-                            "end_date": _end,
+                            k: v for k, v in _sub_payload.items()
+                            if k not in ("parent_id","year")
                         }).eq("parent_id", _parent_id).eq("year", _yr).execute()
+
+                    # 갱신 이력 로그
+                    try:
+                        supabase.table("subscription_renewal_log").insert({
+                            "parent_id": _parent_id,
+                            "event_type": "created",
+                            "from_year": _yr, "to_year": _yr,
+                            "amount": 17000,
+                            "actor_user_id": _parent_id,
+                            "note": f"결제 완료 (orderId={_toss_oid})",
+                        }).execute()
+                    except Exception: pass
             except Exception as _e:
                 st.warning(f"구독 활성화 실패 (결제는 완료): {_e}")
 
@@ -18804,38 +18830,124 @@ else:
         # ── 탭 3: 결제·구독 ──
         with pt3:
             st.markdown(f"##### 💳 {_y_cur}년 구독 상태")
-            if _has_subscription:
-                st.success(
-                    f"✅ **{_y_cur}년 구독 중** — 등록된 모든 자녀가 유료 자료를 무제한 열람할 수 있습니다."
+
+            # ────────────────────────────────────────
+            # A. 가드 1 — 자녀 0명
+            # ────────────────────────────────────────
+            if not _links:
+                st.warning(
+                    "👨‍👩‍👧 **자녀 등록이 필요합니다.**\n\n"
+                    "결제 전 자녀를 1명 이상 등록해주세요. 결제는 자녀의 학습 권한 활성화를 위한 것입니다."
                 )
-                # 결제 내역
-                try:
-                    _pays = supabase.table("payments").select(
-                        "id, provider, amount, status, paid_at, created_at"
-                    ).eq("target_type", "parent").eq("target_id", _u_p.get("id"))\
-                     .order("created_at", desc=True).limit(10).execute().data or []
-                    if _pays:
-                        st.markdown("##### 📜 결제 내역")
-                        for _p in _pays:
-                            _status_emoji = {"completed":"✅","pending":"⏳","failed":"❌",
-                                            "cancelled":"🚫","refunded":"↩️"}.get(_p.get("status"),"·")
-                            with st.container(border=True):
-                                _pc1, _pc2, _pc3 = st.columns([2,1,1])
-                                with _pc1:
-                                    st.markdown(f"**{_status_emoji} {_p.get('provider','-').upper()}** · "
-                                                f"{(_p.get('paid_at') or _p.get('created_at') or '')[:10]}")
-                                with _pc2:
-                                    st.markdown(f"💰 {int(_p.get('amount') or 0):,}원")
-                                with _pc3:
-                                    st.caption(_p.get('status','-'))
-                except Exception: pass
+                if st.button("→ 자녀 등록 탭으로 이동",
+                              key="pdash_to_kid_reg", type="primary"):
+                    st.session_state["_pdash_force_tab"] = "kid_reg"
+                    st.rerun()
+                st.stop()
+
+            # ────────────────────────────────────────
+            # B. 내 구독 list (전체 연도)
+            # ────────────────────────────────────────
+            try:
+                _my_subs = supabase.rpc(
+                    "get_my_subscriptions", {"p_parent_id": _u_p.get("id")}
+                ).execute().data or []
+            except Exception as _sube:
+                _my_subs = []
+                st.caption(f"⚠️ 구독 조회 실패: {_sube}")
+
+            _active_sub = next((s for s in _my_subs
+                                 if s.get("status") == "active" and int(s.get("year") or 0) == _y_cur), None)
+
+            if _active_sub:
+                # ─── 활성 구독 상태 표시 ───
+                _days_left = int(_active_sub.get("days_left") or 0)
+                _end_date  = _active_sub.get("end_date") or ""
+                _ar_on     = bool(_active_sub.get("auto_renewal_enabled"))
+                _emoji_left = "🔥" if _days_left <= 30 else ("⏰" if _days_left <= 90 else "✅")
+                _color_left = "#dc2626" if _days_left <= 30 else ("#d97706" if _days_left <= 90 else "#059669")
+
+                st.markdown(
+                    f"<div style='background:#ecfdf5;border-left:6px solid #10b981;"
+                    f"border-radius:10px;padding:18px 22px;margin:8px 0;'>"
+                    f"<div style='font-size:1.15rem;font-weight:700;color:#065f46;margin-bottom:6px;'>"
+                    f"✅ {_y_cur}년 구독 중</div>"
+                    f"<div style='color:#0f172a;line-height:1.8;'>"
+                    f"📅 만료일: <b>{_end_date}</b> · "
+                    f"<span style='color:{_color_left};font-weight:700;'>{_emoji_left} D-{_days_left}</span><br>"
+                    f"🔄 자동갱신: <b>{'ON' if _ar_on else 'OFF'}</b><br>"
+                    f"👨‍👩‍👧 등록된 모든 자녀가 유료 자료를 무제한 열람할 수 있습니다."
+                    f"</div></div>",
+                    unsafe_allow_html=True,
+                )
+
+                # 자동갱신 토글
+                _arc1, _arc2 = st.columns([2, 1])
+                with _arc1:
+                    st.caption(
+                        f"🔄 **자동갱신**이 켜져 있으면 매년 12월 1일에 자동 갱신됩니다 (현재: {'ON' if _ar_on else 'OFF'}). "
+                        "자동갱신을 위해서는 자동갱신 약관 동의 + 최초 결제가 필요합니다."
+                    )
+                with _arc2:
+                    _new_ar = st.toggle("자동갱신",
+                                          value=_ar_on,
+                                          key=f"pdash_ar_toggle_{_active_sub.get('id')}")
+                    if _new_ar != _ar_on:
+                        try:
+                            supabase.rpc("toggle_auto_renewal", {
+                                "p_subscription_id": _active_sub.get("id"),
+                                "p_enable": _new_ar,
+                                "p_actor_id": _u_p.get("id"),
+                            }).execute()
+                            st.success(f"자동갱신 {'ON' if _new_ar else 'OFF'}로 변경됨")
+                            st.rerun()
+                        except Exception as _are:
+                            st.error(f"자동갱신 변경 실패: {_are}")
+
+                st.markdown("---")
+
             else:
+                # ─── 미구독 안내 + 결제 흐름 ───
                 st.warning(
                     f"❌ **{_y_cur}년 구독 미가입**\n\n"
-                    f"- 학생은 무료 자료를 자유롭게 이용할 수 있습니다.\n"
-                    f"- 학생은 무료로 설문 참여 및 봉사 점수를 받을 수 있습니다.\n"
-                    f"- **연 17,000원 결제 시** 모든 유료 자료 + 자녀 추가 권한이 활성화됩니다."
+                    f"- 학생은 무료 자료·설문·봉사 점수 모두 그대로 이용 가능합니다.\n"
+                    f"- **연 17,000원 결제 시** 자녀 전원이 모든 유료 자료를 무제한 열람합니다.\n"
+                    f"- 다자녀: 학부모 1회 결제로 모든 자녀 권한 부여."
                 )
+
+                # ─── B-1. 약관 조회 (1회) ───
+                try:
+                    _terms = supabase.rpc("get_active_terms").execute().data or []
+                except Exception:
+                    _terms = []
+                _terms_map = {t.get("kind"): t for t in _terms}
+                _tos_v_service = (_terms_map.get("service") or {}).get("version") or "draft"
+                _tos_v_refund  = (_terms_map.get("refund") or {}).get("version") or "draft"
+
+                # ─── B-2. 약관 동의 + 결제 수단 선택 ───
+                with st.expander("📜 이용약관·환불약관 보기 (필수 동의)", expanded=False):
+                    for _kind in ("service","refund","privacy","auto_renewal"):
+                        _t = _terms_map.get(_kind)
+                        if not _t: continue
+                        _emoji_t = {"service":"📋","refund":"↩️","privacy":"🔐","auto_renewal":"🔄"}.get(_kind,"📄")
+                        st.markdown(f"##### {_emoji_t} {_t.get('title')} (`{_t.get('version')}`)")
+                        st.markdown(_t.get("body_md") or "")
+                        st.markdown("---")
+
+                _agc1, _agc2 = st.columns(2)
+                with _agc1:
+                    _agree_service = st.checkbox(
+                        f"✅ 이용약관 (`{_tos_v_service}`) 에 동의합니다 *",
+                        key="pdash_agree_service",
+                    )
+                with _agc2:
+                    _agree_refund = st.checkbox(
+                        f"✅ 환불 정책 (`{_tos_v_refund}`) 에 동의합니다 *",
+                        key="pdash_agree_refund",
+                    )
+                _all_agreed = bool(_agree_service and _agree_refund)
+                if not _all_agreed:
+                    st.caption("⚠️ 모든 필수 약관에 동의해주세요.")
 
                 # ─── 결제 게이트웨이 선택 ───
                 st.markdown("##### 🏦 결제 수단 선택")
@@ -18892,106 +19004,218 @@ else:
                     st.info("위에서 결제 수단을 먼저 선택해주세요.")
                 else:
                     if _selected_pg == "toss":
-                        # ─── 토스페이먼츠 sandbox 결제 ───
-                        if st.button("💳 토스로 연 17,000원 결제하기 (sandbox)",
-                                     type="primary", use_container_width=True,
-                                     key="pdash_toss_go"):
-                            import time as _t
-                            _order_id = f"parent_yr_{_u_p['id'][:8]}_{int(_t.time())}"
-                            try:
-                                # payments pending row 생성
-                                supabase.table("payments").insert({
-                                    "provider": "toss",
-                                    "target_type": "parent",
-                                    "target_id": _u_p.get("id"),
-                                    "amount": 17000,
-                                    "currency": "KRW",
-                                    "product_type": "parent_yearly_10k",
-                                    "product_year": _y_cur,
-                                    "status": "pending",
-                                    "pg_order_id": _order_id,
-                                    "created_by": _u_p.get("id"),
-                                }).execute()
-                                st.session_state["_toss_pending_order"] = _order_id
-                                st.session_state["_toss_pending_name"] = _u_p.get("name", "사용자")
-                                st.success("✅ 결제 로그 생성. 아래 '토스 결제창 열기' 버튼을 눌러주세요.")
-                            except Exception as _e:
-                                st.error(f"결제 로그 생성 실패: {_e}")
-
-                        # 토스 결제창 호출 (JS) — pending order가 있을 때만
-                        if st.session_state.get("_toss_pending_order"):
-                            _order_id = st.session_state["_toss_pending_order"]
-                            _customer_name = st.session_state.get("_toss_pending_name", "사용자")
-                            _toss_client_key = os.getenv(
-                                "TOSS_CLIENT_KEY",
-                                "test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq"  # 토스 공개 sandbox 키
-                            )
-                            _base_url = "https://dragoneyes-production.up.railway.app"
-                            _success_url = f"{_base_url}/?page=payment_callback"
-                            _fail_url = f"{_base_url}/?page=payment_callback"
-
-                            st.markdown("##### 🟦 토스 결제창")
-                            st.caption(
-                                "아래 버튼을 누르면 토스 결제창이 열립니다. "
-                                "샌드박스 환경이라 실제 결제는 안 일어나며, "
-                                "테스트 카드 번호: **4000-0000-0000-0002** (CVC 123, 유효기간 12/30) 등 사용 가능."
-                            )
-                            st.components.v1.html(
-                                f"""
-                                <html><head><script src="https://js.tosspayments.com/v1/payment"></script></head>
-                                <body style="margin:0;padding:8px;font-family:system-ui,-apple-system,sans-serif;">
-                                <button id="toss-pay-btn" style="
-                                    width:100%; padding:14px 20px; font-size:16px; font-weight:700;
-                                    background:#3182f6; color:white; border:none; border-radius:8px;
-                                    cursor:pointer;
-                                ">💙 토스 결제창 열기 (sandbox)</button>
-                                <script>
-                                document.getElementById('toss-pay-btn').onclick = function() {{
-                                    try {{
-                                        var w = window.top || window;
-                                        var tp = TossPayments("{_toss_client_key}");
-                                        tp.requestPayment('카드', {{
-                                            amount: 17000,
-                                            orderId: "{_order_id}",
-                                            orderName: "캠페인 연 1만 7천원 구독",
-                                            customerName: "{_customer_name}",
-                                            successUrl: "{_success_url}",
-                                            failUrl: "{_fail_url}",
-                                        }}).catch(function(error){{
-                                            alert('결제 시작 실패: ' + (error && error.message ? error.message : error));
-                                        }});
-                                    }} catch(e) {{
-                                        alert('토스 SDK 로드 실패: ' + e.message);
-                                    }}
-                                }};
-                                </script>
-                                </body></html>
-                                """,
-                                height=110,
-                            )
-                            if st.button("🚫 결제 취소 (pending 삭제)",
-                                         key="pdash_toss_cancel", use_container_width=False):
+                        # ─── 토스페이먼츠 결제위젯 v2 (카드/계좌이체/간편결제 통합) ───
+                        if not _all_agreed:
+                            st.error("⚠️ 결제하려면 위의 약관에 먼저 동의해주세요.")
+                        else:
+                            if st.button("💳 결제창 열기 — 연 17,000원",
+                                         type="primary", use_container_width=True,
+                                         key="pdash_toss_go"):
+                                import time as _t
+                                _order_id = f"parent_yr_{_u_p['id'][:8]}_{int(_t.time())}"
                                 try:
-                                    supabase.table("payments").update({"status": "cancelled"})\
-                                        .eq("pg_order_id", _order_id).execute()
-                                except Exception: pass
-                                st.session_state.pop("_toss_pending_order", None)
-                                st.session_state.pop("_toss_pending_name", None)
-                                st.rerun()
+                                    supabase.table("payments").insert({
+                                        "provider": "toss",
+                                        "target_type": "parent",
+                                        "target_id": _u_p.get("id"),
+                                        "amount": 17000,
+                                        "currency": "KRW",
+                                        "product_type": "parent_yearly_10k",
+                                        "product_year": _y_cur,
+                                        "status": "pending",
+                                        "pg_order_id": _order_id,
+                                        "created_by": _u_p.get("id"),
+                                        "note": f"tos_service={_tos_v_service};tos_refund={_tos_v_refund}",
+                                    }).execute()
+                                    st.session_state["_toss_pending_order"] = _order_id
+                                    st.session_state["_toss_pending_name"] = _u_p.get("name", "사용자")
+                                    st.success("✅ 결제 요청 생성. 아래 결제 위젯에서 결제 수단을 선택하세요.")
+                                except Exception as _e:
+                                    st.error(f"결제 요청 실패: {_e}")
+
+                            # 결제 위젯 — pending order가 있을 때만
+                            if st.session_state.get("_toss_pending_order"):
+                                _order_id = st.session_state["_toss_pending_order"]
+                                _customer_name = st.session_state.get("_toss_pending_name", "사용자")
+                                _customer_email = _u_p.get("email") or "noreply@dragoneyes.kr"
+                                _customer_key = f"customer_{_u_p['id'][:16]}"
+                                _toss_client_key = os.getenv(
+                                    "TOSS_CLIENT_KEY",
+                                    "test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq"
+                                )
+                                _base_url = os.getenv(
+                                    "PUBLIC_BASE_URL",
+                                    "https://dragoneyes-production.up.railway.app",
+                                )
+                                _success_url = f"{_base_url}/?page=payment_callback"
+                                _fail_url = f"{_base_url}/?page=payment_callback"
+
+                                st.markdown("##### 🟦 결제 수단을 선택하세요")
+                                st.caption(
+                                    "**카드 · 계좌이체 · 가상계좌 · 휴대폰 · 간편결제(토스페이/카카오페이 등)** 모두 사용 가능합니다. "
+                                    "샌드박스 모드: 실제 결제는 일어나지 않습니다 "
+                                    "(테스트 카드: 4000-0000-0000-0002 · CVC 123 · 12/30)."
+                                )
+                                st.components.v1.html(
+                                    f"""
+                                    <html><head>
+                                    <script src="https://js.tosspayments.com/v1/payment-widget"></script>
+                                    </head>
+                                    <body style="margin:0;padding:8px;font-family:system-ui,-apple-system,sans-serif;background:transparent;">
+                                      <div id="payment-method" style="margin-bottom:12px;"></div>
+                                      <div id="agreement" style="margin-bottom:12px;"></div>
+                                      <button id="payment-button" style="
+                                          width:100%; padding:14px 20px; font-size:16px; font-weight:700;
+                                          background:#3182f6; color:white; border:none; border-radius:8px;
+                                          cursor:pointer;
+                                      ">💳 17,000원 결제하기</button>
+                                      <script>
+                                        (function() {{
+                                          try {{
+                                            var widget = PaymentWidget("{_toss_client_key}", "{_customer_key}");
+                                            widget.renderPaymentMethods("#payment-method", {{ value: 17000 }});
+                                            widget.renderAgreement("#agreement");
+                                            document.getElementById("payment-button").onclick = function() {{
+                                              widget.requestPayment({{
+                                                orderId: "{_order_id}",
+                                                orderName: "드래곤아이즈 캠페인 연 구독 (1년)",
+                                                customerName: "{_customer_name}",
+                                                customerEmail: "{_customer_email}",
+                                                successUrl: "{_success_url}",
+                                                failUrl: "{_fail_url}",
+                                              }}).catch(function(err){{
+                                                alert("결제 실패: " + (err && err.message ? err.message : err));
+                                              }});
+                                            }};
+                                          }} catch(e) {{
+                                            document.body.innerHTML = '<div style="color:#dc2626;padding:14px;">' +
+                                              '결제 위젯 로드 실패: ' + e.message + '</div>';
+                                          }}
+                                        }})();
+                                      </script>
+                                    </body></html>
+                                    """,
+                                    height=600,
+                                )
+                                if st.button("🚫 이 결제 취소", key="pdash_toss_cancel"):
+                                    try:
+                                        supabase.table("payments").update({"status": "cancelled"})\
+                                            .eq("pg_order_id", _order_id).execute()
+                                    except Exception: pass
+                                    st.session_state.pop("_toss_pending_order", None)
+                                    st.session_state.pop("_toss_pending_name", None)
+                                    st.rerun()
                     else:
-                        # 토스 외 PG — 아직 신고 전이라 비활성
                         st.warning(
                             f"🚧 **{_selected_pg.upper()}** 는 신고/심사 대기 중입니다. "
-                            "샌드박스 테스트는 토스로 진행해주세요."
+                            "현재는 토스페이먼츠(카드·계좌·간편결제 모두 통합)로 결제 가능합니다."
                         )
+
+            # ────────────────────────────────────────
+            # C. 결제·구독 내역 (전체 연도)
+            # ────────────────────────────────────────
+            st.markdown("---")
+            st.markdown("##### 📜 결제·구독 내역")
+            if not _my_subs:
+                st.caption("아직 결제·구독 기록이 없습니다.")
+            else:
+                for _s in _my_subs:
+                    _sid = _s.get("id")
+                    _yr = _s.get("year")
+                    _amt = int(_s.get("amount") or 0)
+                    _sstat = _s.get("status")
+                    _start = _s.get("start_date")
+                    _end = _s.get("end_date")
+                    _rcpt = _s.get("receipt_url")
+                    _refund_amt = int(_s.get("refund_amount") or 0)
+                    _sstat_emoji = {"active":"✅","expired":"⏳","cancelled":"🚫",
+                                     "refunded":"↩️","pending":"⏳"}.get(_sstat,"·")
+                    with st.container(border=True):
+                        _hc1, _hc2, _hc3, _hc4 = st.columns([3, 2, 2, 2])
+                        with _hc1:
+                            st.markdown(f"**{_sstat_emoji} {_yr}년 구독** · {_sstat}")
+                            st.caption(f"{_start} ~ {_end}")
+                        with _hc2:
+                            st.markdown(f"💰 {_amt:,}원")
+                            if _refund_amt > 0:
+                                st.caption(f"↩️ 환불: {_refund_amt:,}원")
+                        with _hc3:
+                            if _rcpt:
+                                st.link_button("🧾 영수증", _rcpt, use_container_width=True)
+                            else:
+                                st.caption("영수증 없음")
+                        with _hc4:
+                            # 활성 구독만 환불 요청 가능
+                            if _sstat == "active" and _refund_amt < _amt:
+                                _req_key = f"pdash_refund_req_open_{_sid}"
+                                if st.button("↩️ 환불 요청", key=f"pdash_refund_btn_{_sid}",
+                                              use_container_width=True):
+                                    st.session_state[_req_key] = True
+                                    st.rerun()
+                            else:
+                                st.caption("환불 불가")
+
+                    # 환불 요청 폼
+                    if st.session_state.get(f"pdash_refund_req_open_{_sid}"):
+                        with st.form(f"pdash_refund_req_form_{_sid}"):
+                            st.markdown("##### ↩️ 환불 요청 양식")
+                            st.caption(
+                                "환불 정책: **결제 후 7일 이내 자료 미열람 시 전액 환불 가능**. "
+                                "이후에는 사용 비율에 따라 부분 환불 검토."
+                            )
+                            _rreason = st.text_area(
+                                "환불 사유 *", height=100,
+                                key=f"pdash_refund_reason_{_sid}",
+                                placeholder="환불을 요청하시는 사유를 적어주세요.",
+                            )
+                            _ra, _rb = st.columns(2)
+                            with _ra:
+                                if st.form_submit_button("📤 본부에 요청 발송",
+                                                           type="primary",
+                                                           use_container_width=True):
+                                    if not _rreason.strip():
+                                        st.error("사유는 필수입니다.")
+                                    else:
+                                        try:
+                                            # 본부 admin에게 공지로 발송 + 학부모 본인에게 확인 공지
+                                            supabase.table("notices").insert({
+                                                "category":"general",
+                                                "title": f"[환불 요청] {_u_p.get('name')} · {_yr}년 구독",
+                                                "body_md": (
+                                                    f"학부모 **{_u_p.get('name')}** ({_u_p.get('email')})\n\n"
+                                                    f"- 구독 ID: `{_sid}`\n"
+                                                    f"- 결제 ID: `{_s.get('payment_id') or '—'}`\n"
+                                                    f"- 결제액: {_amt:,}원\n\n"
+                                                    f"**사유**:\n{_rreason.strip()}\n\n"
+                                                    f"검토 후 [결제 기록 관리]에서 환불 처리해주세요."
+                                                ),
+                                                "audience_group":"all",
+                                                "is_targeted": False,
+                                                "priority": 1,
+                                                "status":"published",
+                                                "send_email": True,
+                                                "created_by": _u_p.get("id"),
+                                            }).execute()
+                                            st.success(
+                                                "✅ 환불 요청이 본부에 전달되었습니다. "
+                                                "영업일 5일 이내 검토 후 처리 결과를 안내드립니다."
+                                            )
+                                            st.session_state.pop(f"pdash_refund_req_open_{_sid}", None)
+                                            st.rerun()
+                                        except Exception as _rqe:
+                                            st.error(f"요청 발송 실패: {_rqe}")
+                            with _rb:
+                                if st.form_submit_button("취소", use_container_width=True):
+                                    st.session_state.pop(f"pdash_refund_req_open_{_sid}", None)
+                                    st.rerun()
 
             st.divider()
             st.caption(
                 "📌 **정책 안내**\n"
                 "- 학생: 무료 (모든 무료 자료 + 설문 + 봉사 점수)\n"
-                "- 학부모: 연 1만 7천원 (모든 유료 자료 무제한 + 등록된 모든 자녀 동시 권한)\n"
+                "- 학부모: 연 17,000원 (모든 유료 자료 무제한 + 등록된 모든 자녀 동시 권한)\n"
                 "- 다자녀: 학부모 1회 결제로 모든 자녀 권한 부여\n"
-                "- PG 4종 (토스/카카오/이니시스/네이버) — 관할 신고 완료 후 순차 활성화"
+                "- 환불은 학부모 dashboard에서 본부로 요청 가능 — 7일 이내 자료 미열람 시 전액 환불"
             )
 
     elif page == "institution_dashboard":
