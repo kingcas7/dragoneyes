@@ -22773,13 +22773,29 @@ else:
                 st.markdown("---")
                 st.markdown("##### 📄 학습 PDF")
                 st.caption("⚠️ 다운로드·인쇄 차단 모드 — 화면에서만 열람 가능합니다.")
+
                 # PDF.js URL 파라미터로 toolbar/navpanes 숨김
                 _pdf_url = _att + "#toolbar=0&navpanes=0&scrollbar=0&view=FitH"
-                st.markdown(
-                    f"<iframe src='{_pdf_url}' "
-                    f"style='width:100%;height:800px;border:1px solid #cbd5e1;border-radius:8px;'"
-                    f" sandbox='allow-scripts allow-same-origin'></iframe>",
-                    unsafe_allow_html=True,
+
+                # 1차: Streamlit native iframe (가장 안정적, sandbox 없음)
+                try:
+                    st.components.v1.iframe(_pdf_url, height=800, scrolling=True)
+                except Exception:
+                    # 2차 fallback: <object> 태그 (Chrome PDF viewer 사용)
+                    st.markdown(
+                        f"<object data='{_pdf_url}' type='application/pdf' "
+                        f"style='width:100%;height:800px;border:1px solid #cbd5e1;border-radius:8px;'>"
+                        f"<p style='padding:20px;text-align:center;'>"
+                        f"PDF를 표시할 수 없습니다. "
+                        f"<a href='{_att}' target='_blank' rel='noopener'>새 창에서 열기</a></p>"
+                        f"</object>",
+                        unsafe_allow_html=True,
+                    )
+
+                # 3차 fallback: 직접 링크 (iframe 차단 시 백업)
+                st.caption(
+                    f"📌 PDF가 보이지 않으면 [새 창에서 열기]({_att}) "
+                    "(인쇄·다운로드는 가급적 자제해주세요)"
                 )
             elif not _mv_row.get("body_md"):
                 st.warning("본문 또는 첨부 파일이 아직 등록되지 않았습니다.")
