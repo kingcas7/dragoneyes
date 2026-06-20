@@ -18650,6 +18650,13 @@ else:
         if _inst.get("status") == "pending":
             st.warning("⚠️ 본 기관은 본부 승인 대기 중입니다.")
 
+        # ⭐ 권한 scope 판정 (메인 화면에서도 사용)
+        try:
+            _inst_scope = supabase.rpc("get_institution_scope",
+                                        {"p_inst_id": _inst_id}).execute().data
+        except Exception:
+            _inst_scope = "school"
+
         # ⭐ 메인 화면 — 두 가지 핵심 현황
         # 데이터 수집
         try:
@@ -18701,48 +18708,83 @@ else:
             _total_attend = sum(int(l.get("actual_count") or 0) for l in _lec_done)
             _ec4.metric("👥 참여 학생 (실강연)", f"{_total_attend:,}명")
 
-            # 지역별 교육 실시 현황
-            with st.expander("📍 시·도별 교육 실시 현황", expanded=False):
+            # 헬퍼 — Excel 다운로드 버튼
+            def _excel_dl(df, sheet_name, file_label, key):
+                try:
+                    import io as _io_ex
+                    import pandas as _pd_ex
+                    _buf = _io_ex.BytesIO()
+                    with _pd_ex.ExcelWriter(_buf, engine="openpyxl") as _wr:
+                        df.to_excel(_wr, sheet_name=sheet_name, index=False)
+                    st.download_button(
+                        f"📥 Excel 다운로드 ({file_label})",
+                        _buf.getvalue(),
+                        file_name=f"{file_label}_{date.today().isoformat()}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key=key,
+                    )
+                except Exception: pass
+
+            # 시·도별 온라인 유해컨텐츠 예방 교육
+            with st.expander("📍 시·도별 온라인 유해컨텐츠 예방 교육", expanded=False):
                 _lec_by_region = {}
                 for l in _lec_done:
                     _sch = _inst_map.get(l.get("institution_id"))
                     if _sch:
                         _r = _sch.get("region") or "미입력"
-                        _lec_by_region[_r] = _lec_by_region.get(_r, 0) + 1
+                        if _r not in _lec_by_region:
+                            _lec_by_region[_r] = {"강연 수":0,"참여 학생":0,"실시 학교 수":set()}
+                        _lec_by_region[_r]["강연 수"] += 1
+                        _lec_by_region[_r]["참여 학생"] += int(l.get("actual_count") or 0)
+                        _lec_by_region[_r]["실시 학교 수"].add(l.get("institution_id"))
                 if _lec_by_region:
                     import pandas as _pd_lr
-                    _df_lr = _pd_lr.DataFrame(
-                        sorted(_lec_by_region.items(), key=lambda x: x[1], reverse=True),
-                        columns=["시·도", "강연 수"]
-                    )
-                    st.bar_chart(_df_lr.set_index("시·도"))
+                    _lr_rows = [
+                        {"시·도": k, "강연 수": v["강연 수"],
+                         "참여 학생": v["참여 학생"], "실시 학교 수": len(v["실시 학교 수"])}
+                        for k, v in sorted(_lec_by_region.items(),
+                                            key=lambda x: x[1]["강연 수"], reverse=True)
+                    ]
+                    _df_lr = _pd_lr.DataFrame(_lr_rows)
+                    st.bar_chart(_df_lr.set_index("시·도")["강연 수"])
                     st.dataframe(_df_lr, use_container_width=True, hide_index=True)
+                    _excel_dl(_df_lr, "시도별 예방교육",
+                              "시도별_온라인_유해컨텐츠_예방교육", "dl_edu_region")
                 else:
                     st.caption("아직 등록된 강연이 없습니다.")
 
-            # 학교별 교육 실시 top
-            with st.expander("🏆 학교별 교육 실시 (Top 20)", expanded=False):
+            # 학교별 온라인 유해컨텐츠 예방 교육 실시 현황
+            with st.expander("🏆 학교별 온라인 유해컨텐츠 예방 교육 실시 현황", expanded=False):
                 _lec_by_school = {}
                 for l in _lec_done:
                     _sid = l.get("institution_id")
                     if _sid:
-                        _lec_by_school[_sid] = _lec_by_school.get(_sid, 0) + 1
+                        if _sid not in _lec_by_school:
+                            _lec_by_school[_sid] = {"강연 수":0,"참여 학생":0}
+                        _lec_by_school[_sid]["강연 수"] += 1
+                        _lec_by_school[_sid]["참여 학생"] += int(l.get("actual_count") or 0)
                 if _lec_by_school:
-                    _top_lec = sorted(_lec_by_school.items(), key=lambda x: x[1], reverse=True)[:20]
-                    _top_rows = []
-                    for _sid, _cnt in _top_lec:
+                    _all_rows = []
+                    for _sid, _v in sorted(_lec_by_school.items(),
+                                            key=lambda x: x[1]["강연 수"], reverse=True):
                         _sch = _inst_map.get(_sid, {})
-                        _top_rows.append({
+                        _all_rows.append({
                             "학교명": _sch.get("name","-"),
                             "지역": f"{_sch.get('region','') or ''} {_sch.get('district','') or ''}".strip(),
                             "급": {"elementary":"초","middle":"중","high":"고","special":"특수"}.get(
                                 _sch.get("type"), _sch.get("type")
                             ),
-                            "강연 수": _cnt,
+                            "강연 수": _v["강연 수"],
+                            "참여 학생": _v["참여 학생"],
                         })
                     import pandas as _pd_top
-                    st.dataframe(_pd_top.DataFrame(_top_rows),
+                    _df_top_lec = _pd_top.DataFrame(_all_rows)
+                    # 화면엔 Top 20만, 다운로드는 전체
+                    st.dataframe(_df_top_lec.head(20),
                                   use_container_width=True, hide_index=True)
+                    st.caption(f"화면 Top 20 / 전체 {len(_df_top_lec)}개 학교 (Excel은 전체)")
+                    _excel_dl(_df_top_lec, "학교별 예방교육",
+                              "학교별_온라인_유해컨텐츠_예방교육_실시현황", "dl_edu_school")
                 else:
                     st.caption("아직 강연 데이터가 없습니다.")
 
@@ -18767,60 +18809,79 @@ else:
             _cc5.metric("👨‍👩‍👧 학부모 동의",
                          f"{sum(1 for s in _stu_all if s.get('parent_consent_at')):,}명")
 
-            # 지역별 캠페인 참여 현황
+            # 시·도별 캠페인 참여 현황
             with st.expander("📍 시·도별 캠페인 참여 현황", expanded=False):
                 _camp_by_region = {}
+                _stu_to_inst = {s.get("id"): s.get("institution_id") for s in _stu_all}
+                # 학생/학교
                 for s in _stu_all:
                     _sch = _inst_map.get(s.get("institution_id"))
                     if _sch:
                         _r = _sch.get("region") or "미입력"
                         if _r not in _camp_by_region:
-                            _camp_by_region[_r] = {"학생":0,"학교":set()}
+                            _camp_by_region[_r] = {"학생":0,"학교":set(),"완료":0,"봉사":0.0}
                         _camp_by_region[_r]["학생"] += 1
                         _camp_by_region[_r]["학교"].add(s.get("institution_id"))
+                # 설문 완료
+                for r in _resp_all:
+                    _sid = _stu_to_inst.get(r.get("student_id"))
+                    _sch = _inst_map.get(_sid)
+                    if _sch:
+                        _r2 = _sch.get("region") or "미입력"
+                        if _r2 in _camp_by_region:
+                            _camp_by_region[_r2]["완료"] += 1
+                # 봉사
+                for r in _vc_all:
+                    _sch = _inst_map.get(r.get("institution_id"))
+                    if _sch and r.get("status") in ("earned","issued"):
+                        _r3 = _sch.get("region") or "미입력"
+                        if _r3 in _camp_by_region:
+                            _camp_by_region[_r3]["봉사"] += float(r.get("hours_decimal") or 0)
+
                 if _camp_by_region:
                     import pandas as _pd_cr
                     _camp_rows = [
-                        {"시·도": k, "참여 학교 수": len(v["학교"]), "참여 학생 수": v["학생"]}
+                        {"시·도": k, "참여 학교 수": len(v["학교"]),
+                         "참여 학생 수": v["학생"],
+                         "설문 완료": v["완료"],
+                         "완료율(%)": round(v["완료"]/v["학생"]*100, 1) if v["학생"] else 0,
+                         "누적 봉사(h)": round(v["봉사"], 1)}
                         for k, v in sorted(_camp_by_region.items(),
                                             key=lambda x: x[1]["학생"], reverse=True)
                     ]
                     _df_cr = _pd_cr.DataFrame(_camp_rows)
                     st.bar_chart(_df_cr.set_index("시·도")["참여 학생 수"])
                     st.dataframe(_df_cr, use_container_width=True, hide_index=True)
+                    _excel_dl(_df_cr, "시도별 캠페인 참여",
+                              "시도별_캠페인_참여_현황", "dl_camp_region")
                 else:
                     st.caption("아직 등록된 학생이 없습니다.")
 
-            # 학교별 캠페인 참여 top
-            with st.expander("🏆 학교별 캠페인 참여 (Top 20)", expanded=False):
+            # 학교별 캠페인 참여 현황
+            with st.expander("🏆 학교별 캠페인 참여 현황", expanded=False):
                 _camp_by_school = {}
-                # 학생 수
                 for s in _stu_all:
                     _sid = s.get("institution_id")
                     if _sid:
                         if _sid not in _camp_by_school:
                             _camp_by_school[_sid] = {"학생":0,"봉사":0.0,"완료":0}
                         _camp_by_school[_sid]["학생"] += 1
-                # 봉사 시간
                 for r in _vc_all:
                     _sid = r.get("institution_id")
                     if _sid and _sid in _camp_by_school and r.get("status") in ("earned","issued"):
                         _camp_by_school[_sid]["봉사"] += float(r.get("hours_decimal") or 0)
-                # 설문 완료
-                _stu_to_inst = {s.get("id"): s.get("institution_id") for s in _stu_all}
                 for r in _resp_all:
                     _sid = _stu_to_inst.get(r.get("student_id"))
                     if _sid and _sid in _camp_by_school:
                         _camp_by_school[_sid]["완료"] += 1
 
                 if _camp_by_school:
-                    _top_camp = sorted(_camp_by_school.items(),
-                                        key=lambda x: x[1]["학생"], reverse=True)[:20]
-                    _top_camp_rows = []
-                    for _sid, _v in _top_camp:
+                    _all_camp_rows = []
+                    for _sid, _v in sorted(_camp_by_school.items(),
+                                            key=lambda x: x[1]["학생"], reverse=True):
                         _sch = _inst_map.get(_sid, {})
                         _stu_n = _v["학생"]
-                        _top_camp_rows.append({
+                        _all_camp_rows.append({
                             "학교명": _sch.get("name","-"),
                             "지역": f"{_sch.get('region','') or ''} {_sch.get('district','') or ''}".strip(),
                             "급": {"elementary":"초","middle":"중","high":"고","special":"특수"}.get(
@@ -18832,8 +18893,11 @@ else:
                             "누적 봉사(h)": round(_v["봉사"], 1),
                         })
                     import pandas as _pd_tc
-                    st.dataframe(_pd_tc.DataFrame(_top_camp_rows),
-                                  use_container_width=True, hide_index=True)
+                    _df_tc = _pd_tc.DataFrame(_all_camp_rows)
+                    st.dataframe(_df_tc.head(20), use_container_width=True, hide_index=True)
+                    st.caption(f"화면 Top 20 / 전체 {len(_df_tc)}개 학교 (Excel은 전체)")
+                    _excel_dl(_df_tc, "학교별 캠페인 참여",
+                              "학교별_캠페인_참여_현황", "dl_camp_school")
                 else:
                     st.caption("아직 참여 학생이 없습니다.")
 
@@ -19033,9 +19097,106 @@ else:
             st.divider()
 
         elif _qa_view == "our_school":
+            st.markdown(f"### 🏫 {_inst.get('name','우리 학교')} — 학년·반별 현황")
+            # 우리 학교 학생을 학년/반별로 집계
+            try:
+                _our_stu = supabase.table("users").select(
+                    "id, grade, class_no, parent_consent_at"
+                ).eq("institution_id", _inst_id).eq("role_v2", "student")\
+                 .is_("deleted_at", "null").execute().data or []
+            except Exception:
+                _our_stu = []
+            try:
+                _our_vc = supabase.table("volunteer_credits").select(
+                    "student_id, hours_decimal, status"
+                ).eq("institution_id", _inst_id).execute().data or []
+            except Exception:
+                _our_vc = []
+            _our_stu_ids = {s["id"] for s in _our_stu}
+            try:
+                _our_resp = supabase.table("survey_responses").select(
+                    "student_id, status"
+                ).in_("student_id", list(_our_stu_ids)).execute().data or [] if _our_stu_ids else []
+            except Exception:
+                _our_resp = []
+
+            if not _our_stu:
+                st.info("본교에 등록된 학생이 아직 없습니다. **📤 학생 일괄 등록** 탭에서 추가해주세요.")
+            else:
+                # 학년/반별 집계
+                _by_gc = {}
+                _stu_lookup = {s["id"]: s for s in _our_stu}
+                for s in _our_stu:
+                    _g = s.get("grade") or 0
+                    _c = s.get("class_no") or 0
+                    _key = (_g, _c)
+                    if _key not in _by_gc:
+                        _by_gc[_key] = {"학생":0,"동의":0,"완료":0,"봉사":0.0}
+                    _by_gc[_key]["학생"] += 1
+                    if s.get("parent_consent_at"):
+                        _by_gc[_key]["동의"] += 1
+                for r in _our_vc:
+                    _s = _stu_lookup.get(r.get("student_id"))
+                    if _s and r.get("status") in ("earned","issued"):
+                        _key = (_s.get("grade") or 0, _s.get("class_no") or 0)
+                        if _key in _by_gc:
+                            _by_gc[_key]["봉사"] += float(r.get("hours_decimal") or 0)
+                _compl_set = {r.get("student_id") for r in _our_resp if r.get("status") == "completed"}
+                for s in _our_stu:
+                    if s["id"] in _compl_set:
+                        _key = (s.get("grade") or 0, s.get("class_no") or 0)
+                        if _key in _by_gc:
+                            _by_gc[_key]["완료"] += 1
+
+                # 학년/반별 표
+                import pandas as _pd_our
+                _our_rows = [
+                    {"학년": g if g else "-", "반": c if c else "-",
+                     "학생 수": v["학생"], "학부모 동의": v["동의"],
+                     "설문 완료": v["완료"],
+                     "완료율(%)": round(v["완료"]/v["학생"]*100, 1) if v["학생"] else 0,
+                     "누적 봉사(h)": round(v["봉사"], 1)}
+                    for (g, c), v in sorted(_by_gc.items())
+                ]
+                _df_our = _pd_our.DataFrame(_our_rows)
+                st.dataframe(_df_our, use_container_width=True, hide_index=True)
+
+                # 학년만 별도 집계
+                _by_g = {}
+                for (g, c), v in _by_gc.items():
+                    if g not in _by_g:
+                        _by_g[g] = {"학생":0,"동의":0,"완료":0,"봉사":0.0}
+                    for k in _by_g[g]: _by_g[g][k] += v[k]
+                _grade_rows = [
+                    {"학년": g if g else "-",
+                     "반 수": sum(1 for (gg, c) in _by_gc.keys() if gg == g),
+                     "학생 수": v["학생"], "학부모 동의": v["동의"],
+                     "설문 완료": v["완료"],
+                     "완료율(%)": round(v["완료"]/v["학생"]*100, 1) if v["학생"] else 0,
+                     "누적 봉사(h)": round(v["봉사"], 1)}
+                    for g, v in sorted(_by_g.items())
+                ]
+                _df_grade = _pd_our.DataFrame(_grade_rows)
+
+                # Excel 다운로드 (학년 시트 + 학년/반 시트)
+                try:
+                    import io as _io_our
+                    _buf_our = _io_our.BytesIO()
+                    with _pd_our.ExcelWriter(_buf_our, engine="openpyxl") as _wr:
+                        _df_grade.to_excel(_wr, sheet_name="학년별 요약", index=False)
+                        _df_our.to_excel(_wr, sheet_name="학년·반별 상세", index=False)
+                    st.download_button(
+                        "📥 우리 학교 학년·반별 Excel 다운로드",
+                        _buf_our.getvalue(),
+                        file_name=f"우리학교_학년반별_현황_{_inst.get('name','')}_{date.today().isoformat()}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key="dl_our_school",
+                    )
+                except Exception: pass
+
             st.info(
-                "💡 아래 **9개 상세 탭** 중 '👨‍🎓 학생 정보 관리', '🎓 캠페인 참여 현황', '📢 외부강사 강연'에서 "
-                "본교 캠페인 현황을 확인할 수 있습니다."
+                "💡 더 상세한 정보는 아래 **상세 탭**에서 확인하세요: "
+                "'👨‍🎓 학생 정보 관리' / '🎓 캠페인 참여 현황' / '📢 외부강사 강연' / '📝 만족도 조사'"
             )
             if st.button("← 메인으로 돌아가기", key="qa_back_our"):
                 st.session_state.pop("_inst_dash_view", None)
@@ -19067,13 +19228,8 @@ else:
         kc3.metric("⏳ 동의 대기", f"{_pending_consent}명")
         kc4.metric("📚 학년 수", f"{len(_by_grade)}개")
 
-        # 탭: 명단 / 일괄 등록 / 진행률 / 캠페인 참여 현황
-        # 권한 scope 판정 (계층 + 지역 공유 탭 표시 여부)
-        try:
-            _inst_scope = supabase.rpc("get_institution_scope",
-                                        {"p_inst_id": _inst_id}).execute().data
-        except Exception:
-            _inst_scope = "school"
+        # 탭: 명단 / 일괄 등록 / 진행률 / 캠페인 참여 현황 + scope에 따른 추가 탭
+        # (_inst_scope는 메인 화면 시작 전에 이미 정의됨)
 
         # 상급 기관(metro/district/nation)이면 추가 탭 (참여 분류·강연·만족도)
         if _inst_scope in ("nation", "metro", "district"):
