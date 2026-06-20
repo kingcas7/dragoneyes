@@ -16886,7 +16886,7 @@ else:
         # ⭐ 본부 admin 전용 — 기관 관리 / 자료 관리 / 안내 컨텐츠 관리 등 빠른 진입
         if _is_hq_admin:
             with st.expander("🛠️ 본부 관리자 메뉴 (HQ Admin)", expanded=False):
-                _ha1, _ha2, _ha3 = st.columns(3)
+                _ha1, _ha2, _ha3, _ha4 = st.columns(4)
                 with _ha1:
                     if st.button("🏛️ 교육기관 관리",
                                   use_container_width=True,
@@ -16907,6 +16907,14 @@ else:
                                   key="hq_mat_mgmt",
                                   help="campaign_materials / campaign_overview_content CRUD"):
                         st.session_state["current_page"] = "campaign_student_dashboard"
+                        st.rerun()
+                with _ha4:
+                    if st.button("🔔 공지 관리",
+                                  use_container_width=True,
+                                  key="hq_notice_mgmt",
+                                  help="공지 발송·이력·이메일 큐 (전체 사용자 대상)"):
+                        st.session_state["current_page"] = "institution_management"
+                        st.session_state["_im_tab"] = "notices"
                         st.rerun()
 
         # ── 하단: 📊 드래곤아이즈 모니터링 통계 보기 + 캠페인 현황 보기 ──
