@@ -22471,26 +22471,14 @@ else:
             _stu_band = None
 
         _default_band = _stu_band if (_role_ml == "student" and _stu_band in ("elementary","middle","high")) else "전체"
-        _f_band = st.radio(
-            "학년대 필터",
-            _band_options,
-            format_func=lambda x: _band_labels.get(x, x),
-            horizontal=True,
-            index=_band_options.index(_default_band) if _default_band in _band_options else 0,
-            key="ml_band_filter",
-        )
 
-        # 자료 조회
+        # 자료 조회 (KPI 표시 전 미리)
         try:
-            _mats = supabase.rpc(
+            _mats_all = supabase.rpc(
                 "get_visible_materials", {"p_user_id": _u_ml.get("id")}
             ).execute().data or []
         except Exception as _e:
-            _mats = []; st.error(f"학습자료 조회 실패: {_e}")
-
-        # 학년대 필터 적용
-        if _f_band != "전체":
-            _mats = [m for m in _mats if m.get("target_band") in (_f_band, "all")]
+            _mats_all = []; st.error(f"학습자료 조회 실패: {_e}")
 
         # 프리미엄 접근 권한
         try:
@@ -22500,14 +22488,27 @@ else:
         except Exception:
             _has_premium = False
 
-        # KPI 안내
-        _kc1, _kc2, _kc3 = st.columns(3)
-        _kc1.metric("📖 자료 수", f"{len(_mats)}건")
-        _kc2.metric("🆓 기본(무료)",
-                     f"{sum(1 for m in _mats if m.get('tier')=='free')}건")
-        _kc3.metric("⭐ 프리미엄",
-                     f"{sum(1 for m in _mats if m.get('tier')=='premium')}건"
-                     + (" · ✅ 해금" if _has_premium else " · 🔒 결제 필요"))
+        # ⭐ 필터(좌) + KPI 3종(우) 같은 줄
+        _flt_col, _kpi_col = st.columns([2, 3])
+        with _flt_col:
+            _f_band = st.radio(
+                "학년대 필터",
+                _band_options,
+                format_func=lambda x: _band_labels.get(x, x),
+                horizontal=True,
+                index=_band_options.index(_default_band) if _default_band in _band_options else 0,
+                key="ml_band_filter",
+            )
+        with _kpi_col:
+            _mats = (_mats_all if _f_band == "전체"
+                      else [m for m in _mats_all if m.get("target_band") in (_f_band, "all")])
+            _kc1, _kc2, _kc3 = st.columns(3)
+            _kc1.metric("📖 자료 수", f"{len(_mats)}건")
+            _kc2.metric("🆓 기본(무료)",
+                         f"{sum(1 for m in _mats if m.get('tier')=='free')}건")
+            _kc3.metric("⭐ 프리미엄",
+                         f"{sum(1 for m in _mats if m.get('tier')=='premium')}건"
+                         + (" · ✅" if _has_premium else " · 🔒"))
 
         st.markdown("")
 
@@ -22586,49 +22587,54 @@ else:
                     st.session_state["_ml_view_id"] = m.get("id")
                     st.rerun()
 
-        # ── 기본(무료) 학습자료 — 50% 크기, 6열 그리드 ────────
+        # ── 기본(무료) 학습자료 — 카드 3개 중앙 정렬 ───────────
         st.markdown("### 🆓 기본 학습자료")
         st.caption("학년대별 무료 안전 교육 자료. 누구나 열람 가능합니다.")
         if not _free_mats:
             st.info("기본 학습자료가 없습니다.")
         else:
-            # 6열 그리드 (3개면 절반만 채움)
-            _per_row_free = 6
-            for i in range(0, len(_free_mats), _per_row_free):
-                _row = _free_mats[i:i+_per_row_free]
-                _cols = st.columns(_per_row_free)
-                for j, m in enumerate(_row):
-                    with _cols[j]:
+            # 카드 사이 간격을 위한 spacer + 좌우 spacer로 중앙 정렬
+            # 3개일 때: [spacer, card, gap, card, gap, card, spacer]
+            _n = len(_free_mats)
+            if _n <= 3:
+                # 좌우 spacer로 중앙 정렬, 카드 사이에 gap
+                _ratios = [1] + [2, 0.3] * _n
+                _ratios[-1] = 1  # 마지막은 spacer
+                _cols = st.columns(_ratios)
+                # cols 인덱스: 0=spacer, 1=card1, 2=gap, 3=card2, 4=gap, 5=card3, 6=spacer
+                for idx, m in enumerate(_free_mats):
+                    with _cols[1 + idx*2]:
                         _render_mat_card(m, compact=True)
-                st.markdown("")
+            else:
+                # 4개 이상이면 자동 그리드
+                _per_row_free = 6
+                for i in range(0, _n, _per_row_free):
+                    _row = _free_mats[i:i+_per_row_free]
+                    _cols = st.columns(_per_row_free)
+                    for j, m in enumerate(_row):
+                        with _cols[j]:
+                            _render_mat_card(m, compact=True)
+                    st.markdown("")
 
-        st.divider()
+        st.markdown("")
 
         # ── 프리미엄 학습자료 (공통 — 학년대 무관) ─────────────
         st.markdown("### ⭐ 프리미엄 학습자료 — 공통")
-        _premium_caption = (
-            "심화 학습 자료입니다. 학부모 결제(연 17,000원) 또는 학교 계약으로 해금됩니다. "
-            "학년대 구분 없이 모든 학생이 열람할 수 있습니다."
+        _pcap_state = "✅ 해금 상태" if _has_premium else "🔒 잠금 상태"
+        st.caption(
+            f"심화 학습 자료. 학부모 결제(연 17,000원) 또는 학교 계약으로 해금. "
+            f"학년대 무관 공통. — {_pcap_state}"
         )
-        if _has_premium:
-            _premium_caption += " — ✅ 현재 **해금 상태**입니다."
-        else:
-            _premium_caption += " — 🔒 현재 **잠금 상태**입니다."
-        st.caption(_premium_caption)
 
         if not _premium_mats:
-            # placeholder — 프리미엄 자료가 아직 없거나 비활성
+            # placeholder — 최소화된 컴팩트 박스
             _pl_bg = "linear-gradient(135deg,#fef3c7,#fde68a)"
             st.markdown(
-                f"<div style='background:{_pl_bg};border:2px dashed #f59e0b;"
-                f"border-radius:14px;padding:36px 24px;text-align:center;'>"
-                f"<div style='font-size:3.5rem;'>⭐</div>"
-                f"<div style='font-size:1.3rem;font-weight:700;color:#92400e;"
-                f"margin:10px 0 6px;'>프리미엄 학습자료 — 공통</div>"
-                f"<div style='color:#0f172a;font-size:0.95rem;line-height:1.6;'>"
-                f"심화 콘텐츠가 곧 추가됩니다.<br>"
-                f"학부모 연 구독(17,000원) 또는 학교 계약으로 사용 시 자동 해금됩니다."
-                f"</div></div>",
+                f"<div style='background:{_pl_bg};border:1px dashed #f59e0b;"
+                f"border-radius:8px;padding:10px 16px;text-align:center;"
+                f"font-size:0.88rem;color:#92400e;'>"
+                f"⭐ 심화 콘텐츠가 곧 추가됩니다."
+                f"</div>",
                 unsafe_allow_html=True,
             )
         else:
