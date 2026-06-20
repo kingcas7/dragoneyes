@@ -18639,13 +18639,257 @@ else:
             "youth_facility": "청소년 교육시설", "other": "기타 교육기관",
         }.get(_inst.get("type"), _inst.get("type"))
 
+        # 지역 표시 — district None이면 시·도만
+        _region_disp = (_inst.get('region','') or '').strip()
+        _district_disp = (_inst.get('district','') or '').strip()
+        _loc_str = (_region_disp + " " + _district_disp).strip() if _district_disp else _region_disp
         st.markdown(
             f"#### 🏛️ {_inst.get('name','')} "
-            f"`{_type_label}` · {_inst.get('region','')} {_inst.get('district','')}"
+            f"`{_type_label}` · {_loc_str}"
         )
         if _inst.get("status") == "pending":
             st.warning("⚠️ 본 기관은 본부 승인 대기 중입니다.")
+
+        # ⭐ 메인 화면 — 전국 캠페인 현황 (모든 사용자 공유 정보)
+        with st.container(border=True):
+            st.markdown("##### 🇰🇷 전국 캠페인 현황")
+            try:
+                _nation_stats = {
+                    "schools": supabase.table("institutions").select(
+                        "id", count="exact"
+                    ).in_("type", ["elementary","middle","high","special","youth_facility"])\
+                     .is_("deleted_at", "null").execute().count or 0,
+                    "students": supabase.table("users").select(
+                        "id", count="exact"
+                    ).eq("role_v2", "student").is_("deleted_at", "null").execute().count or 0,
+                    "responses": supabase.table("survey_responses").select(
+                        "id", count="exact"
+                    ).eq("status", "completed").execute().count or 0,
+                    "lectures": supabase.table("institution_lectures").select(
+                        "id", count="exact"
+                    ).eq("status", "completed").execute().count or 0,
+                }
+                # 전국 봉사 시간 합
+                _vc_all = supabase.table("volunteer_credits").select(
+                    "hours_decimal, status"
+                ).limit(50000).execute().data or []
+                _nation_h = sum(float(r.get("hours_decimal") or 0) for r in _vc_all
+                                 if r.get("status") in ("earned","issued"))
+            except Exception:
+                _nation_stats = {"schools":0,"students":0,"responses":0,"lectures":0}
+                _nation_h = 0.0
+
+            _nk1, _nk2, _nk3, _nk4, _nk5 = st.columns(5)
+            _nk1.metric("🏫 등록 학교", f"{_nation_stats['schools']:,}")
+            _nk2.metric("🎒 등록 학생", f"{_nation_stats['students']:,}명")
+            _nk3.metric("✅ 설문 완료", f"{_nation_stats['responses']:,}건")
+            _nk4.metric("🕐 누적 봉사", f"{_nation_h:.1f}h")
+            _nk5.metric("📢 강연 실시", f"{_nation_stats['lectures']:,}회")
+
+        st.markdown("")
+
+        # ⭐ 빠른 진입 아이콘 3개
+        st.markdown("##### 🎯 빠른 진입")
+        _qa1, _qa2, _qa3 = st.columns(3)
+        with _qa1:
+            with st.container(border=True):
+                st.markdown("### 🏫 우리 학교 현황")
+                st.caption("본교 학생·봉사·강연·만족도")
+                if st.button("→ 우리 학교 보기", key="qa_our_school",
+                              type="primary", use_container_width=True):
+                    st.session_state["_inst_dash_view"] = "our_school"
+                    st.rerun()
+        with _qa2:
+            with st.container(border=True):
+                st.markdown("### 🌐 관할 학교들")
+                _scope_note = {
+                    "nation":"전국","metro":f"{_region_disp} 시·도 내",
+                    "district":f"{_loc_str} 내","school":"-"
+                }.get(_inst_scope, "-")
+                st.caption(f"{_scope_note} 학교 캠페인 비교")
+                if st.button("→ 관할 보기", key="qa_my_region",
+                              type="primary", use_container_width=True,
+                              disabled=(_inst_scope == "school")):
+                    st.session_state["_inst_dash_view"] = "my_region"
+                    st.rerun()
+        with _qa3:
+            with st.container(border=True):
+                st.markdown("### 🗺️ 타지역 현황")
+                st.caption("다른 시·도/시·군·구 통계 비교")
+                if st.button("→ 타지역 보기", key="qa_other_region",
+                              type="primary", use_container_width=True):
+                    st.session_state["_inst_dash_view"] = "other_region"
+                    st.rerun()
+
         st.divider()
+
+        # 빠른 진입 결과 표시
+        _qa_view = st.session_state.get("_inst_dash_view")
+        if _qa_view == "my_region" and _inst_scope in ("nation","metro","district"):
+            # 관할 학교 list (학교급별/정렬/엑셀)
+            st.markdown(f"### 🌐 관할 학교 캠페인 현황")
+            try:
+                _region_stats = supabase.rpc(
+                    "get_campaign_stats_for_inst", {"p_inst_id": _inst_id}
+                ).execute().data or []
+            except Exception as _e:
+                _region_stats = []
+
+            if not _region_stats:
+                st.info(
+                    "권한 범위 내 학교가 없습니다. NEIS API 키 발급 후 학교 import 시 자동으로 채워집니다."
+                )
+            else:
+                # 학교급별 통계
+                _rs_by_type = {"elementary":{"count":0,"stu":0,"compl":0,"h":0.0},
+                               "middle":{"count":0,"stu":0,"compl":0,"h":0.0},
+                               "high":{"count":0,"stu":0,"compl":0,"h":0.0},
+                               "special":{"count":0,"stu":0,"compl":0,"h":0.0}}
+                for r in _region_stats:
+                    _t = r.get("inst_type")
+                    if _t in _rs_by_type:
+                        _rs_by_type[_t]["count"] += 1
+                        _rs_by_type[_t]["stu"] += int(r.get("student_count") or 0)
+                        _rs_by_type[_t]["compl"] += int(r.get("survey_completed_count") or 0)
+                        _rs_by_type[_t]["h"] += float(r.get("total_hours") or 0)
+
+                st.markdown("##### 📊 학교급별 요약")
+                _rsc1, _rsc2, _rsc3, _rsc4 = st.columns(4)
+                for _i, (_t, _v) in enumerate(_rs_by_type.items()):
+                    _lbl = {"elementary":"🎒 초등","middle":"📚 중학",
+                            "high":"📖 고등","special":"♿ 특수"}.get(_t, _t)
+                    _participated = sum(1 for r in _region_stats
+                                         if r.get("inst_type")==_t and int(r.get("student_count") or 0) > 0)
+                    [_rsc1, _rsc2, _rsc3, _rsc4][_i].metric(
+                        _lbl, f"{_participated}/{_v['count']}",
+                        f"{_v['stu']:,}명 · {_v['h']:.1f}h"
+                    )
+
+                st.divider()
+
+                # 필터 + 정렬
+                _f1, _f2, _f3 = st.columns([2,2,2])
+                with _f1:
+                    _rs_band = st.selectbox(
+                        "학교급 필터",
+                        ["전체","elementary","middle","high","special"],
+                        format_func=lambda x: {"전체":"전체","elementary":"초","middle":"중",
+                                               "high":"고","special":"특수"}.get(x, x),
+                        key="rs_band_filter"
+                    )
+                with _f2:
+                    _rs_sort = st.selectbox(
+                        "정렬",
+                        ["참여율 ↓","참여율 ↑","봉사 시간 ↓","학생 수 ↓","학교명 ↑","지역 ↑"],
+                        key="rs_sort"
+                    )
+                with _f3:
+                    _rs_only_part = st.checkbox("✅ 참여 학교만", key="rs_only_part")
+
+                _rs_show = list(_region_stats)
+                if _rs_band != "전체":
+                    _rs_show = [r for r in _rs_show if r.get("inst_type") == _rs_band]
+                if _rs_only_part:
+                    _rs_show = [r for r in _rs_show if int(r.get("student_count") or 0) > 0]
+
+                # 정렬
+                if _rs_sort.startswith("참여율"):
+                    _rs_show.sort(key=lambda r: float(r.get("completion_rate") or 0),
+                                   reverse=(_rs_sort.endswith("↓")))
+                elif "봉사 시간" in _rs_sort:
+                    _rs_show.sort(key=lambda r: float(r.get("total_hours") or 0), reverse=True)
+                elif "학생 수" in _rs_sort:
+                    _rs_show.sort(key=lambda r: int(r.get("student_count") or 0), reverse=True)
+                elif "학교명" in _rs_sort:
+                    _rs_show.sort(key=lambda r: r.get("inst_name") or "")
+                elif "지역" in _rs_sort:
+                    _rs_show.sort(key=lambda r: (r.get("region") or "", r.get("district") or ""))
+
+                st.caption(f"표시 {len(_rs_show)}건 / 전체 {len(_region_stats)}건")
+
+                # 표 + Excel export
+                import pandas as _pd_rs
+                _type_lbl_rs = {"elementary":"초","middle":"중","high":"고","special":"특수","youth_facility":"시설"}
+                _rs_rows = [{
+                    "지역": f"{r.get('region','')} {r.get('district','') or ''}".strip(),
+                    "학교명": r.get("inst_name"),
+                    "급": _type_lbl_rs.get(r.get("inst_type"), r.get("inst_type")),
+                    "학생 수": int(r.get("student_count") or 0),
+                    "설문 완료": int(r.get("survey_completed_count") or 0),
+                    "완료율(%)": float(r.get("completion_rate") or 0),
+                    "누적 봉사(h)": float(r.get("total_hours") or 0),
+                    "인증 봉사(h)": float(r.get("issued_hours") or 0),
+                    "친구 응답": int(r.get("friend_response_count") or 0),
+                } for r in _rs_show]
+                _df_rs = _pd_rs.DataFrame(_rs_rows)
+                st.dataframe(_df_rs, use_container_width=True, hide_index=True)
+
+                # Excel export
+                try:
+                    import io as _io_rs
+                    _buf_rs = _io_rs.BytesIO()
+                    with _pd_rs.ExcelWriter(_buf_rs, engine="openpyxl") as _wr:
+                        _df_rs.to_excel(_wr, sheet_name="관할 학교 현황", index=False)
+                    st.download_button(
+                        "📥 Excel 다운로드 (관할 학교 캠페인 현황)",
+                        _buf_rs.getvalue(),
+                        file_name=f"campaign_region_{_inst.get('name','region')}_{date.today().isoformat()}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    )
+                except Exception: pass
+
+            if st.button("← 메인으로 돌아가기", key="qa_back_my"):
+                st.session_state.pop("_inst_dash_view", None)
+                st.rerun()
+            st.divider()
+
+        elif _qa_view == "other_region":
+            st.markdown("### 🗺️ 타지역 캠페인 현황 비교")
+            try:
+                _other_offices = supabase.table("institutions").select(
+                    "id, name, region"
+                ).eq("type", "metro_office").is_("deleted_at", "null").order("region").execute().data or []
+            except Exception:
+                _other_offices = []
+            if _other_offices:
+                _other_opts = {f"{r['name']} ({r.get('region','')})": r["id"] for r in _other_offices}
+                _other_sel = st.selectbox("시·도 교육청 선택", list(_other_opts.keys()), key="other_office_sel")
+                _other_inst_id = _other_opts[_other_sel]
+                try:
+                    _other_stats = supabase.rpc(
+                        "get_campaign_stats_for_inst", {"p_inst_id": _other_inst_id}
+                    ).execute().data or []
+                except Exception:
+                    _other_stats = []
+                if _other_stats:
+                    import pandas as _pd_o
+                    _o_rows = [{
+                        "지역": f"{r.get('region','')} {r.get('district','') or ''}".strip(),
+                        "학교명": r.get("inst_name"),
+                        "급": _type_lbl_rs.get(r.get("inst_type"), r.get("inst_type")),
+                        "학생": int(r.get("student_count") or 0),
+                        "완료": int(r.get("survey_completed_count") or 0),
+                        "완료율(%)": float(r.get("completion_rate") or 0),
+                        "봉사(h)": float(r.get("total_hours") or 0),
+                    } for r in _other_stats]
+                    _df_o = _pd_o.DataFrame(_o_rows)
+                    st.dataframe(_df_o, use_container_width=True, hide_index=True)
+                else:
+                    st.info("선택한 지역에 등록된 학교/학생 데이터가 아직 없습니다.")
+            if st.button("← 메인으로 돌아가기", key="qa_back_other"):
+                st.session_state.pop("_inst_dash_view", None)
+                st.rerun()
+            st.divider()
+
+        elif _qa_view == "our_school":
+            st.info(
+                "💡 아래 **9개 상세 탭** 중 '👨‍🎓 학생 정보 관리', '🎓 캠페인 참여 현황', '📢 외부강사 강연'에서 "
+                "본교 캠페인 현황을 확인할 수 있습니다."
+            )
+            if st.button("← 메인으로 돌아가기", key="qa_back_our"):
+                st.session_state.pop("_inst_dash_view", None)
+                st.rerun()
+            st.divider()
 
         # 소속 학생 조회
         try:
