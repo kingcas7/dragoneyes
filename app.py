@@ -18121,9 +18121,9 @@ else:
         _prev_band = st.radio(
             "학년대 선택",
             ["elementary", "middle", "high"],
-            format_func=lambda x: {"elementary":"🎒 초등학생용 (20문항 → 4시간)",
-                                    "middle":"📚 중학생용 (30문항 → 5시간)",
-                                    "high":"🎓 고등학생용 (50문항 → 8시간)"}.get(x, x),
+            format_func=lambda x: {"elementary":"🎒 초등학생용 (20명 → 4시간)",
+                                    "middle":"📚 중학생용 (30명 → 5시간)",
+                                    "high":"🎓 고등학생용 (50명 → 8시간)"}.get(x, x),
             horizontal=True,
             index=["elementary","middle","high"].index(_prev_band_default),
             key="csd_prev_band",
