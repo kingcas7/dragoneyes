@@ -151,6 +151,7 @@ $$;
 -- 학부모: 모든 학년대 자료 (자녀들이 학년대별로 다르므로)
 -- institution_admin/admin: 전체
 -- locked = NOT 본인의 premium 접근 권한 (단, tier='premium'일 때만)
+-- SQL 함수로 작성하여 RETURNS TABLE OUT 변수와 컬럼 모호성 회피
 CREATE OR REPLACE FUNCTION public.get_visible_materials(p_user_id UUID)
 RETURNS TABLE (
     id              UUID,
@@ -169,46 +170,39 @@ RETURNS TABLE (
     view_count      INT,
     published_at    TIMESTAMPTZ,
     is_locked       BOOLEAN
-) LANGUAGE plpgsql STABLE AS $$
-DECLARE
-    v_user        public.users;
-    v_has_premium BOOLEAN := FALSE;
-    v_band        TEXT := NULL;
-BEGIN
-    SELECT * INTO v_user FROM public.users WHERE id = p_user_id;
-    IF v_user IS NULL THEN RETURN; END IF;
-
-    v_has_premium := public.check_premium_access(p_user_id);
-
-    -- 학생 학년대 판정
-    IF v_user.role_v2 = 'student' THEN
-        v_band := public.get_student_band(p_user_id);
-    END IF;
-
-    RETURN QUERY
+) LANGUAGE SQL STABLE AS $$
+    WITH ui AS (
+        SELECT
+            u.role_v2 AS role_v2,
+            public.check_premium_access(p_user_id) AS has_premium,
+            CASE WHEN u.role_v2 = 'student'
+                 THEN public.get_student_band(p_user_id)
+                 ELSE NULL
+            END AS band
+        FROM public.users u
+        WHERE u.id = p_user_id
+    )
     SELECT
         m.id, m.slug, m.chapter_no, m.target_band, m.tier, m.category_tag,
         m.title, m.summary, m.cover_emoji, m.cover_color, m.reading_time_min,
         (m.body_md IS NOT NULL AND m.body_md <> '') AS has_body,
         (m.attachment_url IS NOT NULL AND m.attachment_url <> '') AS has_attachment,
         m.view_count, m.published_at,
-        -- 잠금 판정
         CASE
             WHEN m.tier = 'free' THEN FALSE
-            WHEN v_has_premium THEN FALSE
+            WHEN ui.has_premium THEN FALSE
             ELSE TRUE
         END AS is_locked
     FROM public.campaign_learning_materials m
+    CROSS JOIN ui
     WHERE m.is_active = TRUE
       AND (
-        -- 학생: 학년대 매칭
-        v_user.role_v2 <> 'student'
+        ui.role_v2 IS DISTINCT FROM 'student'
         OR m.target_band = 'all'
-        OR m.target_band = v_band
-        OR v_band IS NULL  -- 학년대 판정 실패 시 'all'만
+        OR m.target_band = ui.band
+        OR ui.band IS NULL
       )
     ORDER BY m.chapter_no, m.published_at DESC;
-END;
 $$;
 
 
