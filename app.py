@@ -18881,10 +18881,24 @@ else:
         _region_disp = (_inst.get('region','') or '').strip()
         _district_disp = (_inst.get('district','') or '').strip()
         _loc_str = (_region_disp + " " + _district_disp).strip() if _district_disp else _region_disp
-        st.markdown(
-            f"#### 🏛️ {_inst.get('name','')} "
-            f"`{_type_label}` · {_loc_str}"
-        )
+
+        # ⭐ 본부 admin 미리보기 모드는 전국 캠페인 타이틀로 표시 (기관명은 캡션으로)
+        from datetime import datetime as _dt_title
+        _now_t = _dt_title.now()
+        _curr_sy = _now_t.year if _now_t.month >= 3 else _now_t.year - 1
+        if _is_hq_admin_inst:
+            st.markdown(
+                f"### 🎯 {_curr_sy}년 전국 — 드래곤아이즈 온라인 유해컨텐츠 근절 캠페인 현황"
+            )
+            st.caption(
+                f"🔍 미리보기 기관: **{_inst.get('name','')}** · "
+                f"`{_type_label}` · {_loc_str}"
+            )
+        else:
+            st.markdown(
+                f"#### 🏛️ {_inst.get('name','')} "
+                f"`{_type_label}` · {_loc_str}"
+            )
         if _inst.get("status") == "pending":
             st.warning("⚠️ 본 기관은 본부 승인 대기 중입니다.")
 
