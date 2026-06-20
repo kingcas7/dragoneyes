@@ -17557,33 +17557,65 @@ else:
                 _grade_disp = f"{_grade}학년 {_class_no}반" if _grade and _class_no else (f"{_grade}학년" if _grade else "")
 
                 with st.container(border=True):
-                    _hc1, _hc2 = st.columns([4, 1])
-                    with _hc1:
-                        st.markdown(f"**📜 {_act_title}**")
-                        st.caption(
-                            f"시리얼: `{_serial}` · 발급일: {_issued_at} · "
-                            f"{_school} {_grade_disp} · 봉사시간 **{_hours:.1f}시간** · "
-                            f"재출력 {_reprint}회"
-                        )
-                    with _hc2:
-                        _show_key = f"csd_show_cert_{_cert_id}"
-                        if st.button("🖨️ 인증서 열기/인쇄", key=f"csd_open_cert_{_cert_id}",
-                                     use_container_width=True, type="primary"):
+                    st.markdown(f"**📜 {_act_title}**")
+                    st.caption(
+                        f"시리얼: `{_serial}` · 발급일: {_issued_at} · "
+                        f"{_school} {_grade_disp} · 봉사시간 **{_hours:.1f}시간** · "
+                        f"재출력 {_reprint}회"
+                    )
+                    _hca, _hcb = st.columns(2)
+                    with _hca:
+                        _show_std = f"csd_cert_std_{_cert_id}"
+                        if st.button(
+                            "🖨️ 표준 인증서\n(드래곤아이즈 직인)",
+                            key=f"csd_open_std_{_cert_id}",
+                            use_container_width=True, type="primary"
+                        ):
                             try:
-                                supabase.rpc(
-                                    "bump_certificate_reprint", {"p_cert_id": _cert_id}
-                                ).execute()
-                            except Exception:
-                                pass
-                            st.session_state[_show_key] = True
+                                supabase.rpc("bump_certificate_reprint",
+                                              {"p_cert_id": _cert_id}).execute()
+                            except Exception: pass
+                            st.session_state[_show_std] = True
+                            st.session_state.pop(f"csd_cert_sch_{_cert_id}", None)
+                            st.rerun()
+                    with _hcb:
+                        _show_sch = f"csd_cert_sch_{_cert_id}"
+                        if st.button(
+                            "🏫 학교 제출용\n(학교장 확인란 포함)",
+                            key=f"csd_open_sch_{_cert_id}",
+                            use_container_width=True
+                        ):
+                            try:
+                                supabase.rpc("bump_certificate_reprint",
+                                              {"p_cert_id": _cert_id}).execute()
+                            except Exception: pass
+                            st.session_state[_show_sch] = True
+                            st.session_state.pop(f"csd_cert_std_{_cert_id}", None)
                             st.rerun()
 
-                    if st.session_state.get(_show_key):
+                    _mode = None
+                    if st.session_state.get(_show_std): _mode = "std"
+                    elif st.session_state.get(_show_sch): _mode = "sch"
+
+                    if _mode:
                         _verify_url = f"https://dragoneyes-production.up.railway.app/?cert={_serial}"
-                        _issuer_line = f"{_issuer_title} {_issuer}".strip() if _issuer_title else _issuer
-                        _cert_html = (
-                            "<div style='border:8px double #1d4ed8;padding:48px 56px;"
-                            "background:#fffefb;font-family:\"Nanum Myeongjo\",serif;color:#0f172a;'>"
+                        # ── 드래곤아이즈 법인 직인 (SVG placeholder, 추후 PNG 교체) ──
+                        _de_seal = (
+                            "<svg width='90' height='90' viewBox='0 0 100 100' "
+                            "xmlns='http://www.w3.org/2000/svg' "
+                            "style='display:inline-block;vertical-align:middle;margin-left:14px;'>"
+                            "<circle cx='50' cy='50' r='46' fill='none' stroke='#b91c1c' stroke-width='3'/>"
+                            "<circle cx='50' cy='50' r='40' fill='none' stroke='#b91c1c' stroke-width='1.5'/>"
+                            "<text x='50' y='28' text-anchor='middle' fill='#b91c1c' "
+                            "font-family='serif' font-size='10' font-weight='bold'>드래곤아이즈</text>"
+                            "<text x='50' y='58' text-anchor='middle' fill='#b91c1c' "
+                            "font-family='serif' font-size='22' font-weight='bold'>代 表</text>"
+                            "<text x='50' y='78' text-anchor='middle' fill='#b91c1c' "
+                            "font-family='serif' font-size='10' font-weight='bold'>理 事 之 印</text>"
+                            "</svg>"
+                        )
+                        # ── 본문 (공통) ──
+                        _body = (
                             "<div style='text-align:center;font-size:14px;color:#64748b;letter-spacing:8px;'>CERTIFICATE</div>"
                             "<div style='text-align:center;font-size:36px;font-weight:bold;margin:12px 0 4px;'>"
                             "봉 사 활 동 인 증 서</div>"
@@ -17599,17 +17631,56 @@ else:
                             "위 학생은 드래곤아이즈 주식회사가 운영하는 <b>온라인 유해컨텐츠 근절 캠페인</b>에<br>"
                             "성실히 참여하였기에 이를 인증합니다.</div>"
                             f"<div style='margin-top:48px;text-align:center;font-size:18px;font-weight:bold;'>{_issued_at[:4]}년 {_issued_at[5:7]}월 {_issued_at[8:10]}일</div>"
-                            f"<div style='margin-top:32px;text-align:center;font-size:20px;font-weight:bold;'>{_issuer_line}<span style='display:inline-block;border:2px solid #b91c1c;color:#b91c1c;padding:6px 14px;margin-left:12px;border-radius:50%;font-size:14px;'>印</span></div>"
+                            f"<div style='margin-top:24px;text-align:center;font-size:20px;font-weight:bold;'>"
+                            f"드래곤아이즈 주식회사 대표이사{_de_seal}</div>"
+                        )
+                        # ── 학교장 확인란 (학교 제출용 only) ──
+                        _school_seal_box = ""
+                        if _mode == "sch":
+                            _school_seal_box = (
+                                "<div style='margin-top:40px;border-top:1px dashed #cbd5e1;padding-top:24px;'>"
+                                "<div style='text-align:center;font-size:14px;color:#475569;margin-bottom:12px;'>"
+                                "── 학교 제출용 — 학교장 확인란 ──</div>"
+                                "<table style='width:100%;font-size:16px;'>"
+                                "<tr>"
+                                "<td style='width:60%;color:#475569;padding:8px 0;'>"
+                                f"위 사실을 확인합니다.<br><br>"
+                                f"<span style='font-size:18px;font-weight:bold;'>{_school} 장</span>"
+                                "</td>"
+                                "<td style='width:40%;text-align:right;'>"
+                                "<div style='display:inline-block;width:120px;height:120px;"
+                                "border:2px dashed #94a3b8;border-radius:50%;color:#94a3b8;"
+                                "text-align:center;line-height:1.4;font-size:13px;"
+                                "padding-top:42px;box-sizing:border-box;'>"
+                                "학교장<br>날인란"
+                                "</div>"
+                                "</td>"
+                                "</tr></table>"
+                                "<div style='margin-top:12px;font-size:12px;color:#64748b;text-align:center;'>"
+                                "💡 출력 후 학교에 제출하여 학교장 직인을 받으시거나, "
+                                "학교장 직인 이미지를 부착해주세요."
+                                "</div>"
+                                "</div>"
+                            )
+
+                        _cert_html = (
+                            "<div style='border:8px double #1d4ed8;padding:48px 56px;"
+                            "background:#fffefb;font-family:\"Nanum Myeongjo\",serif;color:#0f172a;'>"
+                            + _body + _school_seal_box +
                             f"<div style='margin-top:36px;text-align:center;font-size:12px;color:#64748b;'>"
                             f"진위 확인: {_verify_url}</div>"
                             "</div>"
                         )
                         st.markdown(_cert_html, unsafe_allow_html=True)
                         st.caption(
-                            "💡 브라우저 인쇄(⌘+P / Ctrl+P)로 PDF 저장 또는 인쇄하실 수 있습니다."
+                            "💡 브라우저 인쇄(⌘+P / Ctrl+P)로 PDF 저장 또는 인쇄하실 수 있습니다. "
+                            + ("학교 제출용 양식은 학교장 날인란이 비어 있어 학교에 추가 직인을 받으셔야 합니다."
+                               if _mode == "sch" else
+                               "표준 양식은 드래곤아이즈 법인 직인이 포함된 인증서입니다.")
                         )
                         if st.button("🔼 닫기", key=f"csd_close_cert_{_cert_id}"):
-                            st.session_state.pop(_show_key, None)
+                            st.session_state.pop(_show_std, None)
+                            st.session_state.pop(_show_sch, None)
                             st.rerun()
 
 
@@ -19562,17 +19633,29 @@ else:
                                      key="cert_print_pick")
                 if _pick != "—":
                     _cp = _pick_options[_pick]
-                    if st.button("🖨️ 이 인증서 열기 / 인쇄", key="cert_print_open",
-                                 type="primary", use_container_width=True):
-                        try:
-                            supabase.rpc("bump_certificate_reprint",
-                                         {"p_cert_id": _cp.get("id")}).execute()
-                        except Exception: pass
-                        st.session_state["_shared_cert_open"] = _cp.get("id")
-                        st.rerun()
+                    _ba, _bb = st.columns(2)
+                    with _ba:
+                        if st.button("🖨️ 표준 인증서 (드래곤아이즈 직인)",
+                                     key="cert_print_std", type="primary", use_container_width=True):
+                            try:
+                                supabase.rpc("bump_certificate_reprint",
+                                              {"p_cert_id": _cp.get("id")}).execute()
+                            except Exception: pass
+                            st.session_state["_shared_cert_open"] = (_cp.get("id"), "std")
+                            st.rerun()
+                    with _bb:
+                        if st.button("🏫 학교 제출용 (학교장 확인란 포함)",
+                                     key="cert_print_sch", use_container_width=True):
+                            try:
+                                supabase.rpc("bump_certificate_reprint",
+                                              {"p_cert_id": _cp.get("id")}).execute()
+                            except Exception: pass
+                            st.session_state["_shared_cert_open"] = (_cp.get("id"), "sch")
+                            st.rerun()
 
                 if st.session_state.get("_shared_cert_open"):
-                    _open_id = st.session_state["_shared_cert_open"]
+                    _open_v = st.session_state["_shared_cert_open"]
+                    _open_id, _mode = (_open_v if isinstance(_open_v, tuple) else (_open_v, "std"))
                     _cf = next((c for c in _cert_filtered if c.get("id") == _open_id), None)
                     if _cf:
                         _serial = _cf.get("serial_no") or ""
@@ -19582,11 +19665,22 @@ else:
                         _school = _cf.get("school_name") or _inst.get("name","")
                         _gd = f"{_cf.get('grade')}학년 {_cf.get('class_no')}반" if _cf.get('grade') and _cf.get('class_no') else ""
                         _act_title = _cf.get("activity_title") or "온라인 유해컨텐츠 근절 캠페인 참여"
-                        _issuer = _cf.get("issuer_name") or "학교 담당자"
                         _verify_url = f"https://dragoneyes-production.up.railway.app/?cert={_serial}"
-                        _cert_html = (
-                            "<div style='border:8px double #1d4ed8;padding:48px 56px;"
-                            "background:#fffefb;font-family:\"Nanum Myeongjo\",serif;color:#0f172a;'>"
+                        _de_seal = (
+                            "<svg width='90' height='90' viewBox='0 0 100 100' "
+                            "xmlns='http://www.w3.org/2000/svg' "
+                            "style='display:inline-block;vertical-align:middle;margin-left:14px;'>"
+                            "<circle cx='50' cy='50' r='46' fill='none' stroke='#b91c1c' stroke-width='3'/>"
+                            "<circle cx='50' cy='50' r='40' fill='none' stroke='#b91c1c' stroke-width='1.5'/>"
+                            "<text x='50' y='28' text-anchor='middle' fill='#b91c1c' "
+                            "font-family='serif' font-size='10' font-weight='bold'>드래곤아이즈</text>"
+                            "<text x='50' y='58' text-anchor='middle' fill='#b91c1c' "
+                            "font-family='serif' font-size='22' font-weight='bold'>代 表</text>"
+                            "<text x='50' y='78' text-anchor='middle' fill='#b91c1c' "
+                            "font-family='serif' font-size='10' font-weight='bold'>理 事 之 印</text>"
+                            "</svg>"
+                        )
+                        _body = (
                             "<div style='text-align:center;font-size:14px;color:#64748b;letter-spacing:8px;'>CERTIFICATE</div>"
                             "<div style='text-align:center;font-size:36px;font-weight:bold;margin:12px 0 4px;'>"
                             "봉 사 활 동 인 증 서</div>"
@@ -19602,12 +19696,43 @@ else:
                             "위 학생은 드래곤아이즈 주식회사가 운영하는 <b>온라인 유해컨텐츠 근절 캠페인</b>에<br>"
                             "성실히 참여하였기에 이를 인증합니다.</div>"
                             f"<div style='margin-top:48px;text-align:center;font-size:18px;font-weight:bold;'>{_issued_at[:4]}년 {_issued_at[5:7]}월 {_issued_at[8:10]}일</div>"
-                            f"<div style='margin-top:32px;text-align:center;font-size:20px;font-weight:bold;'>{_issuer}<span style='display:inline-block;border:2px solid #b91c1c;color:#b91c1c;padding:6px 14px;margin-left:12px;border-radius:50%;font-size:14px;'>印</span></div>"
-                            f"<div style='margin-top:36px;text-align:center;font-size:12px;color:#64748b;'>진위 확인: {_verify_url}</div>"
+                            f"<div style='margin-top:24px;text-align:center;font-size:20px;font-weight:bold;'>"
+                            f"드래곤아이즈 주식회사 대표이사{_de_seal}</div>"
+                        )
+                        _school_seal_box = ""
+                        if _mode == "sch":
+                            _school_seal_box = (
+                                "<div style='margin-top:40px;border-top:1px dashed #cbd5e1;padding-top:24px;'>"
+                                "<div style='text-align:center;font-size:14px;color:#475569;margin-bottom:12px;'>"
+                                "── 학교 제출용 — 학교장 확인란 ──</div>"
+                                "<table style='width:100%;font-size:16px;'>"
+                                "<tr><td style='width:60%;color:#475569;padding:8px 0;'>"
+                                "위 사실을 확인합니다.<br><br>"
+                                f"<span style='font-size:18px;font-weight:bold;'>{_school} 장</span></td>"
+                                "<td style='width:40%;text-align:right;'>"
+                                "<div style='display:inline-block;width:120px;height:120px;"
+                                "border:2px dashed #94a3b8;border-radius:50%;color:#94a3b8;"
+                                "text-align:center;line-height:1.4;font-size:13px;"
+                                "padding-top:42px;box-sizing:border-box;'>학교장<br>날인란</div>"
+                                "</td></tr></table>"
+                                "<div style='margin-top:12px;font-size:12px;color:#64748b;text-align:center;'>"
+                                "💡 출력 후 학교장 직인을 받거나 직인 이미지를 부착해주세요.</div>"
+                                "</div>"
+                            )
+                        _cert_html = (
+                            "<div style='border:8px double #1d4ed8;padding:48px 56px;"
+                            "background:#fffefb;font-family:\"Nanum Myeongjo\",serif;color:#0f172a;'>"
+                            + _body + _school_seal_box +
+                            f"<div style='margin-top:36px;text-align:center;font-size:12px;color:#64748b;'>"
+                            f"진위 확인: {_verify_url}</div>"
                             "</div>"
                         )
                         st.markdown(_cert_html, unsafe_allow_html=True)
-                        st.caption("💡 브라우저 인쇄(⌘+P / Ctrl+P)로 PDF 저장 또는 인쇄.")
+                        st.caption(
+                            "💡 브라우저 인쇄(⌘+P / Ctrl+P)로 PDF 저장 또는 인쇄. "
+                            + ("학교장 날인란이 비어 있으니 학교장 직인을 받아주세요."
+                               if _mode == "sch" else "표준 양식 — 드래곤아이즈 법인 직인이 포함됩니다.")
+                        )
                         if st.button("🔼 닫기", key="cert_print_close"):
                             st.session_state.pop("_shared_cert_open", None)
                             st.rerun()
