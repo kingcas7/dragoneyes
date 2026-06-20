@@ -17708,6 +17708,45 @@ else:
                                 st.rerun()
 
         # ──────────────────────────────────────────────────────
+        # ⭐ 봉사시간 안내(파란) + 학습자료실/캠페인 참여(빨강) — material_view와 동일
+        # ──────────────────────────────────────────────────────
+        _csd_band_meta = {
+            "elementary": (20, 4, "초등학생"),
+            "middle":     (30, 5, "중학생"),
+            "high":       (50, 8, "고등학생"),
+        }
+        _csd_my_band = None
+        try:
+            _csd_my_band = supabase.rpc("get_student_band",
+                                         {"p_student_id": _target_student_id}).execute().data
+        except Exception: pass
+        if _csd_my_band in _csd_band_meta:
+            _t_thr, _t_hr, _t_kr = _csd_band_meta[_csd_my_band]
+            _cta_c1, _cta_c2 = st.columns([3, 2])
+            with _cta_c1:
+                st.markdown(
+                    f"<div style='background:linear-gradient(135deg,#1d4ed8,#3b82f6);"
+                    f"border-radius:8px;padding:14px 18px;color:white;"
+                    f"box-shadow:0 1px 4px rgba(59,130,246,0.25);"
+                    f"display:flex;align-items:center;justify-content:center;"
+                    f"min-height:72px;text-align:center;'>"
+                    f"<div style='font-size:1rem;line-height:1.4;font-weight:600;'>"
+                    f"📋 설문 <b>{_t_thr}명</b> ({_t_kr})<br>"
+                    f"→ 🏆 봉사시간 <b>{_t_hr}시간</b> 자동 발급!"
+                    f"</div></div>",
+                    unsafe_allow_html=True,
+                )
+            with _cta_c2:
+                if st.button("👉 학습자료실 가기 (학습 + 캠페인 참여)",
+                              key="csd_cta_to_library",
+                              type="primary",
+                              use_container_width=True):
+                    st.session_state["current_page"] = "materials_library"
+                    st.rerun()
+
+        st.markdown("")
+
+        # ──────────────────────────────────────────────────────
         # ⭐ KPI 3종 (학교 정보 바로 아래로 이동) — 누적봉사/응답수/응시가능
         #    페이지 진입 시 점수가 가장 먼저 보이도록 정렬
         # ──────────────────────────────────────────────────────
