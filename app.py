@@ -9644,6 +9644,11 @@ else:
     #   사용자가 펼치지 않으면 한 줄만 차지하므로 관리 페이지 UI 산만함 최소화.
     #   음성 ON/받아쓰기 ON 상태면 자동 펼침으로 끄기 쉽게.
     _curr_page = st.session_state.get("current_page", "") or ""
+    # 새로고침 시 sid 복원에서 잠깐 home_landing이 표시되는 race 방지 — query_params.page도 함께 체크
+    try:
+        _qp_p_for_a11y = st.query_params.get("page", "") or ""
+    except Exception:
+        _qp_p_for_a11y = ""
 
     # ⭐ 캠페인 사용 동의 가드 (학생/학부모/기관 admin)
     #    본부 admin은 면제. 미동의 또는 약관 버전 변경 시 campaign_consent로 강제 이동.
@@ -9670,20 +9675,37 @@ else:
     # ⭐ 사용자 요청: 캠페인 페이지에서는 접근성 toolbar 자체 숨김
     #    (모니터링 전용 기능 — 캠페인 사용자는 불필요)
     #    monitoring_stats가 캠페인에서 진입한 경우도 캠페인 컨텍스트로 취급
+    _cmp_pages_for_a11y = (
+        "institution_dashboard", "institution_approval",
+        "institution_management",
+        "campaign_status", "parent_dashboard",
+        "survey_respond", "payment_callback",
+        "materials_library", "material_view", "materials_management",
+        "terms_management", "payment_management", "notices",
+        "campaign_consent",
+    )
     _hide_a11y_toolbar = (
         GLOBAL_VOICE_DISABLED
         or _curr_page.startswith("campaign_")
-        or _curr_page in ("institution_dashboard", "institution_approval",
-                          "institution_management",
-                          "campaign_status", "parent_dashboard",
-                          "survey_respond", "payment_callback",
-                          "materials_library", "material_view", "materials_management",
-                          "terms_management", "payment_management", "notices",
-                          "campaign_consent")
+        or _curr_page in _cmp_pages_for_a11y
+        # ⭐ query_params.page도 함께 체크 — 새로고침 시 race 방지
+        or _qp_p_for_a11y.startswith("campaign_")
+        or _qp_p_for_a11y in _cmp_pages_for_a11y
         or (_curr_page == "monitoring_stats" and bool(st.session_state.get("_stats_from_campaign")))
         or bool((user or {}).get("is_campaign_only"))
         or ((user or {}).get("role_v2") in ("student", "parent", "institution_admin"))
+        # ⭐ 본부 admin도 캠페인 컨텍스트에 한 번 들어오면 그 후 토글로 다시 켤 때까지 숨김
+        or bool(st.session_state.get("_hide_a11y_forever"))
     )
+
+    # 본부 admin이 캠페인 페이지에 한 번이라도 진입하면 플래그 set (다음 새로고침에도 유지)
+    if (_curr_page.startswith("campaign_") or _curr_page in _cmp_pages_for_a11y
+        or _qp_p_for_a11y.startswith("campaign_") or _qp_p_for_a11y in _cmp_pages_for_a11y):
+        st.session_state["_hide_a11y_forever"] = True
+    # 모니터링 메인 페이지로 명시적으로 돌아가면 플래그 해제
+    if _curr_page in ("home_landing", "monitoring_dashboard") and \
+       not (_qp_p_for_a11y.startswith("campaign_") or _qp_p_for_a11y in _cmp_pages_for_a11y):
+        st.session_state.pop("_hide_a11y_forever", None)
 
     # ⭐ 캠페인 페이지/사용자 — 음성 발화 자체 무력화 (top.document에 직접 inject)
     #    components.html iframe에서 실행하면 top context patch가 약함.
