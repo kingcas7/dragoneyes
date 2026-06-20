@@ -17790,8 +17790,10 @@ else:
         kc3.metric("⏳ 동의 대기", f"{_pending_consent}명")
         kc4.metric("📚 학년 수", f"{len(_by_grade)}개")
 
-        # 탭: 명단 / 일괄 등록 / 통계
-        ins_tab1, ins_tab2, ins_tab3 = st.tabs(["📋 학생 명단", "📤 학생 일괄 등록", "📊 진행률"])
+        # 탭: 명단 / 일괄 등록 / 진행률 / 캠페인 참여 현황
+        ins_tab1, ins_tab2, ins_tab3, ins_tab4 = st.tabs(
+            ["📋 학생 명단", "📤 학생 일괄 등록", "📊 진행률", "🎓 캠페인 참여 현황"]
+        )
 
         # ── 탭 1: 학생 명단 ──
         with ins_tab1:
@@ -17960,13 +17962,135 @@ else:
             else:
                 st.info("학생 데이터가 없습니다.")
 
-            st.markdown("##### 🎯 다음 단계 안내 (Phase 5~8에서 활성화)")
+            st.markdown("##### 🎯 다음 단계 안내")
             st.markdown(
-                "- 📋 **학교 커스텀 설문 등록** — 전국 표준 외 학교 자체 설문 (Phase 7)\n"
-                "- 🏆 **봉사 점수 일괄 발급** — CSV/PDF 형식 (Phase 8)\n"
-                "- 📲 **학생별 QR/링크 발급** — 설문 일괄 배포 (Phase 7)\n"
-                "- 📚 **학습 자료 시청 통계** — 학생별 진행률 (Phase 5)"
+                "- 📋 **학교 커스텀 설문 등록** — 전국 표준 외 학교 자체 설문 (예정)\n"
+                "- 🏆 **봉사 점수 일괄 발급** — CSV/PDF 형식 (Phase 8 후속)\n"
+                "- 📚 **학습 자료 시청 통계** — 학생별 진행률 (예정)"
             )
+
+        # ── 탭 4: 🎓 캠페인 참여 현황 (Step F) ──
+        with ins_tab4:
+            _stu_ids_inst = [s.get("id") for s in _students if s.get("id")]
+            if not _stu_ids_inst:
+                st.info("등록된 학생이 없습니다. 학생 일괄 등록 탭에서 추가해주세요.")
+            else:
+                # 설문 응답 / 봉사 점수 / 토큰 발급 데이터 일괄 조회
+                try:
+                    _resp_q = supabase.table("survey_responses").select(
+                        "student_id, status, submitted_at"
+                    ).in_("student_id", _stu_ids_inst).execute().data or []
+                except Exception:
+                    _resp_q = []
+                try:
+                    _vc_q = supabase.table("volunteer_credits").select(
+                        "student_id, hours_decimal, status"
+                    ).in_("student_id", _stu_ids_inst).execute().data or []
+                except Exception:
+                    _vc_q = []
+                try:
+                    _tok_q = supabase.table("student_survey_tokens").select(
+                        "student_id, access_token, response_count"
+                    ).in_("student_id", _stu_ids_inst).execute().data or []
+                except Exception:
+                    _tok_q = []
+
+                # 학생별 집계
+                _resp_by_stu = {}
+                for r in _resp_q:
+                    _sid = r.get("student_id")
+                    if _sid not in _resp_by_stu:
+                        _resp_by_stu[_sid] = {"completed": 0, "in_progress": 0}
+                    _st = r.get("status")
+                    if _st == "completed":
+                        _resp_by_stu[_sid]["completed"] += 1
+                    elif _st == "in_progress":
+                        _resp_by_stu[_sid]["in_progress"] += 1
+
+                _hours_by_stu = {}
+                _issued_by_stu = {}
+                for r in _vc_q:
+                    _sid = r.get("student_id")
+                    _h = float(r.get("hours_decimal") or 0)
+                    if r.get("status") in ("earned", "issued"):
+                        _hours_by_stu[_sid] = _hours_by_stu.get(_sid, 0.0) + _h
+                    if r.get("status") == "issued":
+                        _issued_by_stu[_sid] = _issued_by_stu.get(_sid, 0.0) + _h
+
+                _tok_by_stu = {r.get("student_id"): r for r in _tok_q}
+
+                # KPI 5종 (캠페인 참여)
+                _completed_count = sum(1 for sid in _stu_ids_inst if _resp_by_stu.get(sid,{}).get("completed",0) > 0)
+                _in_progress_count = sum(1 for sid in _stu_ids_inst if _resp_by_stu.get(sid,{}).get("in_progress",0) > 0)
+                _total_hours = sum(_hours_by_stu.values())
+                _total_issued = sum(_issued_by_stu.values())
+                _total_friend_resp = sum((r.get("response_count") or 0) for r in _tok_q)
+
+                _kc1, _kc2, _kc3, _kc4, _kc5 = st.columns(5)
+                _kc1.metric("✅ 설문 완료 학생", f"{_completed_count}명",
+                           f"{(_completed_count/_total*100 if _total else 0):.0f}%")
+                _kc2.metric("⏳ 응답 중", f"{_in_progress_count}명")
+                _kc3.metric("🕐 누적 봉사 시간", f"{_total_hours:.1f}h")
+                _kc4.metric("🏆 인증 완료", f"{_total_issued:.1f}h")
+                _kc5.metric("📩 친구 응답 총합", f"{_total_friend_resp}명")
+
+                st.divider()
+
+                # 학생별 상세 테이블
+                st.markdown("##### 📊 학생별 캠페인 참여 현황")
+                _rows = []
+                for s in _students:
+                    _sid = s.get("id")
+                    _r = _resp_by_stu.get(_sid, {})
+                    _tok = _tok_by_stu.get(_sid) or {}
+                    _rows.append({
+                        "학년": s.get("grade") or "-",
+                        "이름": s.get("name") or "-",
+                        "이메일": s.get("email") or "-",
+                        "설문 완료": "✅" if _r.get("completed",0) > 0 else ("⏳" if _r.get("in_progress",0) > 0 else "❌"),
+                        "봉사 누적(h)": f"{_hours_by_stu.get(_sid, 0):.1f}",
+                        "인증(h)": f"{_issued_by_stu.get(_sid, 0):.1f}",
+                        "친구 응답": _tok.get("response_count") or 0,
+                        "토큰 발급": "✅" if _tok.get("access_token") else "❌",
+                    })
+
+                import pandas as _pd_inst_camp
+                _df = _pd_inst_camp.DataFrame(_rows)
+                # 학년 정렬
+                try:
+                    _df["_g_sort"] = _df["학년"].apply(lambda v: int(v) if str(v).isdigit() else 99)
+                    _df = _df.sort_values(["_g_sort", "이름"]).drop(columns=["_g_sort"])
+                except Exception: pass
+                st.dataframe(_df, use_container_width=True, hide_index=True)
+
+                # CSV 다운로드 (담당자 보고용)
+                _csv = _df.to_csv(index=False).encode("utf-8-sig")
+                st.download_button("📥 CSV 다운로드 (담당자 보고용)",
+                                   _csv,
+                                   file_name=f"campaign_participation_{_inst.get('name','school')}.csv",
+                                   mime="text/csv",
+                                   use_container_width=False)
+
+                st.divider()
+
+                # 학년별 응답 분포 차트
+                st.markdown("##### 📈 학년별 설문 완료율")
+                _by_grade_resp = {}
+                for s in _students:
+                    _g = s.get("grade") or "미입력"
+                    if _g not in _by_grade_resp:
+                        _by_grade_resp[_g] = {"total": 0, "completed": 0}
+                    _by_grade_resp[_g]["total"] += 1
+                    if _resp_by_stu.get(s.get("id"), {}).get("completed", 0) > 0:
+                        _by_grade_resp[_g]["completed"] += 1
+
+                _grade_rows2 = [
+                    {"학년": g, "전체": v["total"], "완료": v["completed"],
+                     "완료율": f"{(v['completed']/v['total']*100 if v['total'] else 0):.0f}%"}
+                    for g, v in sorted(_by_grade_resp.items(), key=lambda x: str(x[0]))
+                ]
+                st.dataframe(_pd_inst_camp.DataFrame(_grade_rows2),
+                            use_container_width=True, hide_index=True)
 
     # ══════════════════════════════════════════════════════════════
     # 🛂 Phase 4 (v17): 교육기관 등록 신청 승인 큐 (본부 admin 전용)
