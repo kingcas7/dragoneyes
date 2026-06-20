@@ -17895,6 +17895,172 @@ else:
 
         st.divider()
 
+        # ══════════════════════════════════════════════════════════
+        # 2.5) 📋 설문지 미리보기 + 캠페인 참여 시작 (이메일 큐)
+        # ══════════════════════════════════════════════════════════
+        st.markdown("### 📋 어떤 설문지를 배포하나요? — 미리 보기")
+        st.caption(
+            "친구·가족·SNS 지인에게 공유할 설문지를 학년대별로 미리 확인해보세요. "
+            "내용을 보고 **캠페인 참여 시작**을 누르면 이메일로 내 고유 링크·QR이 발송됩니다."
+        )
+
+        # 학년대 토글 — 학생 본인 학년대 자동 default
+        _prev_band_default = "elementary"
+        if _is_student_csd:
+            try:
+                _my_band_csd = supabase.rpc("get_student_band",
+                                              {"p_student_id": _target_student_id}).execute().data
+                if _my_band_csd in ("elementary", "middle", "high"):
+                    _prev_band_default = _my_band_csd
+            except Exception: pass
+
+        _prev_band = st.radio(
+            "학년대 선택",
+            ["elementary", "middle", "high"],
+            format_func=lambda x: {"elementary":"🎒 초등학생용 (20문항 → 4시간)",
+                                    "middle":"📚 중학생용 (30문항 → 5시간)",
+                                    "high":"🎓 고등학생용 (50문항 → 8시간)"}.get(x, x),
+            horizontal=True,
+            index=["elementary","middle","high"].index(_prev_band_default),
+            key="csd_prev_band",
+        )
+        _prev_band_meta = {
+            "elementary": (20, 4, "초등학생"),
+            "middle":     (30, 5, "중학생"),
+            "high":       (50, 8, "고등학생"),
+        }[_prev_band]
+        _prev_threshold, _prev_hours, _prev_band_kr = _prev_band_meta
+
+        # 해당 학년대 설문 문항 조회
+        try:
+            _prev_survey = supabase.table("surveys").select(
+                "id, title, description, total_questions"
+            ).eq("target_band", _prev_band).eq("scope", "national")\
+             .eq("status", "active").limit(1).execute().data or []
+            _prev_survey_row = _prev_survey[0] if _prev_survey else None
+        except Exception:
+            _prev_survey_row = None
+
+        _prev_questions = []
+        if _prev_survey_row:
+            try:
+                _prev_questions = supabase.table("survey_questions").select(
+                    "qno, qtype, text, options, topic_tag"
+                ).eq("survey_id", _prev_survey_row.get("id"))\
+                 .order("qno").limit(60).execute().data or []
+            except Exception:
+                _prev_questions = []
+
+        if not _prev_questions:
+            st.warning("해당 학년대의 설문 문항이 아직 등록되지 않았습니다.")
+        else:
+            st.caption(
+                f"📊 **{_prev_survey_row.get('title','설문지')}** · "
+                f"총 {len(_prev_questions)}문항 · "
+                f"목표: {_prev_threshold}명 응답 → 🏆 봉사시간 **{_prev_hours}시간** 자동 발급"
+            )
+            with st.expander(f"📖 {_prev_band_kr}용 설문지 전체 보기 ({len(_prev_questions)}문항)",
+                              expanded=False):
+                _topic_emoji = {
+                    "온라인이용":"📱","인식":"🤔","경험":"⚠️","그루밍":"🚨",
+                    "대응":"🆘","저작권":"⚖️","정책":"🏛️","참여":"🙋","의견":"💬"
+                }
+                for q in _prev_questions:
+                    _qno = q.get("qno")
+                    _qt = q.get("qtype")
+                    _qtext = q.get("text")
+                    _opts = q.get("options") or []
+                    _topic = q.get("topic_tag") or ""
+                    _emoji = _topic_emoji.get(_topic, "📋")
+                    _qtype_lbl = {"single_choice":"객관식(단답)","multi_choice":"객관식(다중)",
+                                   "scale":"척도","long_text":"서술형"}.get(_qt, _qt)
+                    with st.container(border=True):
+                        st.markdown(
+                            f"**{_emoji} Q{_qno}.** {_qtext}  "
+                            f"<span style='font-size:0.75rem;color:#64748b;'>"
+                            f"({_qtype_lbl} · {_topic})</span>",
+                            unsafe_allow_html=True,
+                        )
+                        if isinstance(_opts, list) and _opts:
+                            _opts_str = "  ·  ".join([f"〈{str(o)}〉" for o in _opts[:8]])
+                            if len(_opts) > 8:
+                                _opts_str += f"  ·  외 {len(_opts)-8}개"
+                            st.caption(f"보기: {_opts_str}")
+                        elif _qt == "long_text":
+                            st.caption("자유 서술형 — 응답자가 자유롭게 작성")
+
+        st.markdown("")
+
+        # ── 캠페인 참여 시작 버튼 ──
+        if _is_student_csd:
+            try:
+                _my_tok_csd = supabase.table("student_survey_tokens").select(
+                    "access_token, response_count"
+                ).eq("student_id", _target_student_id).limit(1).execute().data or []
+                _my_tok_csd_row = _my_tok_csd[0] if _my_tok_csd else None
+            except Exception:
+                _my_tok_csd_row = None
+
+            with st.container(border=True):
+                _ci1, _ci2 = st.columns([3, 2])
+                with _ci1:
+                    st.markdown(
+                        "#### 📤 캠페인 참여 시작 — 이메일로 내 고유 링크·QR 받기"
+                    )
+                    st.caption(
+                        f"등록 이메일(**{_u_csd.get('email','—')}**)로 내 이름이 포함된 "
+                        f"설문 링크와 QR 코드를 받습니다. 받은 링크를 카톡·SNS·이메일로 친구·가족에게 "
+                        f"공유하면 응답이 모두 내 봉사 시간으로 적립됩니다."
+                    )
+                with _ci2:
+                    if st.button(
+                        "📤 캠페인 참여 시작",
+                        key="csd_campaign_start",
+                        type="primary",
+                        use_container_width=True,
+                        disabled=not bool(_my_tok_csd_row),
+                    ):
+                        if not _my_tok_csd_row:
+                            st.error("설문 토큰이 없습니다. 학교/학년 정보를 확인해주세요.")
+                        else:
+                            _ctoken = _my_tok_csd_row.get("access_token")
+                            _cbase = "https://dragoneyes-production.up.railway.app"
+                            _csurvey_url = f"{_cbase}/?survey_token={_ctoken}"
+                            _csubject = f"[드래곤아이즈 캠페인] {_u_csd.get('name','')}님의 설문 링크"
+                            _cbody = (
+                                f"{_u_csd.get('name','')}님, 안녕하세요!\n\n"
+                                f"드래곤아이즈 온라인 유해컨텐츠 근절 캠페인에 참여해주셔서 감사합니다.\n\n"
+                                f"━━━━━━━━━━━━━━━━━━━━━━━\n"
+                                f"📋 내 설문 링크:\n{_csurvey_url}\n"
+                                f"━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                                f"🎯 목표: {_prev_threshold}명 응답 → 🏆 봉사시간 {_prev_hours}시간 자동 발급\n"
+                                f"📊 현재 진행: {(_my_tok_csd_row or {}).get('response_count') or 0} / {_prev_threshold}명\n\n"
+                                f"이 링크를 카카오톡·SNS·이메일로 친구·가족에게 공유하세요.\n"
+                                f"응답이 모이면 자동으로 봉사 활동 인증서가 발급됩니다.\n\n"
+                                f"학생 dashboard에서 QR 코드 이미지도 확인할 수 있습니다.\n\n"
+                                f"감사합니다.\n드래곤아이즈 캠페인 팀"
+                            )
+                            try:
+                                supabase.table("notice_email_queue").insert({
+                                    "notice_id": None,
+                                    "recipient_user_id": _u_csd.get("id"),
+                                    "recipient_email": _u_csd.get("email") or "noreply@dragoneyes.kr",
+                                    "recipient_name": _u_csd.get("name"),
+                                    "subject": _csubject,
+                                    "body_html": _cbody.replace("\n", "<br>"),
+                                    "body_text": _cbody,
+                                    "status": "pending",
+                                }).execute()
+                                st.success(
+                                    f"✅ 캠페인 참여 시작! 이메일 큐에 적재되었습니다.\n\n"
+                                    f"📬 등록 이메일로 곧 발송됩니다. "
+                                    f"아래 **🔗 내 설문 링크 / QR 코드** 섹션에서 즉시 확인·공유도 가능합니다."
+                                )
+                            except Exception as _ce:
+                                st.error(f"이메일 큐 적재 실패: {_ce}")
+
+        st.divider()
+
         # ──────────────────────────────────────────────────────
         # 3) 내 설문 응시 + 봉사 점수 + 내 링크/QR
         # ──────────────────────────────────────────────────────
