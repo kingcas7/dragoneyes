@@ -18752,109 +18752,209 @@ else:
 
         # ── 탭 2: 학생 일괄 등록 (CSV) ──
         with ins_tab2:
-            st.markdown("##### 📤 CSV로 학생 일괄 등록")
+            st.markdown("##### 🤖 AI 학생 명단 일괄 업로드 (Excel/CSV)")
+
+            # ⭐ 권한 가드 — 본교 institution_admin만 등록 가능
+            _is_school_admin_bulk = (
+                (user or {}).get("role_v2") == "institution_admin"
+                and str((user or {}).get("institution_id")) == str(_inst_id)
+            )
+            if not _is_school_admin_bulk:
+                st.warning(
+                    "🔒 **본 학교 캠페인 담당 교사 계정**(institution_admin)만 일괄 등록할 수 있습니다.\n\n"
+                    "본부 admin/상급 기관은 통계만 조회 가능하며, "
+                    "각 학교의 자율적 참여 결정을 존중합니다."
+                )
+
             st.caption(
-                "CSV 형식: `name, email, grade, birth_date(YYYY-MM-DD), parent_name, parent_email`  "
-                "한 줄에 한 명. 헤더 행 포함."
+                "**자동 처리**: 컬럼명이 어떻게 적혀 있든(이름/성명/학생명, 학년/grade, 반/class) "
+                "AI가 자동 매칭. Excel(.xlsx) · CSV 둘 다 지원."
             )
 
-            # CSV 템플릿 다운로드
-            _csv_template = (
-                "name,email,grade,birth_date,parent_name,parent_email\n"
-                "홍길동,hong@example.com,6,2013-03-15,홍부모,parent1@example.com\n"
-                "김영희,kim@example.com,6,2013-07-22,김부모,parent2@example.com\n"
-            )
-            st.download_button(
-                "📥 CSV 템플릿 다운로드",
-                data=_csv_template.encode("utf-8-sig"),
-                file_name="student_bulk_template.csv",
-                mime="text/csv",
-                use_container_width=True,
-                key="inst_csv_template",
+            # 템플릿 다운로드 (Excel + CSV 둘 다)
+            _tpl_cols = ["학년", "반", "번호", "이름", "이메일", "생년월일",
+                         "보호자 이름", "보호자 이메일", "비고"]
+            _tpl_rows = [
+                ["1", "3", "1", "홍길동", "hong@example.com", "2013-03-15", "홍부모", "parent1@example.com", ""],
+                ["1", "3", "2", "김영희", "kim@example.com",  "2013-07-22", "김부모", "parent2@example.com", ""],
+                ["1", "3", "3", "박철수", "",                "2013-11-04", "박부모", "parent3@example.com", "이메일 미입력 시 자동 발급"],
+            ]
+            try:
+                import pandas as _pd_tpl, io as _io_tpl
+                _df_tpl = _pd_tpl.DataFrame(_tpl_rows, columns=_tpl_cols)
+                _buf_tpl = _io_tpl.BytesIO()
+                with _pd_tpl.ExcelWriter(_buf_tpl, engine="openpyxl") as _wr:
+                    _df_tpl.to_excel(_wr, sheet_name="학생명단", index=False)
+                _tpl_cb1, _tpl_cb2 = st.columns(2)
+                with _tpl_cb1:
+                    st.download_button("📥 Excel 템플릿 (.xlsx)",
+                                        _buf_tpl.getvalue(),
+                                        file_name="학생명단_템플릿.xlsx",
+                                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                        use_container_width=True)
+                with _tpl_cb2:
+                    _csv_tpl = _df_tpl.to_csv(index=False).encode("utf-8-sig")
+                    st.download_button("📥 CSV 템플릿 (.csv)",
+                                        _csv_tpl, file_name="학생명단_템플릿.csv",
+                                        mime="text/csv", use_container_width=True)
+            except Exception: pass
+
+            _upload_file = st.file_uploader(
+                "학생 명단 파일 업로드 (Excel/CSV)",
+                type=["xlsx","xls","csv"], key="inst_bulk_upload",
+                help="컬럼명이 한글/영어 어느 형식이든 자동 매칭됩니다.",
+                disabled=not _is_school_admin_bulk,
             )
 
-            _csv_file = st.file_uploader(
-                "학생 명단 CSV 업로드",
-                type=["csv"], key="inst_csv_upload",
-                help="UTF-8 인코딩 권장",
-            )
-
-            if _csv_file is not None:
+            if _upload_file is not None and _is_school_admin_bulk:
                 try:
-                    import pandas as _pd_csv
-                    _df_csv = _pd_csv.read_csv(_csv_file)
-                    st.markdown("**미리보기** (최대 10행)")
-                    st.dataframe(_df_csv.head(10), use_container_width=True, hide_index=True)
-                    st.caption(f"총 {len(_df_csv)}행")
+                    import pandas as _pd_up2
+                    if _upload_file.name.lower().endswith(".csv"):
+                        _df_up = _pd_up2.read_csv(_upload_file)
+                    else:
+                        _df_up = _pd_up2.read_excel(_upload_file)
 
-                    _bulk_pw = st.text_input(
-                        "초기 비밀번호 (모든 학생 공통)",
-                        type="password",
-                        help="학생이 첫 로그인 후 변경 권장. 6자 이상.",
-                        key="inst_bulk_pw",
+                    # ⭐ AI 컬럼 자동 매칭 (한글/영어/오타 허용)
+                    _col_map = {}
+                    _col_patterns = {
+                        "grade":    ["학년","grade","year","Grade"],
+                        "class_no": ["반","class","class_no","Class"],
+                        "no":       ["번호","no","number","순번"],
+                        "name":     ["이름","성명","학생명","name","Name","학생이름"],
+                        "email":    ["이메일","email","Email","메일"],
+                        "birth":    ["생년월일","birth","birth_date","생일"],
+                        "p_name":   ["보호자 이름","학부모 이름","보호자명","parent_name","부모 이름"],
+                        "p_email":  ["보호자 이메일","학부모 이메일","parent_email","보호자메일"],
+                        "p_phone":  ["보호자 연락처","학부모 전화","parent_phone","보호자 전화"],
+                    }
+                    for _our_key, _patterns in _col_patterns.items():
+                        for _col in _df_up.columns:
+                            _norm = str(_col).strip().lower().replace(" ", "")
+                            for _p in _patterns:
+                                if _norm == _p.lower().replace(" ", "") or _p.lower() in _norm:
+                                    _col_map[_our_key] = _col
+                                    break
+                            if _our_key in _col_map: break
+
+                    # 매칭 결과 표시
+                    st.markdown("##### 🤖 AI 컬럼 자동 매칭 결과")
+                    _mc1, _mc2 = st.columns(2)
+                    _kor_names = {"grade":"학년","class_no":"반","no":"번호","name":"이름",
+                                  "email":"이메일","birth":"생년월일","p_name":"보호자 이름",
+                                  "p_email":"보호자 이메일","p_phone":"보호자 연락처"}
+                    for _i, (_k, _v) in enumerate(_col_map.items()):
+                        (_mc1 if _i % 2 == 0 else _mc2).success(f"✅ {_kor_names.get(_k, _k)} → `{_v}`")
+                    _missing = [_k for _k in ("name","grade") if _k not in _col_map]
+                    if _missing:
+                        st.error(f"❌ 필수 컬럼 누락: {', '.join(_kor_names.get(m, m) for m in _missing)}")
+                        st.stop()
+
+                    # 미리보기 + 인라인 수정 (data_editor)
+                    st.divider()
+                    st.markdown("##### ✏️ 미리보기·수정 (수정 후 등록 가능)")
+                    _df_norm = _pd_up2.DataFrame()
+                    for _k, _v in _col_map.items():
+                        _df_norm[_kor_names.get(_k, _k)] = _df_up[_v]
+                    _df_edited = st.data_editor(
+                        _df_norm, use_container_width=True, num_rows="dynamic",
+                        key="inst_bulk_editor"
                     )
+                    st.caption(f"총 {len(_df_edited)}명 — 표 내용을 직접 수정하시고 아래 등록 버튼을 눌러주세요.")
+
+                    st.divider()
+                    _bp1, _bp2 = st.columns(2)
+                    with _bp1:
+                        _bulk_pw = st.text_input(
+                            "초기 비밀번호 (공통) *", type="password",
+                            value="Dragon!2026",
+                            help="학생이 첫 로그인 후 변경 권장. 6자 이상.",
+                            key="inst_bulk_pw"
+                        )
+                    with _bp2:
+                        _bulk_email_domain = st.text_input(
+                            "이메일 자동 발급 도메인 (이메일 미입력 시)",
+                            value="dragoneyes.kr",
+                            help="이메일이 비어있으면 학년-반-번호-학교코드@도메인 형식으로 자동 발급",
+                            key="inst_bulk_dom"
+                        )
                     _agree_bulk = st.checkbox(
-                        "✅ 본 학교는 모든 학생에 대해 학부모 사전 동의를 확보했음을 확인합니다.",
+                        "✅ 본 학교는 모든 학생에 대해 **학부모 사전 동의**를 확보했음을 확인합니다. "
+                        "(학생 참여는 자율 — 학교 차원에서는 명단 제공·캠페인 안내까지만 진행)",
                         value=False, key="inst_bulk_consent",
                     )
 
                     if st.button("👥 일괄 등록 실행", type="primary",
                                  use_container_width=True, key="inst_bulk_submit",
-                                 disabled=not (_bulk_pw and _agree_bulk)):
-                        if len(_bulk_pw) < 6:
-                            st.error("비밀번호는 6자 이상이어야 합니다.")
-                        else:
-                            _ok_cnt, _err_cnt = 0, 0
-                            _errors = []
-                            for _idx, _row in _df_csv.iterrows():
-                                _name = str(_row.get("name", "")).strip()
-                                _email = str(_row.get("email", "")).strip()
-                                _grade = _row.get("grade")
-                                _birth = _row.get("birth_date")
-                                _p_name = str(_row.get("parent_name", "")).strip()
-                                _p_email = str(_row.get("parent_email", "")).strip()
-                                if not _name or not _email:
-                                    _err_cnt += 1
-                                    _errors.append(f"{_idx+1}행: 이름/이메일 누락")
-                                    continue
-                                _uid, _err = _campaign_create_auth_user(_email, _bulk_pw, _name)
-                                if _err:
-                                    _err_cnt += 1
-                                    _errors.append(f"{_idx+1}행 ({_email}): {_err[:80]}")
-                                    continue
-                                try:
-                                    supabase.table("users").insert({
-                                        "id": _uid,
-                                        "email": _email,
-                                        "name": _name,
-                                        "role": "user",
-                                        "role_v2": "student",
-                                        "is_campaign_only": True,
-                                        "signup_source": "institution_bulk",
-                                        "birth_date": str(_birth)[:10] if _birth and str(_birth) != "nan" else None,
-                                        "grade": int(_grade) if _grade and str(_grade) != "nan" else None,
-                                        "institution_id": _inst_id,
-                                        "school_name": _inst.get("name", ""),
-                                        "guardian_name": _p_name or None,
-                                        "preferences": {"guardian_email": _p_email or ""},
-                                        "parent_consent_at": datetime.now().isoformat(),  # 학교가 학부모 동의 확보 가정
-                                        "status": "active",
-                                    }).execute()
-                                    _ok_cnt += 1
-                                except Exception as e:
-                                    _err_cnt += 1
-                                    _errors.append(f"{_idx+1}행 ({_email}): {str(e)[:80]}")
-                            st.success(f"✅ 등록 완료: {_ok_cnt}명 / 실패: {_err_cnt}명")
-                            if _errors:
-                                with st.expander(f"❌ 실패 상세 ({len(_errors)}건)"):
-                                    for e in _errors[:50]:
-                                        st.text(e)
-                            if _ok_cnt > 0:
-                                st.balloons()
-                                st.button("🔄 새로고침", key="inst_bulk_refresh",
-                                          on_click=lambda: st.rerun())
-                except Exception as e:
-                    st.error(f"CSV 파싱 실패: {e}")
+                                 disabled=not (_bulk_pw and _agree_bulk and len(_bulk_pw) >= 6)):
+                        _ok_cnt, _err_cnt = 0, 0
+                        _errors = []
+                        # 학교 code (이메일 자동 발급용)
+                        _sch_code = (_inst.get("code") or "SCH").replace("-","").lower()[:6]
+                        for _idx, _row in _df_edited.iterrows():
+                            _name = str(_row.get("이름","") or "").strip()
+                            _grade = _row.get("학년")
+                            _class = _row.get("반")
+                            _no = _row.get("번호")
+                            _email_in = str(_row.get("이메일","") or "").strip()
+                            _birth = _row.get("생년월일")
+                            _p_name = str(_row.get("보호자 이름","") or "").strip()
+                            _p_email = str(_row.get("보호자 이메일","") or "").strip()
+                            _p_phone = str(_row.get("보호자 연락처","") or "").strip()
+
+                            if not _name:
+                                _err_cnt += 1
+                                _errors.append(f"{_idx+1}행: 이름 누락"); continue
+                            # 이메일 자동 발급
+                            if not _email_in or "@" not in _email_in:
+                                _g_str = str(int(_grade)) if (_grade and str(_grade)!="nan") else "0"
+                                _c_str = str(int(_class)) if (_class and str(_class)!="nan") else "0"
+                                _n_str = str(int(_no)) if (_no and str(_no)!="nan") else str(_idx+1)
+                                _email_in = f"s{_sch_code}{_g_str}{_c_str.zfill(2)}{_n_str.zfill(2)}@{_bulk_email_domain}"
+                            _uid, _err = _campaign_create_auth_user(_email_in, _bulk_pw, _name)
+                            if _err:
+                                _err_cnt += 1
+                                _errors.append(f"{_idx+1}행 ({_email_in}): {_err[:80]}"); continue
+                            try:
+                                _birth_str = None
+                                if _birth and str(_birth) != "nan":
+                                    _birth_str = str(_birth)[:10]
+                                supabase.table("users").insert({
+                                    "id": _uid,
+                                    "email": _email_in,
+                                    "name": _name,
+                                    "role": "user",
+                                    "role_v2": "student",
+                                    "is_campaign_only": True,
+                                    "signup_source": "institution_bulk",
+                                    "birth_date": _birth_str,
+                                    "grade": int(_grade) if _grade and str(_grade)!="nan" else None,
+                                    "class_no": int(_class) if _class and str(_class)!="nan" else None,
+                                    "institution_id": _inst_id,
+                                    "school_name": _inst.get("name", ""),
+                                    "guardian_name": _p_name or None,
+                                    "guardian_phone": _p_phone or None,
+                                    "preferences": {"guardian_email": _p_email or ""},
+                                    "parent_consent_at": datetime.now().isoformat(),
+                                    "status": "active",
+                                }).execute()
+                                _ok_cnt += 1
+                            except Exception as _e:
+                                _err_cnt += 1
+                                _errors.append(f"{_idx+1}행 ({_email_in}): {str(_e)[:80]}")
+
+                        st.success(f"✅ 등록 완료: {_ok_cnt}명 / 실패: {_err_cnt}명")
+                        if _errors:
+                            with st.expander(f"❌ 실패 상세 ({len(_errors)}건)"):
+                                for _err in _errors[:50]:
+                                    st.text(_err)
+                        if _ok_cnt > 0:
+                            st.balloons()
+                            st.info(
+                                "💡 등록된 학생들은 **자율 참여** — 학교가 캠페인을 안내하고 추천하면 "
+                                "학생이 본인 의사로 학생 dashboard에 접속해 자료/설문 참여하게 됩니다."
+                            )
+                except Exception as _e:
+                    st.error(f"파일 파싱 실패: {_e}")
 
         # ── 탭 3: 진행률 ──
         with ins_tab3:
@@ -19428,6 +19528,11 @@ else:
         with ins_tab8:
             st.caption("학교 학생 정보 실시간 조회·수정. 학생에게 불이익이 가지 않게 안전하게 관리하세요.")
 
+            # ⭐ PII 접근 권한 — 본교 institution_admin만 풀텍스트
+            # 그 외(타 학교 admin, 본부 admin 미리보기, 상급 기관)는 마스킹
+            _user_inst_id = (user or {}).get("institution_id")
+            _user_role_v2 = (user or {}).get("role_v2", "")
+
             # 학교 단위는 본교만, 상급 기관은 산하 학교 선택
             if _inst_scope == "school":
                 _stu_target_inst = _inst_id
@@ -19449,7 +19554,33 @@ else:
                     st.info("권한 범위 내 학교가 없습니다.")
 
             if _stu_target_inst:
-                # 반별 통계
+                # ⭐ 본교 institution_admin 여부 판정 (PII 접근 권한)
+                _is_own_school_admin = (
+                    _user_role_v2 == "institution_admin"
+                    and str(_user_inst_id) == str(_stu_target_inst)
+                )
+                # PII 마스킹 헬퍼
+                def _mask_name(_n):
+                    if not _n: return "-"
+                    if _is_own_school_admin: return _n
+                    if len(_n) <= 1: return _n
+                    return _n[0] + "○" * (len(_n) - 1)
+                def _mask_email(_e):
+                    if not _e: return "-"
+                    if _is_own_school_admin: return _e
+                    if "@" not in _e: return "***"
+                    _u, _d = _e.split("@", 1)
+                    return (_u[:2] + "***@" + _d) if len(_u) > 2 else ("***@" + _d)
+
+                # PII 접근 안내
+                if not _is_own_school_admin:
+                    st.warning(
+                        "🔒 **개인정보 보호 모드** — 학생 이름·이메일이 마스킹되어 표시됩니다. "
+                        "수정·정지해제 등 개인정보 처리는 본 학교 institution_admin 계정에서만 가능합니다. "
+                        "타 학교 또는 상급 기관은 캠페인 집계 통계만 확인하실 수 있습니다."
+                    )
+
+                # 반별 통계 (캠페인 정보 — 모든 권한자 공유)
                 try:
                     _class_summary = supabase.rpc(
                         "get_class_summary", {"p_inst_id": _stu_target_inst}
@@ -19533,10 +19664,12 @@ else:
                 for _s in _stu_show[:100]:  # 최대 100명 표시
                     _consent = "✅" if _s.get("parent_consent_at") else "⏳"
                     _status_emoji = {"active":"✅","inactive":"⏸️","suspended":"🚫"}.get(_s.get("status"),"·")
+                    _disp_name = _mask_name(_s.get("name",""))
+                    _disp_email = _mask_email(_s.get("email",""))
                     with st.expander(
-                        f"{_status_emoji} **{_s.get('name','')}** · "
+                        f"{_status_emoji} **{_disp_name}** · "
                         f"{_s.get('grade','-')}학년 {_s.get('class_no','-')}반 · "
-                        f"{_s.get('email','')} · 동의 {_consent}",
+                        f"{_disp_email} · 동의 {_consent}",
                         expanded=False
                     ):
                         # 학생 봉사·설문 조회
@@ -19562,58 +19695,64 @@ else:
                         _sk_c.metric("📅 최근 로그인",
                                       (_s.get("last_login_at") or "-")[:10])
 
-                        # 정보 수정
-                        st.markdown("##### ✏️ 정보 수정")
-                        _e1, _e2 = st.columns(2)
-                        with _e1:
-                            _new_name = st.text_input("이름", value=_s.get("name","") or "",
-                                                       key=f"st_n_{_s['id']}")
-                            _new_grade = st.number_input("학년", min_value=1, max_value=12,
-                                                          value=int(_s.get("grade") or 6),
-                                                          key=f"st_g_{_s['id']}")
-                            _new_class = st.number_input("반", min_value=0, max_value=30,
-                                                          value=int(_s.get("class_no") or 0),
-                                                          key=f"st_c_{_s['id']}")
-                        with _e2:
-                            _new_email = st.text_input("이메일", value=_s.get("email","") or "",
-                                                        key=f"st_e_{_s['id']}")
-                            _new_status = st.selectbox(
-                                "계정 상태",
-                                ["active","inactive","suspended"],
-                                index=["active","inactive","suspended"].index(_s.get("status") or "active"),
-                                format_func=lambda x: {"active":"✅ 활성","inactive":"⏸️ 비활성","suspended":"🚫 정지"}.get(x, x),
-                                key=f"st_s_{_s['id']}"
+                        # ⭐ 정보 수정은 본교 institution_admin만 가능 (PII 보호)
+                        if not _is_own_school_admin:
+                            st.caption(
+                                "🔒 학생 정보 수정·정지 해제는 **본 학교 교사 계정**에서만 가능합니다. "
+                                "현재 권한으로는 캠페인 통계만 확인할 수 있습니다."
                             )
+                        else:
+                            st.markdown("##### ✏️ 정보 수정")
+                            _e1, _e2 = st.columns(2)
+                            with _e1:
+                                _new_name = st.text_input("이름", value=_s.get("name","") or "",
+                                                           key=f"st_n_{_s['id']}")
+                                _new_grade = st.number_input("학년", min_value=1, max_value=12,
+                                                              value=int(_s.get("grade") or 6),
+                                                              key=f"st_g_{_s['id']}")
+                                _new_class = st.number_input("반", min_value=0, max_value=30,
+                                                              value=int(_s.get("class_no") or 0),
+                                                              key=f"st_c_{_s['id']}")
+                            with _e2:
+                                _new_email = st.text_input("이메일", value=_s.get("email","") or "",
+                                                            key=f"st_e_{_s['id']}")
+                                _new_status = st.selectbox(
+                                    "계정 상태",
+                                    ["active","inactive","suspended"],
+                                    index=["active","inactive","suspended"].index(_s.get("status") or "active"),
+                                    format_func=lambda x: {"active":"✅ 활성","inactive":"⏸️ 비활성","suspended":"🚫 정지"}.get(x, x),
+                                    key=f"st_s_{_s['id']}"
+                                )
 
-                        _bc1, _bc2 = st.columns(2)
-                        with _bc1:
-                            if st.button("💾 저장", key=f"st_save_{_s['id']}",
-                                          type="primary", use_container_width=True):
-                                try:
-                                    supabase.table("users").update({
-                                        "name": _new_name,
-                                        "grade": int(_new_grade),
-                                        "class_no": int(_new_class) if _new_class > 0 else None,
-                                        "email": _new_email,
-                                        "status": _new_status,
-                                    }).eq("id", _s["id"]).execute()
-                                    st.success("저장됨"); st.rerun()
-                                except Exception as _e:
-                                    st.error(f"실패: {_e}")
-                        with _bc2:
-                            # 정지/비활성 해제 (학생 불이익 방지)
-                            if _s.get("status") in ("suspended", "inactive"):
-                                if st.button("🔓 정지 해제", key=f"st_unl_{_s['id']}",
-                                              use_container_width=True):
+                            _bc1, _bc2 = st.columns(2)
+                            with _bc1:
+                                if st.button("💾 저장", key=f"st_save_{_s['id']}",
+                                              type="primary", use_container_width=True):
                                     try:
                                         supabase.table("users").update({
-                                            "status": "active"
+                                            "name": _new_name,
+                                            "grade": int(_new_grade),
+                                            "class_no": int(_new_class) if _new_class > 0 else None,
+                                            "email": _new_email,
+                                            "status": _new_status,
                                         }).eq("id", _s["id"]).execute()
-                                        st.success("활성화 완료"); st.rerun()
+                                        st.success("저장됨"); st.rerun()
                                     except Exception as _e:
                                         st.error(f"실패: {_e}")
-                            else:
-                                st.caption("💡 학생에게 불이익 발생 시 정지/비활성 후 다시 해제")
+                            with _bc2:
+                                # 정지/비활성 해제 (학생 불이익 방지)
+                                if _s.get("status") in ("suspended", "inactive"):
+                                    if st.button("🔓 정지 해제", key=f"st_unl_{_s['id']}",
+                                                  use_container_width=True):
+                                        try:
+                                            supabase.table("users").update({
+                                                "status": "active"
+                                            }).eq("id", _s["id"]).execute()
+                                            st.success("활성화 완료"); st.rerun()
+                                        except Exception as _e:
+                                            st.error(f"실패: {_e}")
+                                else:
+                                    st.caption("💡 학생에게 불이익 발생 시 정지/비활성 후 다시 해제")
 
         # ── 탭 9: 👥 교사 계정 관리 (다중 institution_admin 초대·관리) ──
         with ins_tab9:
@@ -19644,6 +19783,29 @@ else:
                     st.info("권한 범위 내 학교가 없습니다.")
 
             if _teach_target_inst:
+                # ⭐ 본교 admin만 교사 PII 풀텍스트
+                _is_own_t_admin = (
+                    (user or {}).get("role_v2") == "institution_admin"
+                    and str((user or {}).get("institution_id")) == str(_teach_target_inst)
+                )
+                def _mask_t_name(_n):
+                    if not _n: return "-"
+                    if _is_own_t_admin: return _n
+                    if len(_n) <= 1: return _n
+                    return _n[0] + "○" * (len(_n) - 1)
+                def _mask_t_email(_e):
+                    if not _e: return "-"
+                    if _is_own_t_admin: return _e
+                    if "@" not in _e: return "***"
+                    _u, _d = _e.split("@", 1)
+                    return (_u[:2] + "***@" + _d) if len(_u) > 2 else ("***@" + _d)
+
+                if not _is_own_t_admin:
+                    st.warning(
+                        "🔒 **개인정보 보호 모드** — 교사 이름·이메일이 마스킹됩니다. "
+                        "비번 재설정·신규 초대는 **본 학교 institution_admin 계정**에서만 가능."
+                    )
+
                 # 교사 list
                 try:
                     _teachers = supabase.rpc(
@@ -19664,7 +19826,7 @@ else:
                         with _tc1:
                             st.markdown(
                                 f"{_role_lbl.get(_t.get('teacher_role'), '👤 일반')} "
-                                f"**{_t.get('name','')}** · {_t.get('email','')}"
+                                f"**{_mask_t_name(_t.get('name',''))}** · {_mask_t_email(_t.get('email',''))}"
                             )
                             _ll = (_t.get("last_login_at") or "")[:16]
                             _ca = (_t.get("created_at") or "")[:10]
@@ -19672,21 +19834,27 @@ else:
                             if _t.get("teacher_charge"):
                                 st.caption(f"담당: {_t.get('teacher_charge')}")
                         with _tc2:
-                            if st.button("🔑 비번 재설정", key=f"th_pw_{_t['id']}",
-                                          use_container_width=True):
-                                try:
-                                    _new_pw = "Dragon!2026"
-                                    sb_admin().auth.admin.update_user_by_id(
-                                        _t["id"], {"password": _new_pw}
-                                    )
-                                    st.success(f"비번 재설정: `{_new_pw}` (즉시 변경 안내)")
-                                except Exception as _e:
-                                    st.error(f"실패: {_e}")
+                            if _is_own_t_admin:
+                                if st.button("🔑 비번 재설정", key=f"th_pw_{_t['id']}",
+                                              use_container_width=True):
+                                    try:
+                                        _new_pw = "Dragon!2026"
+                                        sb_admin().auth.admin.update_user_by_id(
+                                            _t["id"], {"password": _new_pw}
+                                        )
+                                        st.success(f"비번 재설정: `{_new_pw}` (즉시 변경 안내)")
+                                    except Exception as _e:
+                                        st.error(f"실패: {_e}")
+                            else:
+                                st.caption("🔒 권한 없음")
 
                 st.divider()
 
-                # 신규 교사 초대
-                with st.expander("➕ 신규 교사 계정 초대", expanded=False):
+                # 신규 교사 초대 — 본교 admin만 가능
+                if not _is_own_t_admin:
+                    st.info("🔒 **신규 교사 계정 초대**는 본 학교 institution_admin 계정에서만 가능합니다.")
+                else:
+                  with st.expander("➕ 신규 교사 계정 초대", expanded=False):
                     with st.form(f"th_new_form_{_teach_target_inst}"):
                         _th1, _th2 = st.columns(2)
                         with _th1:
