@@ -18651,17 +18651,21 @@ else:
         except Exception:
             _inst_scope = "school"
 
-        # 상급 기관(metro/district/nation)이면 '🌐 산하·지역 기관' 탭 추가
+        # 상급 기관(metro/district/nation)이면 추가 탭 (참여 분류·강연·만족도)
         if _inst_scope in ("nation", "metro", "district"):
-            ins_tab1, ins_tab2, ins_tab3, ins_tab4, ins_tab5 = st.tabs(
+            ins_tab1, ins_tab2, ins_tab3, ins_tab4, ins_tab5, ins_tab6, ins_tab7 = st.tabs(
                 ["📋 학생 명단", "📤 학생 일괄 등록", "📊 진행률",
-                 "🎓 캠페인 참여 현황", "🌐 산하·지역 기관 통계"]
+                 "🎓 캠페인 참여 현황", "🌐 산하·지역 기관 통계",
+                 "📢 외부강사 강연", "📝 만족도 조사 (1·2차)"]
             )
         else:
-            ins_tab1, ins_tab2, ins_tab3, ins_tab4 = st.tabs(
-                ["📋 학생 명단", "📤 학생 일괄 등록", "📊 진행률", "🎓 캠페인 참여 현황"]
+            # 학교 단위 — 강연 등록은 본인 학교만
+            ins_tab1, ins_tab2, ins_tab3, ins_tab4, ins_tab6 = st.tabs(
+                ["📋 학생 명단", "📤 학생 일괄 등록", "📊 진행률",
+                 "🎓 캠페인 참여 현황", "📢 외부강사 강연"]
             )
             ins_tab5 = None
+            ins_tab7 = None
 
         # ── 탭 1: 학생 명단 ──
         with ins_tab1:
@@ -19059,6 +19063,333 @@ else:
                         file_name=f"campaign_scope_stats_{_inst.get('name','inst')}.csv",
                         mime="text/csv",
                     )
+
+                    st.divider()
+
+                    # ⭐ 종합 스코어 (가중치 평균)
+                    st.markdown("##### 🏆 권한 범위 종합 스코어")
+                    _total_score = 0.0
+                    if _total_stu > 0:
+                        _comp_rate = _total_compl / _total_stu * 100
+                        _avg_hours = _total_h / _total_stu
+                        _viral = _total_fresp / max(_total_stu, 1) * 100
+                        # 가중 평균: 완료율 50% + 봉사시간(/4시간) 30% + 친구응답(/10명) 20%
+                        _total_score = (
+                            _comp_rate * 0.5
+                            + min(_avg_hours / 4.0 * 100, 100) * 0.3
+                            + min(_viral, 100) * 0.2
+                        )
+                    _ss1, _ss2, _ss3 = st.columns([1,2,1])
+                    with _ss2:
+                        st.markdown(
+                            f'<div style="background:linear-gradient(135deg,#3b82f6,#8b5cf6);'
+                            f'padding:24px;border-radius:14px;text-align:center;color:white;">'
+                            f'<div style="font-size:0.9rem;opacity:0.9;">권한 범위 종합 스코어</div>'
+                            f'<div style="font-size:3rem;font-weight:800;margin:6px 0;">{_total_score:.1f}</div>'
+                            f'<div style="font-size:0.85rem;opacity:0.85;">'
+                            f'완료율 50% + 봉사 30% + 친구응답 20%</div>'
+                            f'</div>',
+                            unsafe_allow_html=True,
+                        )
+
+                    st.divider()
+
+                    # ⭐ 참여/미참여 학교 분류 + Excel
+                    st.markdown("##### 📋 참여·미참여 학교 분류")
+                    try:
+                        _part = supabase.rpc(
+                            "get_participating_institutions",
+                            {"p_inst_id": _inst_id}
+                        ).execute().data or []
+                    except Exception as _e:
+                        _part = []
+                        st.error(f"참여 분류 조회 실패: {_e}")
+
+                    if _part:
+                        _p_yes = [r for r in _part if r.get("is_participating")]
+                        _p_no  = [r for r in _part if not r.get("is_participating")]
+
+                        _pc1, _pc2, _pc3 = st.columns(3)
+                        _pc1.metric("✅ 참여 학교", f"{len(_p_yes)}")
+                        _pc2.metric("❌ 미참여 학교", f"{len(_p_no)}")
+                        _pc3.metric("📢 강연 진행/완료", f"{sum(1 for r in _part if r.get('has_lecture'))}")
+
+                        _type_lbl = {"elementary":"초","middle":"중","high":"고","special":"특수","youth_facility":"시설"}
+                        _lec_lbl = {"done+upcoming":"완료+예정","done":"완료","scheduled":"예정","none":"없음"}
+
+                        _all_rows = []
+                        for r in _part:
+                            _all_rows.append({
+                                "참여 여부": "✅ 참여" if r.get("is_participating") else "❌ 미참여",
+                                "지역": f"{r.get('region','')} {r.get('district','') or ''}".strip(),
+                                "학교명": r.get("inst_name"),
+                                "급": _type_lbl.get(r.get("inst_type"), r.get("inst_type")),
+                                "등록 학생": int(r.get("student_count") or 0),
+                                "강연 상태": _lec_lbl.get(r.get("lecture_status"), "없음"),
+                                "예정 강연일": (r.get("nearest_lecture_at") or "")[:16],
+                            })
+
+                        import pandas as _pd_part
+                        _df_part = _pd_part.DataFrame(_all_rows)
+
+                        _ft1, _ft2 = st.tabs(["✅ 참여 학교", "❌ 미참여 학교"])
+                        with _ft1:
+                            _df_yes = _df_part[_df_part["참여 여부"] == "✅ 참여"].drop(columns=["참여 여부"])
+                            st.dataframe(_df_yes, use_container_width=True, hide_index=True)
+                        with _ft2:
+                            _df_no = _df_part[_df_part["참여 여부"] == "❌ 미참여"].drop(columns=["참여 여부"])
+                            st.dataframe(_df_no, use_container_width=True, hide_index=True)
+
+                        # Excel export (전체 + 참여/미참여 시트 분리)
+                        try:
+                            import io as _io_xl
+                            import pandas as _pd_xl
+                            _buf = _io_xl.BytesIO()
+                            with _pd_xl.ExcelWriter(_buf, engine="openpyxl") as _wr:
+                                _df_part.to_excel(_wr, sheet_name="전체", index=False)
+                                _df_part[_df_part["참여 여부"]=="✅ 참여"].to_excel(_wr, sheet_name="참여", index=False)
+                                _df_part[_df_part["참여 여부"]=="❌ 미참여"].to_excel(_wr, sheet_name="미참여", index=False)
+                            st.download_button(
+                                "📥 Excel 다운로드 (참여/미참여 분류)",
+                                _buf.getvalue(),
+                                file_name=f"campaign_participation_{_inst.get('name','inst')}.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            )
+                        except Exception as _e:
+                            st.caption(f"Excel 생성 실패: {_e}")
+
+        # ── 탭 6: 📢 외부강사 강연 모니터링 ──
+        if ins_tab6 is not None:
+            with ins_tab6:
+                if _inst_scope == "school":
+                    st.caption(f"본 학교({_inst.get('name','')})의 강연 일정·실시 기록")
+                    _lec_target_inst = _inst_id
+                else:
+                    # 상급 기관: 산하 학교 선택해서 강연 등록 가능
+                    try:
+                        _vis_lec = supabase.rpc("get_visible_institutions",
+                                                  {"p_inst_id": _inst_id}).execute().data or []
+                        _vis_lec = [r for r in _vis_lec if r.get("type") in
+                                     ("elementary","middle","high","special","youth_facility")]
+                    except Exception:
+                        _vis_lec = []
+                    if _vis_lec:
+                        _lec_opts = {f"{r['name']} · {r.get('region','')} {r.get('district','') or ''}": r["id"]
+                                      for r in _vis_lec}
+                        _lec_sel = st.selectbox("학교 선택", list(_lec_opts.keys()), key="lec_inst_sel")
+                        _lec_target_inst = _lec_opts.get(_lec_sel)
+                    else:
+                        _lec_target_inst = None
+                        st.info("권한 범위 내 학교가 없습니다.")
+
+                if _lec_target_inst:
+                    # 강연 list
+                    try:
+                        _lecs = supabase.table("institution_lectures").select(
+                            "id, title, lecturer_name, topic, scheduled_at, completed_at, "
+                            "duration_minutes, target_count, actual_count, status, note"
+                        ).eq("institution_id", _lec_target_inst).order(
+                            "scheduled_at", desc=True).limit(50).execute().data or []
+                    except Exception:
+                        _lecs = []
+
+                    if _lecs:
+                        _status_emoji = {"scheduled":"📅","completed":"✅","cancelled":"🚫","postponed":"⏸️"}
+                        for _lec in _lecs:
+                            _ds = (_lec.get("scheduled_at") or "")[:16]
+                            with st.container(border=True):
+                                _lc1, _lc2 = st.columns([4,1])
+                                with _lc1:
+                                    st.markdown(
+                                        f"**{_status_emoji.get(_lec.get('status'),'·')} "
+                                        f"{_lec.get('title','')}** · "
+                                        f"강사 {_lec.get('lecturer_name','-')} · "
+                                        f"{_lec.get('topic','-')}"
+                                    )
+                                    st.caption(f"일정 {_ds} · "
+                                               f"참여 {_lec.get('actual_count') or _lec.get('target_count') or '-'}명")
+                                    if _lec.get("note"):
+                                        st.caption(f"📝 {_lec.get('note')}")
+                                with _lc2:
+                                    if st.button("🗑️", key=f"lec_del_{_lec['id']}"):
+                                        try:
+                                            supabase.table("institution_lectures").delete()\
+                                                .eq("id", _lec["id"]).execute()
+                                            st.rerun()
+                                        except Exception as _e:
+                                            st.error(f"실패: {_e}")
+                    else:
+                        st.info("등록된 강연이 없습니다.")
+
+                    # 신규 강연 등록
+                    with st.expander("➕ 새 강연 등록", expanded=False):
+                        with st.form(f"lec_form_{_lec_target_inst}"):
+                            _l_t = st.text_input("강연 제목 *")
+                            _lf1, _lf2 = st.columns(2)
+                            with _lf1:
+                                _l_lec = st.text_input("강사 이름")
+                                _l_aff = st.text_input("강사 소속")
+                            with _lf2:
+                                _l_topic = st.selectbox("주제",
+                                    ["그루밍 예방","저작권","디지털성범죄","온라인 도박",
+                                     "사이버불링","AI 유해물","종합 안전","기타"])
+                            _ld1, _ld2 = st.columns(2)
+                            with _ld1:
+                                _l_date = st.date_input("일정 날짜 *", value=None)
+                            with _ld2:
+                                _l_time = st.time_input("시간", value=None)
+                            _l_dur = st.number_input("강연 시간 (분)", min_value=30, max_value=240, value=90, step=30)
+                            _l_status = st.selectbox("상태",
+                                ["scheduled","completed","cancelled","postponed"],
+                                format_func=lambda x: {"scheduled":"📅 예정","completed":"✅ 완료",
+                                                       "cancelled":"🚫 취소","postponed":"⏸️ 연기"}.get(x, x))
+                            _ll1, _ll2 = st.columns(2)
+                            with _ll1:
+                                _l_tgt = st.number_input("예상 참여 인원", min_value=0, value=0)
+                            with _ll2:
+                                _l_act = st.number_input("실제 참여 인원", min_value=0, value=0)
+                            _l_note = st.text_area("비고", height=80)
+                            if st.form_submit_button("➕ 등록", type="primary", use_container_width=True):
+                                if not _l_t or not _l_date:
+                                    st.error("강연 제목과 일정 날짜는 필수")
+                                else:
+                                    try:
+                                        _sched_at = f"{_l_date.isoformat()}T{(_l_time or datetime.min.time()).isoformat()}"
+                                        supabase.table("institution_lectures").insert({
+                                            "institution_id": _lec_target_inst,
+                                            "title": _l_t, "lecturer_name": _l_lec or None,
+                                            "lecturer_affiliation": _l_aff or None,
+                                            "topic": _l_topic, "scheduled_at": _sched_at,
+                                            "completed_at": _sched_at if _l_status == "completed" else None,
+                                            "duration_minutes": int(_l_dur),
+                                            "target_count": int(_l_tgt) if _l_tgt else None,
+                                            "actual_count": int(_l_act) if _l_act else None,
+                                            "status": _l_status,
+                                            "note": _l_note or None,
+                                            "created_by": user.get("id"),
+                                        }).execute()
+                                        st.success("등록 완료"); st.rerun()
+                                    except Exception as _e:
+                                        st.error(f"실패: {_e}")
+
+        # ── 탭 7: 📝 만족도 조사 (1차/2차 일괄 발송) — 상급 기관 전용 ──
+        if ins_tab7 is not None:
+            with ins_tab7:
+                st.caption("권한 범위 내 학교를 대상으로 만족도 조사를 일괄 발송합니다. 차수(1차/2차)별 관리.")
+
+                _ss_t1, _ss_t2 = st.tabs(["📤 새 조사 발송", "📊 기존 조사 현황"])
+
+                with _ss_t1:
+                    with st.form("ss_new_form"):
+                        _ss_round = st.selectbox("차수", list(range(1,11)),
+                                                  format_func=lambda x: f"{x}차")
+                        _ss_title = st.text_input("조사 제목 *",
+                                                   placeholder=f"예: {date.today().year}년 캠페인 만족도 조사 (1차)")
+                        _ss_desc = st.text_area("설명", height=70)
+                        _ss_deadline = st.date_input("답변 마감일 *",
+                                                       value=date.today() + timedelta(days=14),
+                                                       min_value=date.today())
+                        _ss_aud = st.selectbox("대상",
+                            ["institution_admin","student","parent","all"],
+                            format_func=lambda x: {"institution_admin":"학교 담당자",
+                                                   "student":"학생","parent":"학부모","all":"모두"}.get(x, x))
+                        # 기본 만족도 5문항 (간단)
+                        _ss_qs = [
+                            {"qno":1, "qtype":"scale", "text":"캠페인 운영 만족도",
+                             "options":["매우 불만족","불만족","보통","만족","매우 만족"]},
+                            {"qno":2, "qtype":"scale", "text":"자료 품질 만족도",
+                             "options":["매우 불만족","불만족","보통","만족","매우 만족"]},
+                            {"qno":3, "qtype":"scale", "text":"학생 참여도",
+                             "options":["매우 낮음","낮음","보통","높음","매우 높음"]},
+                            {"qno":4, "qtype":"scale", "text":"강연·교육 효과",
+                             "options":["매우 낮음","낮음","보통","높음","매우 높음"]},
+                            {"qno":5, "qtype":"long_text", "text":"개선 의견/제안",
+                             "options":[]},
+                        ]
+                        st.caption("📋 기본 문항 5개 (운영/자료/참여도/효과/의견)")
+                        if st.form_submit_button("📤 일괄 발송", type="primary", use_container_width=True):
+                            if not _ss_title:
+                                st.error("제목 필수")
+                            else:
+                                try:
+                                    # 1) 캠페인 조회
+                                    _cmp = supabase.table("campaigns").select("id")\
+                                        .eq("year", date.today().year).limit(1).execute().data or []
+                                    _cmp_id = _cmp[0]["id"] if _cmp else None
+                                    # 2) survey INSERT
+                                    _ins_ss = supabase.table("satisfaction_surveys").insert({
+                                        "campaign_id": _cmp_id,
+                                        "title": _ss_title,
+                                        "description": _ss_desc or None,
+                                        "round_number": int(_ss_round),
+                                        "deadline": _ss_deadline.isoformat() + "T23:59:59",
+                                        "questions": _ss_qs,
+                                        "target_audience": _ss_aud,
+                                        "launched_by": user.get("id"),
+                                        "launched_inst_id": _inst_id,
+                                        "launched_scope": _inst_scope,
+                                        "status": "active",
+                                    }).execute()
+                                    _new_ss_id = (_ins_ss.data or [{}])[0].get("id")
+                                    # 3) 권한 범위 학교 모두에 targets INSERT
+                                    _vis_for_ss = supabase.rpc("get_visible_institutions",
+                                                                {"p_inst_id": _inst_id}).execute().data or []
+                                    _vis_for_ss = [r for r in _vis_for_ss if r.get("type") in
+                                                    ("elementary","middle","high","special","youth_facility")]
+                                    _tg_rows = [{
+                                        "survey_id": _new_ss_id,
+                                        "institution_id": r["id"],
+                                    } for r in _vis_for_ss]
+                                    if _tg_rows:
+                                        supabase.table("satisfaction_targets").insert(_tg_rows).execute()
+                                    st.success(f"✅ {_ss_round}차 조사 발송 완료! "
+                                              f"{len(_tg_rows)}개 학교에 발송됨. 마감 {_ss_deadline}")
+                                    st.rerun()
+                                except Exception as _e:
+                                    st.error(f"발송 실패: {_e}")
+
+                with _ss_t2:
+                    try:
+                        _ss_list = supabase.table("satisfaction_surveys").select(
+                            "id, title, round_number, deadline, target_audience, status, created_at"
+                        ).eq("launched_inst_id", _inst_id).order(
+                            "created_at", desc=True).limit(20).execute().data or []
+                    except Exception:
+                        _ss_list = []
+
+                    if not _ss_list:
+                        st.info("발송한 만족도 조사가 없습니다.")
+                    for _ss in _ss_list:
+                        with st.container(border=True):
+                            _ss_id = _ss["id"]
+                            try:
+                                _tgs = supabase.table("satisfaction_targets").select(
+                                    "id, institution_id, status, submitted_at"
+                                ).eq("survey_id", _ss_id).execute().data or []
+                            except Exception:
+                                _tgs = []
+                            _done = sum(1 for t in _tgs if t.get("status") == "completed")
+                            _total = len(_tgs)
+                            _rate = (_done / _total * 100) if _total else 0
+                            _deadline_str = (_ss.get("deadline") or "")[:10]
+                            _is_overdue = False
+                            try:
+                                _is_overdue = datetime.fromisoformat(_ss.get("deadline").replace("Z","")) < datetime.now()
+                            except Exception: pass
+                            st.markdown(f"**{_ss.get('round_number')}차 · {_ss.get('title')}** "
+                                       f"{'⏰' if not _is_overdue else '🔴'} 마감 {_deadline_str}")
+                            st.caption(f"응답 {_done}/{_total}건 ({_rate:.1f}%) · "
+                                       f"상태: {_ss.get('status')}")
+                            _scol1, _scol2 = st.columns([3, 1])
+                            with _scol2:
+                                if st.button("🚫 마감", key=f"ss_close_{_ss_id}", use_container_width=True):
+                                    try:
+                                        supabase.table("satisfaction_surveys").update({
+                                            "status": "closed"
+                                        }).eq("id", _ss_id).execute()
+                                        st.rerun()
+                                    except Exception as _e:
+                                        st.error(f"실패: {_e}")
 
 
     # ══════════════════════════════════════════════════════════════
