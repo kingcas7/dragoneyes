@@ -56,9 +56,15 @@ CREATE INDEX IF NOT EXISTS idx_esr_valid        ON public.external_survey_respon
     WHERE is_valid = TRUE;
 
 -- 같은 응답자가 같은 token으로 너무 짧은 시간에 중복 제출 차단 (어뷰즈 방지)
-CREATE UNIQUE INDEX IF NOT EXISTS uniq_esr_token_resp_5min
-    ON public.external_survey_responses(token_id, respondent_name, respondent_age,
-                                          DATE_TRUNC('minute', submitted_at));
+-- DATE_TRUNC는 STABLE이라 직접 인덱스 표현식에 사용 불가 → generated column 우회
+ALTER TABLE public.external_survey_responses
+    ADD COLUMN IF NOT EXISTS submitted_at_minute TIMESTAMPTZ
+    GENERATED ALWAYS AS (DATE_TRUNC('minute', submitted_at)) STORED;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_esr_token_resp_minute
+    ON public.external_survey_responses(token_id, respondent_name,
+                                          COALESCE(respondent_age, 0),
+                                          submitted_at_minute);
 
 
 -- ─────────────────────────────────────────────────────────────
