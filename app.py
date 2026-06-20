@@ -9729,7 +9729,7 @@ else:
         pass
     _qp_cmp_pages = (
         "campaign_landing", "campaign_materials", "campaign_status", "parent_dashboard",
-        "campaign_student_dashboard", "survey_respond",
+        "campaign_student_dashboard", "survey_respond", "payment_callback",
         "campaign_signup_select", "campaign_signup_institution",
         "campaign_signup_parent", "campaign_signup_student",
         "institution_dashboard", "institution_approval", "institution_management",
@@ -16413,6 +16413,159 @@ else:
                 st.session_state.current_page = "home_landing"
                 st.rerun()
 
+    # ══════════════════════════════════════════════════════════════
+    # 💳 Phase 9 (v17): 결제 콜백 — 토스페이먼츠 등 PG 결제 완료 처리
+    #   URL: /?page=payment_callback&paymentKey=xxx&orderId=xxx&amount=10000
+    # ══════════════════════════════════════════════════════════════
+    elif page == "payment_callback":
+        _toss_pk  = st.query_params.get("paymentKey")
+        _toss_oid = st.query_params.get("orderId")
+        _toss_amt = st.query_params.get("amount")
+        _toss_code = st.query_params.get("code")
+        _toss_msg = st.query_params.get("message")
+
+        st.markdown("## 💳 결제 처리 중...")
+
+        # 실패 콜백
+        if _toss_code:
+            st.error(f"❌ 결제 실패\n\n사유: {_toss_msg or _toss_code}")
+            # payments row 실패 처리
+            if _toss_oid:
+                try:
+                    supabase.table("payments").update({
+                        "status": "failed",
+                        "raw_response": {"code": _toss_code, "message": _toss_msg or ""},
+                    }).eq("pg_order_id", _toss_oid).execute()
+                except Exception: pass
+            if st.button("← 학부모 대시보드로", key="pcb_back_fail", type="primary"):
+                st.session_state["current_page"] = "parent_dashboard"
+                for _k in ("paymentKey","orderId","amount","code","message"):
+                    try: del st.query_params[_k]
+                    except: pass
+                st.rerun()
+            st.stop()
+
+        # 성공 콜백 — 토스 confirm API 호출
+        if not (_toss_pk and _toss_oid and _toss_amt):
+            st.warning("결제 정보가 부족합니다.")
+            if st.button("← 학부모 대시보드로", key="pcb_back_empty"):
+                st.session_state["current_page"] = "parent_dashboard"
+                st.rerun()
+            st.stop()
+
+        # 이미 처리된 결제인지 확인 (멱등성 — 페이지 새로고침 시 중복 confirm 방지)
+        try:
+            _pay_q = supabase.table("payments").select("id, status, target_id").eq(
+                "pg_order_id", _toss_oid).limit(1).execute()
+            _pay_row = _pay_q.data[0] if _pay_q.data else None
+        except Exception:
+            _pay_row = None
+
+        if _pay_row and _pay_row.get("status") == "completed":
+            st.success("🎉 이미 처리된 결제입니다.")
+            if st.button("← 학부모 대시보드로", key="pcb_back_done", type="primary"):
+                st.session_state["current_page"] = "parent_dashboard"
+                for _k in ("paymentKey","orderId","amount","code","message"):
+                    try: del st.query_params[_k]
+                    except: pass
+                st.rerun()
+            st.stop()
+
+        # 토스 confirm API 호출
+        with st.spinner("토스에 결제 승인 요청 중..."):
+            _toss_secret = os.getenv("TOSS_SECRET_KEY", "test_sk_D5GePWvyJnrK0W0k6q8gLzN97Eoq")
+            import base64 as _b64
+            _auth = _b64.b64encode(f"{_toss_secret}:".encode()).decode()
+            try:
+                _r = requests.post(
+                    "https://api.tosspayments.com/v1/payments/confirm",
+                    headers={"Authorization": f"Basic {_auth}", "Content-Type": "application/json"},
+                    json={"paymentKey": _toss_pk, "orderId": _toss_oid, "amount": int(_toss_amt)},
+                    timeout=12
+                )
+            except Exception as _e:
+                st.error(f"토스 API 호출 실패: {_e}")
+                _r = None
+
+        if _r is None or _r.status_code != 200:
+            _err_msg = (_r.text if _r is not None else "네트워크 오류")
+            st.error(f"❌ 결제 승인 실패: {_err_msg}")
+            try:
+                supabase.table("payments").update({
+                    "status": "failed",
+                    "raw_response": {"http_status": (_r.status_code if _r else 0), "body": _err_msg},
+                }).eq("pg_order_id", _toss_oid).execute()
+            except Exception: pass
+        else:
+            _data = _r.json()
+            # 1) payments 업데이트
+            try:
+                supabase.table("payments").update({
+                    "status": "completed",
+                    "paid_at": datetime.now().isoformat(),
+                    "pg_transaction_id": _toss_pk,
+                    "raw_response": _data,
+                    "receipt_url": (_data.get("receipt") or {}).get("url"),
+                }).eq("pg_order_id", _toss_oid).execute()
+            except Exception as _e:
+                st.warning(f"결제 로그 업데이트 실패: {_e}")
+
+            # 2) 학부모 구독 활성화 — payments.target_id 기준
+            try:
+                _parent_id = (_pay_row or {}).get("target_id")
+                if _parent_id:
+                    _yr = date.today().year
+                    _start = date.today().isoformat()
+                    _end = date(_yr, 12, 31).isoformat()
+                    # 자녀 수 스냅샷
+                    try:
+                        _kids_cnt = supabase.table("parent_student_links")\
+                            .select("id", count="exact")\
+                            .eq("parent_id", _parent_id).eq("verification_status", "verified")\
+                            .execute().count or 0
+                    except Exception:
+                        _kids_cnt = 0
+                    # 구독 INSERT (UNIQUE parent_id+year — 중복 시 update)
+                    try:
+                        supabase.table("parent_subscriptions").insert({
+                            "parent_id": _parent_id,
+                            "year": _yr,
+                            "amount": 10000,
+                            "payment_id": (_pay_row or {}).get("id"),
+                            "status": "active",
+                            "start_date": _start,
+                            "end_date": _end,
+                            "children_at_purchase": _kids_cnt,
+                        }).execute()
+                    except Exception:
+                        # 이미 있으면 update
+                        supabase.table("parent_subscriptions").update({
+                            "status": "active",
+                            "payment_id": (_pay_row or {}).get("id"),
+                            "start_date": _start,
+                            "end_date": _end,
+                        }).eq("parent_id", _parent_id).eq("year", _yr).execute()
+            except Exception as _e:
+                st.warning(f"구독 활성화 실패 (결제는 완료): {_e}")
+
+            st.success(
+                f"🎉 결제 완료! **{int(_toss_amt):,}원** 결제 승인되었습니다.\n\n"
+                f"등록된 모든 자녀에게 프리미엄 자료가 자동으로 해금되었습니다."
+            )
+            st.balloons()
+            if (_data.get("receipt") or {}).get("url"):
+                st.markdown(f"🧾 [영수증 확인]({(_data['receipt'])['url']})")
+
+        if st.button("← 학부모 대시보드로", key="pcb_back_ok", type="primary",
+                     use_container_width=True):
+            st.session_state["current_page"] = "parent_dashboard"
+            for _k in ("paymentKey","orderId","amount","code","message"):
+                try: del st.query_params[_k]
+                except: pass
+            st.rerun()
+        st.stop()
+
+
     elif page == "campaign_landing":
         # ══════════════════════════════════════════════════════════════
         # 🎓 Phase 5 (v17): 캠페인 홈 — 두 카테고리 카드 (중앙) + 3아이콘 미리보기
@@ -18086,11 +18239,14 @@ else:
                             _emoji = {"toss":"💙","kakao":"💛","inicis":"💜","naver":"💚"}.get(_pg.get("code"),"💳")
                             st.markdown(f"### {_emoji}")
                             st.markdown(f"**{_pg.get('label','')}**")
-                            _enabled = bool(_pg.get("enabled"))
+                            # 토스는 sandbox 모드라 신고 전에도 테스트 가능
+                            _enabled = bool(_pg.get("enabled")) or (_pg.get("code") == "toss")
                             _reg = _pg.get("regulatory_status","pending")
-                            if not _enabled:
+                            if _pg.get("code") == "toss" and not bool(_pg.get("enabled")):
+                                st.caption("🧪 sandbox")
+                            elif not _enabled:
                                 st.caption(f"🚧 신고 {_reg}")
-                            else:
+                            if _enabled:
                                 _is_sel = (_selected_pg == _pg.get("code"))
                                 if st.button(("✅ 선택됨" if _is_sel else "선택"),
                                              key=f"pdash_pg_pick_{_pg.get('code')}",
@@ -18104,38 +18260,110 @@ else:
                 _selected_pg = st.session_state.get("_pdash_selected_pg")
                 _enabled_codes = {p.get("code") for p in _providers if p.get("enabled")}
 
-                if not _enabled_codes:
+                # ⭐ Phase 9: 토스는 sandbox 모드로 즉시 사용 가능 (다른 PG는 신고 후)
+                _toss_sandbox_ready = True
+
+                if not _enabled_codes and not _toss_sandbox_ready:
                     st.error(
                         "🚧 모든 결제 게이트웨이가 **신고/심사 대기 중**입니다. "
-                        "현재는 결제를 진행할 수 없으며, 신고 완료 후 활성화됩니다. "
                         "본부 관리자(support@dragoneyes.kr)에게 문의 가능."
                     )
                 elif not _selected_pg:
                     st.info("위에서 결제 수단을 먼저 선택해주세요.")
                 else:
-                    if st.button(f"💳 {_selected_pg.upper()}로 연 10,000원 결제하기",
-                                 type="primary", use_container_width=True, key="pdash_pay_go"):
-                        # PG 연동 (Phase 9)
-                        try:
-                            # 결제 로그 생성 (pending)
-                            supabase.table("payments").insert({
-                                "provider": _selected_pg,
-                                "target_type": "parent",
-                                "target_id": _u_p.get("id"),
-                                "amount": 10000,
-                                "currency": "KRW",
-                                "product_type": "parent_yearly_10k",
-                                "product_year": _y_cur,
-                                "status": "pending",
-                                "created_by": _u_p.get("id"),
-                            }).execute()
-                            st.info(
-                                "🚧 결제 게이트웨이 연동 (Phase 9)이 활성화되면 "
-                                f"{_selected_pg.upper()} 결제창으로 자동 이동합니다. "
-                                "지금은 결제 로그만 생성되었습니다 (status='pending')."
+                    if _selected_pg == "toss":
+                        # ─── 토스페이먼츠 sandbox 결제 ───
+                        if st.button("💳 토스로 연 10,000원 결제하기 (sandbox)",
+                                     type="primary", use_container_width=True,
+                                     key="pdash_toss_go"):
+                            import time as _t
+                            _order_id = f"parent_yr_{_u_p['id'][:8]}_{int(_t.time())}"
+                            try:
+                                # payments pending row 생성
+                                supabase.table("payments").insert({
+                                    "provider": "toss",
+                                    "target_type": "parent",
+                                    "target_id": _u_p.get("id"),
+                                    "amount": 10000,
+                                    "currency": "KRW",
+                                    "product_type": "parent_yearly_10k",
+                                    "product_year": _y_cur,
+                                    "status": "pending",
+                                    "pg_order_id": _order_id,
+                                    "created_by": _u_p.get("id"),
+                                }).execute()
+                                st.session_state["_toss_pending_order"] = _order_id
+                                st.session_state["_toss_pending_name"] = _u_p.get("name", "사용자")
+                                st.success("✅ 결제 로그 생성. 아래 '토스 결제창 열기' 버튼을 눌러주세요.")
+                            except Exception as _e:
+                                st.error(f"결제 로그 생성 실패: {_e}")
+
+                        # 토스 결제창 호출 (JS) — pending order가 있을 때만
+                        if st.session_state.get("_toss_pending_order"):
+                            _order_id = st.session_state["_toss_pending_order"]
+                            _customer_name = st.session_state.get("_toss_pending_name", "사용자")
+                            _toss_client_key = os.getenv(
+                                "TOSS_CLIENT_KEY",
+                                "test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq"  # 토스 공개 sandbox 키
                             )
-                        except Exception as _e:
-                            st.error(f"결제 로그 생성 실패: {_e}")
+                            _base_url = "https://dragoneyes-production.up.railway.app"
+                            _success_url = f"{_base_url}/?page=payment_callback"
+                            _fail_url = f"{_base_url}/?page=payment_callback"
+
+                            st.markdown("##### 🟦 토스 결제창")
+                            st.caption(
+                                "아래 버튼을 누르면 토스 결제창이 열립니다. "
+                                "샌드박스 환경이라 실제 결제는 안 일어나며, "
+                                "테스트 카드 번호: **4000-0000-0000-0002** (CVC 123, 유효기간 12/30) 등 사용 가능."
+                            )
+                            st.components.v1.html(
+                                f"""
+                                <html><head><script src="https://js.tosspayments.com/v1/payment"></script></head>
+                                <body style="margin:0;padding:8px;font-family:system-ui,-apple-system,sans-serif;">
+                                <button id="toss-pay-btn" style="
+                                    width:100%; padding:14px 20px; font-size:16px; font-weight:700;
+                                    background:#3182f6; color:white; border:none; border-radius:8px;
+                                    cursor:pointer;
+                                ">💙 토스 결제창 열기 (sandbox)</button>
+                                <script>
+                                document.getElementById('toss-pay-btn').onclick = function() {{
+                                    try {{
+                                        var w = window.top || window;
+                                        var tp = TossPayments("{_toss_client_key}");
+                                        tp.requestPayment('카드', {{
+                                            amount: 10000,
+                                            orderId: "{_order_id}",
+                                            orderName: "캠페인 연 1만원 구독",
+                                            customerName: "{_customer_name}",
+                                            successUrl: "{_success_url}",
+                                            failUrl: "{_fail_url}",
+                                        }}).catch(function(error){{
+                                            alert('결제 시작 실패: ' + (error && error.message ? error.message : error));
+                                        }});
+                                    }} catch(e) {{
+                                        alert('토스 SDK 로드 실패: ' + e.message);
+                                    }}
+                                }};
+                                </script>
+                                </body></html>
+                                """,
+                                height=110,
+                            )
+                            if st.button("🚫 결제 취소 (pending 삭제)",
+                                         key="pdash_toss_cancel", use_container_width=False):
+                                try:
+                                    supabase.table("payments").update({"status": "cancelled"})\
+                                        .eq("pg_order_id", _order_id).execute()
+                                except Exception: pass
+                                st.session_state.pop("_toss_pending_order", None)
+                                st.session_state.pop("_toss_pending_name", None)
+                                st.rerun()
+                    else:
+                        # 토스 외 PG — 아직 신고 전이라 비활성
+                        st.warning(
+                            f"🚧 **{_selected_pg.upper()}** 는 신고/심사 대기 중입니다. "
+                            "샌드박스 테스트는 토스로 진행해주세요."
+                        )
 
             st.divider()
             st.caption(
