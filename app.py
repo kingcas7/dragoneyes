@@ -16516,13 +16516,151 @@ else:
         # ──────────────────────────────────────────────────────
         try:
             _overview = supabase.table("campaign_overview_content")\
-                .select("title, body_md, sort_order, section_key")\
+                .select("id, title, body_md, sort_order, section_key, is_active")\
                 .eq("audience", "student")\
-                .eq("is_active", True)\
                 .order("sort_order").execute()
-            _ov_rows = _overview.data or []
-        except Exception:
+            # is_active 필터는 Python 측에서 (supabase boolean 처리 안정성)
+            _ov_rows = [r for r in (_overview.data or []) if r.get("is_active", True)]
+        except Exception as _ov_e:
             _ov_rows = []
+            if _is_hq_admin_csd:
+                st.caption(f"⚠️ 안내 컨텐츠 조회 실패: {_ov_e}")
+
+        # ⭐ 본부 admin — 안내 컨텐츠 편집 + 자료 관리 expander
+        if _is_hq_admin_csd:
+            with st.expander("🛠️ 관리자 — 안내 컨텐츠 / 학습 교재 관리", expanded=False):
+                _admin_t1, _admin_t2, _admin_t3 = st.tabs(["✏️ 안내 편집", "📤 자료 업로드", "🗑️ 자료 관리"])
+
+                # ── 안내 컨텐츠 편집 ──
+                with _admin_t1:
+                    _aud_pick = st.radio("대상", ["student", "parent"], horizontal=True,
+                                          key="csd_admin_ov_audience")
+                    try:
+                        _all_ov = supabase.table("campaign_overview_content")\
+                            .select("id, audience, section_key, title, body_md, sort_order, is_active")\
+                            .eq("audience", _aud_pick).order("sort_order").execute().data or []
+                    except Exception:
+                        _all_ov = []
+                    if _all_ov:
+                        for _row in _all_ov:
+                            with st.container(border=True):
+                                st.caption(f"`{_row.get('section_key')}` · 순서 {_row.get('sort_order')} · "
+                                           f"활성: {'✅' if _row.get('is_active') else '❌'}")
+                                _new_title = st.text_input("제목", value=_row.get("title") or "",
+                                                           key=f"csd_ov_t_{_row['id']}")
+                                _new_body = st.text_area("본문 (Markdown)", value=_row.get("body_md") or "",
+                                                         height=140, key=f"csd_ov_b_{_row['id']}")
+                                _cc1, _cc2, _cc3 = st.columns(3)
+                                with _cc1:
+                                    if st.button("💾 저장", key=f"csd_ov_save_{_row['id']}", use_container_width=True):
+                                        try:
+                                            supabase.table("campaign_overview_content").update({
+                                                "title": _new_title, "body_md": _new_body,
+                                                "updated_by": _u_csd.get("id"),
+                                            }).eq("id", _row["id"]).execute()
+                                            st.success("저장됨"); st.rerun()
+                                        except Exception as _e: st.error(f"실패: {_e}")
+                                with _cc2:
+                                    _toggle_label = "❌ 비활성화" if _row.get("is_active") else "✅ 활성화"
+                                    if st.button(_toggle_label, key=f"csd_ov_tog_{_row['id']}", use_container_width=True):
+                                        try:
+                                            supabase.table("campaign_overview_content").update({
+                                                "is_active": not _row.get("is_active"),
+                                            }).eq("id", _row["id"]).execute()
+                                            st.rerun()
+                                        except Exception as _e: st.error(f"실패: {_e}")
+                                with _cc3:
+                                    if st.button("🗑️ 삭제", key=f"csd_ov_del_{_row['id']}", use_container_width=True):
+                                        try:
+                                            supabase.table("campaign_overview_content").delete()\
+                                                .eq("id", _row["id"]).execute()
+                                            st.rerun()
+                                        except Exception as _e: st.error(f"실패: {_e}")
+
+                    st.markdown("##### ➕ 새 섹션 추가")
+                    with st.form("csd_ov_new_form"):
+                        _n_audience = st.selectbox("대상", ["student", "parent", "institution", "all"],
+                                                    key="csd_ov_n_aud")
+                        _n_key = st.text_input("section_key (영문)", key="csd_ov_n_key",
+                                               placeholder="예: extra_info")
+                        _n_title = st.text_input("제목", key="csd_ov_n_title")
+                        _n_body = st.text_area("본문 (Markdown)", height=120, key="csd_ov_n_body")
+                        _n_order = st.number_input("정렬 순서", min_value=0, max_value=99, value=10,
+                                                    key="csd_ov_n_order")
+                        if st.form_submit_button("➕ 추가", type="primary", use_container_width=True):
+                            try:
+                                supabase.table("campaign_overview_content").insert({
+                                    "audience": _n_audience, "section_key": _n_key,
+                                    "title": _n_title, "body_md": _n_body,
+                                    "sort_order": _n_order, "is_active": True,
+                                    "updated_by": _u_csd.get("id"),
+                                }).execute()
+                                st.success("추가 완료"); st.rerun()
+                            except Exception as _e: st.error(f"실패: {_e}")
+
+                # ── 자료 업로드 ──
+                with _admin_t2:
+                    try:
+                        _camp = supabase.table("campaigns").select("id, title, year")\
+                            .eq("year", date.today().year).limit(1).execute().data or []
+                        _camp_id = _camp[0]["id"] if _camp else None
+                    except Exception:
+                        _camp_id = None
+                    if not _camp_id:
+                        st.error("올해 캠페인이 없습니다. campaigns 테이블 확인 필요.")
+                    else:
+                        with st.form("csd_mat_new_form"):
+                            _m_title = st.text_input("제목 *", key="csd_mat_t")
+                            _m_desc = st.text_area("설명", key="csd_mat_d", height=80)
+                            _m_type = st.selectbox("유형 *", ["pdf", "video", "audio", "interactive", "other"],
+                                                    key="csd_mat_type")
+                            _m_tier = st.radio("등급 *", ["free", "paid"], horizontal=True, key="csd_mat_tier",
+                                                format_func=lambda x: {"free":"🆓 기본 (무료)","paid":"💎 프리미엄"}.get(x))
+                            _m_url = st.text_input("자료 URL (스토리지 경로 또는 직접 URL) *", key="csd_mat_url")
+                            _m_thumb = st.text_input("썸네일 URL (선택)", key="csd_mat_thumb")
+                            if st.form_submit_button("📤 업로드", type="primary", use_container_width=True):
+                                if not (_m_title and _m_url):
+                                    st.error("제목/URL 필수")
+                                else:
+                                    try:
+                                        supabase.table("campaign_materials").insert({
+                                            "campaign_id": _camp_id, "title": _m_title,
+                                            "description": _m_desc, "type": _m_type,
+                                            "tier": _m_tier, "storage_url": _m_url,
+                                            "thumbnail_url": _m_thumb or None,
+                                            "created_by": _u_csd.get("id"),
+                                        }).execute()
+                                        st.success("자료 업로드 완료"); st.rerun()
+                                    except Exception as _e: st.error(f"실패: {_e}")
+
+                # ── 자료 관리 (수정/삭제) ──
+                with _admin_t3:
+                    try:
+                        _all_mats = supabase.table("campaign_materials")\
+                            .select("id, title, description, type, tier")\
+                            .is_("deleted_at", "null").order("created_at", desc=True).limit(50).execute().data or []
+                    except Exception:
+                        _all_mats = []
+                    if not _all_mats:
+                        st.caption("등록된 자료가 없습니다.")
+                    for _mat in _all_mats:
+                        with st.container(border=True):
+                            _tier_emoji = {"free":"🆓","paid":"💎"}.get(_mat.get("tier"),"·")
+                            _mc1, _mc2 = st.columns([5, 1])
+                            with _mc1:
+                                st.markdown(f"**{_tier_emoji} {_mat.get('title','')}** "
+                                            f"`{_mat.get('type')}` · `{_mat.get('tier')}`")
+                                if _mat.get("description"):
+                                    st.caption(_mat.get("description"))
+                            with _mc2:
+                                if st.button("🗑️", key=f"csd_mat_del_{_mat['id']}",
+                                              use_container_width=True):
+                                    try:
+                                        supabase.table("campaign_materials").update({
+                                            "deleted_at": datetime.now().isoformat()
+                                        }).eq("id", _mat["id"]).execute()
+                                        st.rerun()
+                                    except Exception as _e: st.error(f"실패: {_e}")
 
         # intro / purpose / benefits / steps / closing — 카드 형태
         if _ov_rows:
@@ -16577,11 +16715,13 @@ else:
         # 무료 자료
         try:
             _free_mats = supabase.table("campaign_materials").select(
-                "id, title, description, type, thumbnail_url, tier"
-            ).eq("tier", "free").is_("deleted_at", "null").order("created_at", desc=False).limit(20).execute()
-            _free_rows = _free_mats.data or []
-        except Exception:
+                "id, title, description, type, thumbnail_url, tier, deleted_at"
+            ).eq("tier", "free").order("created_at", desc=False).limit(20).execute()
+            _free_rows = [r for r in (_free_mats.data or []) if not r.get("deleted_at")]
+        except Exception as _fe:
             _free_rows = []
+            if _is_hq_admin_csd:
+                st.caption(f"⚠️ 무료 자료 조회 실패: {_fe}")
 
         st.markdown("#### 🆓 기본 교재 (무료)")
         if _free_rows:
@@ -16601,11 +16741,13 @@ else:
         # 프리미엄 자료
         try:
             _paid_mats = supabase.table("campaign_materials").select(
-                "id, title, description, type, thumbnail_url, tier"
-            ).eq("tier", "paid").is_("deleted_at", "null").order("created_at", desc=False).limit(20).execute()
-            _paid_rows = _paid_mats.data or []
-        except Exception:
+                "id, title, description, type, thumbnail_url, tier, deleted_at"
+            ).eq("tier", "paid").order("created_at", desc=False).limit(20).execute()
+            _paid_rows = [r for r in (_paid_mats.data or []) if not r.get("deleted_at")]
+        except Exception as _pe:
             _paid_rows = []
+            if _is_hq_admin_csd:
+                st.caption(f"⚠️ 유료 자료 조회 실패: {_pe}")
 
         st.markdown("")
         st.markdown(f"#### 💎 프리미엄 교재 {'(✅ 해금됨)' if _has_premium else '(🔒 학부모 결제 필요)'}")
@@ -17295,10 +17437,10 @@ else:
         # ──────────────────────────────────────────────────────
         try:
             _p_overview = supabase.table("campaign_overview_content")\
-                .select("title, body_md, section_key, sort_order")\
-                .eq("audience", "parent").eq("is_active", True)\
+                .select("title, body_md, section_key, sort_order, is_active")\
+                .eq("audience", "parent")\
                 .order("sort_order").execute()
-            _p_ov_rows = _p_overview.data or []
+            _p_ov_rows = [r for r in (_p_overview.data or []) if r.get("is_active", True)]
         except Exception:
             _p_ov_rows = []
 
