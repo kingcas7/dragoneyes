@@ -17243,26 +17243,69 @@ else:
         # ──────────────────────────────────────────────────────
         st.markdown("### 📚 학습 교재")
 
-        # 결제 여부 확인 (학생 본인 또는 부모 결제)
+        # ⭐ 프리미엄 해금 — 이중 경로
+        #   ① 학생: 학교 기관 계약 (institution_contracts active) 우선 → 학부모 구독 fallback
+        #   ② 학부모: 본인 결제만 (학교 계약 무관 — 학부모용은 별도 결제)
         _has_premium = False
+        _unlock_source = None  # 'school_contract' | 'parent_subscription' | None
+        _today_iso = date.today().isoformat()
+        _now_year = date.today().year
         try:
-            _now_year = date.today().year
-            # 학생인 경우 — 학부모가 결제했는지 확인
-            if _is_student_csd:
-                _psl = supabase.table("parent_student_links").select("parent_id")\
-                    .eq("student_id", _target_student_id).eq("status", "verified").execute()
-                _parent_ids = [r.get("parent_id") for r in (_psl.data or []) if r.get("parent_id")]
-                if _parent_ids:
-                    _sub = supabase.table("parent_subscriptions").select("id")\
-                        .in_("parent_id", _parent_ids).eq("status", "active").eq("year", _now_year).limit(1).execute()
-                    _has_premium = bool(_sub.data)
+            if _is_student_csd or (_is_parent_csd and _viewing_child_id):
+                # 학생 본인 또는 학부모가 자녀 둘러보기 — 학교 계약 우선
+                # 학생의 institution_id 조회
+                try:
+                    _stu_inst_row = supabase.table("users").select("institution_id")\
+                        .eq("id", _target_student_id).limit(1).execute()
+                    _stu_inst_id = (_stu_inst_row.data or [{}])[0].get("institution_id")
+                except Exception:
+                    _stu_inst_id = None
+
+                if _stu_inst_id:
+                    # 학교 계약 활성 여부 (paid 또는 all tier 포함)
+                    _ic = supabase.table("institution_contracts").select("id, contract_no, end_date")\
+                        .eq("institution_id", _stu_inst_id)\
+                        .eq("status", "active")\
+                        .in_("included_material_tier", ["paid","all"])\
+                        .lte("start_date", _today_iso)\
+                        .gte("end_date", _today_iso)\
+                        .limit(1).execute()
+                    if _ic.data:
+                        _has_premium = True
+                        _unlock_source = "school_contract"
+
+                # 학교 계약 없으면 학부모 구독 fallback
+                if not _has_premium and _is_student_csd:
+                    _psl = supabase.table("parent_student_links").select("parent_id")\
+                        .eq("student_id", _target_student_id)\
+                        .eq("verification_status", "verified").execute()
+                    _parent_ids = [r.get("parent_id") for r in (_psl.data or []) if r.get("parent_id")]
+                    if _parent_ids:
+                        _sub = supabase.table("parent_subscriptions").select("id")\
+                            .in_("parent_id", _parent_ids)\
+                            .eq("status", "active").eq("year", _now_year).limit(1).execute()
+                        if _sub.data:
+                            _has_premium = True
+                            _unlock_source = "parent_subscription"
             elif _is_parent_csd:
-                # 학부모 본인 결제 확인
+                # 학부모 본인 — 본인 결제만 (학교 계약 무관)
                 _sub = supabase.table("parent_subscriptions").select("id")\
-                    .eq("parent_id", _u_csd.get("id")).eq("status", "active").eq("year", _now_year).limit(1).execute()
-                _has_premium = bool(_sub.data)
+                    .eq("parent_id", _u_csd.get("id"))\
+                    .eq("status", "active").eq("year", _now_year).limit(1).execute()
+                if _sub.data:
+                    _has_premium = True
+                    _unlock_source = "parent_subscription"
         except Exception:
             _has_premium = False
+
+        # 해금 사유 안내 (해금된 경우)
+        if _has_premium and _unlock_source == "school_contract":
+            st.success(
+                "🎓 **학교 기관 계약**으로 프리미엄 교육 자료가 해금되었습니다. "
+                "교육당국·학교가 드래곤아이즈와 계약하여 본교 학생에게 무료 제공됩니다."
+            )
+        elif _has_premium and _unlock_source == "parent_subscription":
+            st.success("💳 **학부모 결제**로 프리미엄 교육 자료가 해금되었습니다.")
 
         # 무료 자료
         try:
@@ -20501,7 +20544,10 @@ else:
         st.divider()
 
         # 탭: 검색·목록 / 신규 추가 / 일괄 CSV
-        _it1, _it2, _it3 = st.tabs(["🔍 검색·목록·관리", "➕ 신규 추가", "📤 CSV import/export"])
+        _it1, _it2, _it3, _it4 = st.tabs(
+            ["🔍 검색·목록·관리", "➕ 신규 추가", "📤 CSV import/export",
+             "📜 기관 계약 (영업·정산)"]
+        )
 
         # ── 탭 1: 검색·목록·관리 ──
         with _it1:
@@ -20689,6 +20735,208 @@ else:
                         st.success(f"✅ {_ok}건 성공 / ❌ {_fail}건 실패"); st.rerun()
                 except Exception as _e:
                     st.error(f"CSV 파싱 실패: {_e}")
+
+        # ── 탭 4: 📜 기관 계약 (영업·정산) ──
+        with _it4:
+            st.markdown("##### 📜 기관 계약 관리 (영업·정산)")
+            st.caption(
+                "교육부/교육청/학교와 드래곤아이즈 간 **온라인 유해컨텐츠 예방 교육 패키지 계약**. "
+                "계약 활성 시 해당 기관 산하 **학생 전체에게 프리미엄 자료 자동 해금**. "
+                "(학부모는 별도 결제 필요)"
+            )
+
+            # 기존 계약 list
+            try:
+                _contracts = supabase.table("institution_contracts").select(
+                    "id, institution_id, contract_no, term, start_date, end_date, "
+                    "amount, max_students, included_material_tier, status, auto_renewal, note, created_at"
+                ).order("created_at", desc=True).limit(200).execute().data or []
+            except Exception as _e:
+                _contracts = []
+                st.error(f"계약 조회 실패: {_e}")
+
+            # 활성/만료 KPI
+            _today_iso2 = date.today().isoformat()
+            _active_contracts = [c for c in _contracts
+                                  if c.get("status") == "active"
+                                  and (c.get("start_date") or "") <= _today_iso2
+                                  and (c.get("end_date") or "9999-12-31") >= _today_iso2]
+            _expired_contracts = [c for c in _contracts
+                                   if c.get("status") in ("expired","cancelled")
+                                   or (c.get("end_date") or "9999-12-31") < _today_iso2]
+            _total_revenue = sum(int(c.get("amount") or 0) for c in _active_contracts)
+
+            _cck1, _cck2, _cck3, _cck4 = st.columns(4)
+            _cck1.metric("✅ 활성 계약", f"{len(_active_contracts):,}")
+            _cck2.metric("⌛ 만료/취소", f"{len(_expired_contracts):,}")
+            _cck3.metric("💰 활성 계약 합계", f"{_total_revenue:,}원")
+            _cck4.metric("📊 전체 계약", f"{len(_contracts):,}")
+
+            st.divider()
+
+            # 신규 계약 입력
+            with st.expander("➕ 신규 계약 추가", expanded=False):
+                # 기관 선택
+                try:
+                    _inst_opts_all = supabase.table("institutions").select(
+                        "id, name, type, region, district"
+                    ).is_("deleted_at", "null")\
+                     .eq("status", "approved").order("name").limit(2000).execute().data or []
+                except Exception:
+                    _inst_opts_all = []
+
+                if _inst_opts_all:
+                    _type_lbl_ic = {
+                        "ministry":"교육부","metro_office":"시·도 교육청","district_office":"교육지원청",
+                        "metro_council":"시·도의회","local_council":"시·군·구의회",
+                        "elementary":"초","middle":"중","high":"고","special":"특수",
+                        "youth_facility":"청소년 시설","other":"기타"
+                    }
+                    _ic_opts_dict = {
+                        f"[{_type_lbl_ic.get(r['type'], r['type'])}] {r['name']} "
+                        f"({r.get('region','') or ''} {r.get('district','') or ''})": r["id"]
+                        for r in _inst_opts_all
+                    }
+                    with st.form("ic_new_form"):
+                        _ic_sel = st.selectbox("계약 기관 *", list(_ic_opts_dict.keys()),
+                                                key="ic_new_inst")
+                        _ic_inst_id = _ic_opts_dict.get(_ic_sel)
+
+                        _icf1, _icf2 = st.columns(2)
+                        with _icf1:
+                            _ic_no = st.text_input("계약 번호",
+                                                    value=f"INST-{date.today().year}-",
+                                                    help="예: INST-2026-0001")
+                            _ic_term = st.selectbox("계약 형태", ["yearly", "bulk"],
+                                                     format_func=lambda x: {"yearly":"연단위","bulk":"일괄"}.get(x))
+                            _ic_start = st.date_input("계약 시작일 *", value=date.today())
+                        with _icf2:
+                            _ic_amount = st.number_input("계약 금액 (원) *", min_value=0,
+                                                          value=5000000, step=100000)
+                            _ic_max_stu = st.number_input("최대 학생 수 (0=무제한)",
+                                                           min_value=0, value=0)
+                            _ic_end = st.date_input("계약 종료일 *",
+                                                     value=date(date.today().year, 12, 31))
+
+                        _ic_tier = st.selectbox(
+                            "포함 자료 등급",
+                            ["paid","all","free"],
+                            format_func=lambda x: {"paid":"💎 프리미엄","all":"🆓💎 전체","free":"🆓 무료만"}.get(x, x),
+                            help="프리미엄 또는 전체 선택 시 학생들에게 프리미엄 자료 자동 해금"
+                        )
+                        _ic_renewal = st.checkbox("🔄 자동 갱신 (매년)", value=False)
+                        _ic_note = st.text_area("메모 (영업 담당자/비고)", height=70)
+
+                        if st.form_submit_button("📜 계약 등록", type="primary",
+                                                  use_container_width=True):
+                            try:
+                                supabase.table("institution_contracts").insert({
+                                    "institution_id": _ic_inst_id,
+                                    "term": _ic_term,
+                                    "contract_no": _ic_no or None,
+                                    "start_date": _ic_start.isoformat(),
+                                    "end_date": _ic_end.isoformat(),
+                                    "amount": int(_ic_amount),
+                                    "currency": "KRW",
+                                    "max_students": int(_ic_max_stu) if _ic_max_stu > 0 else None,
+                                    "included_material_tier": _ic_tier,
+                                    "status": "active",
+                                    "auto_renewal": _ic_renewal,
+                                    "note": _ic_note or None,
+                                    "created_by": user.get("id"),
+                                }).execute()
+                                st.success(
+                                    f"✅ 계약 등록 완료! 해당 기관 학생들에게 "
+                                    f"{'프리미엄 자료가' if _ic_tier in ('paid','all') else '무료 자료가'} "
+                                    f"자동 해금됩니다."
+                                )
+                                st.rerun()
+                            except Exception as _e:
+                                st.error(f"계약 등록 실패: {_e}")
+                else:
+                    st.warning("등록된 기관이 없습니다. 먼저 institutions에 기관을 추가해주세요.")
+
+            # 기존 계약 list
+            if _contracts:
+                st.markdown("##### 📋 계약 목록")
+                _inst_name_map = {r["id"]: r for r in (_inst_opts_all if _inst_opts_all else [])}
+                # 누락된 institution_id를 위해 추가 조회
+                _missing_ids = [c.get("institution_id") for c in _contracts
+                                if c.get("institution_id") not in _inst_name_map]
+                if _missing_ids:
+                    try:
+                        _extra = supabase.table("institutions").select(
+                            "id, name, type"
+                        ).in_("id", list(set(_missing_ids))).execute().data or []
+                        for r in _extra:
+                            _inst_name_map[r["id"]] = r
+                    except Exception: pass
+
+                for _c in _contracts:
+                    _inst_meta = _inst_name_map.get(_c.get("institution_id"), {})
+                    _status_lbl = {"active":"✅ 활성","pending":"⏳ 대기",
+                                    "expired":"⌛ 만료","cancelled":"🚫 취소"}.get(_c.get("status"), _c.get("status"))
+                    _tier_lbl = {"free":"🆓","paid":"💎","all":"🆓💎"}.get(_c.get("included_material_tier"), "·")
+                    with st.expander(
+                        f"{_status_lbl} **{_inst_meta.get('name','-')}** · "
+                        f"{_c.get('contract_no','-')} · {_tier_lbl} · "
+                        f"{_c.get('start_date','-')[:10]} ~ {_c.get('end_date','-')[:10]} · "
+                        f"{int(_c.get('amount') or 0):,}원",
+                        expanded=False
+                    ):
+                        st.markdown(f"- **기관**: {_inst_meta.get('name','-')}")
+                        st.markdown(f"- **계약 형태**: {_c.get('term')}")
+                        st.markdown(f"- **금액**: {int(_c.get('amount') or 0):,}원")
+                        st.markdown(f"- **자료 등급**: {_c.get('included_material_tier')}")
+                        st.markdown(f"- **최대 학생**: {_c.get('max_students') or '무제한'}")
+                        st.markdown(f"- **자동 갱신**: {'✅' if _c.get('auto_renewal') else '❌'}")
+                        if _c.get("note"):
+                            st.markdown(f"- **메모**: {_c.get('note')}")
+
+                        _bc1, _bc2 = st.columns(2)
+                        with _bc1:
+                            _new_st = st.selectbox(
+                                "상태 변경",
+                                ["active","pending","expired","cancelled"],
+                                index=["active","pending","expired","cancelled"].index(_c.get("status") or "active"),
+                                key=f"ic_st_{_c['id']}"
+                            )
+                        with _bc2:
+                            if st.button("💾 상태 저장", key=f"ic_save_{_c['id']}",
+                                          use_container_width=True):
+                                try:
+                                    supabase.table("institution_contracts").update({
+                                        "status": _new_st
+                                    }).eq("id", _c["id"]).execute()
+                                    st.success("저장됨"); st.rerun()
+                                except Exception as _e:
+                                    st.error(f"실패: {_e}")
+
+                # Excel export
+                try:
+                    import pandas as _pd_ic, io as _io_ic
+                    _ic_rows = [{
+                        "계약번호": c.get("contract_no"),
+                        "기관": _inst_name_map.get(c.get("institution_id"), {}).get("name","-"),
+                        "형태": c.get("term"),
+                        "시작": (c.get("start_date") or "")[:10],
+                        "종료": (c.get("end_date") or "")[:10],
+                        "금액(원)": int(c.get("amount") or 0),
+                        "자료 등급": c.get("included_material_tier"),
+                        "최대 학생": c.get("max_students") or "무제한",
+                        "상태": c.get("status"),
+                    } for c in _contracts]
+                    _df_ic = _pd_ic.DataFrame(_ic_rows)
+                    _buf_ic = _io_ic.BytesIO()
+                    with _pd_ic.ExcelWriter(_buf_ic, engine="openpyxl") as _wr:
+                        _df_ic.to_excel(_wr, sheet_name="기관 계약", index=False)
+                    st.download_button(
+                        "📥 계약 목록 Excel 다운로드",
+                        _buf_ic.getvalue(),
+                        file_name=f"institution_contracts_{date.today().isoformat()}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    )
+                except Exception: pass
 
 
     # ══════════════════════════════════════════════════════════════
