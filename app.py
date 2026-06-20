@@ -17708,7 +17708,7 @@ else:
                                 st.rerun()
 
         # ──────────────────────────────────────────────────────
-        # ⭐ 봉사시간 안내(파란) + 학습자료실/캠페인 참여(빨강) — material_view와 동일
+        # ⭐ 봉사시간 안내(파란) + 학습자료실/캠페인 참여(빨강) — 항상 표시
         # ──────────────────────────────────────────────────────
         _csd_band_meta = {
             "elementary": (20, 4, "초등학생"),
@@ -17720,29 +17720,41 @@ else:
             _csd_my_band = supabase.rpc("get_student_band",
                                          {"p_student_id": _target_student_id}).execute().data
         except Exception: pass
-        if _csd_my_band in _csd_band_meta:
-            _t_thr, _t_hr, _t_kr = _csd_band_meta[_csd_my_band]
-            _cta_c1, _cta_c2 = st.columns([3, 2])
-            with _cta_c1:
-                st.markdown(
-                    f"<div style='background:linear-gradient(135deg,#1d4ed8,#3b82f6);"
-                    f"border-radius:8px;padding:14px 18px;color:white;"
-                    f"box-shadow:0 1px 4px rgba(59,130,246,0.25);"
-                    f"display:flex;align-items:center;justify-content:center;"
-                    f"min-height:72px;text-align:center;'>"
-                    f"<div style='font-size:1rem;line-height:1.4;font-weight:600;'>"
+
+        _cta_c1, _cta_c2 = st.columns([3, 2])
+        with _cta_c1:
+            if _csd_my_band in _csd_band_meta:
+                # 학년대 매칭됨 — 본인 학년대 안내
+                _t_thr, _t_hr, _t_kr = _csd_band_meta[_csd_my_band]
+                _box_inner = (
                     f"📋 설문 <b>{_t_thr}명</b> ({_t_kr})<br>"
                     f"→ 🏆 봉사시간 <b>{_t_hr}시간</b> 자동 발급!"
-                    f"</div></div>",
-                    unsafe_allow_html=True,
                 )
-            with _cta_c2:
-                if st.button("👉 학습자료실 가기 (학습 + 캠페인 참여)",
-                              key="csd_cta_to_library",
-                              type="primary",
-                              use_container_width=True):
-                    st.session_state["current_page"] = "materials_library"
-                    st.rerun()
+            else:
+                # 학년 미지정 — 학년대별 일반 안내
+                _box_inner = (
+                    "📋 친구·가족 응답 받기 → 🏆 봉사시간 자동 발급!<br>"
+                    "<span style='font-size:0.78rem;opacity:0.9;'>"
+                    "초등 20명→4h · 중학 30명→5h · 고등 50명→8h</span>"
+                )
+            st.markdown(
+                f"<div style='background:linear-gradient(135deg,#1d4ed8,#3b82f6);"
+                f"border-radius:8px;padding:14px 18px;color:white;"
+                f"box-shadow:0 1px 4px rgba(59,130,246,0.25);"
+                f"display:flex;align-items:center;justify-content:center;"
+                f"min-height:72px;text-align:center;'>"
+                f"<div style='font-size:1rem;line-height:1.4;font-weight:600;'>"
+                f"{_box_inner}"
+                f"</div></div>",
+                unsafe_allow_html=True,
+            )
+        with _cta_c2:
+            if st.button("👉 학습자료실 가기 (학습 + 캠페인 참여)",
+                          key="csd_cta_to_library",
+                          type="primary",
+                          use_container_width=True):
+                st.session_state["current_page"] = "materials_library"
+                st.rerun()
 
         st.markdown("")
 
