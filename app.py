@@ -22875,14 +22875,19 @@ else:
         except Exception as _e:
             _all_mats = []; st.error(f"자료 조회 실패: {_e}")
 
-        # KPI
+        # KPI — 활성 자료 기준 (비활성은 별도 표시)
+        _active = [m for m in _all_mats if m.get('is_active')]
+        _inactive_n = len(_all_mats) - len(_active)
         _kc1, _kc2, _kc3, _kc4 = st.columns(4)
-        _kc1.metric("📖 전체", f"{len(_all_mats)}")
-        _kc2.metric("✅ 활성", f"{sum(1 for m in _all_mats if m.get('is_active'))}")
-        _kc3.metric("🆓 무료",
-                     f"{sum(1 for m in _all_mats if m.get('tier')=='free')}")
-        _kc4.metric("⭐ 프리미엄",
-                     f"{sum(1 for m in _all_mats if m.get('tier')=='premium')}")
+        _kc1.metric("📖 활성 전체", f"{len(_active)}",
+                     delta=(f"비활성 {_inactive_n}건" if _inactive_n else None),
+                     delta_color="off")
+        _kc2.metric("🆓 무료(활성)",
+                     f"{sum(1 for m in _active if m.get('tier')=='free')}")
+        _kc3.metric("⭐ 프리미엄(활성)",
+                     f"{sum(1 for m in _active if m.get('tier')=='premium')}")
+        _kc4.metric("📎 PDF 첨부",
+                     f"{sum(1 for m in _active if m.get('attachment_url'))}")
 
         st.divider()
 
