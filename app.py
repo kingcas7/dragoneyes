@@ -9877,6 +9877,7 @@ else:
         "campaign_signup_parent", "campaign_signup_student",
         "institution_dashboard", "institution_approval", "institution_management",
         "payment_management", "terms_management", "campaign_consent",
+        "materials_library", "material_view", "materials_management",
         "monitoring_stats",
     )
     # ⭐ query_params.page는 'sid 복원이 default home_landing으로 덮었을 때'만 적용 — 사용자가
@@ -17007,7 +17008,7 @@ else:
         )
 
         # 가운데 정렬 — 더 큰 양옆 여백 + 작아진 카드 2개 (50% 축소)
-        _pad_l, _cat1, _cat_gap, _cat2, _pad_r = st.columns([3, 4, 0.3, 4, 3])
+        _pad_l, _cat1, _cat_gap1, _cat2, _cat_gap2, _cat3, _pad_r = st.columns([1, 4, 0.3, 4, 0.3, 4, 1])
 
         # 카테고리 카드 공통 CSS — 컴팩트 박스
         st.markdown("""
@@ -17032,6 +17033,10 @@ else:
         .campaign-cat-card.fam {
             background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
             border-color: #fbbf24;
+        }
+        .campaign-cat-card.lib {
+            background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+            border-color: #a78bfa;
         }
         .campaign-cat-emoji { font-size: 2.2rem; line-height: 1; }
         .campaign-cat-title { font-size: 1.15rem; font-weight: 800; color: #0f172a; margin: 2px 0; }
@@ -17096,6 +17101,25 @@ else:
                     st.session_state["current_page"] = "campaign_student_dashboard"
                 st.rerun()
 
+        # ⭐ 학습자료실 — 모든 사용자 접근 가능
+        with _cat3:
+            st.markdown(
+                '<div class="campaign-cat-card lib">'
+                '<div class="campaign-cat-emoji">📚</div>'
+                '<div class="campaign-cat-title">학습자료실</div>'
+                '<div class="campaign-cat-desc">'
+                '학년대별 안전 교육 자료<br>'
+                '무료 자료 + 프리미엄(결제 시 해금)'
+                '</div></div>',
+                unsafe_allow_html=True,
+            )
+            if st.button("📚 학습자료실 열기",
+                         use_container_width=True,
+                         type="primary",
+                         key="cmp_cat_lib"):
+                st.session_state["current_page"] = "materials_library"
+                st.rerun()
+
         st.markdown("")
         st.divider()
 
@@ -17148,6 +17172,13 @@ else:
                                   key="hq_terms_mgmt",
                                   help="캠페인 이용 동의서 버전 관리 · 동의자 통계"):
                         st.session_state["current_page"] = "terms_management"
+                        st.rerun()
+                with _hb3:
+                    if st.button("📚 학습자료 관리",
+                                  use_container_width=True,
+                                  key="hq_materials_mgmt",
+                                  help="학습자료 CRUD · PDF 업로드 · 학년대·tier 분류"):
+                        st.session_state["current_page"] = "materials_management"
                         st.rerun()
 
         # ── 하단: 📊 드래곤아이즈 모니터링 통계 보기 + 캠페인 현황 보기 ──
@@ -22400,6 +22431,571 @@ else:
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     key="dl_refunds",
                 )
+
+
+    # ══════════════════════════════════════════════════════════════
+    # 📚 학습자료실 — 모든 사용자 접근 가능 (학년대별 자료 목록 + 잠금 UI)
+    # ══════════════════════════════════════════════════════════════
+    elif page == "materials_library":
+        _u_ml = user or {}
+        _role_ml = (_u_ml.get("role_v2") or "").lower()
+        _is_hq_ml = (_u_ml.get("role") == "admin" and not _u_ml.get("partner_id"))
+
+        _hh1, _hh2 = st.columns([6, 1])
+        with _hh1:
+            st.markdown("## 📚 학습자료실")
+            st.caption(
+                "드래곤아이즈 캠페인의 학년대별 안전 교육 자료입니다. "
+                "기본(무료) 자료는 누구나 열람 가능하고, 프리미엄 자료는 결제 후 해금됩니다."
+            )
+        with _hh2:
+            if st.button("← 캠페인 홈", key="ml_back_top", use_container_width=True):
+                st.session_state["current_page"] = "campaign_landing"; st.rerun()
+        st.divider()
+
+        # 학년대 필터 (학생은 본인 학년대로 자동 잠김)
+        _band_options = ["전체","elementary","middle","high"]
+        _band_labels  = {"전체":"전체","elementary":"🎒 초등","middle":"📚 중학","high":"🎓 고등"}
+        try:
+            _stu_band = supabase.rpc("get_student_band",
+                                       {"p_student_id": _u_ml.get("id")}).execute().data
+        except Exception:
+            _stu_band = None
+
+        _default_band = _stu_band if (_role_ml == "student" and _stu_band in ("elementary","middle","high")) else "전체"
+        _f_band = st.radio(
+            "학년대 필터",
+            _band_options,
+            format_func=lambda x: _band_labels.get(x, x),
+            horizontal=True,
+            index=_band_options.index(_default_band) if _default_band in _band_options else 0,
+            key="ml_band_filter",
+        )
+
+        # 자료 조회
+        try:
+            _mats = supabase.rpc(
+                "get_visible_materials", {"p_user_id": _u_ml.get("id")}
+            ).execute().data or []
+        except Exception as _e:
+            _mats = []; st.error(f"학습자료 조회 실패: {_e}")
+
+        # 학년대 필터 적용
+        if _f_band != "전체":
+            _mats = [m for m in _mats if m.get("target_band") in (_f_band, "all")]
+
+        # 프리미엄 접근 권한
+        try:
+            _has_premium = bool(supabase.rpc(
+                "check_premium_access", {"p_user_id": _u_ml.get("id")}
+            ).execute().data)
+        except Exception:
+            _has_premium = False
+
+        # KPI 안내
+        _kc1, _kc2, _kc3 = st.columns(3)
+        _kc1.metric("📖 자료 수", f"{len(_mats)}건")
+        _kc2.metric("🆓 기본(무료)",
+                     f"{sum(1 for m in _mats if m.get('tier')=='free')}건")
+        _kc3.metric("⭐ 프리미엄",
+                     f"{sum(1 for m in _mats if m.get('tier')=='premium')}건"
+                     + (" · ✅ 해금" if _has_premium else " · 🔒 결제 필요"))
+
+        st.markdown("")
+
+        if not _mats:
+            st.info("표시할 자료가 없습니다.")
+        else:
+            # 3열 그리드 카드
+            _per_row = 3
+            for i in range(0, len(_mats), _per_row):
+                _row_mats = _mats[i:i+_per_row]
+                _cols = st.columns(_per_row)
+                for j, m in enumerate(_row_mats):
+                    with _cols[j]:
+                        _emoji = m.get("cover_emoji") or "📚"
+                        _title = m.get("title") or "—"
+                        _summary = m.get("summary") or ""
+                        _tier = m.get("tier")
+                        _band = m.get("target_band")
+                        _read = m.get("reading_time_min") or 0
+                        _locked = bool(m.get("is_locked"))
+                        _chap = m.get("chapter_no") or 0
+                        _band_lbl = {"elementary":"🎒 초등","middle":"📚 중학",
+                                       "high":"🎓 고등","all":"🌐 전체"}.get(_band, _band)
+                        _tier_lbl = "🆓 무료" if _tier=="free" else "⭐ 프리미엄"
+                        _border = "#a78bfa" if _tier=="premium" else "#c7d2fe"
+                        _bg = "linear-gradient(135deg,#ede9fe,#ddd6fe)" if _tier=="premium" \
+                              else "linear-gradient(135deg,#f8fafc,#eef2ff)"
+
+                        st.markdown(
+                            f"<div style='background:{_bg};border:2px solid {_border};"
+                            f"border-radius:12px;padding:14px;min-height:180px;"
+                            f"position:relative;'>"
+                            f"<div style='font-size:2.4rem;text-align:center;'>{_emoji}</div>"
+                            f"<div style='font-size:0.78rem;color:#64748b;text-align:center;'>"
+                            f"제 {_chap} 장 · {_band_lbl} · {_tier_lbl}</div>"
+                            f"<div style='font-size:1rem;font-weight:700;color:#0f172a;"
+                            f"text-align:center;margin:6px 0 4px;'>{_title}</div>"
+                            f"<div style='font-size:0.78rem;color:#475569;line-height:1.4;"
+                            f"text-align:center;'>{_summary}</div>"
+                            f"<div style='font-size:0.7rem;color:#94a3b8;text-align:center;"
+                            f"margin-top:6px;'>⏱ 약 {_read}분 · 👁 {m.get('view_count') or 0}회</div>"
+                            f"{'<div style=\"position:absolute;top:8px;right:10px;font-size:1.4rem;\">🔒</div>' if _locked else ''}"
+                            f"</div>",
+                            unsafe_allow_html=True,
+                        )
+                        if _locked:
+                            st.button(
+                                "🔒 프리미엄 자료 (잠금)",
+                                key=f"ml_locked_{m.get('id')}",
+                                use_container_width=True,
+                                disabled=False,
+                                on_click=lambda mid=m.get("id"): (
+                                    st.session_state.update({
+                                        "_ml_locked_pick": mid,
+                                        "current_page":"material_view",
+                                        "_ml_view_id": mid,
+                                    })
+                                ),
+                            )
+                        else:
+                            if st.button("📖 열람하기",
+                                          key=f"ml_open_{m.get('id')}",
+                                          type="primary",
+                                          use_container_width=True):
+                                st.session_state["current_page"] = "material_view"
+                                st.session_state["_ml_view_id"] = m.get("id")
+                                st.rerun()
+                st.markdown("")
+
+        if _is_hq_ml:
+            st.divider()
+            st.caption("🛠️ 본부 admin — 자료 CRUD는 [본부 관리자 메뉴 → 📚 학습자료 관리]에서 가능합니다.")
+
+
+    # ══════════════════════════════════════════════════════════════
+    # 📖 학습자료 개별 열람 (다운로드 차단 PDF.js 임베드)
+    # ══════════════════════════════════════════════════════════════
+    elif page == "material_view":
+        _u_mv = user or {}
+        _mat_id = st.session_state.get("_ml_view_id") or st.query_params.get("id")
+        if not _mat_id:
+            st.warning("자료 ID가 없습니다.")
+            if st.button("← 학습자료실로", key="mv_back_noid"):
+                st.session_state["current_page"] = "materials_library"; st.rerun()
+            st.stop()
+
+        try:
+            _mv = supabase.table("campaign_learning_materials").select(
+                "id, slug, chapter_no, target_band, tier, category_tag, "
+                "title, summary, cover_emoji, cover_color, reading_time_min, "
+                "body_md, attachment_url, is_active, view_count, published_at"
+            ).eq("id", _mat_id).limit(1).execute().data or []
+            _mv_row = _mv[0] if _mv else {}
+        except Exception as _e:
+            _mv_row = {}; st.error(f"자료 조회 실패: {_e}")
+
+        if not _mv_row or not _mv_row.get("is_active"):
+            st.error("자료를 찾을 수 없거나 비활성 상태입니다.")
+            if st.button("← 학습자료실로", key="mv_back_inactive"):
+                st.session_state["current_page"] = "materials_library"; st.rerun()
+            st.stop()
+
+        # 잠금 판정
+        try:
+            _has_premium_mv = bool(supabase.rpc(
+                "check_premium_access", {"p_user_id": _u_mv.get("id")}
+            ).execute().data)
+        except Exception:
+            _has_premium_mv = False
+        _is_locked_mv = (_mv_row.get("tier") == "premium" and not _has_premium_mv)
+
+        _hh1, _hh2 = st.columns([6, 1])
+        with _hh1:
+            _band_lbl = {"elementary":"🎒 초등","middle":"📚 중학",
+                          "high":"🎓 고등","all":"🌐 전체"}.get(_mv_row.get("target_band"))
+            _tier_lbl = "🆓 무료" if _mv_row.get("tier")=="free" else "⭐ 프리미엄"
+            st.markdown(f"## {_mv_row.get('cover_emoji') or '📚'} {_mv_row.get('title')}")
+            st.caption(
+                f"제 {_mv_row.get('chapter_no')} 장 · {_band_lbl} · {_tier_lbl} · "
+                f"⏱ 약 {_mv_row.get('reading_time_min') or 0}분 · "
+                f"👁 조회 {_mv_row.get('view_count') or 0}회"
+            )
+        with _hh2:
+            if st.button("← 학습자료실", key="mv_back_top", use_container_width=True):
+                st.session_state["current_page"] = "materials_library"
+                st.session_state.pop("_ml_view_id", None)
+                st.rerun()
+        st.divider()
+
+        if _is_locked_mv:
+            # 결제 안내 화면
+            st.markdown(
+                "<div style='background:linear-gradient(135deg,#fef3c7,#fde68a);"
+                "border:2px solid #f59e0b;border-radius:14px;padding:30px;text-align:center;'>"
+                "<div style='font-size:3rem;'>🔒</div>"
+                "<div style='font-size:1.4rem;font-weight:700;color:#92400e;margin:10px 0;'>"
+                "프리미엄 학습 자료입니다</div>"
+                "<div style='color:#0f172a;font-size:0.95rem;line-height:1.7;'>"
+                "이 자료는 결제 후 열람할 수 있는 <b>프리미엄 자료</b>입니다.<br>"
+                "학부모는 <b>연 17,000원</b> 결제로 자녀 전원에게 모든 프리미엄 자료가 해금되며,<br>"
+                "교육기관(학교) 계약을 통해서도 소속 학생 전체에게 무료로 해금됩니다."
+                "</div></div>",
+                unsafe_allow_html=True,
+            )
+            st.markdown("")
+            _lc1, _lc2 = st.columns(2)
+            with _lc1:
+                if st.button("💳 학부모 결제하기",
+                              key="mv_to_pay", type="primary", use_container_width=True):
+                    st.session_state["current_page"] = "parent_dashboard"
+                    st.rerun()
+            with _lc2:
+                if st.button("🏫 기관 계약 문의",
+                              key="mv_to_inst", use_container_width=True):
+                    st.session_state["current_page"] = "campaign_signup_institution"
+                    st.rerun()
+        else:
+            # 조회 카운터 +1 (세션 1회만)
+            _viewed_key = f"_mv_viewed_{_mat_id}"
+            if not st.session_state.get(_viewed_key):
+                try:
+                    supabase.rpc("bump_material_view",
+                                  {"p_material_id": _mat_id}).execute()
+                except Exception: pass
+                st.session_state[_viewed_key] = True
+
+            if _mv_row.get("summary"):
+                st.info(_mv_row.get("summary"))
+
+            # 다운로드/우클릭/인쇄 차단 CSS
+            st.markdown(
+                "<style>"
+                ".material-viewer { user-select: none; -webkit-user-select: none; }"
+                ".material-viewer img, .material-viewer * { pointer-events: auto; }"
+                "@media print { body { display: none !important; } }"
+                "</style>"
+                "<script>"
+                "document.addEventListener('contextmenu', e => e.preventDefault());"
+                "document.addEventListener('selectstart', e => e.preventDefault());"
+                "document.addEventListener('keydown', e => {"
+                "  if (e.ctrlKey && (e.key==='s' || e.key==='p' || e.key==='c')) e.preventDefault();"
+                "  if (e.metaKey && (e.key==='s' || e.key==='p' || e.key==='c')) e.preventDefault();"
+                "});"
+                "</script>",
+                unsafe_allow_html=True,
+            )
+
+            # 본문 (Markdown)
+            if _mv_row.get("body_md"):
+                st.markdown(
+                    f"<div class='material-viewer'>{_mv_row.get('body_md')}</div>",
+                    unsafe_allow_html=True,
+                )
+
+            # PDF 첨부 임베드 (다운로드 막기 위해 toolbar=0)
+            _att = _mv_row.get("attachment_url")
+            if _att:
+                st.markdown("---")
+                st.markdown("##### 📄 학습 PDF")
+                st.caption("⚠️ 다운로드·인쇄 차단 모드 — 화면에서만 열람 가능합니다.")
+                # PDF.js URL 파라미터로 toolbar/navpanes 숨김
+                _pdf_url = _att + "#toolbar=0&navpanes=0&scrollbar=0&view=FitH"
+                st.markdown(
+                    f"<iframe src='{_pdf_url}' "
+                    f"style='width:100%;height:800px;border:1px solid #cbd5e1;border-radius:8px;'"
+                    f" sandbox='allow-scripts allow-same-origin'></iframe>",
+                    unsafe_allow_html=True,
+                )
+            elif not _mv_row.get("body_md"):
+                st.warning("본문 또는 첨부 파일이 아직 등록되지 않았습니다.")
+
+            st.markdown("---")
+            st.caption(
+                "🔒 본 자료는 드래곤아이즈 캠페인 전용 학습 자료로 무단 배포·캡처·공유가 금지됩니다."
+            )
+
+
+    # ══════════════════════════════════════════════════════════════
+    # 📚 본부 admin 전용 — 학습자료 관리 (CRUD)
+    # ══════════════════════════════════════════════════════════════
+    elif page == "materials_management":
+        _u_mm = user or {}
+        _is_hq_mm = (_u_mm.get("role") == "admin" and not _u_mm.get("partner_id"))
+        if not _is_hq_mm:
+            st.error("🚫 본부 관리자 전용 페이지입니다.")
+            if st.button("🏠 캠페인 홈", key="mm_back_unauth"):
+                st.session_state["current_page"] = "campaign_landing"; st.rerun()
+            st.stop()
+
+        _hh1, _hh2 = st.columns([6, 1])
+        with _hh1:
+            st.markdown("## 📚 학습자료 관리 (본부 admin)")
+            st.caption("학습자료실에 등록되는 자료의 CRUD. 학년대·tier 분류 + PDF 업로드.")
+        with _hh2:
+            if st.button("← 캠페인 홈", key="mm_back_top", use_container_width=True):
+                st.session_state["current_page"] = "campaign_landing"; st.rerun()
+        st.divider()
+
+        # 전체 자료 조회
+        try:
+            _all_mats = supabase.table("campaign_learning_materials").select(
+                "id, slug, chapter_no, target_band, tier, category_tag, "
+                "title, summary, cover_emoji, reading_time_min, "
+                "body_md, attachment_url, is_active, view_count, "
+                "published_at, created_at"
+            ).order("chapter_no").limit(500).execute().data or []
+        except Exception as _e:
+            _all_mats = []; st.error(f"자료 조회 실패: {_e}")
+
+        # KPI
+        _kc1, _kc2, _kc3, _kc4 = st.columns(4)
+        _kc1.metric("📖 전체", f"{len(_all_mats)}")
+        _kc2.metric("✅ 활성", f"{sum(1 for m in _all_mats if m.get('is_active'))}")
+        _kc3.metric("🆓 무료",
+                     f"{sum(1 for m in _all_mats if m.get('tier')=='free')}")
+        _kc4.metric("⭐ 프리미엄",
+                     f"{sum(1 for m in _all_mats if m.get('tier')=='premium')}")
+
+        st.divider()
+
+        _mmt1, _mmt2 = st.tabs(["➕ 새 자료 등록", "📋 자료 목록·편집"])
+
+        # ── 새 자료 등록 ──
+        with _mmt1:
+            with st.form("mm_new_form"):
+                _nc1, _nc2 = st.columns(2)
+                with _nc1:
+                    _nn_title = st.text_input("제목 *", key="mm_nn_title",
+                                                placeholder="예: 디지털 그루밍 — 6단계 완전 분석")
+                    _nn_band = st.selectbox(
+                        "학년대 *",
+                        ["elementary","middle","high","all"],
+                        format_func=lambda x: {
+                            "elementary":"🎒 초등학생용",
+                            "middle":"📚 중학생용",
+                            "high":"🎓 고등학생용",
+                            "all":"🌐 전체 (모든 학년대)",
+                        }.get(x, x),
+                        key="mm_nn_band",
+                    )
+                    _nn_tier = st.selectbox(
+                        "유형 *",
+                        ["free","premium"],
+                        format_func=lambda x: {
+                            "free":"🆓 기본 (무료 — 누구나 열람)",
+                            "premium":"⭐ 프리미엄 (결제 후 해금)",
+                        }.get(x, x),
+                        key="mm_nn_tier",
+                    )
+                    _nn_chap = st.number_input("장 번호 (정렬 순서)",
+                                                 min_value=0, max_value=999,
+                                                 value=(max([m.get("chapter_no") or 0
+                                                              for m in _all_mats] + [0]) + 1),
+                                                 key="mm_nn_chap")
+                with _nc2:
+                    _nn_slug = st.text_input("slug (영문 URL 식별자, 선택)",
+                                               key="mm_nn_slug",
+                                               placeholder="예: grooming-deep")
+                    _nn_cat = st.text_input("카테고리 태그 (선택)",
+                                              key="mm_nn_cat",
+                                              placeholder="예: grooming, copyright, deepfake")
+                    _nn_emoji = st.text_input("커버 이모지", value="📚",
+                                                key="mm_nn_emoji")
+                    _nn_read = st.number_input("예상 읽기 시간 (분)",
+                                                 min_value=0, max_value=600, value=20,
+                                                 key="mm_nn_read")
+
+                _nn_summary = st.text_input("요약 (1~2줄)",
+                                              key="mm_nn_summary",
+                                              placeholder="목록 카드에 표시될 짧은 설명")
+                _nn_body = st.text_area("본문 (Markdown, 선택)",
+                                          height=240, key="mm_nn_body",
+                                          placeholder="### 1. 도입\n\n학습 내용을 Markdown으로 작성...")
+
+                _nn_pdf = st.file_uploader(
+                    "PDF 첨부 (선택 — Storage에 업로드)",
+                    type=["pdf"],
+                    key="mm_nn_pdf",
+                )
+
+                _nn_active = st.checkbox("즉시 활성화 (학습자료실에 노출)",
+                                            value=True, key="mm_nn_active")
+
+                if st.form_submit_button("📤 등록", type="primary",
+                                            use_container_width=True):
+                    if not _nn_title.strip():
+                        st.error("제목은 필수입니다.")
+                    else:
+                        _att_url = None
+                        # PDF 업로드 → Storage
+                        if _nn_pdf is not None:
+                            try:
+                                import time as _tt
+                                _fpath = f"learning_materials/{int(_tt.time())}_{_nn_pdf.name}"
+                                sb_admin().storage.from_("Documents").upload(
+                                    _fpath, _nn_pdf.read(),
+                                    {"content-type": "application/pdf"},
+                                )
+                                _att_url = sb_admin().storage.from_("Documents")\
+                                    .create_signed_url(_fpath, 60*60*24*365*5)["signedURL"]
+                            except Exception as _ue:
+                                st.warning(f"PDF 업로드 실패 (메타만 저장): {_ue}")
+
+                        try:
+                            supabase.table("campaign_learning_materials").insert({
+                                "slug": _nn_slug.strip() or None,
+                                "chapter_no": int(_nn_chap),
+                                "target_band": _nn_band,
+                                "tier": _nn_tier,
+                                "category_tag": _nn_cat.strip() or None,
+                                "title": _nn_title.strip(),
+                                "summary": _nn_summary.strip() or None,
+                                "cover_emoji": _nn_emoji.strip() or "📚",
+                                "reading_time_min": int(_nn_read),
+                                "body_md": _nn_body.strip() or None,
+                                "attachment_url": _att_url,
+                                "is_active": bool(_nn_active),
+                                "created_by": _u_mm.get("id"),
+                            }).execute()
+                            st.success("✅ 자료 등록 완료")
+                            st.rerun()
+                        except Exception as _ie:
+                            st.error(f"등록 실패: {_ie}")
+
+        # ── 자료 목록·편집 ──
+        with _mmt2:
+            if not _all_mats:
+                st.info("등록된 자료가 없습니다. 위 '새 자료 등록' 탭에서 추가해주세요.")
+            else:
+                import pandas as _pd_mm
+                _df_mm = _pd_mm.DataFrame([{
+                    "장": m.get("chapter_no"),
+                    "제목": m.get("title"),
+                    "학년대": {"elementary":"초","middle":"중","high":"고","all":"전체"}.get(m.get("target_band")),
+                    "유형": "🆓" if m.get("tier")=="free" else "⭐",
+                    "본문": "📄" if m.get("body_md") else "—",
+                    "PDF": "📎" if m.get("attachment_url") else "—",
+                    "조회": m.get("view_count"),
+                    "활성": "✅" if m.get("is_active") else "❌",
+                    "발행": (m.get("published_at") or "")[:10],
+                } for m in _all_mats])
+                st.dataframe(_df_mm, use_container_width=True, hide_index=True)
+
+                st.markdown("##### ✏️ 자료 편집")
+                _opts = {f"제{m.get('chapter_no')}장 · {m.get('title')}": m
+                         for m in _all_mats}
+                _pick = st.selectbox("편집할 자료 선택",
+                                       ["—"] + list(_opts.keys()),
+                                       key="mm_edit_pick")
+                if _pick != "—":
+                    _em = _opts[_pick]
+                    with st.form(f"mm_edit_form_{_em.get('id')}"):
+                        _ec1, _ec2 = st.columns(2)
+                        with _ec1:
+                            _et = st.text_input("제목",
+                                                  value=_em.get("title") or "",
+                                                  key="mm_e_title")
+                            _eband = st.selectbox(
+                                "학년대",
+                                ["elementary","middle","high","all"],
+                                index=["elementary","middle","high","all"].index(
+                                    _em.get("target_band") or "all"),
+                                key="mm_e_band",
+                            )
+                            _etier = st.selectbox(
+                                "유형",
+                                ["free","premium"],
+                                index=["free","premium"].index(_em.get("tier") or "free"),
+                                key="mm_e_tier",
+                            )
+                            _echap = st.number_input("장 번호", min_value=0, max_value=999,
+                                                       value=_em.get("chapter_no") or 0,
+                                                       key="mm_e_chap")
+                        with _ec2:
+                            _eemoji = st.text_input("커버 이모지",
+                                                       value=_em.get("cover_emoji") or "📚",
+                                                       key="mm_e_emoji")
+                            _eread = st.number_input("예상 읽기 시간",
+                                                       min_value=0, value=_em.get("reading_time_min") or 0,
+                                                       key="mm_e_read")
+                            _ecat = st.text_input("카테고리 태그",
+                                                    value=_em.get("category_tag") or "",
+                                                    key="mm_e_cat")
+                            _eactive = st.checkbox("활성",
+                                                     value=bool(_em.get("is_active")),
+                                                     key="mm_e_active")
+
+                        _esumm = st.text_input("요약",
+                                                 value=_em.get("summary") or "",
+                                                 key="mm_e_summ")
+                        _ebody = st.text_area("본문 (Markdown)",
+                                                value=_em.get("body_md") or "",
+                                                height=200, key="mm_e_body")
+
+                        _epdf = st.file_uploader(
+                            "PDF 교체 (선택 — 기존 유지하려면 빈칸)",
+                            type=["pdf"],
+                            key=f"mm_e_pdf_{_em.get('id')}",
+                        )
+
+                        _ee1, _ee2, _ee3 = st.columns(3)
+                        with _ee1:
+                            if st.form_submit_button("💾 저장", type="primary",
+                                                        use_container_width=True):
+                                _payload = {
+                                    "title": _et.strip(),
+                                    "target_band": _eband,
+                                    "tier": _etier,
+                                    "chapter_no": int(_echap),
+                                    "cover_emoji": _eemoji.strip() or "📚",
+                                    "reading_time_min": int(_eread),
+                                    "category_tag": _ecat.strip() or None,
+                                    "summary": _esumm.strip() or None,
+                                    "body_md": _ebody.strip() or None,
+                                    "is_active": bool(_eactive),
+                                }
+                                if _epdf is not None:
+                                    try:
+                                        import time as _tt
+                                        _fpath = f"learning_materials/{int(_tt.time())}_{_epdf.name}"
+                                        sb_admin().storage.from_("Documents").upload(
+                                            _fpath, _epdf.read(),
+                                            {"content-type": "application/pdf"},
+                                        )
+                                        _payload["attachment_url"] = sb_admin().storage\
+                                            .from_("Documents")\
+                                            .create_signed_url(_fpath, 60*60*24*365*5)["signedURL"]
+                                    except Exception as _ue:
+                                        st.warning(f"PDF 교체 실패: {_ue}")
+                                try:
+                                    supabase.table("campaign_learning_materials")\
+                                        .update(_payload).eq("id", _em.get("id")).execute()
+                                    st.success("저장 완료"); st.rerun()
+                                except Exception as _ue:
+                                    st.error(f"저장 실패: {_ue}")
+                        with _ee2:
+                            if st.form_submit_button(
+                                "❌ 비활성화" if _em.get("is_active") else "✅ 활성화",
+                                use_container_width=True,
+                            ):
+                                try:
+                                    supabase.table("campaign_learning_materials").update({
+                                        "is_active": not bool(_em.get("is_active"))
+                                    }).eq("id", _em.get("id")).execute()
+                                    st.rerun()
+                                except Exception as _ue:
+                                    st.error(f"실패: {_ue}")
+                        with _ee3:
+                            if st.form_submit_button("🗑️ 삭제",
+                                                       use_container_width=True):
+                                try:
+                                    supabase.table("campaign_learning_materials")\
+                                        .delete().eq("id", _em.get("id")).execute()
+                                    st.success("삭제 완료"); st.rerun()
+                                except Exception as _ue:
+                                    st.error(f"삭제 실패: {_ue}")
 
 
     # ══════════════════════════════════════════════════════════════
