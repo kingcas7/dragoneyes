@@ -7179,7 +7179,24 @@ def _render_signup_institution():
                 _new_inst_data["phone"] = st.text_input("대표 전화")
                 _new_inst_data["representative"] = st.text_input("교장/대표자")
                 _new_inst_data["code"] = st.text_input("기관 코드 (선택)", placeholder="NEIS 학교 코드 등")
-            st.info("📌 신규 기관 등록은 본부 관리자 승인 후 활성화됩니다. (검토 1~3일 소요)")
+
+            # ⭐ 사업자등록증 업로드 (필수)
+            st.markdown("##### 📎 사업자등록증 첨부 (필수)")
+            st.caption(
+                "교육기관의 사업자등록증 사본 또는 학교 인가증을 PDF·JPG·PNG로 업로드해주세요. "
+                "본부 검증 후 승인 처리됩니다."
+            )
+            _biz_lic = st.file_uploader(
+                "사업자등록증 / 학교 인가증 파일 *",
+                type=["pdf","jpg","jpeg","png"],
+                key="inst_signup_biz_lic",
+                help="최대 5MB. 본부 admin만 열람 가능 (보안 보장).",
+            )
+            if _biz_lic:
+                st.success(f"✅ 파일 업로드 준비됨: {_biz_lic.name} ({_biz_lic.size/1024:.1f} KB)")
+                _new_inst_data["_biz_lic_filename"] = _biz_lic.name
+                _new_inst_data["_biz_lic_size"] = _biz_lic.size
+            st.info("📌 신규 기관 등록은 본부 관리자가 사업자등록증을 확인한 후 승인됩니다. (검토 1~3일 소요)")
         else:
             if not _insts:
                 st.warning("등록된 기관이 없습니다. '신규 기관 등록 신청'을 선택해주세요.")
@@ -7211,6 +7228,9 @@ def _render_signup_institution():
         if _is_new_inst and not _new_inst_data.get("name"):
             st.error("기관명을 입력해주세요.")
             return
+        if _is_new_inst and not _new_inst_data.get("_biz_lic_filename"):
+            st.error("📎 **사업자등록증/학교 인가증**을 업로드해주세요. (신규 등록 시 필수)")
+            return
         if _is_neis_mode and not _neis_selected_school:
             st.error("NEIS에서 학교를 검색·선택해주세요.")
             return
@@ -7232,14 +7252,38 @@ def _render_signup_institution():
                 if _upsert_id:
                     _final_inst_id = _upsert_id
 
-            # 2b. 신규 기관이면 institution_requests에 add 신청
+            # 2b. 신규 기관이면 institution_requests에 add 신청 + 사업자등록증 업로드
             if _is_new_inst:
+                # 사업자등록증 Supabase Storage 업로드
+                _biz_lic_url = None
+                _biz_lic_path = None
+                try:
+                    if _biz_lic:
+                        _ext = _biz_lic.name.rsplit(".", 1)[-1].lower() if "." in _biz_lic.name else "bin"
+                        _biz_lic_path = f"business_licenses/{_uid}_{int(datetime.now().timestamp())}.{_ext}"
+                        _biz_lic.seek(0)
+                        sb_admin().storage.from_("documents").upload(
+                            _biz_lic_path,
+                            _biz_lic.read(),
+                            {"content-type": _biz_lic.type or "application/octet-stream"},
+                        )
+                        # signed URL (1년 유효 — 본부 admin이 검토용)
+                        _biz_lic_url = sb_admin().storage.from_("documents")\
+                            .create_signed_url(_biz_lic_path, 60 * 60 * 24 * 365)["signedURL"]
+                except Exception as _se:
+                    st.warning(f"사업자등록증 업로드 실패 (가입은 진행됨): {_se}")
+                # _new_inst_data에 license 정보 추가
+                _new_inst_data.pop("_biz_lic_filename", None)
+                _new_inst_data.pop("_biz_lic_size", None)
+                _new_inst_data["business_license_path"] = _biz_lic_path
+                _new_inst_data["business_license_url"] = _biz_lic_url
                 try:
                     _req = supabase.table("institution_requests").insert({
                         "request_type": "add",
                         "requested_by": _uid,
                         "requested_data": _new_inst_data,
-                        "note": f"가입 시 신규 등록 신청 — 담당자 {_name}",
+                        "note": f"가입 시 신규 등록 신청 — 담당자 {_name}. 사업자등록증 첨부: "
+                                f"{'있음' if _biz_lic_url else '없음'}",
                     }).execute()
                     _final_inst_id = None  # 승인 전까지 미연결
                 except Exception as e:
@@ -18597,12 +18641,66 @@ else:
         # ⭐ 본부 admin은 모든 캠페인 페이지 미리보기 가능
         _is_hq_admin_inst = (_u.get("role") == "admin" and not _u.get("partner_id"))
 
-        # 권한 가드
+        # ⭐ 강화된 권한 가드 (3 단계):
+        # 1) role_v2 == 'institution_admin' (또는 본부 admin)
+        # 2) institution_id 연결 필요 (또는 본부 admin)
+        # 3) 연결된 institutions.status == 'approved' (또는 본부 admin)
         if _role_v2 != "institution_admin" and not _is_hq_admin_inst:
-            st.error("🚫 교육기관 관리자 전용 페이지입니다.")
-            if st.button("🏠 캠페인 홈으로", key="inst_dash_back"):
+            st.error("🚫 **교육기관 관리자 전용 페이지**입니다.")
+            st.warning(
+                "이 페이지에 접근하시려면 다음 절차가 필요합니다:\n"
+                "1. **교육기관 회원가입** (사업자등록증 첨부)\n"
+                "2. **본부 승인** (보통 1~3일)\n"
+                "3. 승인 후 로그인 → 자동으로 본 페이지 진입"
+            )
+            _g1, _g2 = st.columns(2)
+            with _g1:
+                if st.button("🏠 캠페인 홈으로", key="inst_dash_back", use_container_width=True):
+                    go_to("campaign_landing"); st.rerun()
+            with _g2:
+                if st.button("🏫 교육기관 가입 신청", type="primary",
+                              key="inst_dash_signup", use_container_width=True):
+                    st.session_state["current_page"] = "campaign_signup_institution"
+                    st.rerun()
+            st.stop()
+
+        # institution_admin이지만 institution_id 미연결 (등록 신청 대기 중)
+        if _role_v2 == "institution_admin" and not _inst_id and not _is_hq_admin_inst:
+            st.warning(
+                "⏳ **본부 승인 대기 중입니다.**\n\n"
+                "교육기관 등록 신청은 접수되었지만 아직 본부 승인이 완료되지 않았습니다. "
+                "보통 1~3일 소요됩니다. 본부 관리자(support@dragoneyes.kr)에게 문의 가능."
+            )
+            if st.button("🏠 캠페인 홈으로", key="inst_dash_back_pending"):
                 go_to("campaign_landing"); st.rerun()
             st.stop()
+
+        # institution_admin이지만 institution.status != 'approved' (정지/거절)
+        if _role_v2 == "institution_admin" and _inst_id and not _is_hq_admin_inst:
+            try:
+                _my_inst_check = supabase.table("institutions").select("status")\
+                    .eq("id", _inst_id).limit(1).execute().data or []
+                _my_inst_status = (_my_inst_check[0].get("status") if _my_inst_check else None)
+            except Exception:
+                _my_inst_status = None
+            if _my_inst_status == "pending":
+                st.warning(
+                    "⏳ **본부 승인 대기 중**입니다. 신청서가 검토 중입니다. "
+                    "사업자등록증·기관 정보 확인이 끝나는 대로 활성화됩니다."
+                )
+                if st.button("🏠 캠페인 홈으로", key="inst_dash_pending"):
+                    go_to("campaign_landing"); st.rerun()
+                st.stop()
+            elif _my_inst_status == "rejected":
+                st.error("🚫 등록 신청이 거절되었습니다. 본부에 문의해주세요.")
+                if st.button("🏠 캠페인 홈으로", key="inst_dash_rej"):
+                    go_to("campaign_landing"); st.rerun()
+                st.stop()
+            elif _my_inst_status == "suspended":
+                st.error("🚫 기관 계정이 정지되었습니다. 본부에 문의해주세요.")
+                if st.button("🏠 캠페인 홈으로", key="inst_dash_sus"):
+                    go_to("campaign_landing"); st.rerun()
+                st.stop()
 
         # 상단 헤더
         _h1, _h2 = st.columns([6, 1])
@@ -20497,6 +20595,145 @@ else:
                                     st.rerun()
                                 except Exception as _e:
                                     st.error(f"실패: {_e}")
+
+                  # ⭐ AI 교사 명단 일괄 업로드 (Excel/CSV)
+                  with st.expander("🤖 AI 교사 명단 일괄 업로드 (Excel/CSV — 드래그하세요)",
+                                     expanded=False):
+                    st.caption(
+                        "여러 선생님 계정을 엑셀로 한 번에 등록. "
+                        "컬럼명이 한글/영어 어느 형식이든 AI가 자동 매칭."
+                    )
+
+                    # 템플릿 다운로드
+                    try:
+                        import pandas as _pd_thb, io as _io_thb
+                        _th_tpl = _pd_thb.DataFrame([
+                            ["김선생", "kim@school.kr", "homeroom", "1학년 3반 담임", "Dragon!2026"],
+                            ["박교감", "park@school.kr", "vice_principal", "교감", "Dragon!2026"],
+                            ["이공용", "shared@school.kr", "shared", "행정실 공용", "Dragon!2026"],
+                        ], columns=["이름","이메일","역할","담당","초기 비밀번호"])
+                        _buf_thb = _io_thb.BytesIO()
+                        with _pd_thb.ExcelWriter(_buf_thb, engine="openpyxl") as _wr:
+                            _th_tpl.to_excel(_wr, sheet_name="교사 명단", index=False)
+                        st.download_button(
+                            "📥 교사 명단 Excel 템플릿 다운로드",
+                            _buf_thb.getvalue(),
+                            file_name="교사명단_템플릿.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            key=f"th_tpl_{_teach_target_inst}",
+                        )
+                    except Exception: pass
+
+                    st.caption(
+                        "역할(teacher_role) 값: "
+                        "`principal`(교장) / `vice_principal`(교감) / `shared`(공용) / "
+                        "`admin`(행정) / `homeroom`(담임) / `subject`(교과)"
+                    )
+
+                    _th_up = st.file_uploader(
+                        "교사 명단 파일 드래그하여 업로드 (Excel/CSV)",
+                        type=["xlsx","xls","csv"],
+                        key=f"th_bulk_up_{_teach_target_inst}",
+                    )
+
+                    if _th_up is not None:
+                        try:
+                            import pandas as _pd_thup
+                            if _th_up.name.lower().endswith(".csv"):
+                                _df_thup = _pd_thup.read_csv(_th_up)
+                            else:
+                                _df_thup = _pd_thup.read_excel(_th_up)
+
+                            # AI 컬럼 자동 매칭
+                            _th_map = {}
+                            _th_patterns = {
+                                "name":    ["이름","성명","name","Name","교사명"],
+                                "email":   ["이메일","email","Email","메일"],
+                                "role":    ["역할","role","teacher_role","구분"],
+                                "charge":  ["담당","charge","비고","역할 설명"],
+                                "pw":      ["비밀번호","password","비번","초기 비밀번호"],
+                            }
+                            for _k, _patterns in _th_patterns.items():
+                                for _col in _df_thup.columns:
+                                    _norm = str(_col).strip().lower().replace(" ","")
+                                    for _p in _patterns:
+                                        if _norm == _p.lower().replace(" ","") or _p.lower() in _norm:
+                                            _th_map[_k] = _col
+                                            break
+                                    if _k in _th_map: break
+
+                            st.markdown("##### 🤖 AI 컬럼 자동 매칭")
+                            _kor_th = {"name":"이름","email":"이메일","role":"역할",
+                                        "charge":"담당","pw":"비밀번호"}
+                            for _k, _v in _th_map.items():
+                                st.success(f"✅ {_kor_th.get(_k, _k)} → `{_v}`")
+                            _miss_th = [_k for _k in ("name","email") if _k not in _th_map]
+                            if _miss_th:
+                                st.error(f"❌ 필수 컬럼 누락: {', '.join(_kor_th.get(m, m) for m in _miss_th)}")
+                                st.stop()
+
+                            # 정규화 + 인라인 수정
+                            _df_thnorm = _pd_thup.DataFrame()
+                            for _k, _v in _th_map.items():
+                                _df_thnorm[_kor_th.get(_k, _k)] = _df_thup[_v]
+                            _df_thedit = st.data_editor(
+                                _df_thnorm, use_container_width=True, num_rows="dynamic",
+                                key=f"th_editor_{_teach_target_inst}",
+                            )
+                            st.caption(f"총 {len(_df_thedit)}명 (수정 가능)")
+
+                            _bulk_pw_default = st.text_input(
+                                "기본 비밀번호 (비밀번호 컬럼 비어있을 때)",
+                                value="Dragon!2026", type="password",
+                                key=f"th_bulk_pwd_{_teach_target_inst}"
+                            )
+
+                            if st.button("👥 교사 일괄 등록 실행",
+                                           type="primary", use_container_width=True,
+                                           key=f"th_bulk_go_{_teach_target_inst}"):
+                                _th_ok, _th_fail = 0, 0
+                                _th_errs = []
+                                _valid_roles = {"principal","vice_principal","shared","admin","homeroom","subject"}
+                                for _idx, _row in _df_thedit.iterrows():
+                                    _nn = str(_row.get("이름","") or "").strip()
+                                    _ee = str(_row.get("이메일","") or "").strip()
+                                    _rr = str(_row.get("역할","") or "shared").strip()
+                                    _cc = str(_row.get("담당","") or "").strip()
+                                    _pp = str(_row.get("비밀번호","") or "").strip() or _bulk_pw_default
+                                    if not _nn or not _ee or "@" not in _ee:
+                                        _th_fail += 1
+                                        _th_errs.append(f"{_idx+1}행: 이름/이메일 누락"); continue
+                                    if _rr not in _valid_roles:
+                                        _rr = "shared"
+                                    try:
+                                        _new_th_uid = sb_admin().auth.admin.create_user({
+                                            "email": _ee, "password": _pp,
+                                            "email_confirm": True,
+                                            "user_metadata": {"name": _nn},
+                                        }).user.id
+                                        supabase.table("users").insert({
+                                            "id": _new_th_uid,
+                                            "email": _ee, "name": _nn,
+                                            "role": "user", "role_v2": "institution_admin",
+                                            "institution_id": _teach_target_inst,
+                                            "teacher_role": _rr,
+                                            "teacher_charge": ({"description": _cc} if _cc else None),
+                                            "status": "active",
+                                        }).execute()
+                                        _th_ok += 1
+                                    except Exception as _ee2:
+                                        _th_fail += 1
+                                        _th_errs.append(f"{_idx+1}행 ({_ee}): {str(_ee2)[:80]}")
+                                st.success(f"✅ {_th_ok}명 등록 성공 / ❌ {_th_fail}명 실패")
+                                if _th_errs:
+                                    with st.expander(f"❌ 실패 상세 ({len(_th_errs)}건)"):
+                                        for _err in _th_errs[:50]:
+                                            st.text(_err)
+                                if _th_ok > 0:
+                                    st.balloons()
+                                    st.rerun()
+                        except Exception as _e:
+                            st.error(f"파일 파싱 실패: {_e}")
 
 
     # ══════════════════════════════════════════════════════════════
