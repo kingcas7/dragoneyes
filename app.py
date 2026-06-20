@@ -16211,6 +16211,8 @@ else:
         _is_student = (_role_v2 == "student") or bool(_u.get("is_campaign_only"))
         _is_parent = (_role_v2 == "parent")
         _is_inst = (_role_v2 == "institution_admin")
+        # ⭐ 본부 admin — 모든 캠페인 페이지 미리보기 가능
+        _is_hq_admin = (_u.get("role") == "admin" and not _u.get("partner_id"))
 
         # ⭐ 슬로건 아래 가로 3아이콘 미리보기 (참고 정보)
         _ic1, _ic2, _ic3 = st.columns(3)
@@ -16308,7 +16310,10 @@ else:
                          key="cmp_cat_inst"):
                 if _is_inst and _u.get("institution_id"):
                     # 이미 기관 연결됨 → 자료/대시보드
-                    st.session_state["current_page"] = "campaign_materials"
+                    st.session_state["current_page"] = "institution_dashboard"
+                elif _is_hq_admin:
+                    # 본부 admin — 기관 대시보드 미리보기
+                    st.session_state["current_page"] = "institution_dashboard"
                 else:
                     # 기관 미연결 (신규 등록 필요) → 가입/등록 폼
                     st.session_state["current_page"] = "campaign_signup_institution"
@@ -16330,13 +16335,16 @@ else:
                          type="primary",
                          key="cmp_cat_fam"):
                 if _is_parent:
-                    # 학부모 → 자녀 관리 대시보드 (자녀 등록 / 매칭 / 다자녀)
+                    # 학부모 → 자녀 관리 대시보드
                     st.session_state["current_page"] = "parent_dashboard"
                 elif _is_student:
-                    # 학생 → 학생 dashboard (설문+봉사+자료 통합)
+                    # 학생 → 학생 dashboard
+                    st.session_state["current_page"] = "campaign_student_dashboard"
+                elif _is_hq_admin:
+                    # 본부 admin — 학생 dashboard 미리보기로 진입
                     st.session_state["current_page"] = "campaign_student_dashboard"
                 elif _role_v2 in ("user", "", None):
-                    # 미가입 → 가입 선택 페이지 (학생/학부모 카드)
+                    # 일반 사용자 미가입 → 가입 선택 페이지
                     st.session_state["current_page"] = "campaign_signup_select"
                 else:
                     st.session_state["current_page"] = "campaign_student_dashboard"
