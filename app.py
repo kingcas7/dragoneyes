@@ -22712,22 +22712,137 @@ else:
             _has_premium_mv = False
         _is_locked_mv = (_mv_row.get("tier") == "premium" and not _has_premium_mv)
 
-        _hh1, _hh2 = st.columns([6, 1])
+        # 자료의 학년대 → 봉사시간 안내 매칭
+        _mv_band = _mv_row.get("target_band")
+        _band_thresholds = {
+            "elementary": (20, 4, "초등학생"),
+            "middle":     (30, 5, "중학생"),
+            "high":       (50, 8, "고등학생"),
+        }
+        # target_band='all'인 자료라면 학생 본인 학년대로 매칭
+        _student_band_mv = None
+        if _mv_band == "all" and (_u_mv.get("role_v2") == "student"):
+            try:
+                _student_band_mv = supabase.rpc("get_student_band",
+                                                 {"p_student_id": _u_mv.get("id")}).execute().data
+            except Exception: pass
+        _eff_band = _mv_band if _mv_band in _band_thresholds else _student_band_mv
+
+        _hh1, _hh_promo, _hh2 = st.columns([3, 4, 1.2])
         with _hh1:
             _band_lbl = {"elementary":"🎒 초등","middle":"📚 중학",
                           "high":"🎓 고등","all":"🌐 전체"}.get(_mv_row.get("target_band"))
             _tier_lbl = "🆓 무료" if _mv_row.get("tier")=="free" else "⭐ 프리미엄"
-            st.markdown(f"## {_mv_row.get('cover_emoji') or '📚'} {_mv_row.get('title')}")
+            st.markdown(f"### {_mv_row.get('cover_emoji') or '📚'} {_mv_row.get('title')}")
             st.caption(
                 f"제 {_mv_row.get('chapter_no')} 장 · {_band_lbl} · {_tier_lbl} · "
                 f"⏱ 약 {_mv_row.get('reading_time_min') or 0}분 · "
                 f"👁 조회 {_mv_row.get('view_count') or 0}회"
             )
+        with _hh_promo:
+            # 봉사시간 안내 박스
+            if _eff_band in _band_thresholds and not _is_locked_mv:
+                _threshold, _hours, _band_kr = _band_thresholds[_eff_band]
+                st.markdown(
+                    f"<div style='background:linear-gradient(135deg,#1d4ed8,#3b82f6);"
+                    f"border-radius:12px;padding:14px 18px;color:white;"
+                    f"box-shadow:0 2px 8px rgba(59,130,246,0.3);'>"
+                    f"<div style='font-size:1.05rem;font-weight:700;line-height:1.4;'>"
+                    f"📋 설문 {_threshold}명 응답 받기 ({_band_kr})<br>"
+                    f"<span style='font-size:1.25rem;'>🏆 봉사시간 <b>{_hours}시간</b> 받자!</span>"
+                    f"</div></div>",
+                    unsafe_allow_html=True,
+                )
+            elif _is_locked_mv:
+                st.caption("🔒 프리미엄 자료 — 결제 후 봉사시간 안내가 표시됩니다.")
         with _hh2:
             if st.button("← 학습자료실", key="mv_back_top", use_container_width=True):
                 st.session_state["current_page"] = "materials_library"
                 st.session_state.pop("_ml_view_id", None)
                 st.rerun()
+
+        # 설문 시작 — 학생 본인일 때만 표시
+        if _u_mv.get("role_v2") == "student" and not _is_locked_mv and _eff_band in _band_thresholds:
+            _threshold, _hours, _band_kr = _band_thresholds[_eff_band]
+            # 내 설문 토큰 조회
+            try:
+                _my_tok = supabase.table("student_survey_tokens").select(
+                    "access_token, response_count"
+                ).eq("student_id", _u_mv.get("id")).limit(1).execute().data or []
+                _my_tok_row = _my_tok[0] if _my_tok else None
+            except Exception:
+                _my_tok_row = None
+
+            _resp_cnt = (_my_tok_row or {}).get("response_count") or 0
+            _progress = min(1.0, _resp_cnt / _threshold) if _threshold else 0
+            _remaining = max(0, _threshold - _resp_cnt)
+
+            with st.container(border=True):
+                _sc1, _sc2 = st.columns([5, 2])
+                with _sc1:
+                    st.markdown(
+                        f"##### 📋 내 설문 진행 — **{_resp_cnt} / {_threshold}명**"
+                        + (" 🎉 달성!" if _remaining == 0 else f" (남은 {_remaining}명)")
+                    )
+                    st.progress(_progress)
+                    st.caption(
+                        f"💡 학습 자료를 다 읽었으면 **'설문 시작'**을 눌러 내 고유 링크·QR을 "
+                        f"등록 이메일({_u_mv.get('email','—')})로 받으세요. "
+                        f"친구·지인이 그 링크로 응답하면 모두 **내 봉사 시간**으로 적립됩니다. "
+                        f"{_threshold}명 달성 시 **{_hours}시간 인증서가 자동 발급**됩니다."
+                    )
+                with _sc2:
+                    if st.button("📤 설문 시작 (이메일로 받기)",
+                                  key="mv_survey_start",
+                                  type="primary",
+                                  use_container_width=True,
+                                  disabled=not bool(_my_tok_row)):
+                        if not _my_tok_row:
+                            st.error("설문 토큰이 없습니다. 학교/학년 정보를 확인해주세요.")
+                        else:
+                            _token = _my_tok_row.get("access_token")
+                            _base_url = "https://dragoneyes-production.up.railway.app"
+                            _survey_url = f"{_base_url}/?survey_token={_token}"
+                            _subject = f"[드래곤아이즈 캠페인] {_u_mv.get('name','')}님의 설문 링크"
+                            _body = (
+                                f"{_u_mv.get('name','')}님, 안녕하세요!\n\n"
+                                f"드래곤아이즈 캠페인 학습 자료 학습을 완료해주셔서 감사합니다.\n\n"
+                                f"━━━━━━━━━━━━━━━━━━━━━━━\n"
+                                f"📋 내 설문 링크:\n{_survey_url}\n"
+                                f"━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                                f"🎯 목표: {_threshold}명 응답 → 🏆 봉사시간 {_hours}시간 자동 발급\n"
+                                f"📊 현재 진행: {_resp_cnt} / {_threshold}명\n\n"
+                                f"이 링크를 친구·가족·SNS에 공유하세요.\n"
+                                f"응답이 모이면 자동으로 봉사 활동 인증서가 발급됩니다.\n\n"
+                                f"학생 dashboard에서 QR 코드 이미지도 확인할 수 있습니다.\n\n"
+                                f"감사합니다.\n드래곤아이즈 캠페인 팀"
+                            )
+                            try:
+                                supabase.table("notice_email_queue").insert({
+                                    "notice_id": None,
+                                    "recipient_user_id": _u_mv.get("id"),
+                                    "recipient_email": _u_mv.get("email") or "noreply@dragoneyes.kr",
+                                    "recipient_name": _u_mv.get("name"),
+                                    "subject": _subject,
+                                    "body_html": _body.replace("\n", "<br>"),
+                                    "body_text": _body,
+                                    "status": "pending",
+                                }).execute()
+                                st.success(
+                                    f"✅ 설문 링크가 이메일 큐에 적재되었습니다.\n\n"
+                                    f"학생 dashboard에서 **QR 코드 이미지**도 확인하실 수 있습니다."
+                                )
+                                if st.button("→ 내 dashboard로 (QR 보기)",
+                                              key="mv_to_csd", type="primary"):
+                                    st.session_state["current_page"] = "campaign_student_dashboard"
+                                    st.rerun()
+                            except Exception as _ee:
+                                st.error(f"이메일 큐 적재 실패: {_ee}")
+            st.markdown("")
+
+        # notice_id는 nullable — 학습자료실에서 발송하는 설문 안내는 공지와 무관
+        # (notice_email_queue.notice_id가 NOT NULL이면 별도 처리 필요)
+
         st.divider()
 
         if _is_locked_mv:
