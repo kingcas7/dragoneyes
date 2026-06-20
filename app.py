@@ -17748,6 +17748,106 @@ else:
             st.warning("아직 발급된 설문 토큰이 없어요. 학교 등록 또는 학년 정보를 확인해주세요.")
 
         # ──────────────────────────────────────────────────────
+        # 3.5) 👨‍👩‍👧 보호자 정보 관리 — 학생 본인만 (자녀 둘러보기 모드 제외)
+        # ──────────────────────────────────────────────────────
+        if _is_student_csd and not (_is_parent_csd and _viewing_child_id):
+            st.markdown("---")
+            st.markdown("### 👨‍👩‍👧 보호자 정보 관리")
+            st.caption(
+                "보호자 정보는 캠페인 가입 시 등록되며, 학생 본인이 언제든 수정할 수 있습니다. "
+                "본교 교사 외에는 마스킹되어 공유되지 않습니다."
+            )
+
+            try:
+                _gi = supabase.rpc(
+                    "get_my_guardian_info", {"p_user_id": _target_student_id}
+                ).execute().data or []
+                _gi_row = _gi[0] if _gi else {}
+            except Exception:
+                _gi_row = {}
+
+            _g_name = _gi_row.get("guardian_name") or ""
+            _g_phone = _gi_row.get("guardian_phone") or ""
+            _g_contact = _gi_row.get("guardian_contact") or ""
+            _g_email = _gi_row.get("guardian_email") or ""
+            _g_addr = _gi_row.get("guardian_address") or ""
+            _g_upd = (_gi_row.get("guardian_updated_at") or "")[:10]
+
+            _gi_complete = all([_g_name, _g_phone, _g_email, _g_addr])
+
+            with st.container(border=True):
+                if not _gi_complete:
+                    st.warning(
+                        "⚠️ 보호자 정보가 일부 누락되어 있습니다. 보호자 이름·전화·이메일·거주지 모두 입력해주세요. "
+                        "(개인정보보호법 — 만 14세 미만 학생은 보호자 동의가 필수)"
+                    )
+                else:
+                    st.success(
+                        f"✅ 보호자 정보 등록 완료 · 최근 수정: **{_g_upd or '—'}**"
+                    )
+
+                _gv1, _gv2 = st.columns(2)
+                with _gv1:
+                    st.markdown(f"**이름**: {_g_name or '—'}")
+                    st.markdown(f"**전화(핸드폰)**: {_g_phone or '—'}")
+                    st.markdown(f"**추가 연락처**: {_g_contact or '—'}")
+                with _gv2:
+                    st.markdown(f"**이메일**: {_g_email or '—'}")
+                    st.markdown(f"**거주지 주소**: {_g_addr or '—'}")
+
+                _edit_key = "csd_guardian_edit"
+                if not st.session_state.get(_edit_key):
+                    if st.button("✏️ 보호자 정보 수정", key="csd_g_edit_open",
+                                  type=("primary" if not _gi_complete else "secondary"),
+                                  use_container_width=False):
+                        st.session_state[_edit_key] = True
+                        st.rerun()
+                else:
+                    with st.form("csd_guardian_edit_form"):
+                        st.markdown("##### ✏️ 보호자 정보 수정")
+                        st.caption(
+                            "수정한 정보는 즉시 반영됩니다. 약관 재동의 없이 변경 가능합니다."
+                        )
+                        _gf1, _gf2 = st.columns(2)
+                        with _gf1:
+                            _nn = st.text_input("보호자 이름 *", value=_g_name, key="csd_gf_name")
+                            _np = st.text_input("전화(핸드폰) *", value=_g_phone, key="csd_gf_phone",
+                                                  placeholder="010-1234-5678")
+                            _nc = st.text_input("추가 연락처", value=_g_contact, key="csd_gf_contact",
+                                                  placeholder="집/직장 등 (선택)")
+                        with _gf2:
+                            _ne = st.text_input("이메일 *", value=_g_email, key="csd_gf_email",
+                                                  placeholder="parent@example.com")
+                            _na = st.text_area("거주지 주소 *", value=_g_addr, key="csd_gf_addr",
+                                                 height=88, placeholder="시·도 시·군·구 도로명 + 상세주소")
+
+                        _sa, _sb = st.columns(2)
+                        with _sa:
+                            if st.form_submit_button("💾 저장", type="primary",
+                                                       use_container_width=True):
+                                if not all([_nn.strip(), _np.strip(), _ne.strip(), _na.strip()]):
+                                    st.error("이름·전화·이메일·거주지는 모두 필수입니다.")
+                                else:
+                                    try:
+                                        supabase.rpc("update_my_guardian_info", {
+                                            "p_user_id": _target_student_id,
+                                            "p_guardian_name":    _nn.strip(),
+                                            "p_guardian_phone":   _np.strip(),
+                                            "p_guardian_contact": _nc.strip() or None,
+                                            "p_guardian_email":   _ne.strip(),
+                                            "p_guardian_address": _na.strip(),
+                                        }).execute()
+                                        st.success("보호자 정보가 수정되었습니다.")
+                                        st.session_state.pop(_edit_key, None)
+                                        st.rerun()
+                                    except Exception as _ue:
+                                        st.error(f"수정 실패: {_ue}")
+                        with _sb:
+                            if st.form_submit_button("취소", use_container_width=True):
+                                st.session_state.pop(_edit_key, None)
+                                st.rerun()
+
+        # ──────────────────────────────────────────────────────
         # 4) 🏆 봉사활동 인증서 — 발급 내역 + 재출력
         #    학생 본인 + 같은 학교 담당자/담임이 공유 (서버 정책)
         # ──────────────────────────────────────────────────────
