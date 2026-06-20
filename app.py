@@ -6548,6 +6548,112 @@ def _campaign_calc_age(birth_date):
     return today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
 
 
+# ═══════════════════════════════════════════════════════════════
+# 🏫 NEIS Open API — 전국 학교 검색 (공공데이터포털)
+# ═══════════════════════════════════════════════════════════════
+# 환경 변수: NEIS_API_KEY (선택 — 미설정 시 무인증으로 호출, 일일 제한 있음)
+# API 키 발급: https://open.neis.go.kr/portal/myPage/actKeyPage.do
+# ═══════════════════════════════════════════════════════════════
+@st.cache_data(ttl=600, show_spinner=False)
+def neis_search_schools(query, type_filter=None, limit=30):
+    """NEIS Open API로 학교 검색.
+
+    Args:
+        query: 학교명 부분 일치 (2자 이상)
+        type_filter: 'elementary' / 'middle' / 'high' / 'special' / None(전체)
+        limit: 최대 결과 수
+
+    Returns:
+        list[dict]: [{name, code, neis_id, type, region, district, address, phone, homepage_url, founder_type}]
+    """
+    if not query or len(query.strip()) < 2:
+        return []
+    key = os.getenv("NEIS_API_KEY", "")
+    url = "https://open.neis.go.kr/hub/schoolInfo"
+    params = {
+        "Type": "json",
+        "pIndex": 1,
+        "pSize": min(max(limit, 10), 1000),
+        "SCHUL_NM": query.strip(),
+    }
+    if key:
+        params["KEY"] = key
+    try:
+        r = requests.get(url, params=params, timeout=8)
+        r.raise_for_status()
+        data = r.json()
+        info = data.get("schoolInfo", [])
+        if len(info) < 2:
+            return []
+        rows = info[1].get("row", []) or []
+    except Exception:
+        return []
+
+    _type_map = {
+        "초등학교": "elementary",
+        "중학교":   "middle",
+        "고등학교": "high",
+        "특수학교": "special",
+        "각종학교": "other",
+    }
+    results = []
+    for row in rows:
+        kind = row.get("SCHUL_KND_SC_NM", "")
+        mapped_type = _type_map.get(kind, "other")
+        if type_filter and mapped_type != type_filter:
+            continue
+        results.append({
+            "name":          row.get("SCHUL_NM", ""),
+            "code":          row.get("SD_SCHUL_CODE", ""),
+            "neis_id":       row.get("SD_SCHUL_CODE", ""),
+            "type":          mapped_type,
+            "kind_label":    kind,
+            "region":        row.get("LCTN_SC_NM", ""),
+            "district":      row.get("JU_ORG_NM", ""),
+            "address":       (row.get("ORG_RDNMA", "") + " " + row.get("ORG_RDNDA", "")).strip(),
+            "phone":         row.get("ORG_TELNO", ""),
+            "homepage_url":  row.get("HMPG_ADRES", ""),
+            "founder_type":  row.get("FOND_SC_NM", ""),
+        })
+    return results
+
+
+def neis_upsert_institution(school_dict):
+    """NEIS 검색 결과 1건을 institutions 테이블에 upsert.
+
+    code (NEIS 학교 코드) 기준으로 중복 체크.
+    Returns: institution_id (UUID str) 또는 None
+    """
+    if not school_dict or not school_dict.get("code"):
+        return None
+    try:
+        # 기존 검색 (neis_id 또는 code로)
+        _q = supabase.table("institutions").select("id")\
+            .or_(f"neis_id.eq.{school_dict['code']},code.eq.{school_dict['code']}")\
+            .limit(1).execute()
+        _existing = _q.data or []
+        if _existing:
+            return _existing[0].get("id")
+        # 신규 INSERT
+        _ins = supabase.table("institutions").insert({
+            "type":         school_dict.get("type", "other"),
+            "name":         school_dict.get("name", ""),
+            "code":         school_dict.get("code"),
+            "neis_id":      school_dict.get("neis_id"),
+            "region":       school_dict.get("region"),
+            "district":     school_dict.get("district"),
+            "address":      school_dict.get("address"),
+            "phone":        school_dict.get("phone") or None,
+            "homepage_url": school_dict.get("homepage_url") or None,
+            "verification_source": "neis",
+            "status":       "approved",
+            "approved_at":  datetime.now().isoformat(),
+        }).execute()
+        return (_ins.data or [{}])[0].get("id")
+    except Exception:
+        return None
+
+
 def render_survey_respond_page():
     """⭐ Phase 7+8 Step E — 설문 응답 페이지 (token 기반 비로그인 접근)
 
@@ -7107,7 +7213,45 @@ def _render_signup_student():
             st.rerun()
         return
 
-    # 학교 기관 목록
+    # ⭐ NEIS 학교 검색 (가입 폼 밖 — 폼 안에서는 실시간 검색이 안 되므로)
+    st.markdown("##### 🏫 재학 중인 학교 검색 (NEIS)")
+    _ns_col1, _ns_col2 = st.columns([3, 1])
+    with _ns_col1:
+        _school_query = st.text_input(
+            "학교명 검색 (2자 이상)",
+            key="signup_student_school_query",
+            placeholder="예: 서울대학교사범대학부설중학교",
+            help="공공데이터 NEIS API에서 실시간 검색합니다."
+        )
+    with _ns_col2:
+        _school_type_filter = st.selectbox(
+            "학교급",
+            ["전체", "elementary", "middle", "high", "special"],
+            format_func=lambda x: {"전체":"전체","elementary":"초","middle":"중","high":"고","special":"특수"}.get(x, x),
+            key="signup_student_type_filter"
+        )
+
+    _selected_school = None
+    _selected_inst_id = None
+    if _school_query and len(_school_query.strip()) >= 2:
+        _tfilter = None if _school_type_filter == "전체" else _school_type_filter
+        _ns_results = neis_search_schools(_school_query, type_filter=_tfilter, limit=30)
+        if _ns_results:
+            _opts_neis = ["(선택 안 함 — 직접 입력)"] + [
+                f"{r['name']} · {r['kind_label']} · {r['region']} · {r['founder_type']}"
+                for r in _ns_results
+            ]
+            _picked = st.selectbox(f"🔍 검색 결과 ({len(_ns_results)}건)", _opts_neis,
+                                    key="signup_student_school_pick")
+            if _picked != _opts_neis[0]:
+                _idx = _opts_neis.index(_picked) - 1
+                _selected_school = _ns_results[_idx]
+                st.success(f"✅ 선택: **{_selected_school['name']}** "
+                          f"({_selected_school['kind_label']} · {_selected_school['region']})")
+        else:
+            st.info("🔍 NEIS 검색 결과 없음. 학교명을 정확히 입력하시거나 아래에서 직접 입력해주세요.")
+
+    # 기존 institutions 표 (NEIS 미사용 시 fallback)
     try:
         _insts = supabase.table("institutions").select("id, name, region, district").eq(
             "status", "approved").is_("deleted_at", "null").in_(
@@ -7125,14 +7269,19 @@ def _render_signup_student():
             _birth = st.date_input("생년월일 *", value=None, min_value=date(2005, 1, 1), max_value=date.today())
         with c2:
             _grade = st.number_input("학년", min_value=1, max_value=12, value=6, step=1)
-            if _insts:
+            if _selected_school:
+                st.text_input("선택한 학교 (NEIS)", value=_selected_school["name"], disabled=True)
+                _inst_id = None  # 폼 제출 시 _selected_school로 upsert
+                _school_name = _selected_school["name"]
+            elif _insts:
                 _opts = {f'{i["name"]} ({i.get("region","")} {i.get("district","")})': i["id"] for i in _insts}
                 _opts = {"(직접 입력)": None, **_opts}
-                _sel = st.selectbox("재학 중 학교", list(_opts.keys()))
+                _sel = st.selectbox("재학 중 학교 (기존 등록)", list(_opts.keys()))
                 _inst_id = _opts.get(_sel)
+                _school_name = st.text_input("학교명 (위에서 안 나오면 직접 입력)", value="")
             else:
                 _inst_id = None
-            _school_name = st.text_input("학교명 (위에서 안 나오면 직접 입력)", value="")
+                _school_name = st.text_input("학교명 (직접 입력)", value="")
 
         c3, c4 = st.columns(2)
         with c3:
@@ -7186,6 +7335,13 @@ def _render_signup_student():
         if _signup_source == "institution_bulk" and not _bulk_code:
             st.error("학교 일괄 가입 코드를 입력해주세요.")
             return
+
+        # ⭐ NEIS 선택 학교가 있으면 institutions에 upsert → institution_id 확보
+        if _selected_school:
+            _upserted_id = neis_upsert_institution(_selected_school)
+            if _upserted_id:
+                _inst_id = _upserted_id
+                _school_name = _selected_school["name"]
 
         with st.spinner("가입 처리 중..."):
             _uid, _err = _campaign_create_auth_user(_email, _pw1, _name)
