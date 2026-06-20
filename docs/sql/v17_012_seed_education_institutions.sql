@@ -10,10 +10,15 @@
 
 
 -- ─────────────────────────────────────────────────────────────
--- 0. code 부분 UNIQUE 인덱스 (시드 중복 INSERT 방지)
+-- 0. code 컬럼 UNIQUE constraint (ON CONFLICT 추론용)
 -- ─────────────────────────────────────────────────────────────
-CREATE UNIQUE INDEX IF NOT EXISTS institutions_code_unique
-    ON public.institutions(code) WHERE code IS NOT NULL;
+-- PostgreSQL은 UNIQUE 컬럼에 NULL 다수 허용 (NULL은 distinct) → 기존 row 영향 X.
+-- partial index는 ON CONFLICT 추론에 안 맞음 → 일반 UNIQUE constraint 사용.
+DROP INDEX IF EXISTS public.institutions_code_unique;
+ALTER TABLE public.institutions
+    DROP CONSTRAINT IF EXISTS institutions_code_key;
+ALTER TABLE public.institutions
+    ADD CONSTRAINT institutions_code_key UNIQUE (code);
 
 
 -- ─────────────────────────────────────────────────────────────
