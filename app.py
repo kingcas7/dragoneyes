@@ -6554,19 +6554,46 @@ def _campaign_calc_age(birth_date):
 # 환경 변수: NEIS_API_KEY (선택 — 미설정 시 무인증으로 호출, 일일 제한 있음)
 # API 키 발급: https://open.neis.go.kr/portal/myPage/actKeyPage.do
 # ═══════════════════════════════════════════════════════════════
+
+# 시·도 → NEIS 교육청 코드 (ATPT_OFCDC_SC_CODE)
+NEIS_REGION_CODES = {
+    "서울특별시":       "B10",
+    "부산광역시":       "C10",
+    "대구광역시":       "D10",
+    "인천광역시":       "E10",
+    "광주광역시":       "F10",
+    "대전광역시":       "G10",
+    "울산광역시":       "H10",
+    "세종특별자치시":   "I10",
+    "경기도":           "J10",
+    "강원특별자치도":   "K10",
+    "충청북도":         "M10",
+    "충청남도":         "N10",
+    "전북특별자치도":   "P10",
+    "전라남도":         "Q10",
+    "경상북도":         "R10",
+    "경상남도":         "S10",
+    "제주특별자치도":   "T10",
+}
+
+
 @st.cache_data(ttl=600, show_spinner=False)
-def neis_search_schools(query, type_filter=None, limit=30):
+def neis_search_schools(query=None, region_code=None, type_filter=None, limit=50):
     """NEIS Open API로 학교 검색.
 
     Args:
-        query: 학교명 부분 일치 (2자 이상)
+        query: 학교명 부분 일치 (선택 — 없으면 region_code 필수)
+        region_code: ATPT_OFCDC_SC_CODE (B10/C10 등) — 시·도별 검색
         type_filter: 'elementary' / 'middle' / 'high' / 'special' / None(전체)
         limit: 최대 결과 수
 
     Returns:
-        list[dict]: [{name, code, neis_id, type, region, district, address, phone, homepage_url, founder_type}]
+        list[dict]: [{name, code, neis_id, type, region, district, ...}]
     """
-    if not query or len(query.strip()) < 2:
+    # 검색 조건 — 학교명 또는 지역 코드 중 하나 이상 필요
+    if not query and not region_code:
+        return []
+    if query and len(query.strip()) < 2:
         return []
     key = os.getenv("NEIS_API_KEY", "")
     url = "https://open.neis.go.kr/hub/schoolInfo"
@@ -6574,8 +6601,11 @@ def neis_search_schools(query, type_filter=None, limit=30):
         "Type": "json",
         "pIndex": 1,
         "pSize": min(max(limit, 10), 1000),
-        "SCHUL_NM": query.strip(),
     }
+    if query:
+        params["SCHUL_NM"] = query.strip()
+    if region_code:
+        params["ATPT_OFCDC_SC_CODE"] = region_code
     if key:
         params["KEY"] = key
     try:
@@ -6616,6 +6646,83 @@ def neis_search_schools(query, type_filter=None, limit=30):
             "founder_type":  row.get("FOND_SC_NM", ""),
         })
     return results
+
+
+def render_neis_school_picker(key_prefix, default_region=None, default_band="전체"):
+    """⭐ NEIS 학교 검색 UI — 시·도 + 학교급 + 학교명 단계적 검색.
+
+    어디서든 호출 가능 (학생 가입, 학부모 자녀 등록, dashboard 학교 변경 등).
+    Args:
+        key_prefix: streamlit widget key prefix (중복 방지)
+        default_region: 기본 시·도 (예: "서울특별시" / None)
+        default_band: 기본 학교급 ("전체" / "elementary" 등)
+    Returns:
+        dict: 선택된 학교 정보 또는 None
+    """
+    _regions = ["전체"] + list(NEIS_REGION_CODES.keys())
+    _bands = ["전체", "elementary", "middle", "high", "special"]
+    _band_labels = {"전체":"전체","elementary":"초","middle":"중","high":"고","special":"특수"}
+
+    _c1, _c2, _c3 = st.columns([2, 2, 3])
+    with _c1:
+        _region = st.selectbox(
+            "1️⃣ 시·도",
+            _regions,
+            index=(_regions.index(default_region) if default_region in _regions else 0),
+            key=f"{key_prefix}_region",
+        )
+    with _c2:
+        _band = st.selectbox(
+            "2️⃣ 학교급",
+            _bands,
+            index=_bands.index(default_band),
+            format_func=lambda x: _band_labels.get(x, x),
+            key=f"{key_prefix}_band",
+        )
+    with _c3:
+        _query = st.text_input(
+            "3️⃣ 학교명 (선택 — 결과 좁히기)",
+            key=f"{key_prefix}_query",
+            placeholder="예: 서울대학교사범대학부설중학교",
+        )
+
+    # 검색 조건 — 시·도 또는 학교명 중 하나 이상 필요
+    if _region == "전체" and not _query:
+        st.caption("👉 시·도를 선택하거나 학교명을 입력하세요.")
+        return None
+
+    _region_code = NEIS_REGION_CODES.get(_region) if _region != "전체" else None
+    _type_filter = None if _band == "전체" else _band
+
+    with st.spinner("학교 검색 중..."):
+        _results = neis_search_schools(
+            query=_query.strip() if _query else None,
+            region_code=_region_code,
+            type_filter=_type_filter,
+            limit=200,
+        )
+
+    if not _results:
+        st.info("🔍 검색 결과가 없습니다. 다른 시·도 또는 학교명으로 시도해주세요.")
+        return None
+
+    _opts = ["(선택)"] + [
+        f"{r['name']} · {r['kind_label']} · {r['region']} {r['district']}"
+        for r in _results
+    ]
+    _picked = st.selectbox(
+        f"4️⃣ 학교 선택 ({len(_results)}건)",
+        _opts,
+        key=f"{key_prefix}_pick",
+    )
+    if _picked != _opts[0]:
+        _selected = _results[_opts.index(_picked) - 1]
+        st.success(
+            f"✅ **{_selected['name']}** ({_selected['kind_label']} · "
+            f"{_selected['region']} {_selected['district']})"
+        )
+        return _selected
+    return None
 
 
 def neis_upsert_institution(school_dict):
@@ -7267,43 +7374,10 @@ def _render_signup_student():
             st.rerun()
         return
 
-    # ⭐ NEIS 학교 검색 (가입 폼 밖 — 폼 안에서는 실시간 검색이 안 되므로)
-    st.markdown("##### 🏫 재학 중인 학교 검색 (NEIS)")
-    _ns_col1, _ns_col2 = st.columns([3, 1])
-    with _ns_col1:
-        _school_query = st.text_input(
-            "학교명 검색 (2자 이상)",
-            key="signup_student_school_query",
-            placeholder="예: 서울대학교사범대학부설중학교",
-            help="공공데이터 NEIS API에서 실시간 검색합니다."
-        )
-    with _ns_col2:
-        _school_type_filter = st.selectbox(
-            "학교급",
-            ["전체", "elementary", "middle", "high", "special"],
-            format_func=lambda x: {"전체":"전체","elementary":"초","middle":"중","high":"고","special":"특수"}.get(x, x),
-            key="signup_student_type_filter"
-        )
-
-    _selected_school = None
+    # ⭐ NEIS 학교 검색 (헬퍼 — 시·도 → 학교급 → 학교명 단계적 검색)
+    st.markdown("##### 🏫 재학 중인 학교 검색 (NEIS Open API)")
+    _selected_school = render_neis_school_picker("signup_student_school")
     _selected_inst_id = None
-    if _school_query and len(_school_query.strip()) >= 2:
-        _tfilter = None if _school_type_filter == "전체" else _school_type_filter
-        _ns_results = neis_search_schools(_school_query, type_filter=_tfilter, limit=30)
-        if _ns_results:
-            _opts_neis = ["(선택 안 함 — 직접 입력)"] + [
-                f"{r['name']} · {r['kind_label']} · {r['region']} · {r['founder_type']}"
-                for r in _ns_results
-            ]
-            _picked = st.selectbox(f"🔍 검색 결과 ({len(_ns_results)}건)", _opts_neis,
-                                    key="signup_student_school_pick")
-            if _picked != _opts_neis[0]:
-                _idx = _opts_neis.index(_picked) - 1
-                _selected_school = _ns_results[_idx]
-                st.success(f"✅ 선택: **{_selected_school['name']}** "
-                          f"({_selected_school['kind_label']} · {_selected_school['region']})")
-        else:
-            st.info("🔍 NEIS 검색 결과 없음. 학교명을 정확히 입력하시거나 아래에서 직접 입력해주세요.")
 
     # 기존 institutions 표 (NEIS 미사용 시 fallback)
     try:
@@ -16906,59 +16980,43 @@ else:
         if _is_hq_admin_csd and not _is_student_csd and not (_is_parent_csd and _viewing_child_id):
             st.info("🛠️ **본부 관리자 미리보기 모드** — 본인 데이터(봉사 시간/토큰)는 없을 수 있습니다.")
 
-        # ⭐ 학교 등록 상태 확인 + 등록/변경 섹션 (학생 본인일 때만)
-        if _is_student_csd and not (_is_parent_csd and _viewing_child_id):
+        # ⭐ 학교 등록/변경 섹션 (학생 본인 + 본부 admin 미리보기 모두)
+        if _is_student_csd or _is_hq_admin_csd:
             try:
                 _stu_self = supabase.table("users").select(
                     "institution_id, school_name, grade"
-                ).eq("id", _u_csd.get("id")).single().execute().data or {}
+                ).eq("id", _target_student_id).single().execute().data or {}
             except Exception:
                 _stu_self = {}
 
             _has_school = bool(_stu_self.get("institution_id") or _stu_self.get("school_name"))
-            with st.expander(
-                f"🏫 내 학교 정보 {'✅ ' + (_stu_self.get('school_name') or '') if _has_school else '⚠️ 미등록 — 등록 필요'}",
-                expanded=not _has_school  # 미등록 시 자동 열기
-            ):
+            _expander_label = (
+                f"🏫 내 학교 정보 — ✅ {_stu_self.get('school_name')}"
+                if _has_school else
+                "🏫 내 학교 정보 — ⚠️ 미등록 (등록 필요)"
+            )
+            with st.expander(_expander_label, expanded=not _has_school):
                 if not _has_school:
                     st.warning(
                         "**학교가 등록되지 않았습니다.** 봉사 시간 인정과 학년대 매칭 설문을 위해 "
-                        "학교를 등록해 주세요."
+                        "학교를 등록해 주세요. 아래에서 **시·도 → 학교급 → 학교명** 순서로 검색하시면 됩니다."
                     )
-                _csd_school_q = st.text_input(
-                    "학교명 검색 (2자 이상)",
-                    key="csd_school_search_q",
-                    placeholder="예: 서울대학교사범대학부설중학교"
-                )
-                _csd_school_band = st.selectbox(
-                    "학교급",
-                    ["전체", "elementary", "middle", "high", "special"],
-                    format_func=lambda x: {"전체":"전체","elementary":"초","middle":"중",
-                                           "high":"고","special":"특수"}.get(x, x),
-                    key="csd_school_search_band"
-                )
-                _csd_picked_school = None
-                if _csd_school_q and len(_csd_school_q.strip()) >= 2:
-                    _tfilter = None if _csd_school_band == "전체" else _csd_school_band
-                    _csd_results = neis_search_schools(_csd_school_q, type_filter=_tfilter, limit=20)
-                    if _csd_results:
-                        _csd_opts = ["(선택)"] + [
-                            f"{r['name']} · {r['kind_label']} · {r['region']}"
-                            for r in _csd_results
-                        ]
-                        _csd_pick = st.selectbox(f"🔍 검색 결과 ({len(_csd_results)}건)",
-                                                  _csd_opts, key="csd_school_pick")
-                        if _csd_pick != _csd_opts[0]:
-                            _csd_picked_school = _csd_results[_csd_opts.index(_csd_pick) - 1]
-                    else:
-                        st.caption("검색 결과 없음.")
+                else:
+                    st.caption(f"현재 등록: **{_stu_self.get('school_name')}** "
+                               f"(학년 {_stu_self.get('grade','-')})")
 
-                _csd_grade_new = st.number_input("학년", min_value=1, max_value=12,
-                                                  value=int(_stu_self.get("grade") or 6),
-                                                  key="csd_grade_update")
+                # ⭐ NEIS 검색 UI (헬퍼 함수)
+                _csd_picked_school = render_neis_school_picker("csd_school")
+
+                _csd_grade_new = st.number_input(
+                    "학년", min_value=1, max_value=12,
+                    value=int(_stu_self.get("grade") or 6),
+                    key="csd_grade_update"
+                )
 
                 if st.button("💾 학교/학년 저장", type="primary",
-                             use_container_width=True, key="csd_school_save"):
+                             use_container_width=True, key="csd_school_save",
+                             disabled=(_is_hq_admin_csd and not _is_student_csd)):
                     try:
                         _upd = {"grade": int(_csd_grade_new)}
                         if _csd_picked_school:
@@ -16966,7 +17024,7 @@ else:
                             if _inst_id_new:
                                 _upd["institution_id"] = _inst_id_new
                                 _upd["school_name"] = _csd_picked_school["name"]
-                        supabase.table("users").update(_upd).eq("id", _u_csd.get("id")).execute()
+                        supabase.table("users").update(_upd).eq("id", _target_student_id).execute()
                         st.success("✅ 저장 완료. 학년대 매칭 설문 토큰이 자동 발급됩니다.")
                         st.rerun()
                     except Exception as _e:
@@ -18013,27 +18071,8 @@ else:
                                 f"🏫 자녀 학교 정보: {_stu.get('school_name') or '⚠️ 미등록'}",
                                 expanded=False
                             ):
-                                _chsch_q = st.text_input(
-                                    "학교명 검색 (NEIS)",
-                                    key=f"pdash_chsch_q_{_l['id']}",
-                                    placeholder="예: 서울대학교사범대학부설중학교"
-                                )
-                                _chsch_picked = None
-                                if _chsch_q and len(_chsch_q.strip()) >= 2:
-                                    _chsch_res = neis_search_schools(_chsch_q, limit=15)
-                                    if _chsch_res:
-                                        _chsch_opts = ["(선택)"] + [
-                                            f"{r['name']} · {r['kind_label']} · {r['region']}"
-                                            for r in _chsch_res
-                                        ]
-                                        _chsch_pick = st.selectbox(
-                                            f"검색 결과 ({len(_chsch_res)}건)",
-                                            _chsch_opts,
-                                            key=f"pdash_chsch_pick_{_l['id']}"
-                                        )
-                                        if _chsch_pick != _chsch_opts[0]:
-                                            _chsch_picked = _chsch_res[_chsch_opts.index(_chsch_pick) - 1]
-                                            st.success(f"선택: **{_chsch_picked['name']}**")
+                                st.caption("**시·도 → 학교급 → 학교명** 순서로 검색하면 빠르게 찾을 수 있어요.")
+                                _chsch_picked = render_neis_school_picker(f"pdash_chsch_{_l['id']}")
                                 _chsch_grade = st.number_input(
                                     "학년", min_value=1, max_value=12,
                                     value=int(_stu.get("grade") or 6),
@@ -18215,39 +18254,9 @@ else:
                 # ── 자녀 ID 신규 생성 ──
                 st.caption("자녀의 정보를 입력하고 학생 계정을 생성합니다. 학부모 동의로 자동 인증됩니다.")
 
-                # ⭐ NEIS 학교 검색 (폼 밖에 위치 — 실시간 검색 위해)
-                st.markdown("##### 🏫 자녀 재학 학교 검색 (NEIS)")
-                _cn_ns1, _cn_ns2 = st.columns([3, 1])
-                with _cn_ns1:
-                    _cn_school_q = st.text_input(
-                        "학교명 검색 (2자 이상)",
-                        key="pdash_create_school_q",
-                        placeholder="예: 서울대학교사범대학부설중학교"
-                    )
-                with _cn_ns2:
-                    _cn_school_band = st.selectbox(
-                        "학교급",
-                        ["전체", "elementary", "middle", "high", "special"],
-                        format_func=lambda x: {"전체":"전체","elementary":"초","middle":"중",
-                                               "high":"고","special":"특수"}.get(x, x),
-                        key="pdash_create_school_band"
-                    )
-                _cn_selected_school = None
-                if _cn_school_q and len(_cn_school_q.strip()) >= 2:
-                    _tfilter = None if _cn_school_band == "전체" else _cn_school_band
-                    _cn_results = neis_search_schools(_cn_school_q, type_filter=_tfilter, limit=20)
-                    if _cn_results:
-                        _cn_opts = ["(선택 안 함 — 학교명 직접 입력)"] + [
-                            f"{r['name']} · {r['kind_label']} · {r['region']}"
-                            for r in _cn_results
-                        ]
-                        _cn_picked = st.selectbox(f"🔍 검색 결과 ({len(_cn_results)}건)",
-                                                   _cn_opts, key="pdash_create_school_pick")
-                        if _cn_picked != _cn_opts[0]:
-                            _cn_selected_school = _cn_results[_cn_opts.index(_cn_picked) - 1]
-                            st.success(f"✅ 선택: **{_cn_selected_school['name']}** ({_cn_selected_school['region']})")
-                    else:
-                        st.info("🔍 검색 결과 없음. 학교명을 정확히 입력하거나 폼에서 직접 입력해주세요.")
+                # ⭐ NEIS 학교 검색 (헬퍼 — 시·도 → 학교급 → 학교명)
+                st.markdown("##### 🏫 자녀 재학 학교 검색 (NEIS Open API)")
+                _cn_selected_school = render_neis_school_picker("pdash_create_school")
 
                 with st.form("pdash_create_form"):
                     cc1, cc2 = st.columns(2)
