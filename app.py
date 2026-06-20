@@ -22837,6 +22837,12 @@ else:
 
         # ── 새 자료 등록 ──
         with _mmt1:
+            # 이전 등록 결과 표시 (rerun으로 사라지지 않도록 session_state 사용)
+            if st.session_state.get("_mm_last_ok"):
+                st.success(st.session_state.pop("_mm_last_ok"))
+            if st.session_state.get("_mm_last_err"):
+                st.error(st.session_state.pop("_mm_last_err"))
+
             st.caption(
                 "💡 **slug**를 입력하고 등록하면 **같은 slug의 기존 자료가 있으면 자동으로 덮어쓰기**됩니다. "
                 "신규 자료를 등록하려면 slug를 비워두거나 새로운 영문 식별자(예: `advanced-grooming-1`)를 입력하세요. "
@@ -22947,19 +22953,25 @@ else:
                         try:
                             if _payload["slug"]:
                                 # slug가 있으면 upsert (중복 시 덮어쓰기)
-                                supabase.table("campaign_learning_materials").upsert(
+                                _res = supabase.table("campaign_learning_materials").upsert(
                                     _payload, on_conflict="slug"
                                 ).execute()
-                                _msg = "✅ 자료 등록/갱신 완료 (slug 기준)"
+                                _msg = f"✅ 자료 등록/갱신 완료 (slug={_payload['slug']})"
                             else:
                                 # slug 없으면 순수 insert (신규)
-                                supabase.table("campaign_learning_materials")\
+                                _res = supabase.table("campaign_learning_materials")\
                                     .insert(_payload).execute()
                                 _msg = "✅ 신규 자료 등록 완료"
-                            st.success(_msg)
+                            # rerun 후에도 메시지 유지
+                            st.session_state["_mm_last_ok"] = (
+                                f"{_msg} · {len(_res.data or [])}건 처리됨"
+                            )
                             st.rerun()
                         except Exception as _ie:
-                            st.error(f"등록 실패: {_ie}")
+                            st.session_state["_mm_last_err"] = (
+                                f"❌ 등록 실패: {_ie}"
+                            )
+                            st.rerun()
 
         # ── 자료 목록·편집 ──
         with _mmt2:
