@@ -22795,36 +22795,45 @@ else:
                     unsafe_allow_html=True,
                 )
 
-            # PDF 첨부 임베드 (다운로드 막기 위해 toolbar=0)
+            # PDF 첨부 임베드 — base64 data URI 방식 (same-origin → Chrome 차단 우회)
             _att = _mv_row.get("attachment_url")
             if _att:
                 st.markdown("---")
                 st.markdown("##### 📄 학습 PDF")
-                st.caption("⚠️ 다운로드·인쇄 차단 모드 — 화면에서만 열람 가능합니다.")
+                st.caption(
+                    "⚠️ 다운로드·인쇄 차단 모드 — 화면에서만 열람 가능합니다. "
+                    "본 자료는 캡처·녹화·공유가 금지됩니다."
+                )
 
-                # PDF.js URL 파라미터로 toolbar/navpanes 숨김
-                _pdf_url = _att + "#toolbar=0&navpanes=0&scrollbar=0&view=FitH"
-
-                # 1차: Streamlit native iframe (가장 안정적, sandbox 없음)
+                # PDF를 서버 측에서 fetch → base64 인코딩 → data URI로 임베드
+                # → cross-origin 문제 해소 + 외부 URL 노출 방지 + 다운로드 버튼 비활성화 효과
+                _pdf_b64 = None
                 try:
-                    st.components.v1.iframe(_pdf_url, height=800, scrolling=True)
-                except Exception:
-                    # 2차 fallback: <object> 태그 (Chrome PDF viewer 사용)
+                    import base64 as _b64_pdf
+                    _cache_key = f"_pdf_b64_{_mat_id}"
+                    if st.session_state.get(_cache_key):
+                        _pdf_b64 = st.session_state[_cache_key]
+                    else:
+                        _resp = requests.get(_att, timeout=20)
+                        if _resp.status_code == 200:
+                            _pdf_b64 = _b64_pdf.b64encode(_resp.content).decode()
+                            st.session_state[_cache_key] = _pdf_b64
+                        else:
+                            st.error(f"PDF 로드 실패: HTTP {_resp.status_code}")
+                except Exception as _pe:
+                    st.error(f"PDF 로드 실패: {_pe}")
+
+                if _pdf_b64:
+                    _data_uri = (
+                        f"data:application/pdf;base64,{_pdf_b64}"
+                        "#toolbar=0&navpanes=0&scrollbar=0&view=FitH"
+                    )
                     st.markdown(
-                        f"<object data='{_pdf_url}' type='application/pdf' "
-                        f"style='width:100%;height:800px;border:1px solid #cbd5e1;border-radius:8px;'>"
-                        f"<p style='padding:20px;text-align:center;'>"
-                        f"PDF를 표시할 수 없습니다. "
-                        f"<a href='{_att}' target='_blank' rel='noopener'>새 창에서 열기</a></p>"
-                        f"</object>",
+                        f"<iframe src='{_data_uri}' "
+                        f"style='width:100%;height:820px;border:1px solid #cbd5e1;"
+                        f"border-radius:8px;background:#f8fafc;'></iframe>",
                         unsafe_allow_html=True,
                     )
-
-                # 3차 fallback: 직접 링크 (iframe 차단 시 백업)
-                st.caption(
-                    f"📌 PDF가 보이지 않으면 [새 창에서 열기]({_att}) "
-                    "(인쇄·다운로드는 가급적 자제해주세요)"
-                )
             elif not _mv_row.get("body_md"):
                 st.warning("본문 또는 첨부 파일이 아직 등록되지 않았습니다.")
 
