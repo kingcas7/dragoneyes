@@ -17515,6 +17515,103 @@ else:
         else:
             st.warning("아직 발급된 설문 토큰이 없어요. 학교 등록 또는 학년 정보를 확인해주세요.")
 
+        # ──────────────────────────────────────────────────────
+        # 4) 🏆 봉사활동 인증서 — 발급 내역 + 재출력
+        #    학생 본인 + 같은 학교 담당자/담임이 공유 (서버 정책)
+        # ──────────────────────────────────────────────────────
+        st.markdown("---")
+        st.markdown("### 🏆 봉사활동 인증서")
+        st.caption(
+            "온라인 유해컨텐츠 근절 캠페인 참여로 발급된 봉사활동 인증서입니다. "
+            "필요하실 때 언제든 재출력하실 수 있고, 시리얼 번호로 진위 확인이 가능합니다."
+        )
+
+        try:
+            _cert_rows = supabase.rpc(
+                "get_my_certificates", {"p_student_id": _target_student_id}
+            ).execute().data or []
+        except Exception as _ce:
+            _cert_rows = []
+            if _is_hq_admin_csd:
+                st.caption(f"⚠️ 인증서 조회 실패: {_ce}")
+
+        if not _cert_rows:
+            st.info(
+                "아직 발급된 인증서가 없어요. 설문을 완료하고 학교 담당자께서 발급해주시면 "
+                "이곳에 표시되며 언제든 재출력할 수 있습니다."
+            )
+        else:
+            for _cert in _cert_rows:
+                _cert_id = _cert.get("id")
+                _serial = _cert.get("serial_no") or ""
+                _hours = float(_cert.get("hours_decimal") or 0)
+                _issued_at = (_cert.get("issued_at") or "")[:10]
+                _issuer = _cert.get("issuer_name") or "학교 담당자"
+                _issuer_title = _cert.get("issuer_title") or ""
+                _school = _cert.get("snapshot_school_name") or ""
+                _grade = _cert.get("snapshot_grade")
+                _class_no = _cert.get("snapshot_class_no")
+                _stu_name = _cert.get("snapshot_student_name") or ""
+                _act_title = _cert.get("activity_title") or "온라인 유해컨텐츠 근절 캠페인 참여"
+                _reprint = int(_cert.get("reprint_count") or 0)
+                _grade_disp = f"{_grade}학년 {_class_no}반" if _grade and _class_no else (f"{_grade}학년" if _grade else "")
+
+                with st.container(border=True):
+                    _hc1, _hc2 = st.columns([4, 1])
+                    with _hc1:
+                        st.markdown(f"**📜 {_act_title}**")
+                        st.caption(
+                            f"시리얼: `{_serial}` · 발급일: {_issued_at} · "
+                            f"{_school} {_grade_disp} · 봉사시간 **{_hours:.1f}시간** · "
+                            f"재출력 {_reprint}회"
+                        )
+                    with _hc2:
+                        _show_key = f"csd_show_cert_{_cert_id}"
+                        if st.button("🖨️ 인증서 열기/인쇄", key=f"csd_open_cert_{_cert_id}",
+                                     use_container_width=True, type="primary"):
+                            try:
+                                supabase.rpc(
+                                    "bump_certificate_reprint", {"p_cert_id": _cert_id}
+                                ).execute()
+                            except Exception:
+                                pass
+                            st.session_state[_show_key] = True
+                            st.rerun()
+
+                    if st.session_state.get(_show_key):
+                        _verify_url = f"https://dragoneyes-production.up.railway.app/?cert={_serial}"
+                        _issuer_line = f"{_issuer_title} {_issuer}".strip() if _issuer_title else _issuer
+                        _cert_html = (
+                            "<div style='border:8px double #1d4ed8;padding:48px 56px;"
+                            "background:#fffefb;font-family:\"Nanum Myeongjo\",serif;color:#0f172a;'>"
+                            "<div style='text-align:center;font-size:14px;color:#64748b;letter-spacing:8px;'>CERTIFICATE</div>"
+                            "<div style='text-align:center;font-size:36px;font-weight:bold;margin:12px 0 4px;'>"
+                            "봉 사 활 동 인 증 서</div>"
+                            f"<div style='text-align:center;font-size:13px;color:#475569;margin-bottom:32px;'>제 {_serial} 호</div>"
+                            "<table style='width:100%;font-size:18px;line-height:2.4;'>"
+                            f"<tr><td style='width:120px;color:#475569;'>성  명</td><td><b>{_stu_name}</b></td></tr>"
+                            f"<tr><td style='color:#475569;'>소  속</td><td>{_school}{(' ' + _grade_disp) if _grade_disp else ''}</td></tr>"
+                            f"<tr><td style='color:#475569;'>봉사활동</td><td>{_act_title}</td></tr>"
+                            f"<tr><td style='color:#475569;'>봉사시간</td><td><b>{_hours:.1f} 시간</b></td></tr>"
+                            f"<tr><td style='color:#475569;'>발 급 일</td><td>{_issued_at}</td></tr>"
+                            "</table>"
+                            "<div style='margin-top:36px;text-align:center;font-size:17px;line-height:1.8;'>"
+                            "위 학생은 드래곤아이즈 주식회사가 운영하는 <b>온라인 유해컨텐츠 근절 캠페인</b>에<br>"
+                            "성실히 참여하였기에 이를 인증합니다.</div>"
+                            f"<div style='margin-top:48px;text-align:center;font-size:18px;font-weight:bold;'>{_issued_at[:4]}년 {_issued_at[5:7]}월 {_issued_at[8:10]}일</div>"
+                            f"<div style='margin-top:32px;text-align:center;font-size:20px;font-weight:bold;'>{_issuer_line}<span style='display:inline-block;border:2px solid #b91c1c;color:#b91c1c;padding:6px 14px;margin-left:12px;border-radius:50%;font-size:14px;'>印</span></div>"
+                            f"<div style='margin-top:36px;text-align:center;font-size:12px;color:#64748b;'>"
+                            f"진위 확인: {_verify_url}</div>"
+                            "</div>"
+                        )
+                        st.markdown(_cert_html, unsafe_allow_html=True)
+                        st.caption(
+                            "💡 브라우저 인쇄(⌘+P / Ctrl+P)로 PDF 저장 또는 인쇄하실 수 있습니다."
+                        )
+                        if st.button("🔼 닫기", key=f"csd_close_cert_{_cert_id}"):
+                            st.session_state.pop(_show_key, None)
+                            st.rerun()
+
 
     # ══════════════════════════════════════════════════════════════
     # 📚 Phase 5 (v17): 캠페인 자료 — 커리큘럼 / 무료 자료 / 유료 자료
@@ -19044,14 +19141,14 @@ else:
 
         st.markdown("")
 
-        # ⭐ 빠른 진입 아이콘 3개
+        # ⭐ 빠른 진입 아이콘 5개 (인증서 + 년도별 기록 추가)
         st.markdown("##### 🎯 빠른 진입")
-        _qa1, _qa2, _qa3 = st.columns(3)
+        _qa1, _qa2, _qa3, _qa4, _qa5 = st.columns(5)
         with _qa1:
             with st.container(border=True):
-                st.markdown("### 🏫 우리 학교 현황")
-                st.caption("본교 학생·봉사·강연·만족도")
-                if st.button("→ 우리 학교 보기", key="qa_our_school",
+                st.markdown("### 🏫 우리 학교")
+                st.caption("본교 학생·봉사·강연")
+                if st.button("→ 보기", key="qa_our_school",
                               type="primary", use_container_width=True):
                     st.session_state["_inst_dash_view"] = "our_school"
                     st.rerun()
@@ -19059,22 +19156,38 @@ else:
             with st.container(border=True):
                 st.markdown("### 🌐 관할 학교들")
                 _scope_note = {
-                    "nation":"전국","metro":f"{_region_disp} 시·도 내",
+                    "nation":"전국","metro":f"{_region_disp} 내",
                     "district":f"{_loc_str} 내","school":"-"
                 }.get(_inst_scope, "-")
-                st.caption(f"{_scope_note} 학교 캠페인 비교")
-                if st.button("→ 관할 보기", key="qa_my_region",
+                st.caption(f"{_scope_note} 비교")
+                if st.button("→ 보기", key="qa_my_region",
                               type="primary", use_container_width=True,
                               disabled=(_inst_scope == "school")):
                     st.session_state["_inst_dash_view"] = "my_region"
                     st.rerun()
         with _qa3:
             with st.container(border=True):
-                st.markdown("### 🗺️ 타지역 현황")
-                st.caption("다른 시·도/시·군·구 통계 비교")
-                if st.button("→ 타지역 보기", key="qa_other_region",
+                st.markdown("### 🗺️ 타지역")
+                st.caption("타 시·도 통계 비교")
+                if st.button("→ 보기", key="qa_other_region",
                               type="primary", use_container_width=True):
                     st.session_state["_inst_dash_view"] = "other_region"
+                    st.rerun()
+        with _qa4:
+            with st.container(border=True):
+                st.markdown("### 🏆 인증서 공유")
+                st.caption("학생 봉사활동 인증서")
+                if st.button("→ 보기", key="qa_certs",
+                              type="primary", use_container_width=True):
+                    st.session_state["_inst_dash_view"] = "certificates"
+                    st.rerun()
+        with _qa5:
+            with st.container(border=True):
+                st.markdown("### 📚 년도별 기록")
+                st.caption("연도별 캠페인 archive")
+                if st.button("→ 보기", key="qa_yearly",
+                              type="primary", use_container_width=True):
+                    st.session_state["_inst_dash_view"] = "yearly_records"
                     st.rerun()
 
         st.divider()
@@ -19340,6 +19453,301 @@ else:
                 "'👨‍🎓 학생 정보 관리' / '🎓 캠페인 참여 현황' / '📢 외부강사 강연' / '📝 만족도 조사'"
             )
             if st.button("← 메인으로 돌아가기", key="qa_back_our"):
+                st.session_state.pop("_inst_dash_view", None)
+                st.rerun()
+            st.divider()
+
+        elif _qa_view == "certificates":
+            # ──────────────────────────────────────────────────
+            # 🏆 봉사활동 인증서 공유 — 학교 담당자/담임
+            # ──────────────────────────────────────────────────
+            st.markdown("### 🏆 학생 봉사활동 인증서")
+            _viewer_id = _u.get("id")
+            _is_homeroom_view = (_u.get("teacher_role") == "homeroom")
+            if _is_homeroom_view:
+                st.caption(
+                    "본인이 담임으로 등록된 반 학생들의 인증서만 보입니다. "
+                    "(학교 전체를 보려면 행정/관리자 계정으로 전환)"
+                )
+            else:
+                st.caption(
+                    "본교 전체 학생의 봉사활동 인증서입니다. 학생 본인과 학교 담당자, 담임 모두 "
+                    "조회·인쇄가 가능합니다. (시리얼 번호로 진위 확인)"
+                )
+
+            try:
+                _cert_share = supabase.rpc(
+                    "get_school_certificates",
+                    {"p_viewer_user_id": _viewer_id, "p_inst_id": _inst_id}
+                ).execute().data or []
+            except Exception as _cse:
+                _cert_share = []
+                st.caption(f"⚠️ 조회 실패: {_cse}")
+
+            if not _cert_share:
+                st.info("아직 발급된 봉사활동 인증서가 없습니다.")
+            else:
+                # 학년·반 필터
+                _grades = sorted({c.get("grade") for c in _cert_share if c.get("grade")})
+                _classes = sorted({c.get("class_no") for c in _cert_share if c.get("class_no")})
+                _cf1, _cf2, _cf3 = st.columns([1, 1, 2])
+                with _cf1:
+                    _fg = st.selectbox("학년", ["전체"] + [str(g) for g in _grades], key="cert_filt_g")
+                with _cf2:
+                    _fc = st.selectbox("반", ["전체"] + [str(c) for c in _classes], key="cert_filt_c")
+                with _cf3:
+                    _fq = st.text_input("학생명/시리얼 검색", key="cert_filt_q",
+                                         placeholder="이름 또는 DE-YYYY-…")
+
+                _cert_filtered = [
+                    c for c in _cert_share
+                    if (_fg == "전체" or str(c.get("grade")) == _fg)
+                    and (_fc == "전체" or str(c.get("class_no")) == _fc)
+                    and (not _fq
+                         or _fq in (c.get("student_name") or "")
+                         or _fq in (c.get("serial_no") or ""))
+                ]
+
+                st.caption(f"검색 결과: **{len(_cert_filtered)}건**")
+
+                # 표
+                import pandas as _pd_cert
+                _cert_df = _pd_cert.DataFrame([{
+                    "시리얼": c.get("serial_no"),
+                    "학년": c.get("grade"),
+                    "반": c.get("class_no"),
+                    "학생명": c.get("student_name"),
+                    "봉사시간(h)": float(c.get("hours_decimal") or 0),
+                    "발급일": (c.get("issued_at") or "")[:10],
+                    "발급자": c.get("issuer_name"),
+                    "재출력": c.get("reprint_count"),
+                } for c in _cert_filtered])
+                st.dataframe(_cert_df, use_container_width=True, hide_index=True)
+
+                # Excel
+                try:
+                    import io as _io_cs
+                    _buf_cs = _io_cs.BytesIO()
+                    _cert_df.to_excel(_buf_cs, index=False, engine="openpyxl")
+                    st.download_button(
+                        "📥 인증서 목록 Excel",
+                        _buf_cs.getvalue(),
+                        file_name=f"봉사인증서_{_inst.get('name','')}_{date.today().isoformat()}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key="dl_certs",
+                    )
+                except Exception: pass
+
+                st.markdown("##### 🖨️ 인증서 개별 인쇄")
+                _pick_options = {
+                    f"{c.get('serial_no')} · {c.get('student_name')} · "
+                    f"{c.get('grade')}-{c.get('class_no')} · {float(c.get('hours_decimal') or 0):.1f}h": c
+                    for c in _cert_filtered
+                }
+                _pick = st.selectbox("인쇄할 인증서 선택", ["—"] + list(_pick_options.keys()),
+                                     key="cert_print_pick")
+                if _pick != "—":
+                    _cp = _pick_options[_pick]
+                    if st.button("🖨️ 이 인증서 열기 / 인쇄", key="cert_print_open",
+                                 type="primary", use_container_width=True):
+                        try:
+                            supabase.rpc("bump_certificate_reprint",
+                                         {"p_cert_id": _cp.get("id")}).execute()
+                        except Exception: pass
+                        st.session_state["_shared_cert_open"] = _cp.get("id")
+                        st.rerun()
+
+                if st.session_state.get("_shared_cert_open"):
+                    _open_id = st.session_state["_shared_cert_open"]
+                    _cf = next((c for c in _cert_filtered if c.get("id") == _open_id), None)
+                    if _cf:
+                        _serial = _cf.get("serial_no") or ""
+                        _issued_at = (_cf.get("issued_at") or "")[:10]
+                        _hours = float(_cf.get("hours_decimal") or 0)
+                        _stu_name = _cf.get("student_name") or ""
+                        _school = _cf.get("school_name") or _inst.get("name","")
+                        _gd = f"{_cf.get('grade')}학년 {_cf.get('class_no')}반" if _cf.get('grade') and _cf.get('class_no') else ""
+                        _act_title = _cf.get("activity_title") or "온라인 유해컨텐츠 근절 캠페인 참여"
+                        _issuer = _cf.get("issuer_name") or "학교 담당자"
+                        _verify_url = f"https://dragoneyes-production.up.railway.app/?cert={_serial}"
+                        _cert_html = (
+                            "<div style='border:8px double #1d4ed8;padding:48px 56px;"
+                            "background:#fffefb;font-family:\"Nanum Myeongjo\",serif;color:#0f172a;'>"
+                            "<div style='text-align:center;font-size:14px;color:#64748b;letter-spacing:8px;'>CERTIFICATE</div>"
+                            "<div style='text-align:center;font-size:36px;font-weight:bold;margin:12px 0 4px;'>"
+                            "봉 사 활 동 인 증 서</div>"
+                            f"<div style='text-align:center;font-size:13px;color:#475569;margin-bottom:32px;'>제 {_serial} 호</div>"
+                            "<table style='width:100%;font-size:18px;line-height:2.4;'>"
+                            f"<tr><td style='width:120px;color:#475569;'>성  명</td><td><b>{_stu_name}</b></td></tr>"
+                            f"<tr><td style='color:#475569;'>소  속</td><td>{_school}{(' ' + _gd) if _gd else ''}</td></tr>"
+                            f"<tr><td style='color:#475569;'>봉사활동</td><td>{_act_title}</td></tr>"
+                            f"<tr><td style='color:#475569;'>봉사시간</td><td><b>{_hours:.1f} 시간</b></td></tr>"
+                            f"<tr><td style='color:#475569;'>발 급 일</td><td>{_issued_at}</td></tr>"
+                            "</table>"
+                            "<div style='margin-top:36px;text-align:center;font-size:17px;line-height:1.8;'>"
+                            "위 학생은 드래곤아이즈 주식회사가 운영하는 <b>온라인 유해컨텐츠 근절 캠페인</b>에<br>"
+                            "성실히 참여하였기에 이를 인증합니다.</div>"
+                            f"<div style='margin-top:48px;text-align:center;font-size:18px;font-weight:bold;'>{_issued_at[:4]}년 {_issued_at[5:7]}월 {_issued_at[8:10]}일</div>"
+                            f"<div style='margin-top:32px;text-align:center;font-size:20px;font-weight:bold;'>{_issuer}<span style='display:inline-block;border:2px solid #b91c1c;color:#b91c1c;padding:6px 14px;margin-left:12px;border-radius:50%;font-size:14px;'>印</span></div>"
+                            f"<div style='margin-top:36px;text-align:center;font-size:12px;color:#64748b;'>진위 확인: {_verify_url}</div>"
+                            "</div>"
+                        )
+                        st.markdown(_cert_html, unsafe_allow_html=True)
+                        st.caption("💡 브라우저 인쇄(⌘+P / Ctrl+P)로 PDF 저장 또는 인쇄.")
+                        if st.button("🔼 닫기", key="cert_print_close"):
+                            st.session_state.pop("_shared_cert_open", None)
+                            st.rerun()
+
+            if st.button("← 메인으로 돌아가기", key="qa_back_certs"):
+                st.session_state.pop("_inst_dash_view", None)
+                st.rerun()
+            st.divider()
+
+        elif _qa_view == "yearly_records":
+            # ──────────────────────────────────────────────────
+            # 📚 년도별 캠페인 기록 archive
+            # ──────────────────────────────────────────────────
+            st.markdown("### 📚 년도별 캠페인 기록")
+            st.caption(
+                "학년도(3월 1일~다음해 2월 28일) 단위로 캠페인 통계를 보관합니다. "
+                "관리자가 학년도 종료 시 'archive 생성' 버튼을 누르면 그 시점 통계가 영구 저장됩니다."
+            )
+
+            from datetime import datetime as _dt_yr
+            _now = _dt_yr.now()
+            _current_year = _now.year if _now.month >= 3 else _now.year - 1
+            _yr_choices = list(range(_current_year, _current_year - 6, -1))
+
+            _yc1, _yc2 = st.columns([2, 1])
+            with _yc1:
+                _pick_year = st.selectbox("학년도", _yr_choices, format_func=lambda y: f"{y}학년도",
+                                          key="yr_pick")
+            with _yc2:
+                if st.button(f"💾 {_pick_year}학년도 archive 생성/갱신",
+                             key="yr_archive_btn", type="primary", use_container_width=True):
+                    try:
+                        supabase.rpc("archive_campaign_year", {
+                            "p_inst_id": _inst_id,
+                            "p_school_year": int(_pick_year),
+                            "p_archived_by": _u.get("id"),
+                        }).execute()
+                        st.success("archive 생성/갱신 완료"); st.rerun()
+                    except Exception as _ye:
+                        st.error(f"실패: {_ye}")
+
+            # 본교 + 관할 학교 archive 조회
+            try:
+                _visible = supabase.rpc(
+                    "get_visible_institutions", {"p_inst_id": _inst_id}
+                ).execute().data or []
+                _visible_ids = [v.get("id") for v in _visible]
+            except Exception:
+                _visible_ids = [_inst_id]
+
+            try:
+                _arch_q = supabase.table("campaign_year_archives").select(
+                    "institution_id, school_year, snapshot_school_name, snapshot_region, snapshot_district, "
+                    "student_count, survey_completed_count, completion_rate, total_hours, issued_hours, "
+                    "certificate_count, lecture_count, parent_subscription_cnt, archived_at"
+                ).in_("institution_id", _visible_ids).order(
+                    "school_year", desc=True
+                ).order("snapshot_school_name").execute().data or []
+            except Exception as _ae:
+                _arch_q = []
+                st.caption(f"⚠️ archive 조회 실패: {_ae}")
+
+            if not _arch_q:
+                st.info("아직 archive된 기록이 없습니다. 위 버튼으로 첫 archive를 생성해주세요.")
+            else:
+                import pandas as _pd_yr
+                _yr_df = _pd_yr.DataFrame([{
+                    "학년도": r.get("school_year"),
+                    "학교": r.get("snapshot_school_name"),
+                    "시·도": r.get("snapshot_region"),
+                    "시·군·구": r.get("snapshot_district"),
+                    "학생 수": r.get("student_count"),
+                    "설문 완료": r.get("survey_completed_count"),
+                    "완료율(%)": r.get("completion_rate"),
+                    "누적 봉사(h)": float(r.get("total_hours") or 0),
+                    "발급 봉사(h)": float(r.get("issued_hours") or 0),
+                    "인증서": r.get("certificate_count"),
+                    "강연": r.get("lecture_count"),
+                    "학부모 구독": r.get("parent_subscription_cnt"),
+                    "archive 일시": (r.get("archived_at") or "")[:19].replace("T", " "),
+                } for r in _arch_q])
+                st.dataframe(_yr_df, use_container_width=True, hide_index=True)
+
+                try:
+                    import io as _io_yr
+                    _buf_yr = _io_yr.BytesIO()
+                    _yr_df.to_excel(_buf_yr, index=False, engine="openpyxl")
+                    st.download_button(
+                        "📥 년도별 기록 Excel",
+                        _buf_yr.getvalue(),
+                        file_name=f"년도별_캠페인기록_{date.today().isoformat()}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key="dl_yearly",
+                    )
+                except Exception: pass
+
+            # 매년 담당자 갱신
+            st.markdown("---")
+            st.markdown("##### 🔄 매년 담당자 갱신 (등록 1회 + 매년 담당자만 변경/유지)")
+            st.caption(
+                "교육기관은 한 번만 등록하면 영구 유지되고, 매 학년도 새 학기 시작 시 담당자만 "
+                "갱신해주시면 됩니다. (그대로 유지/변경 가능)"
+            )
+            try:
+                _ren = supabase.rpc("get_renewal_status",
+                                     {"p_inst_id": _inst_id, "p_school_year": int(_pick_year)}
+                                     ).execute().data or []
+                _ren_row = _ren[0] if _ren else {}
+            except Exception:
+                _ren_row = {}
+
+            if _ren_row.get("is_renewed"):
+                st.success(
+                    f"✅ {_pick_year}학년도 갱신 완료 — {_ren_row.get('contact_name')} "
+                    f"({_ren_row.get('contact_title') or '-'}) · "
+                    f"{(_ren_row.get('renewed_at') or '')[:10]}"
+                )
+            else:
+                st.warning(f"⚠️ {_pick_year}학년도 담당자 갱신이 아직 안 되어 있습니다.")
+
+            with st.form("inst_renewal_form"):
+                _rt = st.radio("갱신 유형", ["continue", "change", "skip"],
+                               format_func=lambda x: {"continue":"🔁 기존 담당자 그대로",
+                                                       "change":"✏️ 담당자 변경",
+                                                       "skip":"⏭️ 올해는 건너뛰기"}.get(x, x),
+                               horizontal=True, key="ren_type")
+                _rn = st.text_input("담당자 이름 *", value=_u.get("name",""), key="ren_name")
+                _rtitle = st.text_input("직책", value="담당자", key="ren_title",
+                                         placeholder="교감/생활부장/담당교사 등")
+                _rphone = st.text_input("연락처", key="ren_phone")
+                _remail = st.text_input("이메일", value=_u.get("email",""), key="ren_email")
+                _rnote = st.text_area("비고", key="ren_note", height=80)
+                if st.form_submit_button("💾 갱신 저장", type="primary", use_container_width=True):
+                    if not _rn.strip():
+                        st.error("담당자 이름은 필수입니다.")
+                    else:
+                        try:
+                            supabase.table("institution_renewals").upsert({
+                                "institution_id": _inst_id,
+                                "school_year": int(_pick_year),
+                                "contact_user_id": _u.get("id"),
+                                "contact_name": _rn.strip(),
+                                "contact_title": _rtitle.strip() or None,
+                                "contact_phone": _rphone.strip() or None,
+                                "contact_email": _remail.strip() or None,
+                                "renewal_type": _rt,
+                                "note": _rnote.strip() or None,
+                                "renewed_by": _u.get("id"),
+                            }, on_conflict="institution_id,school_year").execute()
+                            st.success("갱신 저장됨"); st.rerun()
+                        except Exception as _re:
+                            st.error(f"실패: {_re}")
+
+            if st.button("← 메인으로 돌아가기", key="qa_back_yearly"):
                 st.session_state.pop("_inst_dash_view", None)
                 st.rerun()
             st.divider()
