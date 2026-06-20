@@ -22842,11 +22842,16 @@ else:
                         st.error("제목은 필수입니다.")
                     else:
                         _att_url = None
-                        # PDF 업로드 → Storage
+                        # PDF 업로드 → Storage (한글 파일명 sanitize)
                         if _nn_pdf is not None:
                             try:
-                                import time as _tt
-                                _fpath = f"learning_materials/{int(_tt.time())}_{_nn_pdf.name}"
+                                import time as _tt, re as _re_pdf
+                                _ext = (_nn_pdf.name.rsplit(".", 1)[-1]
+                                         if "." in _nn_pdf.name else "pdf").lower()
+                                # ASCII만 허용 — 한글·특수문자 제거
+                                _slug_part = _re_pdf.sub(r"[^A-Za-z0-9_-]", "",
+                                                          (_nn_slug or "material").strip()) or "material"
+                                _fpath = f"learning_materials/{int(_tt.time())}_{_slug_part}.{_ext}"
                                 sb_admin().storage.from_("Documents").upload(
                                     _fpath, _nn_pdf.read(),
                                     {"content-type": "application/pdf"},
@@ -22971,8 +22976,12 @@ else:
                                 }
                                 if _epdf is not None:
                                     try:
-                                        import time as _tt
-                                        _fpath = f"learning_materials/{int(_tt.time())}_{_epdf.name}"
+                                        import time as _tt, re as _re_epdf
+                                        _ext = (_epdf.name.rsplit(".", 1)[-1]
+                                                 if "." in _epdf.name else "pdf").lower()
+                                        _slug_part = _re_epdf.sub(r"[^A-Za-z0-9_-]", "",
+                                                                    (_em.get("slug") or "material").strip()) or "material"
+                                        _fpath = f"learning_materials/{int(_tt.time())}_{_slug_part}.{_ext}"
                                         sb_admin().storage.from_("Documents").upload(
                                             _fpath, _epdf.read(),
                                             {"content-type": "application/pdf"},
