@@ -16547,16 +16547,18 @@ else:
         # 1) 캠페인 개괄 안내 (campaign_overview_content / audience='student')
         # ──────────────────────────────────────────────────────
         try:
-            _overview = supabase.table("campaign_overview_content")\
-                .select("id, title, body_md, sort_order, section_key, is_active")\
-                .eq("audience", "student")\
-                .order("sort_order").execute()
-            # is_active 필터는 Python 측에서 (supabase boolean 처리 안정성)
-            _ov_rows = [r for r in (_overview.data or []) if r.get("is_active", True)]
+            # ⭐ 전체 가져와서 Python에서 필터 (supabase .eq() boolean 변환 우회)
+            _overview = supabase.table("campaign_overview_content").select("*").execute()
+            _all_ov = _overview.data or []
+            _ov_rows = [r for r in _all_ov
+                        if (r.get("audience") == "student") and r.get("is_active", True)]
+            _ov_rows.sort(key=lambda x: x.get("sort_order") or 0)
+            if _is_hq_admin_csd:
+                st.caption(f"🔍 안내 컨텐츠 fetch: 전체 {len(_all_ov)}건, student 활성 {len(_ov_rows)}건")
         except Exception as _ov_e:
             _ov_rows = []
             if _is_hq_admin_csd:
-                st.caption(f"⚠️ 안내 컨텐츠 조회 실패: {_ov_e}")
+                st.error(f"⚠️ 안내 컨텐츠 조회 실패: {_ov_e}")
 
         # ⭐ 본부 admin — 안내 컨텐츠 편집 + 자료 관리 expander
         if _is_hq_admin_csd:
@@ -17472,11 +17474,11 @@ else:
         # 📣 캠페인 안내 (campaign_overview_content audience='parent')
         # ──────────────────────────────────────────────────────
         try:
-            _p_overview = supabase.table("campaign_overview_content")\
-                .select("title, body_md, section_key, sort_order, is_active")\
-                .eq("audience", "parent")\
-                .order("sort_order").execute()
-            _p_ov_rows = [r for r in (_p_overview.data or []) if r.get("is_active", True)]
+            _p_overview = supabase.table("campaign_overview_content").select("*").execute()
+            _p_all = _p_overview.data or []
+            _p_ov_rows = [r for r in _p_all
+                          if (r.get("audience") == "parent") and r.get("is_active", True)]
+            _p_ov_rows.sort(key=lambda x: x.get("sort_order") or 0)
         except Exception:
             _p_ov_rows = []
 
