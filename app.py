@@ -18571,19 +18571,48 @@ else:
             if st.button("← 캠페인 홈", key="inst_dash_back_top", use_container_width=True):
                 go_to("campaign_landing"); st.rerun()
 
-        # ⭐ 본부 admin이고 institution_id가 없으면 첫 번째 기관을 임시 표시 (미리보기)
+        # ⭐ 본부 admin이고 institution_id가 없으면 미리보기 — 기관 선택 UI
         if _is_hq_admin_inst and not _inst_id:
             try:
-                _first_inst = supabase.table("institutions").select("id")\
-                    .eq("status", "approved").is_("deleted_at", "null")\
-                    .order("created_at", desc=True).limit(1).execute().data or []
-                if _first_inst:
-                    _inst_id = _first_inst[0].get("id")
-                    st.caption(f"👀 미리보기 대상: 가장 최근 승인된 기관 (id={_inst_id})")
-            except Exception:
-                pass
+                # 모든 기관 가져와서 본부 admin이 선택 가능하게
+                _all_inst = supabase.table("institutions").select(
+                    "id, name, type, region, district"
+                ).is_("deleted_at", "null").order("type").order("name").limit(2000).execute().data or []
+            except Exception as _ie:
+                _all_inst = []
+                st.error(f"기관 조회 실패: {_ie}")
 
-        # 기관 정보 표시
+            if _all_inst:
+                _type_lbl_pick = {
+                    "ministry":"교육부","metro_office":"시·도 교육청","district_office":"교육지원청",
+                    "metro_council":"시·도의회 교육위원회","local_council":"시·군·구의회 교육위원회",
+                    "elementary":"초","middle":"중","high":"고","special":"특수",
+                    "youth_facility":"청소년 시설","other":"기타",
+                }
+                _inst_pick_opts = {
+                    f"[{_type_lbl_pick.get(r['type'], r['type'])}] {r['name']} "
+                    f"({r.get('region','') or ''} {r.get('district','') or ''})".strip(): r["id"]
+                    for r in _all_inst
+                }
+                _ic1, _ic2 = st.columns([5, 1])
+                with _ic1:
+                    _sel_inst_label = st.selectbox(
+                        f"🛠️ 미리보기 기관 선택 (총 {len(_all_inst)}개)",
+                        list(_inst_pick_opts.keys()),
+                        key="hq_preview_inst_select",
+                    )
+                    _inst_id = _inst_pick_opts.get(_sel_inst_label)
+                with _ic2:
+                    st.markdown("")
+                    st.markdown("")
+                    st.caption(f"📊 {len(_all_inst)}개 기관 등록")
+            else:
+                st.warning(
+                    "⚠️ institutions 테이블이 비어있습니다. v17_012 시드 SQL을 먼저 적용해주세요."
+                )
+                st.stop()
+
+        # 기관 정보 표시 (학교 admin 본인 기관 미연결 시)
         if not _inst_id:
             st.warning(
                 "⚠️ **소속 기관이 연결되지 않았습니다.** "
