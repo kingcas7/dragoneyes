@@ -6941,7 +6941,7 @@ def _render_signup_select():
             st.markdown("##### 👨‍👩‍👧 학부모")
             st.markdown(
                 "- 자녀 등록 (다자녀 가능)\n"
-                "- 연 1만원 — 모든 유료 자료\n"
+                "- 연 1만 7천원 — 모든 유료 자료\n"
                 "- 자녀 설문 모니터링\n"
                 "- 모니터링 시스템도 동일 ID로 이용\n"
                 "- 만 14세 미만 자녀 동의 처리"
@@ -7190,7 +7190,7 @@ def _render_signup_parent():
 
         st.divider()
         st.caption("📌 학부모 회원은 모니터링 시스템도 동일 ID로 이용 가능합니다.")
-        st.caption("📌 연 1만원 결제 시 등록된 모든 자녀가 유료 자료를 무제한 열람할 수 있습니다.")
+        st.caption("📌 연 1만 7천원 결제 시 등록된 모든 자녀가 유료 자료를 무제한 열람할 수 있습니다.")
         st.markdown("")
 
         _agree = st.checkbox("개인정보 수집·이용 및 서비스 이용약관에 동의합니다.", value=False)
@@ -8947,14 +8947,14 @@ if st.session_state.user is None:
             _mission_desc   = "교육기관·학부모·학생이 함께 만드는 안전한 온라인 환경"
             _feat1_icon, _feat1_title, _feat1_desc = "🏫", "교육기관 전용 대시보드", "학생 보호 교육·행동강령·저작권 등 미개척 분야 커리큘럼"
             _feat2_icon, _feat2_title, _feat2_desc = "📋", "학생 설문 + 봉사 점수", "50문항 성실 완료 → 교육부 인정 봉사시간 (4~6시간) 발급"
-            _feat3_icon, _feat3_title, _feat3_desc = "👨‍👩‍👧 ", "학부모 자료·자녀 관리", "연 1만원으로 모든 유료 자료 무제한 + 자녀 설문 모니터링"
+            _feat3_icon, _feat3_title, _feat3_desc = "👨‍👩‍👧 ", "학부모 자료·자녀 관리", "연 1만 7천원으로 모든 유료 자료 무제한 + 자녀 설문 모니터링"
             _stats_title = ""  # 캠페인 모드는 stats 박스 자체 미사용
             # ⭐ 사용자 요청: 캠페인 정책 요약 박스 제거 (가려져 안 보이고 raw HTML 문제도 있음)
             _stats_box_html = ""  # 빈 string → div 자체 안 그림
             # 아래 _stat_rows_html은 호환용 (현재 미사용)
             _stat_rows_html = (
 '<div class="login-stat-row"><div class="login-stat-header"><span class="login-stat-label">🎒 학생</span><span class="login-stat-value">무료</span></div><div class="login-stat-bar"><div class="login-stat-fill" style="background:#10b981;width:100%;"></div></div></div>'
-'<div class="login-stat-row"><div class="login-stat-header"><span class="login-stat-label">👨‍👩‍👧 학부모 (연간)</span><span class="login-stat-value">10,000원</span></div><div class="login-stat-bar"><div class="login-stat-fill" style="background:#3b82f6;width:80%;"></div></div></div>'
+'<div class="login-stat-row"><div class="login-stat-header"><span class="login-stat-label">👨‍👩‍👧 학부모 (연간)</span><span class="login-stat-value">17,000원</span></div><div class="login-stat-bar"><div class="login-stat-fill" style="background:#3b82f6;width:80%;"></div></div></div>'
 '<div class="login-stat-row"><div class="login-stat-header"><span class="login-stat-label">🏫 교육기관</span><span class="login-stat-value">계약</span></div><div class="login-stat-bar"><div class="login-stat-fill" style="background:#8b5cf6;width:60%;"></div></div></div>'
 '<div class="login-stat-row"><div class="login-stat-header"><span class="login-stat-label">🏆 봉사 시간 (성실 완료 시)</span><span class="login-stat-value">4~6시간</span></div><div class="login-stat-bar"><div class="login-stat-fill" style="background:#f59e0b;width:75%;"></div></div></div>'
 '<div class="login-stat-row"><div class="login-stat-header"><span class="login-stat-label">📚 자료 형식 (PDF·동영상)</span><span class="login-stat-value">열람 전용</span></div><div class="login-stat-bar"><div class="login-stat-fill" style="background:#64748b;width:50%;"></div></div></div>'
@@ -9167,7 +9167,7 @@ if st.session_state.user is None:
                 st.markdown(
                     "- 🏫 **교육기관 전용 대시보드** — 학생 보호 교육·행동강령·저작권 등 미개척 분야 커리큘럼\n"
                     "- 📋 **학생 설문 + 봉사 점수** — 50문항 성실 완료 → 교육부 인정 봉사시간 (4~6시간)\n"
-                    "- 👨‍👩‍👧 **학부모 자료·자녀 관리** — 연 1만원으로 모든 유료 자료 무제한 + 자녀 설문 모니터링"
+                    "- 👨‍👩‍👧 **학부모 자료·자녀 관리** — 연 1만 7천원으로 모든 유료 자료 무제한 + 자녀 설문 모니터링"
                 )
 
     # ── 하단 푸터 배너 (COMPANY_INFO 일원화) ──
@@ -16415,7 +16415,7 @@ else:
 
     # ══════════════════════════════════════════════════════════════
     # 💳 Phase 9 (v17): 결제 콜백 — 토스페이먼츠 등 PG 결제 완료 처리
-    #   URL: /?page=payment_callback&paymentKey=xxx&orderId=xxx&amount=10000
+    #   URL: /?page=payment_callback&paymentKey=xxx&orderId=xxx&amount=17000
     # ══════════════════════════════════════════════════════════════
     elif page == "payment_callback":
         _toss_pk  = st.query_params.get("paymentKey")
@@ -16530,7 +16530,7 @@ else:
                         supabase.table("parent_subscriptions").insert({
                             "parent_id": _parent_id,
                             "year": _yr,
-                            "amount": 10000,
+                            "amount": 17000,
                             "payment_id": (_pay_row or {}).get("id"),
                             "status": "active",
                             "start_date": _start,
@@ -16607,7 +16607,7 @@ else:
         with _ic3:
             with st.container(border=True):
                 st.markdown("##### 👨‍👩‍👧 학부모 자료·자녀 관리")
-                st.caption("연 1만원 — 모든 유료 자료 무제한 + 자녀 설문 모니터링")
+                st.caption("연 1만 7천원 — 모든 유료 자료 무제한 + 자녀 설문 모니터링")
                 if st.button("→ 들어가기", key="cmp_ic_parent", use_container_width=True):
                     if _is_parent or _is_hq_admin:
                         st.session_state["current_page"] = "parent_dashboard"
@@ -17198,7 +17198,7 @@ else:
             st.markdown(
                 '<div style="background:#fef3c7;border-left:4px solid #f59e0b;border-radius:8px;'
                 'padding:12px 16px;margin:12px 0;color:#78350f;font-size:0.9rem;">'
-                '💡 <strong>프리미엄 교재</strong>는 학부모 결제 시 자동으로 해금됩니다 · 연 1만원'
+                '💡 <strong>프리미엄 교재</strong>는 학부모 결제 시 자동으로 해금됩니다 · 연 1만 7천원'
                 '</div>',
                 unsafe_allow_html=True,
             )
@@ -17749,7 +17749,7 @@ else:
                 if not _can_view_paid:
                     if _is_parent_cm:
                         st.warning(
-                            "💳 **유료 자료를 보시려면 연 1만원 구독이 필요합니다.** "
+                            "💳 **유료 자료를 보시려면 연 1만 7천원 구독이 필요합니다.** "
                             "결제 후 자녀와 함께 모든 유료 자료를 무제한 열람하실 수 있습니다. "
                             "(결제 기능은 Phase 9에서 활성화)"
                         )
@@ -17856,7 +17856,7 @@ else:
         _kp1.metric("👨‍👩‍👧‍👦 등록 자녀", f"{len(_verified_links)}명")
         _kp2.metric("⏳ 매칭 대기", f"{len(_pending_links)}명")
         _kp3.metric("💳 구독 상태", "✅ 구독 중" if _has_subscription else "❌ 미가입")
-        _kp4.metric("💰 연 구독료", "10,000원")
+        _kp4.metric("💰 연 구독료", "17,000원")
 
         st.divider()
 
@@ -18214,7 +18214,7 @@ else:
                     f"❌ **{_y_cur}년 구독 미가입**\n\n"
                     f"- 학생은 무료 자료를 자유롭게 이용할 수 있습니다.\n"
                     f"- 학생은 무료로 설문 참여 및 봉사 점수를 받을 수 있습니다.\n"
-                    f"- **연 10,000원 결제 시** 모든 유료 자료 + 자녀 추가 권한이 활성화됩니다."
+                    f"- **연 17,000원 결제 시** 모든 유료 자료 + 자녀 추가 권한이 활성화됩니다."
                 )
 
                 # ─── 결제 게이트웨이 선택 ───
@@ -18273,7 +18273,7 @@ else:
                 else:
                     if _selected_pg == "toss":
                         # ─── 토스페이먼츠 sandbox 결제 ───
-                        if st.button("💳 토스로 연 10,000원 결제하기 (sandbox)",
+                        if st.button("💳 토스로 연 17,000원 결제하기 (sandbox)",
                                      type="primary", use_container_width=True,
                                      key="pdash_toss_go"):
                             import time as _t
@@ -18284,7 +18284,7 @@ else:
                                     "provider": "toss",
                                     "target_type": "parent",
                                     "target_id": _u_p.get("id"),
-                                    "amount": 10000,
+                                    "amount": 17000,
                                     "currency": "KRW",
                                     "product_type": "parent_yearly_10k",
                                     "product_year": _y_cur,
@@ -18331,9 +18331,9 @@ else:
                                         var w = window.top || window;
                                         var tp = TossPayments("{_toss_client_key}");
                                         tp.requestPayment('카드', {{
-                                            amount: 10000,
+                                            amount: 17000,
                                             orderId: "{_order_id}",
-                                            orderName: "캠페인 연 1만원 구독",
+                                            orderName: "캠페인 연 1만 7천원 구독",
                                             customerName: "{_customer_name}",
                                             successUrl: "{_success_url}",
                                             failUrl: "{_fail_url}",
@@ -18369,7 +18369,7 @@ else:
             st.caption(
                 "📌 **정책 안내**\n"
                 "- 학생: 무료 (모든 무료 자료 + 설문 + 봉사 점수)\n"
-                "- 학부모: 연 1만원 (모든 유료 자료 무제한 + 등록된 모든 자녀 동시 권한)\n"
+                "- 학부모: 연 1만 7천원 (모든 유료 자료 무제한 + 등록된 모든 자녀 동시 권한)\n"
                 "- 다자녀: 학부모 1회 결제로 모든 자녀 권한 부여\n"
                 "- PG 4종 (토스/카카오/이니시스/네이버) — 관할 신고 완료 후 순차 활성화"
             )
