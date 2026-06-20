@@ -4741,6 +4741,13 @@ params = st.query_params
 if "req_id" in params and st.session_state.get("current_page") != "consent_page":
     st.session_state.current_page = "consent_page"
 
+# ⭐ Phase 7+8: 설문 토큰으로 직접 접근 (비로그인 가능)
+if "survey_token" in params:
+    _stoken = params.get("survey_token")
+    if _stoken:
+        st.session_state["_survey_token"] = _stoken
+        st.session_state["current_page"] = "survey_respond"
+
 # ─── 🔐 세션 복원: sid (refresh_token) 사용 ───
 # 옛 token 파라미터 호환 (기존 세션 마이그레이션) — 로그아웃 직후엔 skip
 if "token" in params and st.session_state.user is None and "logged_out" not in params:
@@ -6541,6 +6548,241 @@ def _campaign_calc_age(birth_date):
     return today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
 
 
+def render_survey_respond_page():
+    """⭐ Phase 7+8 Step E — 설문 응답 페이지 (token 기반 비로그인 접근)
+
+    URL: /?survey_token=xxx 로 진입 또는 학생 본인이 dashboard에서 ✏️ 응시 클릭.
+    - token으로 학생/설문 식별 (student_survey_tokens)
+    - 다운로드/캡처 차단 (drag/select/contextmenu/Ctrl+S/P/U)
+    - 모든 문항 응답 → '완료' 버튼 → status='completed' → 트리거가 봉사 점수 발급
+    """
+    _token = st.session_state.get("_survey_token") or ""
+    if not _token:
+        st.error("⚠️ 설문 토큰이 없습니다.")
+        return
+
+    # 토큰 조회 → 학생/설문 식별
+    try:
+        _tok_q = supabase.table("student_survey_tokens").select(
+            "id, student_id, survey_id, response_count, revoked_at"
+        ).eq("access_token", _token).limit(1).execute()
+        _tok = _tok_q.data[0] if _tok_q.data else None
+    except Exception:
+        _tok = None
+
+    if not _tok:
+        st.error("❌ 유효하지 않은 설문 링크입니다. 다시 확인해주세요.")
+        return
+    if _tok.get("revoked_at"):
+        st.error("❌ 이 설문 링크는 무효화되었습니다. 학생 본인에게 새 링크를 요청하세요.")
+        return
+
+    _survey_id = _tok["survey_id"]
+    _student_id = _tok["student_id"]
+
+    # 학생/설문 메타
+    try:
+        _stu = supabase.table("users").select("name, school_name, grade").eq("id", _student_id).single().execute().data or {}
+    except Exception:
+        _stu = {}
+    try:
+        _sv = supabase.table("surveys").select(
+            "title, description, target_band, target_minutes, total_questions, min_completion_seconds"
+        ).eq("id", _survey_id).single().execute().data or {}
+    except Exception:
+        _sv = {}
+
+    # 다운로드/캡처 차단 CSS+JS
+    st.markdown(
+        """
+        <style>
+        .sr-page * { user-select: none !important; -webkit-user-select: none !important; -moz-user-select: none !important; }
+        .sr-page img, .sr-page p, .sr-page div { -webkit-user-drag: none !important; }
+        </style>
+        <script>
+        (function(){
+            const w = window.top || window;
+            try {
+                w.document.addEventListener('contextmenu', function(e){ e.preventDefault(); return false; }, true);
+                w.document.addEventListener('keydown', function(e){
+                    const k = (e.key || '').toLowerCase();
+                    // Ctrl+S / Ctrl+P / Ctrl+U / Ctrl+Shift+I (DevTools) / Ctrl+Shift+C
+                    if ((e.ctrlKey || e.metaKey) && ['s','p','u'].includes(k)) { e.preventDefault(); return false; }
+                    if ((e.ctrlKey || e.metaKey) && e.shiftKey && ['i','c','j'].includes(k)) { e.preventDefault(); return false; }
+                    if (k === 'f12') { e.preventDefault(); return false; }
+                }, true);
+                w.document.addEventListener('selectstart', function(e){ e.preventDefault(); return false; }, true);
+            } catch(e){}
+        })();
+        </script>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # 헤더
+    st.markdown('<div class="sr-page">', unsafe_allow_html=True)
+    st.markdown(f"## 📋 {_sv.get('title','캠페인 설문')}")
+    if _stu.get("name"):
+        st.caption(f"🎒 응답자가 캠페인을 신청한 학생: **{_stu.get('name')}** "
+                   f"({_stu.get('school_name','-')} {_stu.get('grade','-') and str(_stu.get('grade'))+'학년'})")
+    if _sv.get("description"):
+        st.info(_sv.get("description"))
+
+    # 이미 완료된 응답인지 확인
+    try:
+        _existing = supabase.table("survey_responses").select(
+            "id, status, submitted_at"
+        ).eq("survey_id", _survey_id).eq("student_id", _student_id).limit(1).execute()
+        _resp = _existing.data[0] if _existing.data else None
+    except Exception:
+        _resp = None
+
+    if _resp and _resp.get("status") == "completed":
+        st.success(
+            "✅ 이 설문은 이미 완료되었습니다. "
+            f"({_resp.get('submitted_at','')[:10]})\n\n"
+            "감사합니다. 응답이 학생의 봉사 점수에 반영되었습니다."
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
+        return
+
+    # 문항 로드
+    try:
+        _qs = supabase.table("survey_questions").select(
+            "id, qno, qtype, text, options, required, topic_tag"
+        ).eq("survey_id", _survey_id).order("qno").execute()
+        _questions = _qs.data or []
+    except Exception:
+        _questions = []
+
+    if not _questions:
+        st.warning("설문 문항을 불러올 수 없습니다.")
+        st.markdown('</div>', unsafe_allow_html=True)
+        return
+
+    st.divider()
+
+    # 응답 폼
+    with st.form("survey_respond_form", clear_on_submit=False):
+        _answers = {}
+        for _q in _questions:
+            _qid = _q["id"]
+            _qno = _q["qno"]
+            _qtype = _q["qtype"]
+            _qtext = _q["text"]
+            _opts = _q.get("options") or []
+            _req = bool(_q.get("required"))
+
+            _label = f"**{_qno}. {_qtext}**" + (" ⭐" if _req else " (선택)")
+            st.markdown(_label)
+
+            if _qtype == "single_choice":
+                _ans = st.radio("", _opts, key=f"sr_q_{_qid}",
+                                index=None, horizontal=False, label_visibility="collapsed")
+                _answers[_qid] = _ans
+            elif _qtype == "multi_choice":
+                _ans_list = []
+                for _opt in _opts:
+                    if st.checkbox(_opt, key=f"sr_q_{_qid}_{_opt}"):
+                        _ans_list.append(_opt)
+                _answers[_qid] = _ans_list
+            elif _qtype == "long_text":
+                _ans = st.text_area("", key=f"sr_q_{_qid}", label_visibility="collapsed",
+                                    placeholder="자유롭게 적어주세요 (선택)")
+                _answers[_qid] = _ans
+            elif _qtype == "short_text":
+                _ans = st.text_input("", key=f"sr_q_{_qid}", label_visibility="collapsed")
+                _answers[_qid] = _ans
+            elif _qtype == "yes_no":
+                _ans = st.radio("", ["예", "아니오"], key=f"sr_q_{_qid}",
+                                index=None, horizontal=True, label_visibility="collapsed")
+                _answers[_qid] = _ans
+            elif _qtype == "scale":
+                _ans = st.radio("", _opts, key=f"sr_q_{_qid}",
+                                index=None, horizontal=True, label_visibility="collapsed")
+                _answers[_qid] = _ans
+            st.markdown("---")
+
+        _submit = st.form_submit_button("✅ 모든 응답 완료 — 제출하기", type="primary",
+                                        use_container_width=True)
+
+    if _submit:
+        # 필수 문항 검증
+        _missing = []
+        for _q in _questions:
+            if not _q.get("required"):
+                continue
+            _v = _answers.get(_q["id"])
+            if _v is None or _v == "" or (isinstance(_v, list) and not _v):
+                _missing.append(_q["qno"])
+        if _missing:
+            st.error(f"⚠️ 필수 문항 {len(_missing)}개가 미응답입니다: " +
+                     ", ".join(f"{n}번" for n in _missing[:10]) +
+                     ("..." if len(_missing) > 10 else ""))
+        else:
+            # 응답 저장
+            try:
+                _now_iso = datetime.now().isoformat()
+                # response upsert
+                if _resp:
+                    _resp_id = _resp["id"]
+                    supabase.table("survey_responses").update({
+                        "submitted_at": _now_iso,
+                        "status": "completed",
+                        "completion_rate": 100.0,
+                        "integrity_score": 85,  # 기본 통과 점수 (성실도 자동 산정은 추후)
+                        "access_token": _token,
+                        "access_source": "link",
+                    }).eq("id", _resp_id).execute()
+                else:
+                    _ins = supabase.table("survey_responses").insert({
+                        "survey_id": _survey_id,
+                        "student_id": _student_id,
+                        "started_at": _now_iso,
+                        "submitted_at": _now_iso,
+                        "status": "in_progress",  # answers 저장 후 completed로 update (트리거 발화)
+                        "completion_rate": 100.0,
+                        "integrity_score": 85,
+                        "access_token": _token,
+                        "access_source": "link",
+                    }).execute()
+                    _resp_id = (_ins.data or [{}])[0].get("id")
+
+                # answers bulk insert
+                _ans_rows = []
+                for _q in _questions:
+                    _v = _answers.get(_q["id"])
+                    if _v is None or _v == "" or (isinstance(_v, list) and not _v):
+                        continue
+                    import json as _json
+                    _ans_rows.append({
+                        "response_id": _resp_id,
+                        "question_id": _q["id"],
+                        "answer": _v,  # supabase-py가 dict/list/str 자동 JSON 변환
+                    })
+                if _ans_rows:
+                    # 기존 답변 제거 후 신규 입력
+                    supabase.table("survey_answers").delete().eq("response_id", _resp_id).execute()
+                    supabase.table("survey_answers").insert(_ans_rows).execute()
+
+                # 완료 → 트리거가 봉사 발급
+                supabase.table("survey_responses").update({
+                    "status": "completed",
+                }).eq("id", _resp_id).execute()
+
+                st.balloons()
+                st.success(
+                    "🎉 설문 응답이 완료되었습니다!\n\n"
+                    f"학생 **{_stu.get('name','')}** 의 봉사 점수에 반영됩니다. "
+                    "참여해주셔서 감사합니다."
+                )
+                # token 정리
+                st.session_state.pop("_survey_token", None)
+            except Exception as _e:
+                st.error(f"응답 저장 실패: {_e}")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
 def render_campaign_signup_page(page_key):
     """캠페인 회원가입 페이지 렌더링.
     page_key: 'campaign_signup_select' | 'campaign_signup_institution'
@@ -7953,6 +8195,11 @@ if st.session_state.user is None:
     if _current_anon_page in _signup_pages:
         # ── 회원가입 페이지로 진입 ──
         render_campaign_signup_page(_current_anon_page)
+        st.stop()
+
+    # ⭐ Phase 7+8: 설문 응답 페이지 — 비로그인 익명 접근 가능
+    if _current_anon_page == "survey_respond" and st.session_state.get("_survey_token"):
+        render_survey_respond_page()
         st.stop()
 
     # ⭐ 캠페인 모드 진입 시 — 접근성 기능 자체를 강제 OFF (모니터링 전용)
@@ -16193,6 +16440,12 @@ else:
                 "- 교육기관 피드백 정리\n\n"
                 "🚧 **Phase 10에서 본격 구현 예정**"
             )
+
+    # ══════════════════════════════════════════════════════════════
+    # 📋 Phase 7+8 Step E (v17): 설문 응답 페이지 (로그인 상태도 지원)
+    # ══════════════════════════════════════════════════════════════
+    elif page == "survey_respond":
+        render_survey_respond_page()
 
     # ══════════════════════════════════════════════════════════════
     # 🎒 Phase 7+8 (v17): 학생 설문+봉사 dashboard — 캠페인 안내 + 자료 + 설문 + 봉사 + 내 링크/QR
