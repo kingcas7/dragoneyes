@@ -9732,7 +9732,8 @@ else:
         "campaign_student_dashboard", "survey_respond",
         "campaign_signup_select", "campaign_signup_institution",
         "campaign_signup_parent", "campaign_signup_student",
-        "institution_dashboard", "institution_approval", "monitoring_stats",
+        "institution_dashboard", "institution_approval", "institution_management",
+        "monitoring_stats",
     )
     # ⭐ query_params.page는 'sid 복원이 default home_landing으로 덮었을 때'만 적용 — 사용자가
     #    버튼 클릭으로 session_state를 변경하면 그게 우선 (그렇지 않으면 페이지 이동이 차단됨)
@@ -16587,6 +16588,32 @@ else:
         st.markdown("")
         st.divider()
 
+        # ⭐ 본부 admin 전용 — 기관 관리 / 자료 관리 / 안내 컨텐츠 관리 등 빠른 진입
+        if _is_hq_admin:
+            with st.expander("🛠️ 본부 관리자 메뉴 (HQ Admin)", expanded=False):
+                _ha1, _ha2, _ha3 = st.columns(3)
+                with _ha1:
+                    if st.button("🏛️ 교육기관 관리",
+                                  use_container_width=True,
+                                  key="hq_inst_mgmt",
+                                  help="institutions CRUD · 신청 승인 · 일괄 import"):
+                        st.session_state["current_page"] = "institution_management"
+                        st.rerun()
+                with _ha2:
+                    if st.button("📋 기관 등록 신청 큐",
+                                  use_container_width=True,
+                                  key="hq_inst_appr",
+                                  help="institution_requests 승인/거절"):
+                        st.session_state["current_page"] = "institution_approval"
+                        st.rerun()
+                with _ha3:
+                    if st.button("📚 자료 + 안내 관리",
+                                  use_container_width=True,
+                                  key="hq_mat_mgmt",
+                                  help="campaign_materials / campaign_overview_content CRUD"):
+                        st.session_state["current_page"] = "campaign_student_dashboard"
+                        st.rerun()
+
         # ── 하단: 📊 드래곤아이즈 모니터링 통계 보기 + 캠페인 현황 보기 ──
         #   (모니터링 시스템·로그아웃은 상단 헤더로 이동)
         _bc1, _bc2 = st.columns(2)
@@ -18516,6 +18543,241 @@ else:
                 ]
                 st.dataframe(_pd_inst_camp.DataFrame(_grade_rows2),
                             use_container_width=True, hide_index=True)
+
+    # ══════════════════════════════════════════════════════════════
+    # 🏛️ 본부 admin 전용 — 교육기관 통합 관리 (CRUD/검색/필터/CSV)
+    # ══════════════════════════════════════════════════════════════
+    elif page == "institution_management":
+        _u_im = user or {}
+        _is_hq_im = (_u_im.get("role") == "admin" and not _u_im.get("partner_id"))
+        if not _is_hq_im:
+            st.error("🚫 본부 관리자 전용 페이지입니다.")
+            if st.button("🏠 캠페인 홈", key="im_back_unauth"):
+                st.session_state["current_page"] = "campaign_landing"; st.rerun()
+            st.stop()
+
+        _hh1, _hh2 = st.columns([6, 1])
+        with _hh1:
+            st.markdown("## 🏛️ 교육기관 관리 (본부 admin)")
+            st.caption("전국 교육기관 · 지방의회 교육위원회 · 학교 CRUD · 검색 · 필터 · CSV import/export")
+        with _hh2:
+            if st.button("← 캠페인 홈", key="im_back_top", use_container_width=True):
+                st.session_state["current_page"] = "campaign_landing"; st.rerun()
+
+        st.divider()
+
+        # KPI
+        try:
+            _all_insts = supabase.table("institutions").select(
+                "id, type, name, region, district, status, created_at"
+            ).is_("deleted_at", "null").order("created_at", desc=True).limit(5000).execute().data or []
+        except Exception as _e:
+            _all_insts = []
+            st.error(f"기관 조회 실패: {_e}")
+
+        _k1, _k2, _k3, _k4, _k5 = st.columns(5)
+        _k1.metric("📊 전체", f"{len(_all_insts)}")
+        _k2.metric("✅ 승인", f"{sum(1 for i in _all_insts if i.get('status')=='approved')}")
+        _k3.metric("⏳ 대기", f"{sum(1 for i in _all_insts if i.get('status')=='pending')}")
+        _k4.metric("⛔ 거절/정지",
+                   f"{sum(1 for i in _all_insts if i.get('status') in ('rejected','suspended'))}")
+        _by_type = {}
+        for _i in _all_insts:
+            _by_type[_i.get("type")] = _by_type.get(_i.get("type"), 0) + 1
+        _k5.metric("📦 type 종류", f"{len(_by_type)}")
+
+        st.divider()
+
+        # 탭: 검색·목록 / 신규 추가 / 일괄 CSV
+        _it1, _it2, _it3 = st.tabs(["🔍 검색·목록·관리", "➕ 신규 추가", "📤 CSV import/export"])
+
+        # ── 탭 1: 검색·목록·관리 ──
+        with _it1:
+            _fc1, _fc2, _fc3, _fc4 = st.columns([2, 2, 2, 1])
+            with _fc1:
+                _f_q = st.text_input("이름/지역 검색", key="im_filter_q")
+            with _fc2:
+                _f_type = st.selectbox(
+                    "type 필터",
+                    ["전체", "ministry", "metro_office", "district_office",
+                     "metro_council", "local_council",
+                     "elementary", "middle", "high", "special",
+                     "youth_facility", "other"],
+                    format_func=lambda x: {
+                        "전체":"전체","ministry":"교육부","metro_office":"시·도 교육청",
+                        "district_office":"교육지원청",
+                        "metro_council":"시·도의회 교육위원회","local_council":"시·군·구의회 교육위원회",
+                        "elementary":"초","middle":"중","high":"고","special":"특수",
+                        "youth_facility":"청소년 시설","other":"기타"
+                    }.get(x, x),
+                    key="im_filter_type")
+            with _fc3:
+                _f_status = st.selectbox("status 필터",
+                                          ["전체", "approved", "pending", "rejected", "suspended"],
+                                          key="im_filter_status")
+            with _fc4:
+                _f_limit = st.number_input("표시 개수", min_value=10, max_value=500, value=50, step=10,
+                                           key="im_filter_limit")
+
+            # Python 측 필터
+            _filtered = _all_insts
+            if _f_type != "전체":
+                _filtered = [r for r in _filtered if r.get("type") == _f_type]
+            if _f_status != "전체":
+                _filtered = [r for r in _filtered if r.get("status") == _f_status]
+            if _f_q:
+                _q = _f_q.lower()
+                _filtered = [r for r in _filtered
+                             if _q in (r.get("name","").lower())
+                             or _q in (r.get("region","").lower())
+                             or _q in (r.get("district","").lower())]
+            _shown = _filtered[: int(_f_limit)]
+            st.caption(f"표시 {len(_shown)}건 / 필터 {len(_filtered)}건 / 전체 {len(_all_insts)}건")
+
+            for _inst in _shown:
+                _type_label = {
+                    "ministry":"교육부","metro_office":"시·도 교육청","district_office":"교육지원청",
+                    "metro_council":"시·도의회 교육위원회","local_council":"시·군·구의회 교육위원회",
+                    "elementary":"초","middle":"중","high":"고","special":"특수",
+                    "youth_facility":"청소년 시설","other":"기타"
+                }.get(_inst.get("type"), _inst.get("type"))
+                _status_emoji = {"approved":"✅","pending":"⏳","rejected":"❌","suspended":"🚫"}.get(_inst.get("status"),"·")
+                with st.expander(
+                    f"{_status_emoji} **{_inst.get('name','')}** · `{_type_label}` · "
+                    f"{_inst.get('region','')} {_inst.get('district','') or ''}",
+                    expanded=False
+                ):
+                    _ec1, _ec2 = st.columns(2)
+                    with _ec1:
+                        _new_name = st.text_input("이름", value=_inst.get("name","") or "",
+                                                   key=f"im_n_{_inst['id']}")
+                        _new_region = st.text_input("시도", value=_inst.get("region","") or "",
+                                                     key=f"im_r_{_inst['id']}")
+                        _new_district = st.text_input("시군구", value=_inst.get("district","") or "",
+                                                       key=f"im_d_{_inst['id']}")
+                    with _ec2:
+                        _new_status = st.selectbox(
+                            "status",
+                            ["approved", "pending", "rejected", "suspended"],
+                            index=["approved","pending","rejected","suspended"].index(
+                                _inst.get("status") or "pending"),
+                            key=f"im_s_{_inst['id']}"
+                        )
+
+                    _bc1, _bc2 = st.columns(2)
+                    with _bc1:
+                        if st.button("💾 저장", key=f"im_save_{_inst['id']}", use_container_width=True):
+                            try:
+                                supabase.table("institutions").update({
+                                    "name": _new_name, "region": _new_region,
+                                    "district": _new_district or None, "status": _new_status,
+                                }).eq("id", _inst["id"]).execute()
+                                st.success("저장됨"); st.rerun()
+                            except Exception as _e: st.error(f"실패: {_e}")
+                    with _bc2:
+                        if st.button("🗑️ 삭제 (soft)", key=f"im_del_{_inst['id']}",
+                                     use_container_width=True):
+                            try:
+                                supabase.table("institutions").update({
+                                    "deleted_at": datetime.now().isoformat()
+                                }).eq("id", _inst["id"]).execute()
+                                st.success("삭제됨"); st.rerun()
+                            except Exception as _e: st.error(f"실패: {_e}")
+
+        # ── 탭 2: 신규 추가 ──
+        with _it2:
+            with st.form("im_new_form"):
+                _ic1, _ic2 = st.columns(2)
+                with _ic1:
+                    _n_type = st.selectbox("type *",
+                        ["elementary","middle","high","special",
+                         "metro_office","district_office",
+                         "metro_council","local_council",
+                         "ministry","youth_facility","other"],
+                        format_func=lambda x: {
+                            "elementary":"초","middle":"중","high":"고","special":"특수",
+                            "metro_office":"시·도 교육청","district_office":"교육지원청",
+                            "metro_council":"시·도의회 교육위원회","local_council":"시·군·구의회 교육위원회",
+                            "ministry":"교육부","youth_facility":"청소년 시설","other":"기타"
+                        }.get(x, x)
+                    )
+                    _n_name = st.text_input("이름 *")
+                    _n_code = st.text_input("기관 코드 (선택 — NEIS/지자체 코드)")
+                with _ic2:
+                    _n_region = st.text_input("시도 *", placeholder="서울특별시")
+                    _n_district = st.text_input("시군구", placeholder="강남구")
+                    _n_status = st.selectbox("status",
+                                              ["approved","pending"], index=0)
+                _n_address = st.text_input("주소")
+                _n_phone = st.text_input("전화")
+                _n_email = st.text_input("이메일")
+
+                if st.form_submit_button("➕ 추가", type="primary", use_container_width=True):
+                    if not _n_name or not _n_region:
+                        st.error("이름/시도 필수")
+                    else:
+                        try:
+                            supabase.table("institutions").insert({
+                                "type": _n_type, "name": _n_name,
+                                "code": _n_code or None,
+                                "region": _n_region,
+                                "district": _n_district or None,
+                                "address": _n_address or None,
+                                "phone": _n_phone or None,
+                                "email": _n_email or None,
+                                "verification_source": "manual",
+                                "status": _n_status,
+                                "approved_at": datetime.now().isoformat() if _n_status == "approved" else None,
+                                "approved_by": _u_im.get("id") if _n_status == "approved" else None,
+                            }).execute()
+                            st.success(f"✅ {_n_name} 추가 완료"); st.rerun()
+                        except Exception as _e: st.error(f"실패: {_e}")
+
+        # ── 탭 3: CSV import/export ──
+        with _it3:
+            st.markdown("##### 📥 CSV Export (전체)")
+            if _all_insts:
+                import pandas as _pd_im
+                _df_im = _pd_im.DataFrame(_all_insts)
+                _csv_im = _df_im.to_csv(index=False).encode("utf-8-sig")
+                st.download_button("📥 institutions 전체 CSV 다운로드",
+                                    _csv_im,
+                                    file_name=f"institutions_{date.today().isoformat()}.csv",
+                                    mime="text/csv")
+
+            st.divider()
+            st.markdown("##### 📤 CSV Import")
+            st.caption("필수 컬럼: type, name, region · 선택: code, district, address, phone, email, status")
+            _csv_up = st.file_uploader("CSV 파일 업로드", type=["csv"], key="im_csv_up")
+            if _csv_up:
+                try:
+                    import pandas as _pd_up
+                    _df_up = _pd_up.read_csv(_csv_up)
+                    st.dataframe(_df_up.head(20), use_container_width=True, hide_index=True)
+                    st.caption(f"총 {len(_df_up)}건 — 첫 20건 미리보기")
+                    if st.button("📤 INSERT 실행", type="primary"):
+                        _ok, _fail = 0, 0
+                        for _, _row in _df_up.iterrows():
+                            try:
+                                supabase.table("institutions").insert({
+                                    "type": _row.get("type"),
+                                    "name": _row.get("name"),
+                                    "code": _row.get("code") or None,
+                                    "region": _row.get("region"),
+                                    "district": _row.get("district") or None,
+                                    "address": _row.get("address") or None,
+                                    "phone": _row.get("phone") or None,
+                                    "email": _row.get("email") or None,
+                                    "verification_source": "import",
+                                    "status": _row.get("status") or "approved",
+                                }).execute()
+                                _ok += 1
+                            except Exception:
+                                _fail += 1
+                        st.success(f"✅ {_ok}건 성공 / ❌ {_fail}건 실패"); st.rerun()
+                except Exception as _e:
+                    st.error(f"CSV 파싱 실패: {_e}")
+
 
     # ══════════════════════════════════════════════════════════════
     # 🛂 Phase 4 (v17): 교육기관 등록 신청 승인 큐 (본부 admin 전용)
