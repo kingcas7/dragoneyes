@@ -16214,20 +16214,44 @@ else:
         # ⭐ 본부 admin — 모든 캠페인 페이지 미리보기 가능
         _is_hq_admin = (_u.get("role") == "admin" and not _u.get("partner_id"))
 
-        # ⭐ 슬로건 아래 가로 3아이콘 미리보기 (참고 정보)
+        # ⭐ 슬로건 아래 가로 3아이콘 — 각 카드 클릭 시 해당 페이지로 이동
         _ic1, _ic2, _ic3 = st.columns(3)
         with _ic1:
             with st.container(border=True):
                 st.markdown("##### 🏫 교육기관 전용 대시보드")
                 st.caption("학생 보호 교육 · 행동강령 · 저작권 등 미개척 분야 커리큘럼")
+                if st.button("→ 들어가기", key="cmp_ic_inst", use_container_width=True):
+                    if _is_inst and _u.get("institution_id"):
+                        st.session_state["current_page"] = "institution_dashboard"
+                    elif _is_hq_admin:
+                        st.session_state["current_page"] = "institution_dashboard"
+                    else:
+                        st.session_state["current_page"] = "campaign_signup_institution"
+                    st.rerun()
         with _ic2:
             with st.container(border=True):
                 st.markdown("##### 📋 학생 설문 + 봉사 점수")
                 st.caption("50문항 성실 완료 → 교육부 인정 봉사시간 (4~6시간)")
+                if st.button("→ 들어가기", key="cmp_ic_student", use_container_width=True):
+                    if _is_student or _is_hq_admin:
+                        st.session_state["current_page"] = "campaign_student_dashboard"
+                    elif _is_parent:
+                        st.session_state["current_page"] = "parent_dashboard"
+                    else:
+                        st.session_state["current_page"] = "campaign_signup_student"
+                    st.rerun()
         with _ic3:
             with st.container(border=True):
                 st.markdown("##### 👨‍👩‍👧 학부모 자료·자녀 관리")
                 st.caption("연 1만원 — 모든 유료 자료 무제한 + 자녀 설문 모니터링")
+                if st.button("→ 들어가기", key="cmp_ic_parent", use_container_width=True):
+                    if _is_parent or _is_hq_admin:
+                        st.session_state["current_page"] = "parent_dashboard"
+                    elif _is_student:
+                        st.session_state["current_page"] = "campaign_student_dashboard"
+                    else:
+                        st.session_state["current_page"] = "campaign_signup_parent"
+                    st.rerun()
 
         st.markdown("")
         st.markdown("")
