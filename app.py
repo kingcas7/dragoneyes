@@ -10031,12 +10031,25 @@ else:
             _hdr_role_v2 = (_u_hdr.get("role_v2") or "").lower()
             _hdr_is_student = (_hdr_role_v2 == "student") or bool(_u_hdr.get("is_campaign_only"))
 
-            # ← 뒤로 / 🏠 홈 / 🛡️ 모니터링 시스템(학생 제외) / 🚪 로그아웃
+            # 🔔 공지 미읽음 카운트
+            _unread_n = 0
+            if _u_hdr.get("id"):
+                try:
+                    _unread_n = supabase.rpc(
+                        "get_unread_notice_count", {"p_user_id": _u_hdr["id"]}
+                    ).execute().data or 0
+                    _unread_n = int(_unread_n)
+                except Exception:
+                    _unread_n = 0
+
+            _notice_label = f"🔔 공지" if _unread_n == 0 else f"🔔 공지 ({_unread_n})"
+
+            # ← 뒤로 / 🏠 홈 / 🔔 공지 / 🛡️ 모니터링 시스템(학생 제외) / 🚪 로그아웃
             if _hdr_is_student:
-                _hb_back, _hb_home, _hb_logout = st.columns([1, 1, 1])
+                _hb_back, _hb_home, _hb_notice, _hb_logout = st.columns([1, 1, 1.2, 1])
                 _hb_mon = None
             else:
-                _hb_back, _hb_home, _hb_mon, _hb_logout = st.columns([1, 1, 1.4, 1])
+                _hb_back, _hb_home, _hb_notice, _hb_mon, _hb_logout = st.columns([1, 1, 1.2, 1.4, 1])
 
             with _hb_back:
                 if st.button("← 뒤로", key="cmp_hdr_back", use_container_width=True,
@@ -10064,6 +10077,13 @@ else:
                              help="캠페인 홈으로"):
                     st.session_state.pop("_stats_from_campaign", None)
                     st.session_state["current_page"] = "campaign_landing"
+                    st.rerun()
+            with _hb_notice:
+                _notice_help = f"공지 {_unread_n}건 미읽음" if _unread_n else "공지사항"
+                if st.button(_notice_label, key="cmp_hdr_notices", use_container_width=True,
+                             type=("primary" if _unread_n else "secondary"),
+                             help=_notice_help):
+                    st.session_state["current_page"] = "notices"
                     st.rerun()
             if _hb_mon is not None:
                 with _hb_mon:
@@ -16909,6 +16929,159 @@ else:
                 st.rerun()
 
     # ══════════════════════════════════════════════════════════════
+    # 🔔 Phase 10 (v17): 공지 페이지 — 사용자 그룹별 공지 list + 상세
+    # ══════════════════════════════════════════════════════════════
+    elif page == "notices":
+        _u_nt = user or {}
+        _is_hq_nt = (_u_nt.get("role") == "admin" and not _u_nt.get("partner_id"))
+        _role_nt = (_u_nt.get("role_v2") or "").lower()
+
+        _hh1, _hh2 = st.columns([6, 1])
+        with _hh1:
+            st.markdown("## 🔔 공지사항")
+            st.caption(
+                "드래곤아이즈 본부 및 학교에서 보낸 공지입니다. "
+                "새 교육 컨텐츠 · 설문 마감 · 외부강사 강연 초청 · 만족도 조사 등."
+            )
+        with _hh2:
+            if st.button("← 홈", key="nt_back", use_container_width=True):
+                st.session_state["current_page"] = "campaign_landing"
+                st.rerun()
+
+        st.divider()
+
+        # 본부 admin은 발송 페이지 진입 안내
+        if _is_hq_nt:
+            with st.container(border=True):
+                _ac1, _ac2 = st.columns([5, 2])
+                with _ac1:
+                    st.markdown("**🛠️ 본부 admin** — 공지 발송·관리는 교육기관 관리 페이지에서 가능합니다.")
+                with _ac2:
+                    if st.button("📤 공지 발송 페이지", key="nt_admin_go",
+                                  type="primary", use_container_width=True):
+                        st.session_state["current_page"] = "institution_management"
+                        st.session_state["_im_tab"] = "notices"
+                        st.rerun()
+            st.markdown("")
+
+        # 내 공지 list (모든 사용자)
+        try:
+            _my_notices = supabase.rpc(
+                "get_notices_for_user", {"p_user_id": _u_nt.get("id")}
+            ).execute().data or []
+        except Exception as _e:
+            _my_notices = []
+            st.error(f"공지 조회 실패: {_e}")
+
+        # 카테고리 필터
+        _cat_label = {
+            "content_update":   "📚 컨텐츠 업데이트",
+            "survey_deadline":  "⏰ 설문 마감 안내",
+            "lecture_invitation":"📢 강연 초청",
+            "satisfaction":     "📝 만족도 조사",
+            "general":          "📰 일반 공지",
+        }
+        _cats_present = sorted(set(n.get("category") for n in _my_notices))
+        _fcol1, _fcol2 = st.columns([2, 1])
+        with _fcol1:
+            _filt_cat = st.selectbox(
+                "카테고리 필터", ["전체"] + [_cat_label.get(c, c) for c in _cats_present],
+                key="nt_filt_cat"
+            )
+        with _fcol2:
+            _filt_unread = st.checkbox("📬 미읽음만 보기", key="nt_filt_unread")
+
+        _filtered = _my_notices
+        if _filt_cat != "전체":
+            _picked_cat = next((c for c in _cats_present if _cat_label.get(c, c) == _filt_cat), None)
+            _filtered = [n for n in _filtered if n.get("category") == _picked_cat]
+        if _filt_unread:
+            _filtered = [n for n in _filtered if not n.get("is_read")]
+
+        _unread_n_inline = sum(1 for n in _my_notices if not n.get("is_read"))
+        st.caption(f"전체 {len(_my_notices)}건 · 미읽음 {_unread_n_inline}건 · 표시 {len(_filtered)}건")
+
+        if not _filtered:
+            st.info("표시할 공지가 없습니다.")
+        else:
+            from datetime import datetime as _dt_nt
+            _now_nt = _dt_nt.now()
+            for n in _filtered:
+                _nid = n.get("notice_id")
+                _cat = n.get("category") or "general"
+                _title = n.get("title") or ""
+                _body = n.get("body_md") or ""
+                _pri = int(n.get("priority") or 0)
+                _pinned = bool(n.get("pinned"))
+                _pub = (n.get("published_at") or "")[:16].replace("T", " ")
+                _dl = n.get("deadline_at")
+                _action_url = n.get("action_url")
+                _action_label = n.get("action_label")
+                _att_url = n.get("attachment_url")
+                _is_read = bool(n.get("is_read"))
+                _is_targeted = bool(n.get("is_targeted"))
+
+                # 마감 임박 표시
+                _dl_str = ""
+                _dl_urgent = False
+                if _dl:
+                    try:
+                        _dl_dt = _dt_nt.fromisoformat((_dl or "").replace("Z","+00:00").split("+")[0])
+                        _delta_days = (_dl_dt - _now_nt).days
+                        if _delta_days < 0:
+                            _dl_str = f" · ❌ 마감 종료 ({(_dl or '')[:10]})"
+                        elif _delta_days <= 3:
+                            _dl_str = f" · 🔥 마감 D-{_delta_days} ({(_dl or '')[:10]})"
+                            _dl_urgent = True
+                        else:
+                            _dl_str = f" · ⏰ 마감 {(_dl or '')[:10]}"
+                    except Exception: pass
+
+                _badges = []
+                if _pinned: _badges.append("📌")
+                if _pri >= 2: _badges.append("🚨 긴급")
+                elif _pri == 1: _badges.append("⭐ 중요")
+                if _is_targeted: _badges.append("🎯 학교 지정")
+                if not _is_read: _badges.append("🆕")
+                _badge_str = " ".join(_badges)
+
+                with st.container(border=True):
+                    _hc1, _hc2 = st.columns([5, 1])
+                    with _hc1:
+                        st.markdown(
+                            f"**{_cat_label.get(_cat, _cat)}** · {_badge_str}<br>"
+                            f"### {_title}",
+                            unsafe_allow_html=True,
+                        )
+                        st.caption(f"발행 {_pub}{_dl_str}")
+                    with _hc2:
+                        _exp_key = f"nt_exp_{_nid}"
+                        if st.button(
+                            "📖 펼치기" if not st.session_state.get(_exp_key) else "🔼 접기",
+                            key=f"nt_btn_{_nid}", use_container_width=True,
+                            type="primary" if (_dl_urgent or not _is_read) else "secondary",
+                        ):
+                            _new = not st.session_state.get(_exp_key)
+                            st.session_state[_exp_key] = _new
+                            # 펼칠 때 자동 읽음 처리
+                            if _new and not _is_read:
+                                try:
+                                    supabase.rpc("mark_notice_read",
+                                                  {"p_notice_id": _nid,
+                                                   "p_user_id": _u_nt.get("id")}).execute()
+                                except Exception: pass
+                            st.rerun()
+
+                    if st.session_state.get(_exp_key):
+                        st.markdown(_body)
+                        if _att_url:
+                            st.markdown(f"📎 [첨부 파일]({_att_url})")
+                        if _action_url and _action_label:
+                            st.link_button(f"➡️ {_action_label}", _action_url,
+                                            type="primary", use_container_width=False)
+
+
+    # ══════════════════════════════════════════════════════════════
     # 🏫 Phase 4 (v17): 교육기관 대시보드 — 소속 학생 명단 / 일괄 등록 / 통계
     # ══════════════════════════════════════════════════════════════
     # ══════════════════════════════════════════════════════════════
@@ -21327,10 +21500,11 @@ else:
 
         st.divider()
 
-        # 탭: 검색·목록 / 신규 추가 / 일괄 CSV
-        _it1, _it2, _it3, _it4 = st.tabs(
+        # 탭: 검색·목록 / 신규 추가 / 일괄 CSV / 계약 / 공지 발송
+        _it1, _it2, _it3, _it4, _it5 = st.tabs(
             ["🔍 검색·목록·관리", "➕ 신규 추가", "📤 CSV import/export",
-             "📜 기관 계약 (영업·정산)"]
+             "📜 기관 계약 (영업·정산)",
+             "🔔 공지 발송·관리"]
         )
 
         # ── 탭 1: 검색·목록·관리 ──
@@ -21721,6 +21895,219 @@ else:
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     )
                 except Exception: pass
+
+
+        # ── 탭 5: 🔔 공지 발송·관리 ──
+        with _it5:
+            st.markdown("##### 🔔 공지 발송·관리")
+            st.caption(
+                "사용자 그룹별로 공지를 발송합니다. 발송 시 등록 이메일에도 자동 전달됩니다 "
+                "(이메일 큐 적재 — 실제 발송은 추후 워커가 처리)."
+            )
+
+            _nt_sub_t1, _nt_sub_t2 = st.tabs(["✏️ 새 공지 작성", "📋 발송 이력·집계"])
+
+            # ── 새 공지 작성 ──
+            with _nt_sub_t1:
+                with st.form("hq_notice_new", clear_on_submit=False):
+                    _nc1, _nc2 = st.columns(2)
+                    with _nc1:
+                        _nn_cat = st.selectbox(
+                            "카테고리 *",
+                            ["general","content_update","survey_deadline",
+                             "lecture_invitation","satisfaction"],
+                            format_func=lambda x: {
+                                "general":"📰 일반 공지",
+                                "content_update":"📚 교육 컨텐츠 업데이트",
+                                "survey_deadline":"⏰ 설문 마감 안내",
+                                "lecture_invitation":"📢 외부강사 강연 초청",
+                                "satisfaction":"📝 만족도 조사 안내",
+                            }.get(x, x),
+                            key="hq_nn_cat",
+                        )
+                        _nn_aud = st.selectbox(
+                            "대상 그룹 *",
+                            ["all","student","parent","institution_admin"],
+                            format_func=lambda x: {
+                                "all":"👥 전체",
+                                "student":"🎒 학생",
+                                "parent":"👨‍👩‍👧 학부모",
+                                "institution_admin":"🏫 학교 담당자",
+                            }.get(x, x),
+                            key="hq_nn_aud",
+                        )
+                    with _nc2:
+                        _nn_pri = st.selectbox(
+                            "우선순위", [0, 1, 2],
+                            format_func=lambda x: {0:"일반",1:"⭐ 중요",2:"🚨 긴급"}.get(x),
+                            key="hq_nn_pri",
+                        )
+                        _nn_pin = st.checkbox("📌 상단 고정", key="hq_nn_pin")
+                        _nn_email = st.checkbox("📧 이메일 발송 큐에 적재", value=True, key="hq_nn_email")
+
+                    _nn_title = st.text_input("제목 *", key="hq_nn_title",
+                                              placeholder="예: 2026년 1학기 캠페인 설문 응답 마감 안내")
+                    _nn_body = st.text_area("본문 (Markdown 가능) *", key="hq_nn_body", height=180,
+                                            placeholder="공지 본문을 입력하세요. 줄바꿈, **강조**, [링크](url) 등 Markdown 지원.")
+
+                    _nd1, _nd2 = st.columns(2)
+                    with _nd1:
+                        _nn_dl = st.date_input("마감일 (선택)", value=None, key="hq_nn_dl")
+                    with _nd2:
+                        _nn_exp = st.date_input("공지 만료일 (선택)", value=None, key="hq_nn_exp")
+
+                    _na1, _na2 = st.columns(2)
+                    with _na1:
+                        _nn_act_label = st.text_input("CTA 버튼 텍스트 (선택)", key="hq_nn_act_label",
+                                                       placeholder="예: 설문 응시하기")
+                    with _na2:
+                        _nn_act_url = st.text_input("CTA 링크 URL (선택)", key="hq_nn_act_url",
+                                                     placeholder="https://...")
+
+                    # 특정 학교 대상 (강연 초청 등)
+                    _nn_targeted = st.checkbox(
+                        "🎯 특정 학교만 대상 (외부강사 강연 초청 등)",
+                        key="hq_nn_targeted"
+                    )
+                    _nn_target_ids = []
+                    if _nn_targeted:
+                        # 학교 list 로드 (캐시: 페이지 진입 시 _all_insts 이미 로드됨)
+                        _schools_only = [i for i in _all_insts
+                                          if i.get("type") in ("elementary","middle","high","special","youth_facility")
+                                          and i.get("status") == "approved"]
+                        _opts_map = {
+                            f"{i.get('name')} ({i.get('region','')} {i.get('district','') or ''})": i.get("id")
+                            for i in _schools_only
+                        }
+                        _picks = st.multiselect(
+                            "대상 학교 선택 (복수)",
+                            list(_opts_map.keys()),
+                            key="hq_nn_schools",
+                        )
+                        _nn_target_ids = [_opts_map[p] for p in _picks]
+                        st.caption(f"선택된 학교: {len(_nn_target_ids)}개")
+
+                    _send_btn = st.form_submit_button(
+                        "📤 공지 발송", type="primary", use_container_width=True
+                    )
+
+                if _send_btn:
+                    if not _nn_title.strip() or not _nn_body.strip():
+                        st.error("제목과 본문은 필수입니다.")
+                    elif _nn_targeted and not _nn_target_ids:
+                        st.error("특정 학교 대상으로 설정하셨는데 학교를 선택하지 않으셨습니다.")
+                    else:
+                        try:
+                            from datetime import datetime as _dt_send
+                            _ins_payload = {
+                                "category": _nn_cat,
+                                "title": _nn_title.strip(),
+                                "body_md": _nn_body.strip(),
+                                "audience_group": _nn_aud,
+                                "is_targeted": bool(_nn_targeted),
+                                "priority": int(_nn_pri),
+                                "pinned": bool(_nn_pin),
+                                "send_email": bool(_nn_email),
+                                "status": "published",
+                                "created_by": user.get("id"),
+                                "action_url": _nn_act_url.strip() or None,
+                                "action_label": _nn_act_label.strip() or None,
+                                "deadline_at": (_dt_send.combine(_nn_dl, _dt_send.min.time()).isoformat()
+                                                  if _nn_dl else None),
+                                "expires_at": (_dt_send.combine(_nn_exp, _dt_send.min.time()).isoformat()
+                                                if _nn_exp else None),
+                            }
+                            _ins = supabase.table("notices").insert(_ins_payload).execute()
+                            _new_id = (_ins.data or [{}])[0].get("id")
+
+                            # 특정 학교 대상 INSERT
+                            if _nn_targeted and _new_id and _nn_target_ids:
+                                supabase.table("notice_institution_targets").insert([
+                                    {"notice_id": _new_id, "institution_id": _iid}
+                                    for _iid in _nn_target_ids
+                                ]).execute()
+
+                            # 이메일 큐 적재
+                            _queued = 0
+                            if _nn_email and _new_id:
+                                try:
+                                    _q = supabase.rpc("queue_notice_emails",
+                                                       {"p_notice_id": _new_id}).execute()
+                                    _queued = _q.data or 0
+                                except Exception as _qe:
+                                    st.warning(f"이메일 큐 적재 일부 실패: {_qe}")
+
+                            st.success(
+                                f"✅ 공지 발송 완료. 이메일 큐 {_queued}건 적재됨."
+                            )
+                            # 입력 필드 초기화
+                            for _k in ("hq_nn_title","hq_nn_body","hq_nn_act_label","hq_nn_act_url",
+                                       "hq_nn_targeted","hq_nn_schools"):
+                                st.session_state.pop(_k, None)
+                            st.rerun()
+                        except Exception as _se:
+                            st.error(f"발송 실패: {_se}")
+
+            # ── 발송 이력·집계 ──
+            with _nt_sub_t2:
+                st.markdown("##### 📋 최근 발송한 공지")
+                try:
+                    _sent_list = supabase.table("notices").select(
+                        "id, category, title, audience_group, is_targeted, priority, pinned, "
+                        "status, send_email, email_queued_at, published_at, deadline_at, expires_at, "
+                        "created_at"
+                    ).order("created_at", desc=True).limit(50).execute().data or []
+                except Exception:
+                    _sent_list = []
+
+                if not _sent_list:
+                    st.info("발송한 공지가 없습니다.")
+                else:
+                    import pandas as _pd_nt
+                    _df_sent = _pd_nt.DataFrame([{
+                        "카테고리": _cat_label_map.get(n.get("category"), n.get("category")) if (
+                            _cat_label_map := {
+                                "content_update":"📚 컨텐츠","survey_deadline":"⏰ 설문 마감",
+                                "lecture_invitation":"📢 강연 초청","satisfaction":"📝 만족도",
+                                "general":"📰 일반"
+                            }) else n.get("category"),
+                        "제목": n.get("title"),
+                        "대상": {"all":"전체","student":"학생","parent":"학부모",
+                                 "institution_admin":"학교"}.get(n.get("audience_group"), n.get("audience_group")),
+                        "지정": "🎯" if n.get("is_targeted") else "",
+                        "우선": {0:"",1:"⭐",2:"🚨"}.get(n.get("priority"), ""),
+                        "고정": "📌" if n.get("pinned") else "",
+                        "이메일": ("✅" if n.get("email_queued_at") else
+                                  ("⏳" if n.get("send_email") else "❌")),
+                        "발행": (n.get("published_at") or "")[:16].replace("T", " "),
+                        "마감": (n.get("deadline_at") or "")[:10] if n.get("deadline_at") else "",
+                    } for n in _sent_list])
+                    st.dataframe(_df_sent, use_container_width=True, hide_index=True)
+
+                    st.markdown("##### 📧 이메일 큐 상태")
+                    try:
+                        _q_stat = supabase.table("notice_email_queue").select(
+                            "status"
+                        ).limit(10000).execute().data or []
+                    except Exception:
+                        _q_stat = []
+                    if _q_stat:
+                        _q_cnt = {"pending":0,"sending":0,"sent":0,"failed":0,"skipped":0}
+                        for r in _q_stat:
+                            _s = r.get("status") or "pending"
+                            _q_cnt[_s] = _q_cnt.get(_s, 0) + 1
+                        _qkc1, _qkc2, _qkc3, _qkc4, _qkc5 = st.columns(5)
+                        _qkc1.metric("⏳ 대기", f"{_q_cnt['pending']}")
+                        _qkc2.metric("📤 발송중", f"{_q_cnt['sending']}")
+                        _qkc3.metric("✅ 발송완료", f"{_q_cnt['sent']}")
+                        _qkc4.metric("❌ 실패", f"{_q_cnt['failed']}")
+                        _qkc5.metric("⏭️ 건너뜀", f"{_q_cnt['skipped']}")
+                        st.caption(
+                            "💡 이메일 큐는 적재되어 있으나 실제 발송 워커가 아직 가동 중이 아닙니다. "
+                            "SMTP/Resend 설정 후 워커가 처리합니다."
+                        )
+                    else:
+                        st.caption("아직 이메일 큐가 비어있습니다.")
 
 
     # ══════════════════════════════════════════════════════════════
