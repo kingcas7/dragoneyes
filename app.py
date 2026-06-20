@@ -9853,6 +9853,7 @@ else:
         "campaign_signup_select", "campaign_signup_institution",
         "campaign_signup_parent", "campaign_signup_student",
         "institution_dashboard", "institution_approval", "institution_management",
+        "payment_management",
         "monitoring_stats",
     )
     # ⭐ query_params.page는 'sid 복원이 default home_landing으로 덮었을 때'만 적용 — 사용자가
@@ -16886,6 +16887,7 @@ else:
         # ⭐ 본부 admin 전용 — 기관 관리 / 자료 관리 / 안내 컨텐츠 관리 등 빠른 진입
         if _is_hq_admin:
             with st.expander("🛠️ 본부 관리자 메뉴 (HQ Admin)", expanded=False):
+                # 1행: 기관·신청·자료·공지
                 _ha1, _ha2, _ha3, _ha4 = st.columns(4)
                 with _ha1:
                     if st.button("🏛️ 교육기관 관리",
@@ -16915,6 +16917,15 @@ else:
                                   help="공지 발송·이력·이메일 큐 (전체 사용자 대상)"):
                         st.session_state["current_page"] = "institution_management"
                         st.session_state["_im_tab"] = "notices"
+                        st.rerun()
+                # 2행: 결제 기록 (환불 포함) — 추가 슬롯
+                _hb1, _hb2, _hb3, _hb4 = st.columns(4)
+                with _hb1:
+                    if st.button("💳 결제 기록 관리",
+                                  use_container_width=True,
+                                  key="hq_payment_mgmt",
+                                  help="학부모 구독 · 기관 계약 결제 조회 · 환불 처리 · 매출 KPI"):
+                        st.session_state["current_page"] = "payment_management"
                         st.rerun()
 
         # ── 하단: 📊 드래곤아이즈 모니터링 통계 보기 + 캠페인 현황 보기 ──
@@ -21462,6 +21473,413 @@ else:
                                     st.rerun()
                         except Exception as _e:
                             st.error(f"파일 파싱 실패: {_e}")
+
+
+    # ══════════════════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════
+    # 💳 본부 admin 전용 — 결제 기록 관리 (매출 KPI · 환불 처리)
+    # ══════════════════════════════════════════════════════════════
+    elif page == "payment_management":
+        _u_pm = user or {}
+        _is_hq_pm = (_u_pm.get("role") == "admin" and not _u_pm.get("partner_id"))
+        if not _is_hq_pm:
+            st.error("🚫 본부 관리자 전용 페이지입니다.")
+            if st.button("🏠 캠페인 홈", key="pm_back_unauth"):
+                st.session_state["current_page"] = "campaign_landing"; st.rerun()
+            st.stop()
+
+        _hh1, _hh2 = st.columns([6, 1])
+        with _hh1:
+            st.markdown("## 💳 결제 기록 관리 (본부 admin)")
+            st.caption(
+                "학부모 구독 · 기관 계약 · 기타 결제 통합 조회. 매출 KPI · 일/월/년 집계 · 환불 처리."
+            )
+        with _hh2:
+            if st.button("← 캠페인 홈", key="pm_back_top", use_container_width=True):
+                st.session_state["current_page"] = "campaign_landing"; st.rerun()
+        st.divider()
+
+        # 매출 요약 KPI (전체 누적)
+        try:
+            _sum = supabase.rpc("get_payment_summary",
+                                 {"p_year": None}).execute().data or []
+            _sum = _sum[0] if _sum else {}
+        except Exception as _e:
+            _sum = {}; st.warning(f"매출 요약 조회 실패: {_e}")
+
+        _kc1, _kc2, _kc3, _kc4, _kc5 = st.columns(5)
+        _kc1.metric("💰 총 결제",   f"{int(_sum.get('total_paid') or 0):,}원")
+        _kc2.metric("↩️ 총 환불",   f"{int(_sum.get('total_refunded') or 0):,}원")
+        _kc3.metric("📈 순 매출",   f"{int(_sum.get('net_revenue') or 0):,}원")
+        _kc4.metric("✅ 결제 건수", f"{int(_sum.get('paid_count') or 0):,}")
+        _kc5.metric("❌ 실패",      f"{int(_sum.get('failed_count') or 0):,}")
+        st.caption(
+            f"환불 완료 {int(_sum.get('refunded_count') or 0)}건 · "
+            f"부분 환불 {int(_sum.get('partial_count') or 0)}건 · "
+            f"대기 {int(_sum.get('pending_count') or 0)}건"
+        )
+
+        st.divider()
+
+        # 탭: 매출 집계 / 결제 list / 환불 이력
+        _pt1, _pt2, _pt3 = st.tabs(
+            ["📊 매출 집계 (일/월/년)", "📋 결제 list · 환불 처리", "📜 환불 이력"]
+        )
+
+        # ──────────────────────────────────────────────
+        # 탭 1: 매출 집계 (일별/월별/연도별)
+        # ──────────────────────────────────────────────
+        with _pt1:
+            from datetime import datetime as _dt_pm, date as _date_pm, timedelta as _td_pm
+            import pandas as _pd_pm
+
+            _bucket = st.radio(
+                "집계 단위",
+                ["일별", "월별", "연도별"],
+                horizontal=True, key="pm_bucket",
+            )
+
+            if _bucket == "일별":
+                _today = _date_pm.today()
+                _df1, _df2 = st.columns(2)
+                with _df1:
+                    _ds = st.date_input("시작일", value=_today - _td_pm(days=30),
+                                         key="pm_day_s")
+                with _df2:
+                    _de = st.date_input("종료일", value=_today, key="pm_day_e")
+                if _de < _ds:
+                    st.warning("종료일이 시작일보다 빠릅니다.")
+                else:
+                    try:
+                        _rows = supabase.rpc(
+                            "get_revenue_daily",
+                            {"p_start": _ds.isoformat(), "p_end": _de.isoformat()},
+                        ).execute().data or []
+                    except Exception as _e:
+                        _rows = []; st.error(f"일별 매출 조회 실패: {_e}")
+
+                    if _rows:
+                        _df = _pd_pm.DataFrame([{
+                            "날짜": r.get("bucket_date"),
+                            "학부모 구독(원)":  int(r.get("parent_revenue") or 0),
+                            "기관 계약(원)":   int(r.get("institution_revenue") or 0),
+                            "기타(원)":        int(r.get("other_revenue") or 0),
+                            "총 매출(원)":     int(r.get("gross_revenue") or 0),
+                            "환불(원)":        int(r.get("refunded") or 0),
+                            "순 매출(원)":     int(r.get("net_revenue") or 0),
+                            "결제 건수":       int(r.get("paid_count") or 0),
+                            "환불 건수":       int(r.get("refund_count") or 0),
+                        } for r in _rows])
+                        st.dataframe(_df, use_container_width=True, hide_index=True)
+                        try:
+                            _df_chart = _df.set_index("날짜")[["학부모 구독(원)","기관 계약(원)","기타(원)"]]
+                            st.bar_chart(_df_chart, use_container_width=True)
+                            st.line_chart(_df.set_index("날짜")[["순 매출(원)"]],
+                                           use_container_width=True)
+                        except Exception: pass
+
+                        import io as _io_pm
+                        _buf = _io_pm.BytesIO()
+                        _df.to_excel(_buf, index=False, engine="openpyxl")
+                        st.download_button(
+                            "📥 일별 매출 Excel",
+                            _buf.getvalue(),
+                            file_name=f"매출_일별_{_ds.isoformat()}_{_de.isoformat()}.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            key="dl_rev_day",
+                        )
+
+            elif _bucket == "월별":
+                _cur_y = _dt_pm.now().year
+                _pick_y = st.selectbox("연도",
+                                        [_cur_y, _cur_y-1, _cur_y-2, _cur_y-3],
+                                        key="pm_m_year")
+                try:
+                    _rows = supabase.rpc("get_revenue_monthly",
+                                          {"p_year": int(_pick_y)}).execute().data or []
+                except Exception as _e:
+                    _rows = []; st.error(f"월별 매출 조회 실패: {_e}")
+
+                if _rows:
+                    _df = _pd_pm.DataFrame([{
+                        "월": f"{int(r.get('bucket_month'))}월",
+                        "학부모 구독(원)":  int(r.get("parent_revenue") or 0),
+                        "기관 계약(원)":   int(r.get("institution_revenue") or 0),
+                        "기타(원)":        int(r.get("other_revenue") or 0),
+                        "총 매출(원)":     int(r.get("gross_revenue") or 0),
+                        "환불(원)":        int(r.get("refunded") or 0),
+                        "순 매출(원)":     int(r.get("net_revenue") or 0),
+                        "결제 건수":       int(r.get("paid_count") or 0),
+                        "환불 건수":       int(r.get("refund_count") or 0),
+                    } for r in _rows])
+                    st.dataframe(_df, use_container_width=True, hide_index=True)
+                    try:
+                        _df_chart = _df.set_index("월")[["학부모 구독(원)","기관 계약(원)","기타(원)"]]
+                        st.bar_chart(_df_chart, use_container_width=True)
+                    except Exception: pass
+
+                    import io as _io_pm
+                    _buf = _io_pm.BytesIO()
+                    _df.to_excel(_buf, index=False, engine="openpyxl")
+                    st.download_button(
+                        "📥 월별 매출 Excel",
+                        _buf.getvalue(),
+                        file_name=f"매출_월별_{_pick_y}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key="dl_rev_month",
+                    )
+
+            else:  # 연도별
+                try:
+                    _rows = supabase.rpc("get_revenue_yearly").execute().data or []
+                except Exception as _e:
+                    _rows = []; st.error(f"연도별 매출 조회 실패: {_e}")
+                if _rows:
+                    _df = _pd_pm.DataFrame([{
+                        "연도": int(r.get("bucket_year")),
+                        "학부모 구독(원)":  int(r.get("parent_revenue") or 0),
+                        "기관 계약(원)":   int(r.get("institution_revenue") or 0),
+                        "기타(원)":        int(r.get("other_revenue") or 0),
+                        "총 매출(원)":     int(r.get("gross_revenue") or 0),
+                        "환불(원)":        int(r.get("refunded") or 0),
+                        "순 매출(원)":     int(r.get("net_revenue") or 0),
+                        "결제 건수":       int(r.get("paid_count") or 0),
+                        "환불 건수":       int(r.get("refund_count") or 0),
+                    } for r in _rows])
+                    st.dataframe(_df, use_container_width=True, hide_index=True)
+                    try:
+                        _df_chart = _df.set_index("연도")[["학부모 구독(원)","기관 계약(원)","기타(원)"]]
+                        st.bar_chart(_df_chart, use_container_width=True)
+                    except Exception: pass
+
+                    import io as _io_pm
+                    _buf = _io_pm.BytesIO()
+                    _df.to_excel(_buf, index=False, engine="openpyxl")
+                    st.download_button(
+                        "📥 연도별 매출 Excel",
+                        _buf.getvalue(),
+                        file_name="매출_연도별.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key="dl_rev_year",
+                    )
+                else:
+                    st.info("결제 기록이 아직 없습니다.")
+
+        # ──────────────────────────────────────────────
+        # 탭 2: 결제 list · 환불 처리
+        # ──────────────────────────────────────────────
+        with _pt2:
+            from datetime import datetime as _dt_pm2
+            import pandas as _pd_pm2
+            _f1, _f2, _f3 = st.columns(3)
+            with _f1:
+                _fst = st.selectbox(
+                    "상태",
+                    ["전체","completed","partial_refund","refunded","pending","failed","cancelled"],
+                    format_func=lambda x: {
+                        "전체":"전체","completed":"✅ 완료","partial_refund":"🟡 부분환불",
+                        "refunded":"↩️ 환불","pending":"⏳ 대기","failed":"❌ 실패",
+                        "cancelled":"⛔ 취소"
+                    }.get(x, x),
+                    key="pm_f_status",
+                )
+            with _f2:
+                _ftt = st.selectbox(
+                    "결제 대상",
+                    ["전체","parent","institution","other"],
+                    format_func=lambda x: {
+                        "전체":"전체","parent":"👨‍👩‍👧 학부모",
+                        "institution":"🏫 기관","other":"기타"
+                    }.get(x, x),
+                    key="pm_f_tt",
+                )
+            with _f3:
+                _fyr = st.selectbox(
+                    "연도", ["전체", _dt_pm2.now().year, _dt_pm2.now().year-1,
+                              _dt_pm2.now().year-2],
+                    key="pm_f_year",
+                )
+
+            try:
+                _pay_rows = supabase.rpc("get_payments_admin", {
+                    "p_status":      (None if _fst == "전체" else _fst),
+                    "p_target_type": (None if _ftt == "전체" else _ftt),
+                    "p_product_year":(None if _fyr == "전체" else int(_fyr)),
+                    "p_limit": 500,
+                }).execute().data or []
+            except Exception as _e:
+                _pay_rows = []; st.error(f"결제 조회 실패: {_e}")
+
+            st.caption(f"조회 결과: **{len(_pay_rows)}건**")
+
+            if _pay_rows:
+                _df_pay = _pd_pm2.DataFrame([{
+                    "결제 ID 앞8": (r.get("id") or "")[:8],
+                    "대상": {"parent":"👨‍👩‍👧 학부모","institution":"🏫 기관",
+                              "other":"기타"}.get(r.get("target_type"),"?"),
+                    "이름": r.get("target_name") or "—",
+                    "이메일": r.get("target_email") or "—",
+                    "상품": {"parent_yearly_10k":"학부모 연구독",
+                              "institution_yearly":"기관 연계약",
+                              "institution_bulk":"기관 일괄"}
+                              .get(r.get("product_type"), r.get("product_type")),
+                    "연도": r.get("product_year") or "—",
+                    "결제액(원)": int(r.get("amount") or 0),
+                    "환불액(원)": int(r.get("refund_amount") or 0),
+                    "상태": {"completed":"✅","partial_refund":"🟡 부분","refunded":"↩️","pending":"⏳","failed":"❌","cancelled":"⛔"}.get(r.get("status"), r.get("status")),
+                    "결제일": (r.get("paid_at") or "")[:16].replace("T"," "),
+                    "PG주문": (r.get("pg_order_id") or "—")[:20],
+                } for r in _pay_rows])
+                st.dataframe(_df_pay, use_container_width=True, hide_index=True)
+
+                import io as _io_pm2
+                _buf_pay = _io_pm2.BytesIO()
+                _df_pay.to_excel(_buf_pay, index=False, engine="openpyxl")
+                st.download_button(
+                    "📥 결제 list Excel",
+                    _buf_pay.getvalue(),
+                    file_name=f"결제기록_{_dt_pm2.now().strftime('%Y%m%d')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="dl_payments",
+                )
+
+                # ── 환불 처리 ──
+                st.markdown("---")
+                st.markdown("##### ↩️ 환불 처리")
+
+                # 환불 가능 결제만 (completed / partial_refund)
+                _refundable = [r for r in _pay_rows
+                                if r.get("status") in ("completed","partial_refund")]
+                if not _refundable:
+                    st.info("환불 가능한 결제가 없습니다. (completed / partial_refund 상태만 환불 가능)")
+                else:
+                    _opts = {
+                        f"{(r.get('id') or '')[:8]} · {r.get('target_name') or '—'} · "
+                        f"{int(r.get('amount') or 0):,}원 · {r.get('status')}": r
+                        for r in _refundable
+                    }
+                    _pick = st.selectbox("환불할 결제 선택",
+                                          ["—"] + list(_opts.keys()), key="pm_refund_pick")
+                    if _pick != "—":
+                        _rp = _opts[_pick]
+                        _max_refund = int(_rp.get("amount") or 0) - int(_rp.get("refund_amount") or 0)
+
+                        with st.form("pm_refund_form"):
+                            st.markdown(
+                                f"**결제 정보**: {_rp.get('target_name')} · "
+                                f"결제액 {int(_rp.get('amount') or 0):,}원 · "
+                                f"기 환불액 {int(_rp.get('refund_amount') or 0):,}원 · "
+                                f"환불 가능 **최대 {_max_refund:,}원**"
+                            )
+                            _ra1, _ra2 = st.columns(2)
+                            with _ra1:
+                                _ramt = st.number_input(
+                                    "환불 금액 (원)", min_value=1,
+                                    max_value=max(1,_max_refund), value=max(1,_max_refund),
+                                    step=1000, key="pm_ramt",
+                                )
+                            with _ra2:
+                                _rmth = st.selectbox(
+                                    "처리 방식",
+                                    ["admin_manual","pg_auto","system"],
+                                    format_func=lambda x: {
+                                        "admin_manual":"수기 처리 (관리자 입금)",
+                                        "pg_auto":"PG 자동 환불",
+                                        "system":"시스템 자동"
+                                    }.get(x, x),
+                                    key="pm_rmth",
+                                )
+                            _rreason = st.text_area(
+                                "환불 사유 *", key="pm_rreason",
+                                placeholder="예: 사용자 요청 / 서비스 오류 / 중복 결제 등",
+                                height=80,
+                            )
+                            _rpgid = st.text_input(
+                                "PG 환불 번호 (선택)", key="pm_rpgid",
+                                placeholder="PG사 환불 트랜잭션 ID",
+                            )
+                            _submit_refund = st.form_submit_button(
+                                "↩️ 환불 처리 실행",
+                                type="primary", use_container_width=True
+                            )
+
+                        if _submit_refund:
+                            if not _rreason.strip():
+                                st.error("환불 사유는 필수입니다.")
+                            else:
+                                try:
+                                    _res = supabase.rpc("process_refund", {
+                                        "p_payment_id":   _rp.get("id"),
+                                        "p_amount":       int(_ramt),
+                                        "p_reason":       _rreason.strip(),
+                                        "p_processed_by": _u_pm.get("id"),
+                                        "p_method":       _rmth,
+                                        "p_pg_refund_id": _rpgid.strip() or None,
+                                    }).execute().data
+                                    _resrow = _res[0] if _res else {}
+                                    st.success(
+                                        f"✅ 환불 완료 · 누적환불 "
+                                        f"{int(_resrow.get('total_refunded') or 0):,}원 · "
+                                        f"새 상태 `{_resrow.get('new_payment_status')}`"
+                                        + (" · 전액환불" if _resrow.get('is_full_refund') else "")
+                                    )
+                                    st.rerun()
+                                except Exception as _re:
+                                    st.error(f"환불 실패: {_re}")
+            else:
+                st.info("조건에 맞는 결제가 없습니다.")
+
+        # ──────────────────────────────────────────────
+        # 탭 3: 환불 이력
+        # ──────────────────────────────────────────────
+        with _pt3:
+            st.caption("최근 환불 처리 이력. 부분 환불은 한 결제에 여러 행이 표시됩니다.")
+            try:
+                _refs = supabase.table("payment_refunds").select(
+                    "id, payment_id, amount, reason, method, status, "
+                    "pg_refund_id, processed_at, processed_by"
+                ).order("processed_at", desc=True).limit(300).execute().data or []
+            except Exception as _e:
+                _refs = []; st.error(f"환불 이력 조회 실패: {_e}")
+
+            if not _refs:
+                st.info("환불 이력이 없습니다.")
+            else:
+                # 처리자 이름 매핑
+                _by_ids = list({r.get("processed_by") for r in _refs if r.get("processed_by")})
+                _user_map = {}
+                if _by_ids:
+                    try:
+                        _us = supabase.table("users").select(
+                            "id, name, email"
+                        ).in_("id", _by_ids).execute().data or []
+                        _user_map = {u["id"]: u for u in _us}
+                    except Exception: pass
+
+                import pandas as _pd_pm3
+                _df_ref = _pd_pm3.DataFrame([{
+                    "환불일시": (r.get("processed_at") or "")[:16].replace("T"," "),
+                    "결제 ID 앞8": (r.get("payment_id") or "")[:8],
+                    "환불액(원)": int(r.get("amount") or 0),
+                    "방식": {"admin_manual":"수기","pg_auto":"PG자동","system":"시스템"}.get(r.get("method"), r.get("method")),
+                    "상태": {"completed":"✅","pending":"⏳","failed":"❌"}.get(r.get("status"), r.get("status")),
+                    "PG 환불번호": r.get("pg_refund_id") or "—",
+                    "처리자": (_user_map.get(r.get("processed_by")) or {}).get("name", "—"),
+                    "사유": (r.get("reason") or "")[:60],
+                } for r in _refs])
+                st.dataframe(_df_ref, use_container_width=True, hide_index=True)
+
+                import io as _io_pm3
+                _buf_ref = _io_pm3.BytesIO()
+                _df_ref.to_excel(_buf_ref, index=False, engine="openpyxl")
+                from datetime import date as _date_pm3
+                st.download_button(
+                    "📥 환불 이력 Excel",
+                    _buf_ref.getvalue(),
+                    file_name=f"환불이력_{_date_pm3.today().isoformat()}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="dl_refunds",
+                )
 
 
     # ══════════════════════════════════════════════════════════════
