@@ -17503,55 +17503,198 @@ else:
         if _is_hq_admin_csd and not _is_student_csd and not (_is_parent_csd and _viewing_child_id):
             st.info("🛠️ **본부 관리자 미리보기 모드** — 본인 데이터(봉사 시간/토큰)는 없을 수 있습니다.")
 
-        # ⭐ 학교 등록/변경 섹션 (학생 본인 + 본부 admin 미리보기 모두)
+        # ⭐ 학교 정보 + 연락처 + 보호자 정보 통합 섹션
         if _is_student_csd or _is_hq_admin_csd:
             try:
                 _stu_self = supabase.table("users").select(
-                    "institution_id, school_name, grade"
+                    "name, email, notify_phone, "
+                    "institution_id, school_name, grade, class_no, "
+                    "guardian_name, guardian_phone, guardian_email"
                 ).eq("id", _target_student_id).single().execute().data or {}
             except Exception:
                 _stu_self = {}
 
             _has_school = bool(_stu_self.get("institution_id") or _stu_self.get("school_name"))
+            _class_no_disp = (
+                f"학년 {_stu_self.get('grade','-')}"
+                + (f" · {_stu_self.get('class_no')}반" if _stu_self.get('class_no') else "")
+            )
             _expander_label = (
-                f"🏫 내(자녀) 학교 정보 — ✅ {_stu_self.get('school_name')}"
+                f"🏫 내(자녀) 학교 정보 — ✅ {_stu_self.get('school_name')} · {_class_no_disp}"
                 if _has_school else
                 "🏫 내(자녀) 학교 정보 — ⚠️ 미등록 (등록 필요)"
             )
             with st.expander(_expander_label, expanded=not _has_school):
-                if not _has_school:
-                    st.warning(
-                        "**학교가 등록되지 않았습니다.** 봉사 시간 인정과 학년대 매칭 설문을 위해 "
-                        "학교를 등록해 주세요. 아래에서 **시·도 → 학교급 → 학교명** 순서로 검색하시면 됩니다."
-                    )
-                else:
-                    st.caption(f"현재 등록: **{_stu_self.get('school_name')}** "
-                               f"(학년 {_stu_self.get('grade','-')})")
-
-                # ⭐ NEIS 검색 UI (헬퍼 함수)
-                _csd_picked_school = render_neis_school_picker("csd_school")
-
-                _csd_grade_new = st.number_input(
-                    "학년", min_value=1, max_value=12,
-                    value=int(_stu_self.get("grade") or 6),
-                    key="csd_grade_update"
+                # 정보가 다 채워졌는지 판정 + 수정 모드 토글
+                _info_complete = bool(
+                    _has_school and
+                    _stu_self.get("guardian_name") and
+                    _stu_self.get("guardian_phone") and
+                    _stu_self.get("guardian_email") and
+                    _stu_self.get("notify_phone")
                 )
+                _edit_key = f"_csd_school_edit_{_target_student_id}"
+                # 정보 미완 또는 학교 없으면 자동으로 수정 모드 진입
+                if not _info_complete:
+                    st.session_state[_edit_key] = True
 
-                if st.button("💾 학교/학년 저장", type="primary",
-                             use_container_width=True, key="csd_school_save",
-                             disabled=(_is_hq_admin_csd and not _is_student_csd)):
-                    try:
-                        _upd = {"grade": int(_csd_grade_new)}
-                        if _csd_picked_school:
-                            _inst_id_new = neis_upsert_institution(_csd_picked_school)
-                            if _inst_id_new:
-                                _upd["institution_id"] = _inst_id_new
-                                _upd["school_name"] = _csd_picked_school["name"]
-                        supabase.table("users").update(_upd).eq("id", _target_student_id).execute()
-                        st.success("✅ 저장 완료. 학년대 매칭 설문 토큰이 자동 발급됩니다.")
-                        st.rerun()
-                    except Exception as _e:
-                        st.error(f"저장 실패: {_e}")
+                _is_editing = bool(st.session_state.get(_edit_key))
+
+                # 헤더 안내
+                _hca, _hcb = st.columns([4, 1])
+                with _hca:
+                    if not _has_school:
+                        st.warning(
+                            "**학교가 등록되지 않았습니다.** 봉사 시간 인정·인증서 발급·학년대 매칭 설문을 위해 "
+                            "학교·학년·반·연락처·보호자 정보를 모두 등록해주세요."
+                        )
+                    elif _is_editing:
+                        st.info("✏️ **수정 모드** — 변경 후 하단의 💾 저장 버튼을 눌러주세요.")
+                    else:
+                        st.success("✅ 정보가 등록되어 있습니다. 변경하시려면 우측 ✏️ 수정 버튼을 누르세요.")
+                with _hcb:
+                    if _has_school and _info_complete:
+                        if _is_editing:
+                            if st.button("👁️ 읽기 모드", key="csd_school_view_mode",
+                                          use_container_width=True):
+                                st.session_state.pop(_edit_key, None)
+                                st.rerun()
+                        else:
+                            if st.button("✏️ 수정", key="csd_school_edit_mode",
+                                          type="primary",
+                                          use_container_width=True):
+                                st.session_state[_edit_key] = True
+                                st.rerun()
+
+                # 읽기 모드 — 정보 카드만 표시
+                if not _is_editing and _has_school:
+                    _r1, _r2 = st.columns(2)
+                    with _r1:
+                        st.markdown("##### 🏫 학교·학년·반")
+                        st.markdown(f"- **학교**: {_stu_self.get('school_name') or '—'}")
+                        st.markdown(f"- **학년**: {_stu_self.get('grade') or '—'}학년")
+                        st.markdown(f"- **반**: {_stu_self.get('class_no') or '—'}반")
+                        st.markdown("##### 👤 학생 연락처")
+                        st.markdown(f"- **연락처**: {_stu_self.get('notify_phone') or '—'}")
+                        st.markdown(f"- **이메일**: {_stu_self.get('email') or '—'}")
+                    with _r2:
+                        st.markdown("##### 👨‍👩‍👧 보호자")
+                        st.markdown(f"- **성명**: {_stu_self.get('guardian_name') or '—'}")
+                        st.markdown(f"- **연락처**: {_stu_self.get('guardian_phone') or '—'}")
+                        st.markdown(f"- **이메일**: {_stu_self.get('guardian_email') or '—'}")
+                    # 읽기 모드에서는 폼·저장 버튼 표시 안 함
+                    _csd_picked_school = None
+                    # placeholder 변수들 — 저장 분기 도달 안 함
+                else:
+                    # 수정 모드 — 입력 폼 표시
+                    st.markdown("##### 🏫 학교 검색·변경")
+                    _csd_picked_school = render_neis_school_picker("csd_school")
+
+                    # ── 2) 학년·반 ──
+                    st.markdown("##### 📑 학년·반")
+                    _gc1, _gc2 = st.columns(2)
+                    with _gc1:
+                        _csd_grade_new = st.number_input(
+                            "학년", min_value=1, max_value=12,
+                            value=int(_stu_self.get("grade") or 6),
+                            key="csd_grade_update"
+                        )
+                    with _gc2:
+                        _csd_class_new = st.number_input(
+                            "반", min_value=1, max_value=30,
+                            value=int(_stu_self.get("class_no") or 1),
+                            key="csd_class_update",
+                            help="없으면 1로 두고 나중에 수정 가능",
+                        )
+
+                    # ── 3) 학생 본인 연락처 ──
+                    st.markdown("##### 👤 학생 본인 연락처")
+                    st.caption(
+                        "학생 연락처가 없으면 **보호자 연락처를 입력**해주세요. "
+                        "학생 이메일이 없으면 보호자 이메일이 자동으로 사용됩니다."
+                    )
+                    _sc1, _sc2 = st.columns(2)
+                    with _sc1:
+                        _csd_stu_phone = st.text_input(
+                            "학생 연락처 (없으면 보호자 연락처)",
+                            value=_stu_self.get("notify_phone") or "",
+                            key="csd_stu_phone",
+                            placeholder="010-1234-5678",
+                        )
+                    with _sc2:
+                        _csd_stu_email = st.text_input(
+                            "학생 이메일 (현재 가입 이메일)",
+                            value=_stu_self.get("email") or "",
+                            key="csd_stu_email",
+                            disabled=True,
+                            help="이메일 변경은 회원 정보 페이지에서 가능합니다.",
+                        )
+
+                    # ── 4) 보호자 정보 ──
+                    st.markdown("##### 👨‍👩‍👧 보호자 정보 (필수)")
+                    _gp1, _gp2, _gp3 = st.columns(3)
+                    with _gp1:
+                        _csd_g_name = st.text_input(
+                            "보호자 성명 *",
+                            value=_stu_self.get("guardian_name") or "",
+                            key="csd_g_name_school",
+                        )
+                    with _gp2:
+                        _csd_g_phone = st.text_input(
+                            "보호자 연락처 *",
+                            value=_stu_self.get("guardian_phone") or "",
+                            key="csd_g_phone_school",
+                            placeholder="010-1234-5678",
+                        )
+                    with _gp3:
+                        _csd_g_email = st.text_input(
+                            "보호자 이메일 *",
+                            value=_stu_self.get("guardian_email") or "",
+                            key="csd_g_email_school",
+                            placeholder="parent@example.com",
+                        )
+
+                    st.markdown("")
+                    _sbtn1, _sbtn2 = st.columns([3, 1])
+                    with _sbtn1:
+                        if st.button("💾 저장",
+                                      type="primary",
+                                      use_container_width=True, key="csd_school_save",
+                                      disabled=(_is_hq_admin_csd and not _is_student_csd)):
+                            try:
+                                # 학생 연락처가 비어 있으면 보호자 연락처 사용
+                                _eff_stu_phone = (_csd_stu_phone or "").strip() \
+                                                  or (_csd_g_phone or "").strip() or None
+                                _upd = {
+                                    "grade": int(_csd_grade_new),
+                                    "class_no": int(_csd_class_new) if _csd_class_new else None,
+                                    "notify_phone": _eff_stu_phone,
+                                    "guardian_name":  (_csd_g_name or "").strip() or None,
+                                    "guardian_phone": (_csd_g_phone or "").strip() or None,
+                                    "guardian_email": (_csd_g_email or "").strip() or None,
+                                    "guardian_updated_at": datetime.now().isoformat(),
+                                    "guardian_updated_by": _u_csd.get("id"),
+                                }
+                                if _csd_picked_school:
+                                    _inst_id_new = neis_upsert_institution(_csd_picked_school)
+                                    if _inst_id_new:
+                                        _upd["institution_id"] = _inst_id_new
+                                        _upd["school_name"] = _csd_picked_school["name"]
+                                supabase.table("users").update(_upd).eq("id", _target_student_id).execute()
+                                # 저장 후 읽기 모드로 전환
+                                st.session_state.pop(_edit_key, None)
+                                st.success(
+                                    "✅ 저장 완료. 학년대 매칭 설문 토큰이 자동 발급됩니다."
+                                )
+                                st.rerun()
+                            except Exception as _e:
+                                st.error(f"저장 실패: {_e}")
+                    with _sbtn2:
+                        if _has_school and _info_complete:
+                            if st.button("취소", key="csd_school_cancel",
+                                          use_container_width=True):
+                                st.session_state.pop(_edit_key, None)
+                                st.rerun()
 
         # 헤더
         _hh1, _hh2 = st.columns([6, 1])
