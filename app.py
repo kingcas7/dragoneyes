@@ -18644,9 +18644,24 @@ else:
         kc4.metric("📚 학년 수", f"{len(_by_grade)}개")
 
         # 탭: 명단 / 일괄 등록 / 진행률 / 캠페인 참여 현황
-        ins_tab1, ins_tab2, ins_tab3, ins_tab4 = st.tabs(
-            ["📋 학생 명단", "📤 학생 일괄 등록", "📊 진행률", "🎓 캠페인 참여 현황"]
-        )
+        # 권한 scope 판정 (계층 + 지역 공유 탭 표시 여부)
+        try:
+            _inst_scope = supabase.rpc("get_institution_scope",
+                                        {"p_inst_id": _inst_id}).execute().data
+        except Exception:
+            _inst_scope = "school"
+
+        # 상급 기관(metro/district/nation)이면 '🌐 산하·지역 기관' 탭 추가
+        if _inst_scope in ("nation", "metro", "district"):
+            ins_tab1, ins_tab2, ins_tab3, ins_tab4, ins_tab5 = st.tabs(
+                ["📋 학생 명단", "📤 학생 일괄 등록", "📊 진행률",
+                 "🎓 캠페인 참여 현황", "🌐 산하·지역 기관 통계"]
+            )
+        else:
+            ins_tab1, ins_tab2, ins_tab3, ins_tab4 = st.tabs(
+                ["📋 학생 명단", "📤 학생 일괄 등록", "📊 진행률", "🎓 캠페인 참여 현황"]
+            )
+            ins_tab5 = None
 
         # ── 탭 1: 학생 명단 ──
         with ins_tab1:
@@ -18944,6 +18959,107 @@ else:
                 ]
                 st.dataframe(_pd_inst_camp.DataFrame(_grade_rows2),
                             use_container_width=True, hide_index=True)
+
+        # ── 탭 5: 🌐 산하·지역 기관 통계 (계층 + 지역 공유) ──
+        if ins_tab5 is not None:
+            with ins_tab5:
+                _scope_label = {
+                    "nation":   "🇰🇷 전국 (교육부)",
+                    "metro":    "🏛️ 시·도 단위 (시·도 교육청/의회 교육위)",
+                    "district": "🏘️ 시·군·구 단위 (교육지원청/의회 교육위)",
+                }.get(_inst_scope, "본교만")
+                st.markdown(f"##### 권한 범위: {_scope_label}")
+                st.caption(
+                    "산하·지역 학교의 캠페인 참여 현황을 **집계 통계**로 확인할 수 있습니다. "
+                    "개별 학생 정보는 노출되지 않습니다 (개인정보 보호)."
+                )
+
+                try:
+                    _scope_stats = supabase.rpc(
+                        "get_campaign_stats_for_inst",
+                        {"p_inst_id": _inst_id}
+                    ).execute().data or []
+                except Exception as _e:
+                    _scope_stats = []
+                    st.error(f"통계 조회 실패: {_e}")
+
+                if not _scope_stats:
+                    st.info("권한 범위 내 학교 데이터가 아직 없습니다. "
+                            "NEIS 검색으로 학생/학부모가 학교를 등록하면 자동으로 집계됩니다.")
+                else:
+                    # KPI
+                    _total_inst = len(_scope_stats)
+                    _total_stu = sum(int(r.get("student_count") or 0) for r in _scope_stats)
+                    _total_compl = sum(int(r.get("survey_completed_count") or 0) for r in _scope_stats)
+                    _total_h = sum(float(r.get("total_hours") or 0) for r in _scope_stats)
+                    _total_fresp = sum(int(r.get("friend_response_count") or 0) for r in _scope_stats)
+
+                    _sk1, _sk2, _sk3, _sk4, _sk5 = st.columns(5)
+                    _sk1.metric("🏫 학교 수", f"{_total_inst}")
+                    _sk2.metric("🎒 학생 수", f"{_total_stu:,}명")
+                    _sk3.metric("✅ 설문 완료", f"{_total_compl:,}명",
+                                f"{(_total_compl/_total_stu*100 if _total_stu else 0):.1f}%")
+                    _sk4.metric("🕐 누적 봉사", f"{_total_h:.1f}h")
+                    _sk5.metric("📩 친구 응답", f"{_total_fresp:,}명")
+
+                    st.divider()
+
+                    # 시·군·구별 그룹화 (시·도 권한 이상일 때)
+                    if _inst_scope in ("nation", "metro") and _total_inst > 0:
+                        st.markdown("##### 📍 지역별 집계")
+                        _by_district = {}
+                        for r in _scope_stats:
+                            _key = f"{r.get('region','')} {r.get('district','') or ''}".strip() or "(미입력)"
+                            if _key not in _by_district:
+                                _by_district[_key] = {"학교 수":0,"학생 수":0,"완료":0,"봉사":0.0}
+                            _by_district[_key]["학교 수"] += 1
+                            _by_district[_key]["학생 수"] += int(r.get("student_count") or 0)
+                            _by_district[_key]["완료"] += int(r.get("survey_completed_count") or 0)
+                            _by_district[_key]["봉사"] += float(r.get("total_hours") or 0)
+                        _dist_rows = [
+                            {"지역": k, **v,
+                             "완료율": f"{(v['완료']/v['학생 수']*100 if v['학생 수'] else 0):.1f}%",
+                             "봉사(h)": f"{v['봉사']:.1f}"}
+                            for k, v in sorted(_by_district.items())
+                        ]
+                        import pandas as _pd_scope
+                        st.dataframe(
+                            _pd_scope.DataFrame(_dist_rows)[
+                                ["지역","학교 수","학생 수","완료","완료율","봉사(h)"]
+                            ],
+                            use_container_width=True, hide_index=True
+                        )
+                        st.divider()
+
+                    # 학교별 상세 표
+                    st.markdown("##### 📊 학교별 캠페인 현황")
+                    _school_rows = [
+                        {
+                            "지역": f"{r.get('region','')} {r.get('district','') or ''}".strip(),
+                            "학교명": r.get("inst_name"),
+                            "급": {"elementary":"초","middle":"중","high":"고","special":"특수",
+                                    "youth_facility":"시설"}.get(r.get("inst_type"), r.get("inst_type")),
+                            "학생 수": int(r.get("student_count") or 0),
+                            "완료": int(r.get("survey_completed_count") or 0),
+                            "완료율": f"{float(r.get('completion_rate') or 0):.1f}%",
+                            "누적 봉사(h)": f"{float(r.get('total_hours') or 0):.1f}",
+                            "친구 응답": int(r.get("friend_response_count") or 0),
+                        }
+                        for r in _scope_stats
+                    ]
+                    import pandas as _pd_scope2
+                    _df_scope = _pd_scope2.DataFrame(_school_rows)
+                    st.dataframe(_df_scope, use_container_width=True, hide_index=True)
+
+                    # CSV export
+                    _csv_scope = _df_scope.to_csv(index=False).encode("utf-8-sig")
+                    st.download_button(
+                        "📥 권한 범위 통계 CSV 다운로드",
+                        _csv_scope,
+                        file_name=f"campaign_scope_stats_{_inst.get('name','inst')}.csv",
+                        mime="text/csv",
+                    )
+
 
     # ══════════════════════════════════════════════════════════════
     # 🏛️ 본부 admin 전용 — 교육기관 통합 관리 (CRUD/검색/필터/CSV)
