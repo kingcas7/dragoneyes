@@ -22528,6 +22528,11 @@ else:
                         _bg = "linear-gradient(135deg,#ede9fe,#ddd6fe)" if _tier=="premium" \
                               else "linear-gradient(135deg,#f8fafc,#eef2ff)"
 
+                        _lock_overlay = (
+                            "<div style='position:absolute;top:8px;right:10px;"
+                            "font-size:1.4rem;'>🔒</div>"
+                        ) if _locked else ""
+                        _vc_n = m.get('view_count') or 0
                         st.markdown(
                             f"<div style='background:{_bg};border:2px solid {_border};"
                             f"border-radius:12px;padding:14px;min-height:180px;"
@@ -22540,8 +22545,8 @@ else:
                             f"<div style='font-size:0.78rem;color:#475569;line-height:1.4;"
                             f"text-align:center;'>{_summary}</div>"
                             f"<div style='font-size:0.7rem;color:#94a3b8;text-align:center;"
-                            f"margin-top:6px;'>⏱ 약 {_read}분 · 👁 {m.get('view_count') or 0}회</div>"
-                            f"{'<div style=\"position:absolute;top:8px;right:10px;font-size:1.4rem;\">🔒</div>' if _locked else ''}"
+                            f"margin-top:6px;'>⏱ 약 {_read}분 · 👁 {_vc_n}회</div>"
+                            f"{_lock_overlay}"
                             f"</div>",
                             unsafe_allow_html=True,
                         )
