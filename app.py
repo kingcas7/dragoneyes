@@ -11558,6 +11558,161 @@ else:
                 go_to("license_request"); st.rerun()
         st.divider()
 
+        # ══════════════════════════════════════════════════════════════
+        # 🏢 본부 전용 — 총판·다이렉트 파트너 관제 타워 (3열 뷰)
+        #   2026-06-21 신규. partner_id 가 없는 본부 직원에게만 노출.
+        #   파트너/총판 직원은 기존 액션 카드 UI만 봄.
+        #   ① 영업 파이프라인·Opportunity·매출 현황(목표 입력→달성률)
+        #   ② 총판 1~4 배치  ③ 다이렉트 파트너 배치
+        # ══════════════════════════════════════════════════════════════
+        if not user.get("partner_id"):
+            _today_ct = date.today()
+            _year_ct = _today_ct.year
+            _q_ct = (_today_ct.month - 1) // 3 + 1
+            _q_start_m = (_q_ct - 1) * 3 + 1
+
+            st.markdown("#### 🏢 총판·다이렉트 파트너 관제 타워")
+            st.caption("본부 전용 — 영업 파이프라인 · 매출 현황 · 총판/다이렉트 파트너 배치 (목표 금액은 직접 입력하면 달성률이 자동 계산됩니다)")
+
+            # ── 파트너 분류 ──
+            try:
+                _all_partners_ct = [p for p in (get_all_agencies() or []) if not p.get("terminated_at")]
+            except Exception:
+                _all_partners_ct = []
+            _distributors_ct = [p for p in _all_partners_ct if p.get("is_distributor")]
+            _direct_ct = [p for p in _all_partners_ct
+                          if not p.get("is_distributor")
+                          and not p.get("is_reseller")
+                          and not p.get("is_related_org")]
+
+            # ── 영업 기회 로드 (승인된 건만) ──
+            try:
+                _opps_ct = supabase.table("opportunities").select(
+                    "status,expected_amount,win_probability,assigned_partner_id,"
+                    "approval_status,expected_close_date"
+                ).execute().data or []
+            except Exception:
+                _opps_ct = []
+            _opps_ct = [o for o in _opps_ct
+                        if (o.get("approval_status") or "approved") in ("approved", "auto_approved")]
+
+            _active_ct = [o for o in _opps_ct if o.get("status") not in ("closed_won", "closed_lost")]
+            _won_ct = [o for o in _opps_ct if o.get("status") == "closed_won"]
+            # 구매의사(Opportunity) 단계 = 제안·협상·계약진행
+            _intent_ct = [o for o in _active_ct if o.get("status") in ("proposal", "negotiation", "contract")]
+
+            def _sum_amt(rows):
+                return sum(float(r.get("expected_amount") or 0) for r in rows)
+
+            def _fmt_won_ct(v):
+                if v >= 100000000:
+                    return f"₩{v/100000000:.2f}억"
+                if v >= 10000:
+                    return f"₩{v/10000:,.0f}만"
+                return f"₩{v:,.0f}"
+
+            # 파트너별 수주 매출 합계
+            _rev_by_partner = {}
+            for _o in _won_ct:
+                _pid = _o.get("assigned_partner_id")
+                _rev_by_partner[_pid] = _rev_by_partner.get(_pid, 0) + float(_o.get("expected_amount") or 0)
+            _total_actual_ct = _sum_amt(_won_ct)
+            # 분기 수주 매출 (expected_close_date 기준)
+            _q_won_ct = [
+                _o for _o in _won_ct
+                if str(_o.get("expected_close_date") or "")[:7] >= f"{_year_ct}-{_q_start_m:02d}"
+                and str(_o.get("expected_close_date") or "")[:4] == str(_year_ct)
+                and ((int(str(_o.get("expected_close_date"))[5:7]) - 1) // 3 + 1) == _q_ct
+            ]
+            _q_actual_ct = _sum_amt(_q_won_ct)
+
+            def _partner_slot_ct(p, idx, kind):
+                """총판/다이렉트 파트너 카드 — 매출·목표 입력·달성률"""
+                _nm = p.get("name", "-")
+                _rev = _rev_by_partner.get(p.get("id"), 0)
+                _ch = p.get("channel_type") or ("총판" if kind == "dist" else "다이렉트 파트너")
+                _bg = "#eff6ff" if kind == "dist" else "#f5f3ff"
+                _bd = "#bfdbfe" if kind == "dist" else "#ddd6fe"
+                st.markdown(
+                    f"<div style='background:{_bg};border:1px solid {_bd};border-radius:10px;"
+                    f"padding:8px 10px 4px 10px;margin-bottom:2px;'>"
+                    f"<div style='font-weight:700;font-size:0.85rem;color:#0f172a;'>{idx}. {_nm}</div>"
+                    f"<div style='font-size:0.66rem;color:#64748b;'>{_ch}</div></div>",
+                    unsafe_allow_html=True,
+                )
+                _tgt = st.number_input(
+                    "목표(만원)", min_value=0, step=500,
+                    key=f"hq_ptgt_{p.get('id')}", label_visibility="collapsed",
+                )
+                _rate = (_rev / (_tgt * 10000) * 100) if _tgt > 0 else 0
+                st.caption(f"매출 {_fmt_won_ct(_rev)} · 달성 {_rate:.0f}%")
+                st.progress(min(_rate / 100, 1.0) if _tgt > 0 else 0.0)
+                st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
+            def _empty_slot_ct(label):
+                st.markdown(
+                    f"<div style='border:1.5px dashed #cbd5e1;border-radius:10px;"
+                    f"padding:18px 10px;text-align:center;color:#94a3b8;margin-bottom:14px;'>"
+                    f"<div style='font-weight:600;font-size:0.82rem;'>{label}</div>"
+                    f"<div style='font-size:0.66rem;margin-top:2px;'>배정 대기</div></div>",
+                    unsafe_allow_html=True,
+                )
+
+            cc1, cc2, cc3 = st.columns([1.5, 1, 1])
+
+            # ── ① 영업 현황 + 매출 현황 ──
+            with cc1:
+                st.markdown("##### ① 영업 · 매출 현황")
+                m1, m2 = st.columns(2)
+                m1.metric("📊 진행 파이프라인", f"{len(_active_ct)}건",
+                          help=f"진행 중 예상금액 {_fmt_won_ct(_sum_amt(_active_ct))}")
+                m2.metric("💡 구매의사 기회", f"{len(_intent_ct)}건",
+                          help=f"제안·협상·계약 단계 {_fmt_won_ct(_sum_amt(_intent_ct))}")
+                st.caption(f"파이프라인 예상 {_fmt_won_ct(_sum_amt(_active_ct))} · 구매의사 {_fmt_won_ct(_sum_amt(_intent_ct))}")
+                st.divider()
+                st.markdown("**💰 매출 목표 · 달성률**")
+                _ty_man = st.number_input(
+                    f"{_year_ct}년 연간 목표 (만원)", min_value=0, step=1000,
+                    key=f"hq_target_year_{_year_ct}",
+                )
+                _ty_won = _ty_man * 10000
+                _rate_y = (_total_actual_ct / _ty_won * 100) if _ty_won > 0 else 0
+                st.progress(min(_rate_y / 100, 1.0) if _ty_won > 0 else 0.0,
+                            text=f"연간 누적 수주 {_fmt_won_ct(_total_actual_ct)} · 달성 {_rate_y:.0f}%")
+                _tq_man = st.number_input(
+                    f"{_year_ct}년 {_q_ct}분기 목표 (만원)", min_value=0, step=500,
+                    key=f"hq_target_q_{_year_ct}_{_q_ct}",
+                )
+                _tq_won = _tq_man * 10000
+                _rate_q = (_q_actual_ct / _tq_won * 100) if _tq_won > 0 else 0
+                st.progress(min(_rate_q / 100, 1.0) if _tq_won > 0 else 0.0,
+                            text=f"{_q_ct}분기 수주 {_fmt_won_ct(_q_actual_ct)} · 달성 {_rate_q:.0f}%")
+                st.caption(f"총판 {len(_distributors_ct)}개 · 다이렉트 파트너 {len(_direct_ct)}개 운용 중")
+
+            # ── ② 총판 1~4 ──
+            with cc2:
+                st.markdown("##### ② 총판 (목표 4)")
+                for _i in range(4):
+                    if _i < len(_distributors_ct):
+                        _partner_slot_ct(_distributors_ct[_i], _i + 1, "dist")
+                    else:
+                        _empty_slot_ct(f"총판 {_i + 1}")
+                # 4개 초과 총판도 표시
+                for _j in range(4, len(_distributors_ct)):
+                    _partner_slot_ct(_distributors_ct[_j], _j + 1, "dist")
+
+            # ── ③ 다이렉트 파트너 ──
+            with cc3:
+                st.markdown("##### ③ 다이렉트 파트너")
+                _direct_slots = max(3, len(_direct_ct))
+                for _i in range(_direct_slots):
+                    if _i < len(_direct_ct):
+                        _partner_slot_ct(_direct_ct[_i], _i + 1, "direct")
+                    else:
+                        _empty_slot_ct(f"다이렉트 파트너 {_i + 1}")
+
+            st.divider()
+
         # ══════════════════════════════
         # ══════════════════════════════
         # ══════════════════════════════
