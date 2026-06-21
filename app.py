@@ -7850,6 +7850,197 @@ def _parse_partner_documents(files):
         return {"error": str(e)[:200]}
 
 
+# ════════════════════════════════════════════════════════════════
+# 🏢 고객사(영업 고객) 등록 — 공용 UI (2026-06-21)
+#   customer_management(고객사 관리) + approval_requests(신규 고객 등록 요청)
+#   공용: 사업자등록증/명함 드래그 → Claude AI 자동 기재 + 폼 + 저장/목록
+# ════════════════════════════════════════════════════════════════
+def _partner_back_btn(key, *, label="⬅️ 전단계로 가기", target="agency_dashboard"):
+    """파트너 예하 모든 페이지 상단 '전단계로 가기' 버튼 (대시보드로 복귀)."""
+    if st.button(label, key=key):
+        go_to(target)
+        st.rerun()
+
+
+def _customer_ai_autofill(key_prefix):
+    """고객 사업자등록증·명함 업로드 → Claude AI가 고객 정보 자동 기재."""
+    st.markdown("##### 🤖 서류로 자동 채움 (선택)")
+    st.caption("고객 **사업자등록증**이나 **명함**을 드래그하면 AI가 아래 항목을 자동으로 채웁니다. (PDF·이미지, 여러 장 가능)")
+    _files = st.file_uploader(
+        "사업자등록증 / 명함 드래그 업로드",
+        accept_multiple_files=True,
+        type=["pdf", "png", "jpg", "jpeg", "webp"],
+        key=f"{key_prefix}_ai_files",
+    )
+    if st.button("🤖 AI로 자동 채움", key=f"{key_prefix}_ai_btn", type="primary"):
+        if not _files:
+            st.warning("⚠️ 먼저 사업자등록증이나 명함 파일을 올려주세요.")
+        else:
+            with st.spinner("📄 서류 분석 중 (Claude vision)..."):
+                _parsed = _parse_partner_documents(_files)
+            if _parsed.get("error"):
+                st.error(f"분석 실패: {_parsed['error']}")
+            else:
+                # _parse_partner_documents 반환 키: name/biz/rep/phone/email/addr/an/ap
+                _filled = []
+                for _k in ("name", "biz", "rep", "phone", "email", "addr", "an", "ap"):
+                    _v = _parsed.get(_k)
+                    if _v not in (None, ""):
+                        st.session_state[f"{key_prefix}_{_k}"] = str(_v)
+                        _filled.append(_k)
+                if _filled:
+                    st.success(f"✅ 자동 채움 완료 — 추출 항목: {', '.join(_filled)}")
+                    st.rerun()
+                else:
+                    st.warning("추출된 항목이 없습니다. 직접 입력해주세요.")
+
+
+def _customer_form_and_save(user, key_prefix, *, request_mode=False):
+    """고객 정보 입력 폼 + customers 테이블 저장.
+    request_mode=True → '신규 고객 등록 요청'(prospect), False → 고객사 등록(active)."""
+    # 저장 직후 폼 비우기 (위젯 생성 전에 안전하게 초기화)
+    if st.session_state.pop(f"{key_prefix}_clear", False):
+        for _k in ("name", "biz", "rep", "phone", "email", "addr", "an", "ap", "memo"):
+            st.session_state.pop(f"{key_prefix}_{_k}", None)
+
+    _customer_ai_autofill(key_prefix)
+    st.divider()
+    st.markdown("##### 📋 고객 기본 정보 (확인·수정 후 등록)")
+    with st.form(f"{key_prefix}_form", clear_on_submit=False):
+        c1, c2 = st.columns(2)
+        with c1:
+            _name = st.text_input("상호 *", key=f"{key_prefix}_name", placeholder="(주)예시기관 / ○○복지관")
+            _biz = st.text_input("사업자등록번호", key=f"{key_prefix}_biz", placeholder="000-00-00000")
+            _rep = st.text_input("대표자", key=f"{key_prefix}_rep", placeholder="홍길동")
+        with c2:
+            _phone = st.text_input("대표전화", key=f"{key_prefix}_phone", placeholder="02-0000-0000")
+            _email = st.text_input("대표 이메일", key=f"{key_prefix}_email", placeholder="info@company.com")
+        _addr = st.text_input("주소", key=f"{key_prefix}_addr", placeholder="서울특별시 ...")
+        st.markdown("##### 👤 담당자 정보 (실무 연락 담당자)")
+        a1, a2, a3 = st.columns(3)
+        _an = a1.text_input("담당자 이름", key=f"{key_prefix}_an", placeholder="김담당")
+        _at = a2.text_input("직책", key=f"{key_prefix}_at", placeholder="예: 사회복지사")
+        _ap = a3.text_input("연락처", key=f"{key_prefix}_ap", placeholder="010-0000-0000")
+        _memo = st.text_area("영업 메모 (선택)", key=f"{key_prefix}_memo",
+                             placeholder="영업 단계·특이사항 등", height=70)
+        _label = "📨 신규 고객 등록 요청 보내기" if request_mode else "💾 고객사 등록"
+        _submitted = st.form_submit_button(_label, type="primary", use_container_width=True)
+
+    if _submitted:
+        if not (_name or "").strip():
+            st.error("상호는 필수 입력 항목입니다.")
+            return
+        from datetime import datetime as _dtc
+        _row = {
+            "name": _name.strip(),
+            "business_number": (_biz or "").replace("-", "").strip() or None,
+            "representative_name": _rep or None,
+            "address": _addr or None,
+            "phone": _phone or None,
+            "email": _email or None,
+            "contact_person_name": _an or None,
+            "contact_person_position": _at or None,
+            "contact_person_phone": _ap or None,
+            "customer_status": "prospect" if request_mode else "active",
+            "onboarded_at": _dtc.now().isoformat(),
+        }
+        if (_memo or "").strip():
+            _row["notes"] = _memo.strip()
+        _pid = user.get("partner_id")
+        _saved = False
+        for _attempt in range(3):
+            try:
+                _ins = dict(_row)
+                if _attempt == 0 and _pid:
+                    _ins["assigned_partner_id"] = _pid       # 1차: 파트너 귀속 포함
+                if _attempt >= 1:
+                    _ins.pop("notes", None)                   # 2차: notes 제거
+                if _attempt >= 2:
+                    _ins["customer_status"] = "active"        # 3차: 상태값 제약 회피
+                supabase.table("customers").insert(_ins).execute()
+                _saved = True
+                break
+            except Exception as _e2:
+                _last_err = str(_e2)[:160]
+        if not _saved:
+            st.error(f"저장 실패: {_last_err}")
+            return
+        st.success(f"✅ '{_name}' "
+                   f"{'신규 고객 등록 요청이 접수' if request_mode else '고객사가 등록'}되었습니다.")
+        st.session_state[f"{key_prefix}_clear"] = True
+        st.rerun()
+
+
+def _render_customer_list(user):
+    """등록된 고객사 목록 — 펼쳐서 수정·저장 (다음에 수정 가능)."""
+    _pid = user.get("partner_id")
+    _rows = []
+    try:
+        _q = supabase.table("customers").select("*").order("created_at", desc=True)
+        if _pid:
+            _q = _q.eq("assigned_partner_id", _pid)
+        _rows = _q.limit(300).execute().data or []
+    except Exception:
+        try:
+            _rows = (supabase.table("customers").select("*")
+                     .limit(300).execute().data or [])
+        except Exception:
+            _rows = []
+    st.markdown(f"##### 📁 등록된 고객사 ({len(_rows)}개)")
+    if not _rows:
+        st.info("아직 등록된 고객사가 없습니다. 위 폼에서 추가하세요.")
+        return
+    _stat_label = {"active": "🟢 거래중", "prospect": "🟡 영업중",
+                   "inactive": "⚪ 비활성", "churned": "🔴 이탈"}
+    for _r in _rows:
+        _rid = _r.get("id")
+        _title = (f"🏢 {_r.get('name','(이름없음)')} · "
+                  f"{_stat_label.get(_r.get('customer_status'), _r.get('customer_status') or '-')} · "
+                  f"{_r.get('representative_name') or '-'} · {_r.get('phone') or '-'}")
+        with st.expander(_title):
+            with st.form(f"cust_edit_{_rid}"):
+                e1, e2 = st.columns(2)
+                with e1:
+                    _en = st.text_input("상호", value=_r.get("name") or "", key=f"ce_name_{_rid}")
+                    _eb = st.text_input("사업자등록번호", value=_r.get("business_number") or "", key=f"ce_biz_{_rid}")
+                    _erp = st.text_input("대표자", value=_r.get("representative_name") or "", key=f"ce_rep_{_rid}")
+                with e2:
+                    _eph = st.text_input("대표전화", value=_r.get("phone") or "", key=f"ce_phone_{_rid}")
+                    _eem = st.text_input("대표 이메일", value=_r.get("email") or "", key=f"ce_email_{_rid}")
+                    _est = st.selectbox(
+                        "상태", ["prospect", "active", "inactive", "churned"],
+                        index=["prospect", "active", "inactive", "churned"].index(
+                            _r.get("customer_status") if _r.get("customer_status") in
+                            ("prospect", "active", "inactive", "churned") else "active"),
+                        format_func=lambda x: _stat_label.get(x, x), key=f"ce_stat_{_rid}")
+                _ead = st.text_input("주소", value=_r.get("address") or "", key=f"ce_addr_{_rid}")
+                _ea1, _ea2, _ea3 = st.columns(3)
+                _ean = _ea1.text_input("담당자", value=_r.get("contact_person_name") or "", key=f"ce_an_{_rid}")
+                _eat = _ea2.text_input("직책", value=_r.get("contact_person_position") or "", key=f"ce_at_{_rid}")
+                _eap = _ea3.text_input("연락처", value=_r.get("contact_person_phone") or "", key=f"ce_ap_{_rid}")
+                if st.form_submit_button("💾 수정 저장", type="primary", use_container_width=True):
+                    from datetime import datetime as _dtu
+                    _upd = {
+                        "name": _en or _r.get("name"),
+                        "business_number": (_eb or "").replace("-", "").strip() or None,
+                        "representative_name": _erp or None,
+                        "phone": _eph or None,
+                        "email": _eem or None,
+                        "address": _ead or None,
+                        "contact_person_name": _ean or None,
+                        "contact_person_position": _eat or None,
+                        "contact_person_phone": _eap or None,
+                        "customer_status": _est,
+                        "updated_at": _dtu.now().isoformat(),
+                    }
+                    try:
+                        supabase.table("customers").update(_upd).eq("id", _rid).execute()
+                        st.success(f"✅ '{_upd['name']}' 정보가 수정되었습니다.")
+                        st.rerun()
+                    except Exception as _eu:
+                        st.error(f"수정 실패: {str(_eu)[:150]}")
+
+
 def log_monitoring_event(
     event_type,
     *,
@@ -10775,6 +10966,7 @@ else:
     # 💼 일하기 페이지
     # ══════════════════════════════
     elif page == "license_request":
+        _partner_back_btn("back_top_license_request")
         # ══════════════════════════════
         # 📋 신규 라이선스 신청 페이지 (파트너관리자용)
         # ══════════════════════════════
@@ -13294,11 +13486,15 @@ else:
     # 홈 랜딩 페이지 (심플 버전)
     # ══════════════════════════════
     elif page == "customer_management":
+        _partner_back_btn("back_cust_mgmt_top")
         st.markdown("### 🏢 고객사 관리")
-        st.info("🚧 준비 중인 기능입니다. 곧 만나보실 수 있습니다.")
-        st.caption("파트너사가 관리하는 고객사(법인) 목록을 등록·수정할 수 있습니다.")
-        if st.button("⬅️ 대시보드로 돌아가기", key="back_cust_mgmt"):
-            go_to("agency_dashboard"); st.rerun()
+        st.caption("영업 중인 고객사(법인)를 등록·수정합니다. 사업자등록증·명함을 드래그하면 AI가 자동으로 채워줍니다.")
+        st.divider()
+        # ── 신규 고객사 등록 (AI 자동채움 + 폼) ──
+        _customer_form_and_save(user, "cm_new", request_mode=False)
+        st.divider()
+        # ── 등록된 고객사 목록 (펼쳐서 수정 가능) ──
+        _render_customer_list(user)
 
     elif page == "user_detail":
         _did = st.session_state.get("detail_user_id")
@@ -13650,6 +13846,7 @@ else:
                     go_to("user_management"); st.rerun()
 
     elif page == "user_management":
+        _partner_back_btn("back_top_user_mgmt")
         st.markdown("### 👥 사용자 관리")
         st.caption("재직/퇴사 사용자 관리 + 신규 등록")
 
@@ -14134,6 +14331,7 @@ else:
                 go_to("agency_dashboard"); st.rerun()
 
     elif page == "user_search":
+        _partner_back_btn("back_top_user_search")
         st.markdown("### 🔍 사용자 검색")
         st.info("🚧 곧 파트너사별·지역별·기관별 검색 기능이 추가됩니다.")
         st.caption("필터 + CSV 내보내기 기능 준비 중")
@@ -14141,6 +14339,7 @@ else:
             go_to("agency_dashboard"); st.rerun()
 
     elif page == "license_status":
+        _partner_back_btn("back_top_license_status")
         st.markdown("### 💼 라이선스 현황")
         st.info("🚧 준비 중인 기능입니다. 곧 만나보실 수 있습니다.")
         st.caption("발급된 라이선스의 만료일·갱신 알림을 한눈에 확인할 수 있습니다.")
@@ -14148,6 +14347,7 @@ else:
             go_to("agency_dashboard"); st.rerun()
 
     elif page == "report_stats":
+        _partner_back_btn("back_top_report_stats")
         # ══════════════════════════════════════════════════════════════
         # 📊 모니터링 통계 페이지 (2026-05-18 구현)
         #   reports 실시간 집계 — 위험 카테고리·심각도·섹터×항목 매트릭스·
@@ -14314,6 +14514,7 @@ else:
             go_home(); st.rerun()
 
     elif page == "doc_agency":
+        _partner_back_btn("back_top_doc_agency")
         # ══════════════════════════════════════════════════════════════
         # 📑 서류 발급 허브 (공단 서류 대행) — 2026-05-18 구현
         #   고용지원금·장려금 신청용 제출 서류 발급. 확장 구조 —
@@ -14515,6 +14716,7 @@ else:
             go_home(); st.rerun()
 
     elif page == "support_request":
+        _partner_back_btn("back_top_support")
         st.markdown("### 📨 Support Request")
         st.info("🚧 곧 본부에 요청을 보내고 진행 상황을 확인하는 기능이 추가됩니다.")
         st.caption("요청 작성 + 이력 조회 + 본부 응답 알림")
@@ -14799,6 +15001,7 @@ else:
         # ⚙️ 파트너 정보 페이지 (5/14 구현, Phase 5-4)
         # 파트너 admin이 본인 회사 정보 수정 + 본부 superadmin은 전체 관리
         # ══════════════════════════════════════════════════════════════
+        _partner_back_btn("back_partner_info_top")
         st.markdown("### ⚙️ 우리 회사 정보")
         
         # ─── 권한 체크 ───
@@ -15274,6 +15477,7 @@ else:
             go_to("agency_dashboard"); st.rerun()
 
     elif page == "partner_admins":
+        _partner_back_btn("back_top_partner_admins")
         # ══════════════════════════════════════════════════════════════
         # 👥 파트너 담당자 관리 페이지 (5/16 신규)
         # 본부 superadmin + 파트너 admin (공동 admin 동등 권한)
@@ -15468,11 +15672,18 @@ else:
             if st.button("← 대시보드로 돌아가기"):
                 go_to("home_landing"); st.rerun()
             st.stop()
-        
+
         # ── 헤더 ──
-        st.markdown("### 🔔 신규 등록 요청")
-        st.caption(f"본부 영업 거버넌스 — 외부 파트너/영업담당자가 등록한 영업 기회를 검토하고 승인합니다.")
-        
+        _partner_back_btn("back_approval_top")
+        st.markdown("### 🔔 신규 고객 등록 요청")
+        st.caption("고객 사업자등록증·명함을 드래그하면 AI가 자동으로 채웁니다. 아래는 검토 대기 중인 영업 기회입니다.")
+        st.divider()
+
+        # ── 신규 고객 등록 요청 (AI 자동채움 + 폼) ──
+        _customer_form_and_save(user, "ar_new", request_mode=True)
+        st.divider()
+        st.markdown("#### 📋 검토 대기 목록")
+
         # ── 데이터 조회 ──
         try:
             # pending + escalated만 조회
@@ -15671,6 +15882,7 @@ else:
             go_to("agency_dashboard"); st.rerun()
 
     elif page == "sales_pipeline":
+        _partner_back_btn("back_top_sales_pipeline")
         # ══════════════════════════════════════════════════════════════
         # 📊 영업 파이프라인 페이지 (Phase 3, 5/16 신규)
         # CRUD: 등록 + 목록 + 필터/정렬
