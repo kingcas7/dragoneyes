@@ -11566,26 +11566,28 @@ else:
         with col_title:
             st.subheader("🤝 파트너관리자 모니터링 대시보드")
 
-        # 신규 라이선스 신청 버튼
-        ab1, ab2, ab3 = st.columns([2, 2, 6])
-        with ab1:
-            if st.button("➕ 신규 라이선스 신청", type="primary", use_container_width=True, key="new_license_btn"):
-                go_to("license_request"); st.rerun()
-        with ab2:
-            if st.button("📋 신청 이력 보기", use_container_width=True, key="license_history_btn"):
-                go_to("license_request"); st.rerun()
-        st.divider()
-
         # ══════════════════════════════════════════════════════════════
-        # 🏢 본부 전용 — 총판·다이렉트 파트너 관제 타워 (3열 뷰)
-        #   2026-06-21 신규. partner_id 가 없는 본부 직원에게만 노출.
-        #   파트너/총판 직원은 기존 액션 카드 UI만 봄.
-        #   ① 영업 파이프라인·Opportunity·매출 현황(목표 입력→달성률)
-        #   ② 총판 1~4 배치  ③ 다이렉트 파트너 배치
+        # 🏢 본부 전용 — 총판·다이렉트 파트너 관제 타워
+        #   2026-06-21. partner_id 없는 본부 직원에게만 노출.
+        #   상단행: 라이선스 버튼(좌) + 영업·매출 현황(우)
+        #   하단: 총판 1~4 / 다이렉트 파트너 1~3 테이블
         # ══════════════════════════════════════════════════════════════
         _is_hq_ct = not user.get("partner_id")
         _sel_partner = st.session_state.get("hq_selected_partner")
-        if _is_hq_ct and not _sel_partner:
+        _hq_tower = _is_hq_ct and not _sel_partner
+
+        # 신규 라이선스 신청 버튼 — 관제 타워에서는 상단 행에 직접 배치하므로 생략
+        if not _hq_tower:
+            ab1, ab2, ab3 = st.columns([2, 2, 6])
+            with ab1:
+                if st.button("➕ 신규 라이선스 신청", type="primary", use_container_width=True, key="new_license_btn"):
+                    go_to("license_request"); st.rerun()
+            with ab2:
+                if st.button("📋 신청 이력 보기", use_container_width=True, key="license_history_btn"):
+                    go_to("license_request"); st.rerun()
+            st.divider()
+
+        if _hq_tower:
             _today_ct = date.today()
             _year_ct = _today_ct.year
             _q_ct = (_today_ct.month - 1) // 3 + 1
@@ -11646,51 +11648,10 @@ else:
             ]
             _q_actual_ct = _sum_amt(_q_won_ct)
 
-            def _partner_slot_ct(p, idx, kind):
-                """총판/다이렉트 파트너 카드 — 매출·목표 입력·달성률 (컴팩트)"""
-                _nm = p.get("name", "-")
-                _rev = _rev_by_partner.get(p.get("id"), 0)
-                _ch = p.get("channel_type") or ("총판" if kind == "dist" else "다이렉트")
-                _tkey = f"hq_ptgt_{p.get('id')}"
-                _tgt = st.session_state.get(_tkey, 0)
-                _rate = (_rev / (_tgt * 10000) * 100) if _tgt and _tgt > 0 else 0
-                _bg = "#eff6ff" if kind == "dist" else "#f5f3ff"
-                _bd = "#bfdbfe" if kind == "dist" else "#ddd6fe"
-                _bar = min(_rate, 100)
-                st.markdown(
-                    f"<div style='background:{_bg};border:1px solid {_bd};border-radius:7px;"
-                    f"padding:5px 8px;margin-bottom:3px;'>"
-                    f"<div style='display:flex;justify-content:space-between;align-items:baseline;'>"
-                    f"<span style='font-weight:700;font-size:0.78rem;color:#0f172a;'>{idx}. {_nm}</span>"
-                    f"<span style='font-size:0.6rem;color:#64748b;'>{_ch}</span></div>"
-                    f"<div style='font-size:0.66rem;color:#334155;margin-top:1px;'>"
-                    f"매출 {_fmt_won_ct(_rev)} · 달성 {_rate:.0f}%</div>"
-                    f"<div style='background:#e2e8f0;border-radius:3px;height:4px;margin-top:3px;'>"
-                    f"<div style='background:#3b82f6;width:{_bar}%;height:4px;border-radius:3px;'></div></div>"
-                    f"</div>",
-                    unsafe_allow_html=True,
-                )
-                ic1, ic2 = st.columns([1, 1])
-                ic1.number_input(
-                    "목표(만원)", min_value=0, step=500,
-                    key=_tkey, label_visibility="collapsed", placeholder="목표 만원",
-                )
-                if ic2.button("▶ 들어가기", key=f"hq_enter_{p.get('id')}", use_container_width=True):
-                    st.session_state["hq_selected_partner"] = {"id": p.get("id"), "name": _nm}
-                    st.rerun()
-
-            def _empty_slot_ct(label):
-                st.markdown(
-                    f"<div style='border:1px dashed #cbd5e1;border-radius:7px;"
-                    f"padding:7px 8px;margin-bottom:3px;color:#94a3b8;font-size:0.72rem;'>"
-                    f"{label} · <span style='font-size:0.62rem;'>배정 대기</span></div>",
-                    unsafe_allow_html=True,
-                )
-
-            cc1, cc2, cc3 = st.columns([1.5, 1, 1])
-
+            # ── 헬퍼: 달성률 바 / 파트너 카드(테이블 셀) / 빈 슬롯 ──
+            #   ⚠️ 테이블 셀은 st.columns 안에서 그려지므로 내부에서 컬럼을 또
+            #      만들지 않음 (Streamlit 컬럼 중첩 1단계 제한 회피).
             def _bar_row_ct(label, actual, target_won, accent):
-                """컴팩트 달성률 행 — 라벨/금액 + 얇은 바"""
                 _r = (actual / target_won * 100) if target_won > 0 else 0
                 st.markdown(
                     f"<div style='display:flex;justify-content:space-between;font-size:0.7rem;"
@@ -11701,9 +11662,57 @@ else:
                     unsafe_allow_html=True,
                 )
 
-            # ── ① 영업 현황 + 매출 현황 ──
-            with cc1:
-                st.markdown("##### ① 영업 · 매출 현황")
+            def _slot_card_ct(p, idx, kind):
+                _nm = p.get("name", "-")
+                _rev = _rev_by_partner.get(p.get("id"), 0)
+                _ch = p.get("channel_type") or ("총판" if kind == "dist" else "다이렉트")
+                _tkey = f"hq_ptgt_{p.get('id')}"
+                _tgt = st.session_state.get(_tkey, 0)
+                _rate = (_rev / (_tgt * 10000) * 100) if _tgt and _tgt > 0 else 0
+                _icon = "🏢" if kind == "dist" else "🤝"
+                _bg = "#eff6ff" if kind == "dist" else "#f5f3ff"
+                _bd = "#bfdbfe" if kind == "dist" else "#ddd6fe"
+                st.markdown(
+                    f"<div style='background:{_bg};border:1px solid {_bd};border-radius:9px;"
+                    f"padding:8px 9px 6px;margin-bottom:4px;min-height:78px;'>"
+                    f"<div style='font-size:1.15rem;line-height:1;'>{_icon}</div>"
+                    f"<div style='font-weight:700;font-size:0.8rem;color:#0f172a;margin-top:2px;'>{idx}. {_nm}</div>"
+                    f"<div style='font-size:0.6rem;color:#64748b;'>{_ch}</div>"
+                    f"<div style='font-size:0.66rem;color:#334155;margin-top:3px;'>매출 {_fmt_won_ct(_rev)} · 달성 {_rate:.0f}%</div>"
+                    f"<div style='background:#e2e8f0;border-radius:3px;height:4px;margin-top:3px;'>"
+                    f"<div style='background:#3b82f6;width:{min(_rate,100)}%;height:4px;border-radius:3px;'></div></div>"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+                st.number_input("목표(만원)", min_value=0, step=500, key=_tkey,
+                                label_visibility="collapsed", placeholder="목표 만원")
+                if st.button("▶ 들어가기", key=f"hq_enter_{p.get('id')}", use_container_width=True):
+                    st.session_state["hq_selected_partner"] = {"id": p.get("id"), "name": _nm}
+                    st.rerun()
+
+            def _empty_card_ct(label):
+                st.markdown(
+                    f"<div style='border:1.5px dashed #cbd5e1;border-radius:9px;padding:8px 9px;"
+                    f"margin-bottom:4px;min-height:78px;color:#94a3b8;text-align:center;"
+                    f"display:flex;flex-direction:column;justify-content:center;'>"
+                    f"<div style='font-size:1.15rem;'>➕</div>"
+                    f"<div style='font-weight:600;font-size:0.74rem;margin-top:2px;'>{label}</div>"
+                    f"<div style='font-size:0.62rem;'>배정 대기</div></div>",
+                    unsafe_allow_html=True,
+                )
+
+            # ── 상단 행: 라이선스 버튼(좌) + 영업·매출 현황(우) ──
+            _tl, _tr = st.columns([2, 5])
+            with _tl:
+                if st.button("➕ 신규 라이선스 신청", type="primary",
+                             use_container_width=True, key="new_license_btn"):
+                    go_to("license_request"); st.rerun()
+                if st.button("📋 신청 이력 보기", use_container_width=True,
+                             key="license_history_btn"):
+                    go_to("license_request"); st.rerun()
+                st.caption(f"운용: 총판 {len(_distributors_ct)}개 · 다이렉트 {len(_direct_ct)}개")
+            with _tr:
+                st.markdown("**① 영업 · 매출 현황**")
                 st.markdown(
                     f"<div style='display:flex;gap:8px;'>"
                     f"<div style='flex:1;background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;padding:6px 9px;'>"
@@ -11717,35 +11726,40 @@ else:
                     f"</div>",
                     unsafe_allow_html=True,
                 )
-                st.markdown("<div style='font-size:0.78rem;font-weight:700;margin:8px 0 4px;'>💰 매출 목표 · 달성률</div>", unsafe_allow_html=True)
-                tc1, tc2 = st.columns(2)
-                _ty_man = tc1.number_input(f"{_year_ct} 연간 목표(만원)", min_value=0, step=1000, key=f"hq_target_year_{_year_ct}")
-                _tq_man = tc2.number_input(f"{_q_ct}분기 목표(만원)", min_value=0, step=500, key=f"hq_target_q_{_year_ct}_{_q_ct}")
+                _mt1, _mt2 = st.columns(2)
+                _ty_man = _mt1.number_input(f"{_year_ct} 연간 목표(만원)", min_value=0, step=1000, key=f"hq_target_year_{_year_ct}")
+                _tq_man = _mt2.number_input(f"{_q_ct}분기 목표(만원)", min_value=0, step=500, key=f"hq_target_q_{_year_ct}_{_q_ct}")
                 _bar_row_ct(f"{_year_ct} 연간", _total_actual_ct, _ty_man * 10000, "#16a34a")
                 _bar_row_ct(f"{_q_ct}분기", _q_actual_ct, _tq_man * 10000, "#0ea5e9")
-                st.caption(f"운용: 총판 {len(_distributors_ct)}개 · 다이렉트 {len(_direct_ct)}개")
 
-            # ── ② 총판 1~4 ──
-            with cc2:
-                st.markdown("##### ② 총판 (목표 4)")
-                for _i in range(4):
+            st.divider()
+
+            # ── ② 총판 (1~4) 테이블 ──
+            st.markdown("##### ② 총판 (1~4)")
+            _dist_cols = st.columns(4)
+            for _i in range(4):
+                with _dist_cols[_i]:
                     if _i < len(_distributors_ct):
-                        _partner_slot_ct(_distributors_ct[_i], _i + 1, "dist")
+                        _slot_card_ct(_distributors_ct[_i], _i + 1, "dist")
                     else:
-                        _empty_slot_ct(f"총판 {_i + 1}")
-                # 4개 초과 총판도 표시
-                for _j in range(4, len(_distributors_ct)):
-                    _partner_slot_ct(_distributors_ct[_j], _j + 1, "dist")
+                        _empty_card_ct(f"총판 {_i + 1}")
+            # 4개 초과 총판
+            if len(_distributors_ct) > 4:
+                _ex_cols = st.columns(4)
+                for _j, _p in enumerate(_distributors_ct[4:]):
+                    with _ex_cols[_j % 4]:
+                        _slot_card_ct(_p, _j + 5, "dist")
 
-            # ── ③ 다이렉트 파트너 ──
-            with cc3:
-                st.markdown("##### ③ 다이렉트 파트너")
-                _direct_slots = max(3, len(_direct_ct))
-                for _i in range(_direct_slots):
+            # ── ③ 다이렉트 파트너 (1~3) 테이블 ──
+            st.markdown("##### ③ 다이렉트 파트너 (1~3)")
+            _dp_n = max(3, len(_direct_ct))
+            _dp_cols = st.columns(_dp_n)
+            for _i in range(_dp_n):
+                with _dp_cols[_i]:
                     if _i < len(_direct_ct):
-                        _partner_slot_ct(_direct_ct[_i], _i + 1, "direct")
+                        _slot_card_ct(_direct_ct[_i], _i + 1, "direct")
                     else:
-                        _empty_slot_ct(f"다이렉트 파트너 {_i + 1}")
+                        _empty_card_ct(f"다이렉트 파트너 {_i + 1}")
 
             st.caption("💡 카드의 '▶ 들어가기'를 누르면 해당 총판·파트너의 세부 영업·서비스 페이지로 이동합니다.")
             st.stop()  # 관제 타워(개요)에서는 아래 세부 페이지를 렌더링하지 않음
