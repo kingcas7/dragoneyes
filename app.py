@@ -8038,13 +8038,18 @@ def _render_customer_list(user):
     st.markdown(f"##### 📁 {_ftxt} ({len(_shown)}개)"
                 f"{' · 총판 통합 보기' if _is_dist_view else ''}")
 
-    # ── 엑셀 형식 전체표 (예상/발주 컬럼 포함) ──
-    with st.expander("📊 전체 표 보기 (엑셀 형식 · 예상/발주 포함)", expanded=False):
+    # ── 엑셀 형식 전체표 (예상=opportunities / 발주=contracts 연동) ──
+    with st.expander("📊 전체 표 보기 (엑셀 형식 · 예상/발주 연동)", expanded=False):
         if not _shown:
             st.info("표시할 고객이 없습니다.")
         else:
+            _opp_biz, _opp_name, _con_cid = _sales_maps_for()
             _data = []
             for _r in _shown:
+                _o = _opp_for_customer(_r, _opp_biz, _opp_name) or {}
+                _c = _con_cid.get(_r.get("id")) or {}
+                _c_yrs = _years_between(_c.get("contract_effective_from"),
+                                        _c.get("contract_effective_to"))
                 _row = {}
                 if _is_dist_view:
                     _row["담당 파트너"] = _pname_map.get(_r.get("assigned_partner_id"), "-")
@@ -8055,14 +8060,19 @@ def _render_customer_list(user):
                     "연락처1(대표)": _r.get("phone"), "담당자1": _r.get("contact_person_name"),
                     "연락처2(담당자1)": _r.get("contact_person_phone"),
                     "담당자2": None, "연락처3(담당자2)": None,
-                    "예상 구매수량": None, "예상 제품Type": None,
-                    "예상 계약기간(년)": None, "예상 발주금액": None,
-                    "발주 구매수량": None, "발주 제품Type": None,
-                    "발주 계약기간(년)": None, "발주금액": None,
+                    "예상 구매수량": _o.get("expected_seats"),
+                    "예상 제품Type": _o.get("license_tier"),
+                    "예상 계약기간(년)": None,
+                    "예상 발주금액": _o.get("expected_amount"),
+                    "발주 구매수량": _c.get("seat_count"),
+                    "발주 제품Type": _c.get("tier_code"),
+                    "발주 계약기간(년)": _c_yrs,
+                    "발주금액": _c.get("contract_amount"),
                 })
                 _data.append(_row)
             st.dataframe(pd.DataFrame(_data), use_container_width=True, hide_index=True)
-            st.caption("예상/발주 내역은 영업 기회(opportunities) 연동 단계에서 채워집니다.")
+            st.caption("예상 = 영업 기회(opportunities) · 발주 = 계약(contracts) 연동. "
+                       "수정은 고객사명 클릭 → 등록 고객 상세에서 가능합니다.")
 
     if not _shown:
         st.info("해당 조건의 고객이 없습니다. 위 폼에서 추가하거나 다른 필터를 선택하세요.")
@@ -8162,6 +8172,207 @@ def _render_customer_edit_form(row, user, *, key_ns="cd", back_page="customer_ma
                 go_to(back_page); st.rerun()
             except Exception as _ed:
                 st.error(f"삭제 실패: {str(_ed)[:150]}")
+
+
+# ── 고객 ↔ 영업기회(예상)·계약(발주) 연동 (A안, 2026-06-21) ──
+def _years_between(d_from, d_to):
+    """계약기간(년) 근사 — 시작/종료일 문자열로 계산."""
+    try:
+        from datetime import date as _dd
+        _a = _dd.fromisoformat(str(d_from)[:10])
+        _b = _dd.fromisoformat(str(d_to)[:10])
+        _y = (_b - _a).days / 365.0
+        return round(_y, 1) if _y else None
+    except Exception:
+        return None
+
+
+def _sales_maps_for():
+    """전체 opportunities·contracts를 1회 조회해 매핑(예상/발주 표시용).
+    반환: (사업자번호→opp, 상호명→opp, customer_id→contract)."""
+    _opps, _cons = [], []
+    try:
+        _opps = (supabase.table("opportunities")
+                 .select("customer_business_no,customer_name,license_tier,"
+                         "expected_seats,expected_amount,status,expected_close_date")
+                 .order("created_at", desc=True).execute().data or [])
+    except Exception:
+        _opps = []
+    try:
+        _cons = (supabase.table("contracts")
+                 .select("related_customer_id,tier_code,seat_count,contract_amount,"
+                         "contract_effective_from,contract_effective_to")
+                 .order("created_at", desc=True).execute().data or [])
+    except Exception:
+        _cons = []
+    _opp_biz, _opp_name = {}, {}
+    for _o in _opps:
+        _b = (_o.get("customer_business_no") or "").replace("-", "").strip()
+        _n = (_o.get("customer_name") or "").strip()
+        if _b and _b not in _opp_biz:
+            _opp_biz[_b] = _o
+        if _n and _n not in _opp_name:
+            _opp_name[_n] = _o
+    _con_cid = {}
+    for _c in _cons:
+        _cid = _c.get("related_customer_id")
+        if _cid and _cid not in _con_cid:
+            _con_cid[_cid] = _c
+    return _opp_biz, _opp_name, _con_cid
+
+
+def _opp_for_customer(cust, opp_biz, opp_name):
+    _b = (cust.get("business_number") or "").replace("-", "").strip()
+    _n = (cust.get("name") or "").strip()
+    return (opp_biz.get(_b) if _b else None) or (opp_name.get(_n) if _n else None)
+
+
+def _customer_match_opps(customer):
+    """고객에 매칭되는 영업 기회 전체 (사업자번호 우선, 없으면 상호명)."""
+    _biz = (customer.get("business_number") or "").replace("-", "").strip()
+    _nm = (customer.get("name") or "").strip()
+    _rows = []
+    try:
+        if _biz:
+            _rows = (supabase.table("opportunities").select("*")
+                     .eq("customer_business_no", _biz).execute().data or [])
+        if not _rows and _nm:
+            _rows = (supabase.table("opportunities").select("*")
+                     .eq("customer_name", _nm).execute().data or [])
+    except Exception:
+        _rows = []
+    return _rows
+
+
+def _customer_contracts(customer_id):
+    try:
+        return (supabase.table("contracts").select("*")
+                .eq("related_customer_id", customer_id)
+                .order("created_at", desc=True).execute().data or [])
+    except Exception:
+        return []
+
+
+def _render_customer_sales_edit(customer, user):
+    """customer_detail 하단 — 예상(영업기회)·발주(계약) 수정 가능 섹션."""
+    _STATUS = ["prospect", "qualified", "proposal", "negotiation",
+               "contract", "closed_won", "closed_lost"]
+    _SLAB = {"prospect": "🌱 잠재", "qualified": "✅ 검증", "proposal": "📄 제안",
+             "negotiation": "🤝 협상", "contract": "📝 계약진행",
+             "closed_won": "🎉 수주", "closed_lost": "❌ 실주"}
+
+    # ── 📈 예상 (영업 기회) ──
+    st.divider()
+    st.markdown("#### 📈 예상 (영업 기회)")
+    _opps = _customer_match_opps(customer)
+    if not _opps:
+        st.caption("연결된 영업 기회가 없습니다. 아래에서 추가할 수 있습니다.")
+    for _o in _opps:
+        _oid = _o.get("id")
+        with st.form(f"oppedit_{_oid}"):
+            _oc1, _oc2, _oc3 = st.columns(3)
+            _seats = _oc1.number_input("구매 수량(석)", min_value=0, step=1,
+                                       value=int(float(_o.get("expected_seats") or 0)),
+                                       key=f"oe_seats_{_oid}")
+            _tier = _oc2.text_input("제품 Type", value=_o.get("license_tier") or "",
+                                    key=f"oe_tier_{_oid}", placeholder="예: Standard")
+            _amt = _oc3.number_input("발주금액(예상, 원)", min_value=0, step=100000,
+                                     value=int(float(_o.get("expected_amount") or 0)),
+                                     key=f"oe_amt_{_oid}")
+            _oc4, _oc5 = st.columns(2)
+            _yrs = _oc4.number_input("계약기간(년)", min_value=0.0, step=0.5,
+                                     value=0.0, key=f"oe_yrs_{_oid}")
+            _stt = _oc5.selectbox("상태", _STATUS,
+                                  index=_STATUS.index(_o.get("status")) if _o.get("status") in _STATUS else 0,
+                                  format_func=lambda x: _SLAB.get(x, x), key=f"oe_stt_{_oid}")
+            if st.form_submit_button("💾 예상 수정 저장", type="primary", use_container_width=True):
+                from datetime import datetime as _do
+                _upd = {"expected_seats": int(_seats), "license_tier": _tier or None,
+                        "expected_amount": float(_amt), "status": _stt,
+                        "updated_at": _do.now().isoformat()}
+                _ok = False
+                for _drop in ([], ["updated_at"]):
+                    try:
+                        _u = {k: v for k, v in _upd.items() if k not in _drop}
+                        supabase.table("opportunities").update(_u).eq("id", _oid).execute()
+                        _ok = True
+                        break
+                    except Exception as _eo:
+                        _le = str(_eo)[:150]
+                if _ok:
+                    st.success("✅ 예상(영업 기회)이 수정되었습니다."); st.rerun()
+                else:
+                    st.error(f"수정 실패: {_le}")
+
+    # ➕ 새 영업 기회 추가 (이 고객으로 사전 채움)
+    with st.expander("➕ 새 영업 기회(예상) 추가"):
+        with st.form("opp_add_form"):
+            _ac1, _ac2, _ac3 = st.columns(3)
+            _n_seats = _ac1.number_input("구매 수량(석)", min_value=0, step=1, value=0, key="oa_seats")
+            _n_tier = _ac2.text_input("제품 Type", value="Standard", key="oa_tier")
+            _n_amt = _ac3.number_input("발주금액(예상, 원)", min_value=0, step=100000, value=0, key="oa_amt")
+            if st.form_submit_button("➕ 영업 기회 추가", type="primary", use_container_width=True):
+                from datetime import datetime as _da
+                _new = {
+                    "customer_name": customer.get("name"),
+                    "customer_business_no": (customer.get("business_number") or "").replace("-", "").strip() or None,
+                    "license_tier": _n_tier or None,
+                    "expected_seats": int(_n_seats),
+                    "expected_amount": float(_n_amt),
+                    "status": "prospect",
+                    "approval_status": "approved",
+                    "created_at": _da.now().isoformat(),
+                }
+                if user.get("partner_id"):
+                    _new["assigned_partner_id"] = user["partner_id"]
+                _ok = False
+                for _drop in ([], ["approval_status"], ["approval_status", "assigned_partner_id"]):
+                    try:
+                        _u = {k: v for k, v in _new.items() if k not in _drop}
+                        supabase.table("opportunities").insert(_u).execute()
+                        _ok = True
+                        break
+                    except Exception as _ea:
+                        _le = str(_ea)[:150]
+                if _ok:
+                    st.success("✅ 영업 기회가 추가되었습니다."); st.rerun()
+                else:
+                    st.error(f"추가 실패: {_le}")
+
+    # ── 📦 발주 내역 (계약) ──
+    st.divider()
+    st.markdown("#### 📦 발주 내역 (계약)")
+    _cons = _customer_contracts(customer.get("id"))
+    if not _cons:
+        st.caption("발주(계약) 내역이 없습니다. 라이선스 발주가 확정되면 자동 생성됩니다.")
+    for _c in _cons:
+        _ccid = _c.get("id")
+        _yrs_c = _years_between(_c.get("contract_effective_from"), _c.get("contract_effective_to"))
+        with st.form(f"conedit_{_ccid}"):
+            _cc1, _cc2, _cc3, _cc4 = st.columns(4)
+            _cseat = _cc1.number_input("구매 수량(석)", min_value=0, step=1,
+                                       value=int(float(_c.get("seat_count") or 0)), key=f"cc_seat_{_ccid}")
+            _ctier = _cc2.text_input("제품 Type", value=_c.get("tier_code") or "", key=f"cc_tier_{_ccid}")
+            _camt = _cc3.number_input("발주금액(원)", min_value=0, step=100000,
+                                      value=int(float(_c.get("contract_amount") or 0)), key=f"cc_amt_{_ccid}")
+            _cc4.markdown(f"<div style='font-size:0.75rem;padding-top:28px;'>계약기간 {('%.1f년' % _yrs_c) if _yrs_c else '-'}</div>", unsafe_allow_html=True)
+            if st.form_submit_button("💾 발주 수정 저장", type="primary", use_container_width=True):
+                from datetime import datetime as _dc
+                _upd = {"seat_count": int(_cseat), "tier_code": _ctier or None,
+                        "contract_amount": float(_camt), "updated_at": _dc.now().isoformat()}
+                _ok = False
+                for _drop in ([], ["updated_at"]):
+                    try:
+                        _u = {k: v for k, v in _upd.items() if k not in _drop}
+                        supabase.table("contracts").update(_u).eq("id", _ccid).execute()
+                        _ok = True
+                        break
+                    except Exception as _ec:
+                        _le = str(_ec)[:150]
+                if _ok:
+                    st.success("✅ 발주 내역이 수정되었습니다."); st.rerun()
+                else:
+                    st.error(f"수정 실패: {_le}")
 
 
 def log_monitoring_event(
@@ -13783,6 +13994,27 @@ else:
             if not _custs_ps:
                 st.info("아직 등록된 고객이 없습니다. '➕ 신규 고객 추가'로 등록하세요.")
             else:
+                # 📊 엑셀 형식 전체표 (예상=opportunities / 발주=contracts 연동)
+                with st.expander("📊 전체 표 보기 (엑셀 형식 · 예상/발주 연동)", expanded=False):
+                    _ob_ps, _on_ps, _cc_ps = _sales_maps_for()
+                    _df_ps = []
+                    for _c in _custs_ps:
+                        _o = _opp_for_customer(_c, _ob_ps, _on_ps) or {}
+                        _ct = _cc_ps.get(_c.get("id")) or {}
+                        _df_ps.append({
+                            "고객사명": _c.get("name"), "고객번호": _c.get("customer_no"),
+                            "업종": _c.get("industry"), "주소": _c.get("address"),
+                            "대표자명": _c.get("representative_name"),
+                            "연락처1(대표)": _c.get("phone"), "담당자1": _c.get("contact_person_name"),
+                            "연락처2(담당자1)": _c.get("contact_person_phone"),
+                            "담당자2": None, "연락처3(담당자2)": None,
+                            "예상 구매수량": _o.get("expected_seats"), "예상 제품Type": _o.get("license_tier"),
+                            "예상 계약기간(년)": None, "예상 발주금액": _o.get("expected_amount"),
+                            "발주 구매수량": _ct.get("seat_count"), "발주 제품Type": _ct.get("tier_code"),
+                            "발주 계약기간(년)": _years_between(_ct.get("contract_effective_from"), _ct.get("contract_effective_to")),
+                            "발주금액": _ct.get("contract_amount"),
+                        })
+                    st.dataframe(pd.DataFrame(_df_ps), use_container_width=True, hide_index=True)
                 _w_ps = [2.2, 1.0, 1.0, 2.2, 1.0, 1.2, 1.2]
                 _hdr_ps = st.columns(_w_ps)
                 for _c, _t in zip(_hdr_ps, ["고객사명", "고객번호", "업종", "주소", "대표자", "연락처", "담당자"]):
@@ -13802,7 +14034,7 @@ else:
                     _rw[4].markdown(f"<div style='font-size:0.72rem;'>{_c.get('representative_name') or '-'}</div>", unsafe_allow_html=True)
                     _rw[5].markdown(f"<div style='font-size:0.72rem;'>{_c.get('phone') or '-'}</div>", unsafe_allow_html=True)
                     _rw[6].markdown(f"<div style='font-size:0.72rem;'>{_c.get('contact_person_name') or '-'}</div>", unsafe_allow_html=True)
-            st.caption("💡 예상/발주 내역(구매수량·제품Type·계약기간·금액)은 영업 기회 연동 단계에서 추가됩니다.")
+            st.caption("💡 예상 = 영업 기회 · 발주 = 계약 연동. 수정은 고객사명 클릭 → 등록 고객 상세에서 가능합니다.")
 
     # ══════════════════════════════════════════════════════════════
     # 🏢 등록된 고객 상세 — 수정·삭제 (2026-06-21)
@@ -13823,8 +14055,9 @@ else:
                 st.error("고객 정보를 찾을 수 없습니다.")
             else:
                 st.markdown(f"### 🏢 {_row_d.get('name','고객')} — 등록 고객 상세")
-                st.caption("등록된 고객 정보를 수정하거나 삭제할 수 있습니다.")
+                st.caption("등록된 고객 정보·예상(영업기회)·발주(계약)를 모두 수정할 수 있습니다.")
                 _render_customer_edit_form(_row_d, user, key_ns="cd", back_page=_back_d)
+                _render_customer_sales_edit(_row_d, user)
 
     elif page == "user_detail":
         _did = st.session_state.get("detail_user_id")
