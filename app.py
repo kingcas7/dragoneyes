@@ -9780,27 +9780,17 @@ else:
 
     _voice_on_now = bool(st.session_state.get("voice_guide_enabled"))
     _dict_on_now  = bool(st.session_state.get("dictation_enabled"))
-    # ⭐ 접근성 박스는 기본 '닫힘' (2026-06-21, 사용자 요청).
-    #   필요한 사람만 쓰는 기능 — 매 페이지 펼쳐져 산만함을 줬음.
-    #   음성/받아쓰기가 켜져 있을 때만, 끄기 쉽도록 자동 펼침.
-    _expander_open = bool(_voice_on_now or _dict_on_now)
-    _expander_label = "♿ 접근성 · 음성 안내 / 받아쓰기"
-    if _voice_on_now and _dict_on_now:
-        _expander_label += "  ✅ 음성 ON · 🎤 받아쓰기 ON"
-    elif _voice_on_now:
-        _expander_label += "  ✅ 음성 ON"
-    elif _dict_on_now:
-        _expander_label += "  🎤 받아쓰기 ON"
-
     # ⭐ 캠페인 페이지/사용자는 toolbar 숨김 (모니터링 전용 기능)
     if not _hide_a11y_toolbar:
-        # ── 펼치지 않고 한 줄에서 바로 on/off (스위치 대신 버튼) ──
+        # ── 접근성: 한 줄 바로 on/off 버튼만 (2026-06-21, 사용자 요청) ──
+        #   기존 expander 박스 제거 — 버튼이 곧 마이크(빨강=음성/보라=받아쓰기)를
+        #   활성화하므로 박스는 중복. 상세 패널 삭제.
         _qa1, _qa2, _qa3 = st.columns([2, 2, 6])
         if _qa1.button(
             "🔊 음성 안내 ON ✅" if _voice_on_now else "🔇 음성 안내 켜기",
             key="a11y_quick_voice", use_container_width=True,
             type=("primary" if _voice_on_now else "secondary"),
-            help="시각장애인용 음성 안내를 바로 켜고 끕니다.",
+            help="시각장애인용 음성 안내(빨간 마이크)를 바로 켜고 끕니다.",
         ):
             _nv = not _voice_on_now
             st.session_state["voice_guide_enabled"] = _nv
@@ -9819,7 +9809,7 @@ else:
             "🎤 받아쓰기 ON ✅" if _dict_on_now else "🎤 받아쓰기 켜기",
             key="a11y_quick_dict", use_container_width=True,
             type=("primary" if _dict_on_now else "secondary"),
-            help="드래곤파더 음성 입력(받아쓰기)을 바로 켜고 끕니다.",
+            help="드래곤파더 음성 입력(보라 마이크)을 바로 켜고 끕니다.",
         ):
             _nd = not _dict_on_now
             st.session_state["dictation_enabled"] = _nd
@@ -9831,19 +9821,11 @@ else:
                 pass
             st.rerun()
 
-        with st.expander(_expander_label, expanded=_expander_open):
-            accessibility.render_toolbar(
-                supabase=supabase,
-                user_id=user.get("id") if user else None,
-                key_prefix="a11y_main",
-                compact=True,
-            )
-            # ⌨️ 키보드 접근 가능한 마이크 시작/중지 버튼 (Tab+Enter)
+        # ⌨️ 음성 ON일 때만 키보드 접근(Tab+Enter) 마이크 버튼 노출 — 평소엔 숨김
+        if _voice_on_now:
             accessibility.render_keyboard_mic()
-            # 진단 보조 — 현재 페이지 표시 (시각장애인이 위치 확인 가능)
-            st.caption(f"📍 현재 페이지: `{_curr_page or '(미정)'}`")
 
-        # 🎤 음성 명령 floating 마이크 버튼 (음성 ON일 때 모든 페이지 우하단 — 시각용)
+        # 🎤 음성 명령 floating 마이크 버튼 (음성 ON일 때 우하단 — 빨간 마이크)
         accessibility.render_floating_mic()
 
     # ── 최종사용자 동의 체크 (미동의 시 강제 표시) ──
