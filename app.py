@@ -7890,6 +7890,7 @@ def _customer_ai_autofill(key_prefix):
                         _filled.append(_k)
                 if _filled:
                     st.success(f"✅ 자동 채움 완료 — 추출 항목: {', '.join(_filled)}")
+                    st.session_state[f"{key_prefix}_open"] = True  # 자동채움 후 폼 펼침
                     st.rerun()
                 else:
                     st.warning("추출된 항목이 없습니다. 직접 입력해주세요.")
@@ -7905,26 +7906,28 @@ def _customer_form_and_save(user, key_prefix, *, request_mode=False):
 
     _customer_ai_autofill(key_prefix)
     st.divider()
-    st.markdown("##### 📋 고객 기본 정보 (확인·수정 후 등록)")
-    with st.form(f"{key_prefix}_form", clear_on_submit=False):
-        c1, c2 = st.columns(2)
-        with c1:
-            _name = st.text_input("상호 *", key=f"{key_prefix}_name", placeholder="(주)예시기관 / ○○복지관")
-            _biz = st.text_input("사업자등록번호", key=f"{key_prefix}_biz", placeholder="000-00-00000")
-            _rep = st.text_input("대표자", key=f"{key_prefix}_rep", placeholder="홍길동")
-        with c2:
-            _phone = st.text_input("대표전화", key=f"{key_prefix}_phone", placeholder="02-0000-0000")
-            _email = st.text_input("대표 이메일", key=f"{key_prefix}_email", placeholder="info@company.com")
-        _addr = st.text_input("주소", key=f"{key_prefix}_addr", placeholder="서울특별시 ...")
-        st.markdown("##### 👤 담당자 정보 (실무 연락 담당자)")
-        a1, a2, a3 = st.columns(3)
-        _an = a1.text_input("담당자 이름", key=f"{key_prefix}_an", placeholder="김담당")
-        _at = a2.text_input("직책", key=f"{key_prefix}_at", placeholder="예: 사회복지사")
-        _ap = a3.text_input("연락처", key=f"{key_prefix}_ap", placeholder="010-0000-0000")
-        _memo = st.text_area("영업 메모 (선택)", key=f"{key_prefix}_memo",
-                             placeholder="영업 단계·특이사항 등", height=70)
-        _label = "📨 신규 고객 등록 요청 보내기" if request_mode else "💾 고객사 등록"
-        _submitted = st.form_submit_button(_label, type="primary", use_container_width=True)
+    # 📋 고객 기본 정보 — 접근성 박스처럼 펼침/접힘 (기본 접힘, 자동채움 시 펼침)
+    _form_open = bool(st.session_state.get(f"{key_prefix}_open", False))
+    with st.expander("📋 고객 기본 정보 입력 (확인·수정 후 등록) — 펼치기/접기", expanded=_form_open):
+        with st.form(f"{key_prefix}_form", clear_on_submit=False):
+            c1, c2 = st.columns(2)
+            with c1:
+                _name = st.text_input("상호 *", key=f"{key_prefix}_name", placeholder="(주)예시기관 / ○○복지관")
+                _biz = st.text_input("사업자등록번호", key=f"{key_prefix}_biz", placeholder="000-00-00000")
+                _rep = st.text_input("대표자", key=f"{key_prefix}_rep", placeholder="홍길동")
+            with c2:
+                _phone = st.text_input("대표전화", key=f"{key_prefix}_phone", placeholder="02-0000-0000")
+                _email = st.text_input("대표 이메일", key=f"{key_prefix}_email", placeholder="info@company.com")
+            _addr = st.text_input("주소", key=f"{key_prefix}_addr", placeholder="서울특별시 ...")
+            st.markdown("##### 👤 담당자 정보 (실무 연락 담당자)")
+            a1, a2, a3 = st.columns(3)
+            _an = a1.text_input("담당자 이름", key=f"{key_prefix}_an", placeholder="김담당")
+            _at = a2.text_input("직책", key=f"{key_prefix}_at", placeholder="예: 사회복지사")
+            _ap = a3.text_input("연락처", key=f"{key_prefix}_ap", placeholder="010-0000-0000")
+            _memo = st.text_area("영업 메모 (선택)", key=f"{key_prefix}_memo",
+                                 placeholder="영업 단계·특이사항 등", height=70)
+            _label = "📨 신규 고객 등록 요청 보내기" if request_mode else "💾 고객사 등록"
+            _submitted = st.form_submit_button(_label, type="primary", use_container_width=True)
 
     if _submitted:
         if not (_name or "").strip():
