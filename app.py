@@ -11565,7 +11565,9 @@ else:
         #   ① 영업 파이프라인·Opportunity·매출 현황(목표 입력→달성률)
         #   ② 총판 1~4 배치  ③ 다이렉트 파트너 배치
         # ══════════════════════════════════════════════════════════════
-        if not user.get("partner_id"):
+        _is_hq_ct = not user.get("partner_id")
+        _sel_partner = st.session_state.get("hq_selected_partner")
+        if _is_hq_ct and not _sel_partner:
             _today_ct = date.today()
             _year_ct = _today_ct.year
             _q_ct = (_today_ct.month - 1) // 3 + 1
@@ -11650,10 +11652,14 @@ else:
                     f"</div>",
                     unsafe_allow_html=True,
                 )
-                st.number_input(
+                ic1, ic2 = st.columns([1, 1])
+                ic1.number_input(
                     "목표(만원)", min_value=0, step=500,
                     key=_tkey, label_visibility="collapsed", placeholder="목표 만원",
                 )
+                if ic2.button("▶ 들어가기", key=f"hq_enter_{p.get('id')}", use_container_width=True):
+                    st.session_state["hq_selected_partner"] = {"id": p.get("id"), "name": _nm}
+                    st.rerun()
 
             def _empty_slot_ct(label):
                 st.markdown(
@@ -11723,6 +11729,18 @@ else:
                     else:
                         _empty_slot_ct(f"다이렉트 파트너 {_i + 1}")
 
+            st.caption("💡 카드의 '▶ 들어가기'를 누르면 해당 총판·파트너의 세부 영업·서비스 페이지로 이동합니다.")
+            st.stop()  # 관제 타워(개요)에서는 아래 세부 페이지를 렌더링하지 않음
+
+        # ── 세부 페이지 진입 배너 (본부가 특정 파트너를 선택한 경우) ──
+        if _is_hq_ct and _sel_partner:
+            _bk1, _bk2 = st.columns([1.3, 5])
+            with _bk1:
+                if st.button("← 관제 타워", key="hq_back_to_tower", use_container_width=True):
+                    st.session_state.pop("hq_selected_partner", None)
+                    st.rerun()
+            with _bk2:
+                st.markdown(f"#### 🤝 {_sel_partner.get('name','파트너')} — 세부 영업·서비스")
             st.divider()
 
         # ══════════════════════════════
@@ -11843,7 +11861,17 @@ else:
         week_str = this_week_start.isoformat()
 
         # 담당 업체 목록
-        if is_superadmin(user):
+        if _is_hq_ct and _sel_partner:
+            # 본부가 선택한 파트너의 담당 고객사만 (partner_customers 기준)
+            try:
+                _pc_sel = supabase.table("partner_customers").select("tenant_id") \
+                    .eq("partner_id", _sel_partner["id"]).execute().data or []
+                _sel_tids = [x["tenant_id"] for x in _pc_sel]
+                my_tenants = (supabase.table("tenants").select("*")
+                              .in_("id", _sel_tids).execute().data or []) if _sel_tids else []
+            except Exception:
+                my_tenants = []
+        elif is_superadmin(user):
             my_tenants = get_all_tenants()
         else:
             my_tenants = get_agency_tenants(user["id"])
