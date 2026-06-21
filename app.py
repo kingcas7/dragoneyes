@@ -11627,67 +11627,79 @@ else:
             _q_actual_ct = _sum_amt(_q_won_ct)
 
             def _partner_slot_ct(p, idx, kind):
-                """총판/다이렉트 파트너 카드 — 매출·목표 입력·달성률"""
+                """총판/다이렉트 파트너 카드 — 매출·목표 입력·달성률 (컴팩트)"""
                 _nm = p.get("name", "-")
                 _rev = _rev_by_partner.get(p.get("id"), 0)
-                _ch = p.get("channel_type") or ("총판" if kind == "dist" else "다이렉트 파트너")
+                _ch = p.get("channel_type") or ("총판" if kind == "dist" else "다이렉트")
+                _tkey = f"hq_ptgt_{p.get('id')}"
+                _tgt = st.session_state.get(_tkey, 0)
+                _rate = (_rev / (_tgt * 10000) * 100) if _tgt and _tgt > 0 else 0
                 _bg = "#eff6ff" if kind == "dist" else "#f5f3ff"
                 _bd = "#bfdbfe" if kind == "dist" else "#ddd6fe"
+                _bar = min(_rate, 100)
                 st.markdown(
-                    f"<div style='background:{_bg};border:1px solid {_bd};border-radius:10px;"
-                    f"padding:8px 10px 4px 10px;margin-bottom:2px;'>"
-                    f"<div style='font-weight:700;font-size:0.85rem;color:#0f172a;'>{idx}. {_nm}</div>"
-                    f"<div style='font-size:0.66rem;color:#64748b;'>{_ch}</div></div>",
+                    f"<div style='background:{_bg};border:1px solid {_bd};border-radius:7px;"
+                    f"padding:5px 8px;margin-bottom:3px;'>"
+                    f"<div style='display:flex;justify-content:space-between;align-items:baseline;'>"
+                    f"<span style='font-weight:700;font-size:0.78rem;color:#0f172a;'>{idx}. {_nm}</span>"
+                    f"<span style='font-size:0.6rem;color:#64748b;'>{_ch}</span></div>"
+                    f"<div style='font-size:0.66rem;color:#334155;margin-top:1px;'>"
+                    f"매출 {_fmt_won_ct(_rev)} · 달성 {_rate:.0f}%</div>"
+                    f"<div style='background:#e2e8f0;border-radius:3px;height:4px;margin-top:3px;'>"
+                    f"<div style='background:#3b82f6;width:{_bar}%;height:4px;border-radius:3px;'></div></div>"
+                    f"</div>",
                     unsafe_allow_html=True,
                 )
-                _tgt = st.number_input(
+                st.number_input(
                     "목표(만원)", min_value=0, step=500,
-                    key=f"hq_ptgt_{p.get('id')}", label_visibility="collapsed",
+                    key=_tkey, label_visibility="collapsed", placeholder="목표 만원",
                 )
-                _rate = (_rev / (_tgt * 10000) * 100) if _tgt > 0 else 0
-                st.caption(f"매출 {_fmt_won_ct(_rev)} · 달성 {_rate:.0f}%")
-                st.progress(min(_rate / 100, 1.0) if _tgt > 0 else 0.0)
-                st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
             def _empty_slot_ct(label):
                 st.markdown(
-                    f"<div style='border:1.5px dashed #cbd5e1;border-radius:10px;"
-                    f"padding:18px 10px;text-align:center;color:#94a3b8;margin-bottom:14px;'>"
-                    f"<div style='font-weight:600;font-size:0.82rem;'>{label}</div>"
-                    f"<div style='font-size:0.66rem;margin-top:2px;'>배정 대기</div></div>",
+                    f"<div style='border:1px dashed #cbd5e1;border-radius:7px;"
+                    f"padding:7px 8px;margin-bottom:3px;color:#94a3b8;font-size:0.72rem;'>"
+                    f"{label} · <span style='font-size:0.62rem;'>배정 대기</span></div>",
                     unsafe_allow_html=True,
                 )
 
             cc1, cc2, cc3 = st.columns([1.5, 1, 1])
 
+            def _bar_row_ct(label, actual, target_won, accent):
+                """컴팩트 달성률 행 — 라벨/금액 + 얇은 바"""
+                _r = (actual / target_won * 100) if target_won > 0 else 0
+                st.markdown(
+                    f"<div style='display:flex;justify-content:space-between;font-size:0.7rem;"
+                    f"color:#334155;margin-bottom:2px;'><span>{label}</span>"
+                    f"<span>{_fmt_won_ct(actual)} · <b>{_r:.0f}%</b></span></div>"
+                    f"<div style='background:#e2e8f0;border-radius:3px;height:5px;margin-bottom:6px;'>"
+                    f"<div style='background:{accent};width:{min(_r,100)}%;height:5px;border-radius:3px;'></div></div>",
+                    unsafe_allow_html=True,
+                )
+
             # ── ① 영업 현황 + 매출 현황 ──
             with cc1:
                 st.markdown("##### ① 영업 · 매출 현황")
-                m1, m2 = st.columns(2)
-                m1.metric("📊 진행 파이프라인", f"{len(_active_ct)}건",
-                          help=f"진행 중 예상금액 {_fmt_won_ct(_sum_amt(_active_ct))}")
-                m2.metric("💡 구매의사 기회", f"{len(_intent_ct)}건",
-                          help=f"제안·협상·계약 단계 {_fmt_won_ct(_sum_amt(_intent_ct))}")
-                st.caption(f"파이프라인 예상 {_fmt_won_ct(_sum_amt(_active_ct))} · 구매의사 {_fmt_won_ct(_sum_amt(_intent_ct))}")
-                st.divider()
-                st.markdown("**💰 매출 목표 · 달성률**")
-                _ty_man = st.number_input(
-                    f"{_year_ct}년 연간 목표 (만원)", min_value=0, step=1000,
-                    key=f"hq_target_year_{_year_ct}",
+                st.markdown(
+                    f"<div style='display:flex;gap:8px;'>"
+                    f"<div style='flex:1;background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;padding:6px 9px;'>"
+                    f"<div style='font-size:0.64rem;color:#64748b;'>📊 진행 파이프라인</div>"
+                    f"<div style='font-size:1.0rem;font-weight:700;color:#0f172a;'>{len(_active_ct)}건</div>"
+                    f"<div style='font-size:0.62rem;color:#475569;'>{_fmt_won_ct(_sum_amt(_active_ct))}</div></div>"
+                    f"<div style='flex:1;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:7px;padding:6px 9px;'>"
+                    f"<div style='font-size:0.64rem;color:#64748b;'>💡 구매의사 기회</div>"
+                    f"<div style='font-size:1.0rem;font-weight:700;color:#0f172a;'>{len(_intent_ct)}건</div>"
+                    f"<div style='font-size:0.62rem;color:#475569;'>{_fmt_won_ct(_sum_amt(_intent_ct))}</div></div>"
+                    f"</div>",
+                    unsafe_allow_html=True,
                 )
-                _ty_won = _ty_man * 10000
-                _rate_y = (_total_actual_ct / _ty_won * 100) if _ty_won > 0 else 0
-                st.progress(min(_rate_y / 100, 1.0) if _ty_won > 0 else 0.0,
-                            text=f"연간 누적 수주 {_fmt_won_ct(_total_actual_ct)} · 달성 {_rate_y:.0f}%")
-                _tq_man = st.number_input(
-                    f"{_year_ct}년 {_q_ct}분기 목표 (만원)", min_value=0, step=500,
-                    key=f"hq_target_q_{_year_ct}_{_q_ct}",
-                )
-                _tq_won = _tq_man * 10000
-                _rate_q = (_q_actual_ct / _tq_won * 100) if _tq_won > 0 else 0
-                st.progress(min(_rate_q / 100, 1.0) if _tq_won > 0 else 0.0,
-                            text=f"{_q_ct}분기 수주 {_fmt_won_ct(_q_actual_ct)} · 달성 {_rate_q:.0f}%")
-                st.caption(f"총판 {len(_distributors_ct)}개 · 다이렉트 파트너 {len(_direct_ct)}개 운용 중")
+                st.markdown("<div style='font-size:0.78rem;font-weight:700;margin:8px 0 4px;'>💰 매출 목표 · 달성률</div>", unsafe_allow_html=True)
+                tc1, tc2 = st.columns(2)
+                _ty_man = tc1.number_input(f"{_year_ct} 연간 목표(만원)", min_value=0, step=1000, key=f"hq_target_year_{_year_ct}")
+                _tq_man = tc2.number_input(f"{_q_ct}분기 목표(만원)", min_value=0, step=500, key=f"hq_target_q_{_year_ct}_{_q_ct}")
+                _bar_row_ct(f"{_year_ct} 연간", _total_actual_ct, _ty_man * 10000, "#16a34a")
+                _bar_row_ct(f"{_q_ct}분기", _q_actual_ct, _tq_man * 10000, "#0ea5e9")
+                st.caption(f"운용: 총판 {len(_distributors_ct)}개 · 다이렉트 {len(_direct_ct)}개")
 
             # ── ② 총판 1~4 ──
             with cc2:
