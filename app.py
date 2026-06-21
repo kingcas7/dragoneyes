@@ -7971,82 +7971,138 @@ def _customer_form_and_save(user, key_prefix, *, request_mode=False):
         st.rerun()
 
 
-def _render_customer_list(user):
-    """등록된 고객사 목록 — 펼쳐서 수정·저장 (다음에 수정 가능)."""
+_CUST_STAT_LABEL = {"active": "🟢 기존(거래중)", "prospect": "🟡 영업중",
+                    "renewal": "🔁 리뉴얼 필요", "inactive": "⚪ 비활성", "churned": "🔴 이탈"}
+
+
+def _customer_scope(user):
+    """뷰어 기준 고객 조회 범위 산출.
+    반환: (scope_pids 또는 None=전체, 담당파트너명 map, is_distributor_view)."""
     _pid = user.get("partner_id")
-    _rows = []
+    if not _pid:
+        return None, {}, False          # 본부 = 전체
+    _pname = {}
+    try:
+        _me = (supabase.table("partners").select("id,name,is_distributor")
+               .eq("id", _pid).single().execute().data) or {}
+    except Exception:
+        _me = {}
+    _pname[_pid] = _me.get("name", "우리")
+    _scope = [_pid]
+    _is_dist = bool(_me.get("is_distributor"))
+    if _is_dist:
+        try:
+            _children = (supabase.table("partners").select("id,name")
+                         .eq("parent_partner_id", _pid).execute().data or [])
+        except Exception:
+            _children = []
+        for _ch in _children:
+            _scope.append(_ch["id"])
+            _pname[_ch["id"]] = _ch.get("name", "-")
+    return _scope, _pname, _is_dist
+
+
+def _render_customer_list(user):
+    """등록 고객 목록 — 상태 필터 + (총판이면) 산하 파트너 통합·담당파트너 표기.
+    고객사명 클릭 → 등록 고객 상세(customer_detail)에서 수정·삭제."""
+    _scope_pids, _pname_map, _is_dist_view = _customer_scope(user)
     try:
         _q = supabase.table("customers").select("*").order("created_at", desc=True)
-        if _pid:
-            _q = _q.eq("assigned_partner_id", _pid)
-        _rows = _q.limit(300).execute().data or []
+        if _scope_pids is not None:
+            _q = _q.in_("assigned_partner_id", _scope_pids)
+        _rows = _q.limit(500).execute().data or []
     except Exception:
         try:
-            _rows = (supabase.table("customers").select("*")
-                     .limit(300).execute().data or [])
+            _rows = supabase.table("customers").select("*").limit(500).execute().data or []
         except Exception:
             _rows = []
-    st.markdown(f"##### 📁 등록된 고객사 ({len(_rows)}개)")
-    if not _rows:
-        st.info("아직 등록된 고객사가 없습니다. 위 폼에서 추가하세요.")
+
+    # ── 상태 필터 적용 ──
+    _filter = st.session_state.get("cm_filter", "all")
+
+    def _match(r):
+        _s = r.get("customer_status")
+        if _filter == "all":
+            return True
+        if _filter == "active":
+            return _s == "active"
+        if _filter == "prospect":
+            return _s == "prospect"
+        if _filter == "renewal":
+            return _s == "renewal"
+        return True
+    _shown = [r for r in _rows if _match(r)]
+
+    _ftxt = {"all": "전체", "active": "기존고객", "prospect": "영업 중인 고객",
+             "renewal": "리뉴얼 필요"}.get(_filter, "전체")
+    st.markdown(f"##### 📁 {_ftxt} ({len(_shown)}개)"
+                f"{' · 총판 통합 보기' if _is_dist_view else ''}")
+
+    # ── 엑셀 형식 전체표 (예상/발주 컬럼 포함) ──
+    with st.expander("📊 전체 표 보기 (엑셀 형식 · 예상/발주 포함)", expanded=False):
+        if not _shown:
+            st.info("표시할 고객이 없습니다.")
+        else:
+            _data = []
+            for _r in _shown:
+                _row = {}
+                if _is_dist_view:
+                    _row["담당 파트너"] = _pname_map.get(_r.get("assigned_partner_id"), "-")
+                _row.update({
+                    "고객사명": _r.get("name"), "고객번호": _r.get("customer_no"),
+                    "업종": _r.get("industry"), "주소": _r.get("address"),
+                    "대표자명": _r.get("representative_name"),
+                    "연락처1(대표)": _r.get("phone"), "담당자1": _r.get("contact_person_name"),
+                    "연락처2(담당자1)": _r.get("contact_person_phone"),
+                    "담당자2": None, "연락처3(담당자2)": None,
+                    "예상 구매수량": None, "예상 제품Type": None,
+                    "예상 계약기간(년)": None, "예상 발주금액": None,
+                    "발주 구매수량": None, "발주 제품Type": None,
+                    "발주 계약기간(년)": None, "발주금액": None,
+                })
+                _data.append(_row)
+            st.dataframe(pd.DataFrame(_data), use_container_width=True, hide_index=True)
+            st.caption("예상/발주 내역은 영업 기회(opportunities) 연동 단계에서 채워집니다.")
+
+    if not _shown:
+        st.info("해당 조건의 고객이 없습니다. 위 폼에서 추가하거나 다른 필터를 선택하세요.")
         return
-    _stat_label = {"active": "🟢 거래중", "prospect": "🟡 영업중",
-                   "inactive": "⚪ 비활성", "churned": "🔴 이탈"}
-    for _r in _rows:
+
+    # ── 클릭 목록 (고객사명 → 등록 고객 상세) ──
+    _w = ([1.4] if _is_dist_view else []) + [2.0, 1.1, 1.2, 1.3, 1.2]
+    _hdr_labels = (["담당 파트너"] if _is_dist_view else []) + \
+                  ["고객사명", "상태", "대표자", "연락처", "담당자"]
+    _h = st.columns(_w)
+    for _c, _t in zip(_h, _hdr_labels):
+        _c.markdown(f"<div style='font-size:0.7rem;font-weight:700;color:#334155;'>{_t}</div>",
+                    unsafe_allow_html=True)
+    st.markdown("<hr style='margin:2px 0;'>", unsafe_allow_html=True)
+    for _r in _shown:
         _rid = _r.get("id")
-        _title = (f"🏢 {_r.get('name','(이름없음)')} · "
-                  f"{_stat_label.get(_r.get('customer_status'), _r.get('customer_status') or '-')} · "
-                  f"{_r.get('representative_name') or '-'} · {_r.get('phone') or '-'}")
-        with st.expander(_title):
-            with st.form(f"cust_edit_{_rid}"):
-                e1, e2 = st.columns(2)
-                with e1:
-                    _en = st.text_input("상호", value=_r.get("name") or "", key=f"ce_name_{_rid}")
-                    _eb = st.text_input("사업자등록번호", value=_r.get("business_number") or "", key=f"ce_biz_{_rid}")
-                    _erp = st.text_input("대표자", value=_r.get("representative_name") or "", key=f"ce_rep_{_rid}")
-                with e2:
-                    _eph = st.text_input("대표전화", value=_r.get("phone") or "", key=f"ce_phone_{_rid}")
-                    _eem = st.text_input("대표 이메일", value=_r.get("email") or "", key=f"ce_email_{_rid}")
-                    _est = st.selectbox(
-                        "상태", ["prospect", "active", "inactive", "churned"],
-                        index=["prospect", "active", "inactive", "churned"].index(
-                            _r.get("customer_status") if _r.get("customer_status") in
-                            ("prospect", "active", "inactive", "churned") else "active"),
-                        format_func=lambda x: _stat_label.get(x, x), key=f"ce_stat_{_rid}")
-                _ead = st.text_input("주소", value=_r.get("address") or "", key=f"ce_addr_{_rid}")
-                _ea1, _ea2, _ea3 = st.columns(3)
-                _ean = _ea1.text_input("담당자", value=_r.get("contact_person_name") or "", key=f"ce_an_{_rid}")
-                _eat = _ea2.text_input("직책", value=_r.get("contact_person_position") or "", key=f"ce_at_{_rid}")
-                _eap = _ea3.text_input("연락처", value=_r.get("contact_person_phone") or "", key=f"ce_ap_{_rid}")
-                if st.form_submit_button("💾 수정 저장", type="primary", use_container_width=True):
-                    from datetime import datetime as _dtu
-                    _upd = {
-                        "name": _en or _r.get("name"),
-                        "business_number": (_eb or "").replace("-", "").strip() or None,
-                        "representative_name": _erp or None,
-                        "phone": _eph or None,
-                        "email": _eem or None,
-                        "address": _ead or None,
-                        "contact_person_name": _ean or None,
-                        "contact_person_position": _eat or None,
-                        "contact_person_phone": _eap or None,
-                        "customer_status": _est,
-                        "updated_at": _dtu.now().isoformat(),
-                    }
-                    try:
-                        supabase.table("customers").update(_upd).eq("id", _rid).execute()
-                        st.success(f"✅ '{_upd['name']}' 정보가 수정되었습니다.")
-                        st.rerun()
-                    except Exception as _eu:
-                        st.error(f"수정 실패: {str(_eu)[:150]}")
+        _cols = st.columns(_w)
+        _off = 0
+        if _is_dist_view:
+            _cols[0].markdown(
+                f"<div style='font-size:0.72rem;'>{_pname_map.get(_r.get('assigned_partner_id'), '-')}</div>",
+                unsafe_allow_html=True)
+            _off = 1
+        if _cols[_off].button(f"🏢 {_r.get('name','-')}", key=f"cml_{_rid}",
+                              use_container_width=True, help="클릭하면 등록 고객 상세(수정·삭제)로 이동"):
+            st.session_state["detail_customer_id"] = _rid
+            st.session_state["customer_back_page"] = "customer_management"
+            go_to("customer_detail"); st.rerun()
+        _cols[_off+1].markdown(f"<div style='font-size:0.72rem;'>{_CUST_STAT_LABEL.get(_r.get('customer_status'), _r.get('customer_status') or '-')}</div>", unsafe_allow_html=True)
+        _cols[_off+2].markdown(f"<div style='font-size:0.72rem;'>{_r.get('representative_name') or '-'}</div>", unsafe_allow_html=True)
+        _cols[_off+3].markdown(f"<div style='font-size:0.72rem;'>{_r.get('phone') or '-'}</div>", unsafe_allow_html=True)
+        _cols[_off+4].markdown(f"<div style='font-size:0.72rem;'>{_r.get('contact_person_name') or '-'}</div>", unsafe_allow_html=True)
 
 
 def _render_customer_edit_form(row, user, *, key_ns="cd", back_page="customer_management"):
     """등록 고객 상세 — 수정 저장 + 삭제 (customer_detail 페이지에서 사용)."""
     _rid = row.get("id")
-    _stat_opts = ["prospect", "active", "inactive", "churned"]
-    _stat_label = {"prospect": "🟡 영업중", "active": "🟢 거래중",
-                   "inactive": "⚪ 비활성", "churned": "🔴 이탈"}
+    _stat_opts = ["prospect", "active", "renewal", "inactive", "churned"]
+    _stat_label = {"prospect": "🟡 영업중", "active": "🟢 기존(거래중)",
+                   "renewal": "🔁 리뉴얼 필요", "inactive": "⚪ 비활성", "churned": "🔴 이탈"}
     with st.form(f"{key_ns}_edit_{_rid}"):
         st.markdown("##### 🏢 고객 기본 정보")
         c1, c2 = st.columns(2)
@@ -13565,8 +13621,23 @@ else:
     # ══════════════════════════════
     elif page == "customer_management":
         _partner_back_btn("back_cust_mgmt_top")
-        st.markdown("### 🏢 고객사 관리")
-        st.caption("영업 중인 고객사(법인)를 등록·수정합니다. 사업자등록증·명함을 드래그하면 AI가 자동으로 채워줍니다.")
+        _cm_tl, _cm_tr = st.columns([1.6, 4])
+        with _cm_tl:
+            st.markdown("### 🏢 고객사 관리")
+        with _cm_tr:
+            # 🗂️ 고객 분류 필터 — 기존고객 / 영업중 / 리뉴얼 필요
+            _cmf = st.session_state.get("cm_filter", "all")
+            _fb = st.columns(4)
+            for _i, (_fv, _fl) in enumerate([
+                ("all", "📋 전체"), ("active", "🟢 기존고객"),
+                ("prospect", "🟡 영업 중인 고객"), ("renewal", "🔁 리뉴얼 필요"),
+            ]):
+                if _fb[_i].button(_fl, key=f"cmfilter_{_fv}", use_container_width=True,
+                                  type=("primary" if _cmf == _fv else "secondary")):
+                    st.session_state["cm_filter"] = _fv
+                    st.rerun()
+        st.caption("영업 중인 고객사(법인)를 등록·수정합니다. 사업자등록증·명함을 드래그하면 AI가 자동으로 채워줍니다. "
+                   "**총판**은 산하 모든 파트너의 고객을 통합해서 봅니다.")
         st.divider()
         # ── 신규 고객사 등록 (AI 자동채움 + 폼) ──
         _customer_form_and_save(user, "cm_new", request_mode=False)
