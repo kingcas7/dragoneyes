@@ -11574,7 +11574,9 @@ else:
         # ══════════════════════════════════════════════════════════════
         _is_hq_ct = not user.get("partner_id")
         _sel_partner = st.session_state.get("hq_selected_partner")
-        _hq_tower = _is_hq_ct and not _sel_partner
+        # 전체 보기: 상단 '전체 영업현황·서비스' 진입 — 모든 대리점 고객사 한 번에
+        _show_all_detail = bool(st.session_state.get("hq_show_all_detail"))
+        _hq_tower = _is_hq_ct and not _sel_partner and not _show_all_detail
 
         # 신규 라이선스 신청 버튼 — 관제 타워에서는 상단 행에 직접 배치하므로 생략
         if not _hq_tower:
@@ -11593,8 +11595,18 @@ else:
             _q_ct = (_today_ct.month - 1) // 3 + 1
             _q_start_m = (_q_ct - 1) * 3 + 1
 
-            st.markdown("#### 🏢 총판·다이렉트 파트너 관제 타워")
-            st.caption("본부 전용 — 영업 파이프라인 · 매출 현황 · 총판/다이렉트 파트너 배치 (목표 금액은 직접 입력하면 달성률이 자동 계산됩니다)")
+            _th_l, _th_r = st.columns([4, 2])
+            with _th_l:
+                st.markdown("#### 🏢 총판·다이렉트 파트너 관제 타워")
+                st.caption("본부 전용 — 영업 파이프라인 · 매출 현황 · 총판/다이렉트 파트너 배치 (목표 금액은 직접 입력하면 달성률이 자동 계산됩니다)")
+            with _th_r:
+                # 🗂️ 전체 영업현황·서비스 페이지로 진입 (모든 대리점 한 번에)
+                if st.button("🗂️ 전체 영업현황·서비스 페이지 가기",
+                             key="hq_enter_all_detail", use_container_width=True,
+                             help="모든 총판·대리점의 영업현황·서비스 페이지를 한 번에 봅니다. (개별 총판은 아래 카드에서 진입)"):
+                    st.session_state["hq_show_all_detail"] = True
+                    st.session_state.pop("hq_selected_partner", None)
+                    st.rerun()
 
             # ── 파트너 분류 ──
             try:
@@ -11764,15 +11776,19 @@ else:
             st.caption("💡 카드의 '▶ 들어가기'를 누르면 해당 총판·파트너의 세부 영업·서비스 페이지로 이동합니다.")
             st.stop()  # 관제 타워(개요)에서는 아래 세부 페이지를 렌더링하지 않음
 
-        # ── 세부 페이지 진입 배너 (본부가 특정 파트너를 선택한 경우) ──
-        if _is_hq_ct and _sel_partner:
+        # ── 세부 페이지 진입 배너 (본부: 특정 파트너 선택 / 전체 보기) ──
+        if _is_hq_ct and (_sel_partner or _show_all_detail):
             _bk1, _bk2 = st.columns([1.3, 5])
             with _bk1:
                 if st.button("← 관제 타워", key="hq_back_to_tower", use_container_width=True):
                     st.session_state.pop("hq_selected_partner", None)
+                    st.session_state.pop("hq_show_all_detail", None)
                     st.rerun()
             with _bk2:
-                st.markdown(f"#### 🤝 {_sel_partner.get('name','파트너')} — 세부 영업·서비스")
+                if _sel_partner:
+                    st.markdown(f"#### 🤝 {_sel_partner.get('name','파트너')} — 세부 영업·서비스")
+                else:
+                    st.markdown("#### 🗂️ 전체 대리점 — 영업현황·서비스 (모든 총판·파트너 통합)")
             st.divider()
 
         # ══════════════════════════════
@@ -11893,7 +11909,10 @@ else:
         week_str = this_week_start.isoformat()
 
         # 담당 업체 목록
-        if _is_hq_ct and _sel_partner:
+        if _is_hq_ct and _show_all_detail and not _sel_partner:
+            # 전체 보기 — 모든 대리점 고객사 통합
+            my_tenants = get_all_tenants()
+        elif _is_hq_ct and _sel_partner:
             # 본부가 선택한 파트너의 담당 고객사만 (partner_customers 기준)
             try:
                 _pc_sel = supabase.table("partner_customers").select("tenant_id") \
