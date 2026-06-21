@@ -8041,6 +8041,73 @@ def _render_customer_list(user):
                         st.error(f"수정 실패: {str(_eu)[:150]}")
 
 
+def _render_customer_edit_form(row, user, *, key_ns="cd", back_page="customer_management"):
+    """등록 고객 상세 — 수정 저장 + 삭제 (customer_detail 페이지에서 사용)."""
+    _rid = row.get("id")
+    _stat_opts = ["prospect", "active", "inactive", "churned"]
+    _stat_label = {"prospect": "🟡 영업중", "active": "🟢 거래중",
+                   "inactive": "⚪ 비활성", "churned": "🔴 이탈"}
+    with st.form(f"{key_ns}_edit_{_rid}"):
+        st.markdown("##### 🏢 고객 기본 정보")
+        c1, c2 = st.columns(2)
+        with c1:
+            _en = st.text_input("상호 *", value=row.get("name") or "", key=f"{key_ns}_name_{_rid}")
+            _eb = st.text_input("사업자등록번호", value=row.get("business_number") or "", key=f"{key_ns}_biz_{_rid}")
+            _erp = st.text_input("대표자", value=row.get("representative_name") or "", key=f"{key_ns}_rep_{_rid}")
+            _eind = st.text_input("업종", value=row.get("industry") or "", key=f"{key_ns}_ind_{_rid}")
+        with c2:
+            _eph = st.text_input("대표전화", value=row.get("phone") or "", key=f"{key_ns}_phone_{_rid}")
+            _eem = st.text_input("대표 이메일", value=row.get("email") or "", key=f"{key_ns}_email_{_rid}")
+            _est = st.selectbox(
+                "상태", _stat_opts,
+                index=_stat_opts.index(row.get("customer_status")) if row.get("customer_status") in _stat_opts else 1,
+                format_func=lambda x: _stat_label.get(x, x), key=f"{key_ns}_stat_{_rid}")
+        _ead = st.text_input("주소", value=row.get("address") or "", key=f"{key_ns}_addr_{_rid}")
+        st.markdown("##### 👤 담당자 정보")
+        a1, a2, a3 = st.columns(3)
+        _ean = a1.text_input("담당자 이름", value=row.get("contact_person_name") or "", key=f"{key_ns}_an_{_rid}")
+        _eat = a2.text_input("직책", value=row.get("contact_person_position") or "", key=f"{key_ns}_at_{_rid}")
+        _eap = a3.text_input("연락처", value=row.get("contact_person_phone") or "", key=f"{key_ns}_ap_{_rid}")
+        _ememo = st.text_area("영업 메모", value=row.get("notes") or "", key=f"{key_ns}_memo_{_rid}", height=70)
+        _save = st.form_submit_button("💾 수정 저장", type="primary", use_container_width=True)
+    if _save:
+        from datetime import datetime as _dtu
+        _upd = {
+            "name": _en or row.get("name"),
+            "business_number": (_eb or "").replace("-", "").strip() or None,
+            "representative_name": _erp or None,
+            "industry": _eind or None,
+            "phone": _eph or None,
+            "email": _eem or None,
+            "address": _ead or None,
+            "contact_person_name": _ean or None,
+            "contact_person_position": _eat or None,
+            "contact_person_phone": _eap or None,
+            "customer_status": _est,
+            "updated_at": _dtu.now().isoformat(),
+        }
+        if (_ememo or "").strip():
+            _upd["notes"] = _ememo.strip()
+        try:
+            supabase.table("customers").update(_upd).eq("id", _rid).execute()
+        except Exception:
+            _upd.pop("notes", None)
+            _upd.pop("industry", None)
+            supabase.table("customers").update(_upd).eq("id", _rid).execute()
+        st.success(f"✅ '{_upd['name']}' 정보가 수정되었습니다.")
+        st.rerun()
+    # 🗑️ 삭제 (폼 밖, 2단계 확인)
+    with st.expander("🗑️ 이 고객 삭제"):
+        st.warning("삭제하면 복구할 수 없습니다. 정말 삭제하시겠습니까?")
+        if st.button("삭제 확정", key=f"{key_ns}_del_{_rid}"):
+            try:
+                supabase.table("customers").delete().eq("id", _rid).execute()
+                st.success("🗑️ 삭제되었습니다.")
+                go_to(back_page); st.rerun()
+            except Exception as _ed:
+                st.error(f"삭제 실패: {str(_ed)[:150]}")
+
+
 def log_monitoring_event(
     event_type,
     *,
@@ -11970,7 +12037,11 @@ else:
 
         # ── 세부 페이지 진입 배너 (본부: 특정 파트너 선택 / 전체 보기) ──
         if _is_hq_ct and (_sel_partner or _show_all_detail):
-            _bk1, _bk2 = st.columns([1.3, 5])
+            if _show_all_detail and not _sel_partner:
+                _bk1, _bk2, _bk3 = st.columns([1.3, 3.4, 1.6])
+            else:
+                _bk1, _bk2 = st.columns([1.3, 5])
+                _bk3 = None
             with _bk1:
                 if st.button("← 관제 타워", key="hq_back_to_tower", use_container_width=True):
                     st.session_state.pop("hq_selected_partner", None)
@@ -11981,6 +12052,13 @@ else:
                     st.markdown(f"#### 🤝 {_sel_partner.get('name','파트너')} — 세부 영업·서비스")
                 else:
                     st.markdown("#### 🗂️ 전체 대리점 — 영업현황·서비스 (모든 총판·파트너 통합)")
+            if _bk3 is not None:
+                with _bk3:
+                    # 📊 총판 산하 전체 파트너 영업현황 표로 진입
+                    if st.button("📊 총판 영업 관리", key="hq_enter_distributor_sales",
+                                 use_container_width=True, type="primary",
+                                 help="총판 산하 전체 파트너의 영업현황을 표로 봅니다. 파트너를 클릭하면 그 파트너의 고객 영업현황으로 들어갑니다."):
+                        go_to("distributor_sales"); st.rerun()
             st.divider()
 
         # ══════════════════════════════
@@ -13495,6 +13573,187 @@ else:
         st.divider()
         # ── 등록된 고객사 목록 (펼쳐서 수정 가능) ──
         _render_customer_list(user)
+
+    # ══════════════════════════════════════════════════════════════
+    # 📊 총판 영업현황 — 산하 전체 파트너 영업 한눈에 (2026-06-21)
+    #   전체 통합 뷰 → '총판 영업 관리' 진입. 파트너 클릭 → partner_sales
+    # ══════════════════════════════════════════════════════════════
+    elif page == "distributor_sales":
+        _partner_back_btn("back_distributor_sales", target="agency_dashboard")
+        st.markdown("### 📊 총판 영업현황")
+        st.caption("총판 산하 전체 파트너의 연간 목표·실적·달성률·분기별 현황입니다. **파트너명을 클릭**하면 그 파트너의 고객 영업현황으로 이동합니다.")
+
+        _yr_ds = date.today().year
+        try:
+            _parts_ds = [p for p in (get_all_agencies() or []) if not p.get("terminated_at")]
+        except Exception:
+            _parts_ds = []
+        try:
+            _opps_ds = supabase.table("opportunities").select(
+                "status,expected_amount,assigned_partner_id,approval_status,expected_close_date"
+            ).execute().data or []
+            _opps_ds = [o for o in _opps_ds
+                        if (o.get("approval_status") or "approved") in ("approved", "auto_approved")]
+        except Exception:
+            _opps_ds = []
+        try:
+            _users_ds = supabase.table("users").select("id,partner_id").execute().data or []
+        except Exception:
+            _users_ds = []
+        _emp_by_pid = {}
+        for _u in _users_ds:
+            _pid = _u.get("partner_id")
+            if _pid:
+                _emp_by_pid[_pid] = _emp_by_pid.get(_pid, 0) + 1
+
+        def _q_of_ds(d):
+            try:
+                return (int(str(d)[5:7]) - 1) // 3 + 1
+            except Exception:
+                return 0
+
+        def _won_fmt_ds(v):
+            if not v:
+                return "-"
+            if v >= 100000000:
+                return f"{v/100000000:.1f}억"
+            if v >= 10000:
+                return f"{v/10000:,.0f}만"
+            return f"{v:,.0f}"
+
+        def _agg_ds(pid):
+            _won = 0.0; _pl = 0.0; _qw = [0.0]*4; _qp = [0.0]*4
+            for o in _opps_ds:
+                if o.get("assigned_partner_id") != pid:
+                    continue
+                amt = float(o.get("expected_amount") or 0)
+                _d = str(o.get("expected_close_date") or "")
+                _yok = _d[:4] == str(_yr_ds)
+                _q = _q_of_ds(_d)
+                if o.get("status") == "closed_won":
+                    _won += amt
+                    if _yok and 1 <= _q <= 4:
+                        _qw[_q-1] += amt
+                elif o.get("status") != "closed_lost":
+                    _pl += amt
+                    if _yok and 1 <= _q <= 4:
+                        _qp[_q-1] += amt
+            return _won, _pl, _qw, _qp
+
+        _w_ds = [2.2, 0.7, 1.2, 1.1, 0.8, 1.1, 1.1, 1.1, 1.1]
+        _hdr = st.columns(_w_ds)
+        for _c, _t in zip(_hdr, ["파트너명", "직원수", f"{_yr_ds} 목표", "실적", "달성률",
+                                 "1Q 실적/PL", "2Q 실적/PL", "3Q 실적/PL", "4Q 실적/PL"]):
+            _c.markdown(f"<div style='font-size:0.7rem;font-weight:700;color:#334155;'>{_t}</div>", unsafe_allow_html=True)
+        st.markdown("<hr style='margin:2px 0;'>", unsafe_allow_html=True)
+
+        _tot = {"won": 0.0, "tgt": 0.0, "emp": 0}
+        if not _parts_ds:
+            st.info("등록된 파트너가 없습니다. 신규 파트너 등록 후 표시됩니다.")
+        for _p in _parts_ds:
+            _pid = _p.get("id")
+            _won, _pl, _qw, _qp = _agg_ds(_pid)
+            _tgt = float(st.session_state.get(f"hq_ptgt_{_pid}", 0) or 0) * 10000
+            _rate = (_won / _tgt * 100) if _tgt > 0 else 0
+            _emp = _emp_by_pid.get(_pid, 0)
+            _tot["won"] += _won; _tot["tgt"] += _tgt; _tot["emp"] += _emp
+            _row = st.columns(_w_ds)
+            _typ = "총판" if _p.get("is_distributor") else ("대리점" if _p.get("is_reseller") else "파트너")
+            if _row[0].button(f"🤝 {_p.get('name','-')}", key=f"ds_open_{_pid}", use_container_width=True,
+                              help=f"{_typ} · 클릭하면 영업현황(고객 목록)으로 이동"):
+                st.session_state["ps_partner"] = {"id": _pid, "name": _p.get("name", "파트너")}
+                go_to("partner_sales"); st.rerun()
+            _row[1].markdown(f"<div style='font-size:0.74rem;'>{_emp}명</div>", unsafe_allow_html=True)
+            _row[2].markdown(f"<div style='font-size:0.74rem;'>{_won_fmt_ds(_tgt)}</div>", unsafe_allow_html=True)
+            _row[3].markdown(f"<div style='font-size:0.74rem;'>{_won_fmt_ds(_won)}</div>", unsafe_allow_html=True)
+            _row[4].markdown(f"<div style='font-size:0.74rem;font-weight:700;color:{'#16a34a' if _rate>=100 else '#334155'};'>{_rate:.0f}%</div>", unsafe_allow_html=True)
+            for _i in range(4):
+                _row[5+_i].markdown(
+                    f"<div style='font-size:0.68rem;'>{_won_fmt_ds(_qw[_i])}"
+                    f"<br><span style='color:#64748b;'>{_won_fmt_ds(_qp[_i])}</span></div>",
+                    unsafe_allow_html=True)
+        if _parts_ds:
+            st.markdown("<hr style='margin:2px 0;'>", unsafe_allow_html=True)
+            _srow = st.columns(_w_ds)
+            _trate = (_tot["won"]/_tot["tgt"]*100) if _tot["tgt"] > 0 else 0
+            _srow[0].markdown("<div style='font-size:0.74rem;font-weight:700;'>소계</div>", unsafe_allow_html=True)
+            _srow[1].markdown(f"<div style='font-size:0.74rem;font-weight:700;'>{_tot['emp']}명</div>", unsafe_allow_html=True)
+            _srow[2].markdown(f"<div style='font-size:0.74rem;font-weight:700;'>{_won_fmt_ds(_tot['tgt'])}</div>", unsafe_allow_html=True)
+            _srow[3].markdown(f"<div style='font-size:0.74rem;font-weight:700;'>{_won_fmt_ds(_tot['won'])}</div>", unsafe_allow_html=True)
+            _srow[4].markdown(f"<div style='font-size:0.74rem;font-weight:700;'>{_trate:.0f}%</div>", unsafe_allow_html=True)
+        st.caption("💡 연간 매출 목표는 관제 타워에서 파트너별로 입력한 값과 연동됩니다. 실적·파이프라인은 영업 기회(opportunities) 데이터 기준입니다.")
+        st.divider()
+        if st.button("➕ 신규 파트너 추가", key="ds_add_partner"):
+            go_to("partner_register"); st.rerun()
+
+    # ══════════════════════════════════════════════════════════════
+    # 🤝 파트너 영업현황 — 그 파트너의 고객 목록 (2026-06-21)
+    #   고객사명 클릭 → 등록된 고객 상세(customer_detail)
+    # ══════════════════════════════════════════════════════════════
+    elif page == "partner_sales":
+        _sp = st.session_state.get("ps_partner")
+        _partner_back_btn("back_partner_sales", target="distributor_sales")
+        if not _sp:
+            st.warning("선택된 파트너가 없습니다. 총판 영업현황에서 파트너를 선택해주세요.")
+            if st.button("📊 총판 영업현황으로", key="ps_no_partner"):
+                go_to("distributor_sales"); st.rerun()
+        else:
+            st.markdown(f"### 🤝 {_sp.get('name','파트너')} — 영업현황")
+            st.caption("이 파트너의 고객 목록입니다. **고객사명을 클릭**하면 등록된 고객 상세(수정·삭제)로 이동합니다.")
+            if st.button("➕ 신규 고객 추가", key="ps_add_cust", type="primary"):
+                go_to("customer_management"); st.rerun()
+            try:
+                _custs_ps = (supabase.table("customers").select("*")
+                             .eq("assigned_partner_id", _sp["id"])
+                             .order("created_at", desc=True).limit(300).execute().data or [])
+            except Exception:
+                _custs_ps = []
+            st.markdown(f"##### 📁 고객 ({len(_custs_ps)}개)")
+            if not _custs_ps:
+                st.info("아직 등록된 고객이 없습니다. '➕ 신규 고객 추가'로 등록하세요.")
+            else:
+                _w_ps = [2.2, 1.0, 1.0, 2.2, 1.0, 1.2, 1.2]
+                _hdr_ps = st.columns(_w_ps)
+                for _c, _t in zip(_hdr_ps, ["고객사명", "고객번호", "업종", "주소", "대표자", "연락처", "담당자"]):
+                    _c.markdown(f"<div style='font-size:0.7rem;font-weight:700;color:#334155;'>{_t}</div>", unsafe_allow_html=True)
+                st.markdown("<hr style='margin:2px 0;'>", unsafe_allow_html=True)
+                for _c in _custs_ps:
+                    _cid = _c.get("id")
+                    _rw = st.columns(_w_ps)
+                    if _rw[0].button(f"🏢 {_c.get('name','-')}", key=f"ps_cust_{_cid}",
+                                     use_container_width=True, help="클릭하면 등록된 고객 상세(수정·삭제)로 이동"):
+                        st.session_state["detail_customer_id"] = _cid
+                        st.session_state["customer_back_page"] = "partner_sales"
+                        go_to("customer_detail"); st.rerun()
+                    _rw[1].markdown(f"<div style='font-size:0.72rem;'>{_c.get('customer_no') or '-'}</div>", unsafe_allow_html=True)
+                    _rw[2].markdown(f"<div style='font-size:0.72rem;'>{_c.get('industry') or '-'}</div>", unsafe_allow_html=True)
+                    _rw[3].markdown(f"<div style='font-size:0.72rem;'>{_c.get('address') or '-'}</div>", unsafe_allow_html=True)
+                    _rw[4].markdown(f"<div style='font-size:0.72rem;'>{_c.get('representative_name') or '-'}</div>", unsafe_allow_html=True)
+                    _rw[5].markdown(f"<div style='font-size:0.72rem;'>{_c.get('phone') or '-'}</div>", unsafe_allow_html=True)
+                    _rw[6].markdown(f"<div style='font-size:0.72rem;'>{_c.get('contact_person_name') or '-'}</div>", unsafe_allow_html=True)
+            st.caption("💡 예상/발주 내역(구매수량·제품Type·계약기간·금액)은 영업 기회 연동 단계에서 추가됩니다.")
+
+    # ══════════════════════════════════════════════════════════════
+    # 🏢 등록된 고객 상세 — 수정·삭제 (2026-06-21)
+    # ══════════════════════════════════════════════════════════════
+    elif page == "customer_detail":
+        _cid_d = st.session_state.get("detail_customer_id")
+        _back_d = st.session_state.get("customer_back_page", "customer_management")
+        _partner_back_btn("back_customer_detail", target=_back_d)
+        if not _cid_d:
+            st.warning("선택된 고객이 없습니다.")
+        else:
+            try:
+                _row_d = (supabase.table("customers").select("*")
+                          .eq("id", _cid_d).single().execute().data)
+            except Exception:
+                _row_d = None
+            if not _row_d:
+                st.error("고객 정보를 찾을 수 없습니다.")
+            else:
+                st.markdown(f"### 🏢 {_row_d.get('name','고객')} — 등록 고객 상세")
+                st.caption("등록된 고객 정보를 수정하거나 삭제할 수 있습니다.")
+                _render_customer_edit_form(_row_d, user, key_ns="cd", back_page=_back_d)
 
     elif page == "user_detail":
         _did = st.session_state.get("detail_user_id")
