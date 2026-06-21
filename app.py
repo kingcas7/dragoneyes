@@ -9780,11 +9780,10 @@ else:
 
     _voice_on_now = bool(st.session_state.get("voice_guide_enabled"))
     _dict_on_now  = bool(st.session_state.get("dictation_enabled"))
-    # ⭐ expander 자동 펼침 조건:
-    #   - 음성 ON / 받아쓰기 ON: 끄기 쉽도록 펼침
-    #   - 둘 다 OFF (시각장애인 진입 가능성): Tab으로 접근하도록 펼침
-    #   → 결과적으로 항상 펼침 (UI 산만함 최소화는 한 줄 expander label로 대체)
-    _expander_open = True
+    # ⭐ 접근성 박스는 기본 '닫힘' (2026-06-21, 사용자 요청).
+    #   필요한 사람만 쓰는 기능 — 매 페이지 펼쳐져 산만함을 줬음.
+    #   음성/받아쓰기가 켜져 있을 때만, 끄기 쉽도록 자동 펼침.
+    _expander_open = bool(_voice_on_now or _dict_on_now)
     _expander_label = "♿ 접근성 · 음성 안내 / 받아쓰기"
     if _voice_on_now and _dict_on_now:
         _expander_label += "  ✅ 음성 ON · 🎤 받아쓰기 ON"
@@ -9795,6 +9794,43 @@ else:
 
     # ⭐ 캠페인 페이지/사용자는 toolbar 숨김 (모니터링 전용 기능)
     if not _hide_a11y_toolbar:
+        # ── 펼치지 않고 한 줄에서 바로 on/off (스위치 대신 버튼) ──
+        _qa1, _qa2, _qa3 = st.columns([2, 2, 6])
+        if _qa1.button(
+            "🔊 음성 안내 ON ✅" if _voice_on_now else "🔇 음성 안내 켜기",
+            key="a11y_quick_voice", use_container_width=True,
+            type=("primary" if _voice_on_now else "secondary"),
+            help="시각장애인용 음성 안내를 바로 켜고 끕니다.",
+        ):
+            _nv = not _voice_on_now
+            st.session_state["voice_guide_enabled"] = _nv
+            st.session_state["a11y_main_voice_toggle"] = _nv
+            try:
+                if user:
+                    _a11y_save_to_user(supabase, user.get("id"))
+            except Exception:
+                pass
+            try:
+                _a11y_main_speak("음성 안내를 켭니다." if _nv else "음성 안내를 끕니다.")
+            except Exception:
+                pass
+            st.rerun()
+        if _qa2.button(
+            "🎤 받아쓰기 ON ✅" if _dict_on_now else "🎤 받아쓰기 켜기",
+            key="a11y_quick_dict", use_container_width=True,
+            type=("primary" if _dict_on_now else "secondary"),
+            help="드래곤파더 음성 입력(받아쓰기)을 바로 켜고 끕니다.",
+        ):
+            _nd = not _dict_on_now
+            st.session_state["dictation_enabled"] = _nd
+            st.session_state["a11y_main_dictation_toggle"] = _nd
+            try:
+                if user:
+                    _a11y_save_to_user(supabase, user.get("id"))
+            except Exception:
+                pass
+            st.rerun()
+
         with st.expander(_expander_label, expanded=_expander_open):
             accessibility.render_toolbar(
                 supabase=supabase,
