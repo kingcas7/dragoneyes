@@ -14134,7 +14134,7 @@ else:
             _parts_ds = []
         try:
             _opps_ds = supabase.table("opportunities").select(
-                "status,expected_amount,assigned_partner_id,approval_status,expected_close_date"
+                "status,expected_amount,win_probability,assigned_partner_id,approval_status,expected_close_date"
             ).execute().data or []
             _opps_ds = [o for o in _opps_ds
                         if (o.get("approval_status") or "approved") in ("approved", "auto_approved")]
@@ -14166,7 +14166,7 @@ else:
             return f"{v:,.0f}"
 
         def _agg_ds(pid):
-            _won = 0.0; _pl = 0.0; _qw = [0.0]*4; _qp = [0.0]*4
+            _won = 0.0; _pl = 0.0; _fc = 0.0; _cnt = 0; _qw = [0.0]*4; _qp = [0.0]*4
             for o in _opps_ds:
                 if o.get("assigned_partner_id") != pid:
                     continue
@@ -14179,28 +14179,33 @@ else:
                     if _yok and 1 <= _q <= 4:
                         _qw[_q-1] += amt
                 elif o.get("status") != "closed_lost":
-                    _pl += amt
+                    _pl += amt                       # 진행 중 파이프라인 합계
+                    _cnt += 1
+                    _fc += amt * float(o.get("win_probability") or 0) / 100  # Forecast(가중)
                     if _yok and 1 <= _q <= 4:
                         _qp[_q-1] += amt
-            return _won, _pl, _qw, _qp
+            return _won, _pl, _fc, _cnt, _qw, _qp
 
-        _w_ds = [2.2, 0.7, 1.2, 1.1, 0.8, 1.1, 1.1, 1.1, 1.1]
+        # 컬럼: 파트너명·직원수·목표·실적·달성률·영업파이프라인·예상(FC)·1Q~4Q
+        _w_ds = [2.0, 0.6, 1.0, 1.0, 0.7, 1.15, 1.05, 1.0, 1.0, 1.0, 1.0]
         _hdr = st.columns(_w_ds)
         for _c, _t in zip(_hdr, ["파트너명", "직원수", f"{_yr_ds} 목표", "실적", "달성률",
+                                 "📊 영업파이프라인", "🎯 예상(FC)",
                                  "1Q 실적/PL", "2Q 실적/PL", "3Q 실적/PL", "4Q 실적/PL"]):
-            _c.markdown(f"<div style='font-size:0.7rem;font-weight:700;color:#334155;'>{_t}</div>", unsafe_allow_html=True)
+            _c.markdown(f"<div style='font-size:0.68rem;font-weight:700;color:#334155;'>{_t}</div>", unsafe_allow_html=True)
         st.markdown("<hr style='margin:2px 0;'>", unsafe_allow_html=True)
 
-        _tot = {"won": 0.0, "tgt": 0.0, "emp": 0}
+        _tot = {"won": 0.0, "tgt": 0.0, "emp": 0, "pl": 0.0, "fc": 0.0, "cnt": 0}
         if not _parts_ds:
             st.info("등록된 파트너가 없습니다. 신규 파트너 등록 후 표시됩니다.")
         for _p in _parts_ds:
             _pid = _p.get("id")
-            _won, _pl, _qw, _qp = _agg_ds(_pid)
+            _won, _pl, _fc, _cnt, _qw, _qp = _agg_ds(_pid)
             _tgt = float(st.session_state.get(f"hq_ptgt_{_pid}", 0) or 0) * 10000
             _rate = (_won / _tgt * 100) if _tgt > 0 else 0
             _emp = _emp_by_pid.get(_pid, 0)
             _tot["won"] += _won; _tot["tgt"] += _tgt; _tot["emp"] += _emp
+            _tot["pl"] += _pl; _tot["fc"] += _fc; _tot["cnt"] += _cnt
             _row = st.columns(_w_ds)
             _typ = "총판" if _p.get("is_distributor") else ("대리점" if _p.get("is_reseller") else "파트너")
             if _row[0].button(f"🤝 {_p.get('name','-')}", key=f"ds_open_{_pid}", use_container_width=True,
@@ -14211,9 +14216,12 @@ else:
             _row[2].markdown(f"<div style='font-size:0.74rem;'>{_won_fmt_ds(_tgt)}</div>", unsafe_allow_html=True)
             _row[3].markdown(f"<div style='font-size:0.74rem;'>{_won_fmt_ds(_won)}</div>", unsafe_allow_html=True)
             _row[4].markdown(f"<div style='font-size:0.74rem;font-weight:700;color:{'#16a34a' if _rate>=100 else '#334155'};'>{_rate:.0f}%</div>", unsafe_allow_html=True)
+            _row[5].markdown(f"<div style='font-size:0.74rem;font-weight:700;color:#2563eb;'>{_won_fmt_ds(_pl)}"
+                             f"<br><span style='font-size:0.6rem;color:#64748b;font-weight:400;'>진행 {_cnt}건</span></div>", unsafe_allow_html=True)
+            _row[6].markdown(f"<div style='font-size:0.74rem;font-weight:700;color:#7c3aed;'>{_won_fmt_ds(_fc)}</div>", unsafe_allow_html=True)
             for _i in range(4):
-                _row[5+_i].markdown(
-                    f"<div style='font-size:0.68rem;'>{_won_fmt_ds(_qw[_i])}"
+                _row[7+_i].markdown(
+                    f"<div style='font-size:0.66rem;'>{_won_fmt_ds(_qw[_i])}"
                     f"<br><span style='color:#64748b;'>{_won_fmt_ds(_qp[_i])}</span></div>",
                     unsafe_allow_html=True)
         if _parts_ds:
@@ -14225,7 +14233,11 @@ else:
             _srow[2].markdown(f"<div style='font-size:0.74rem;font-weight:700;'>{_won_fmt_ds(_tot['tgt'])}</div>", unsafe_allow_html=True)
             _srow[3].markdown(f"<div style='font-size:0.74rem;font-weight:700;'>{_won_fmt_ds(_tot['won'])}</div>", unsafe_allow_html=True)
             _srow[4].markdown(f"<div style='font-size:0.74rem;font-weight:700;'>{_trate:.0f}%</div>", unsafe_allow_html=True)
-        st.caption("💡 연간 매출 목표는 관제 타워에서 파트너별로 입력한 값과 연동됩니다. 실적·파이프라인은 영업 기회(opportunities) 데이터 기준입니다.")
+            _srow[5].markdown(f"<div style='font-size:0.74rem;font-weight:700;color:#2563eb;'>{_won_fmt_ds(_tot['pl'])}"
+                              f"<br><span style='font-size:0.6rem;color:#64748b;font-weight:400;'>진행 {_tot['cnt']}건</span></div>", unsafe_allow_html=True)
+            _srow[6].markdown(f"<div style='font-size:0.74rem;font-weight:700;color:#7c3aed;'>{_won_fmt_ds(_tot['fc'])}</div>", unsafe_allow_html=True)
+        st.caption("💡 목표는 관제 타워 입력값 연동. **영업파이프라인**=진행 중 영업기회 예상금액 합계, "
+                   "**예상(FC)**=Forecast(예상금액×성공확률) — 영업 파이프라인 페이지와 동일 기준입니다.")
         st.divider()
         if st.button("➕ 신규 파트너 추가", key="ds_add_partner"):
             go_to("partner_register"); st.rerun()
