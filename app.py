@@ -8426,6 +8426,142 @@ def _kead_xlsx_bytes(title, columns, data_rows, *, sheet_name="Sheet1", subtitle
     return _buf.getvalue()
 
 
+# ── 공단 서류 초안 영속 저장 (자동 저장·회차 불러오기, 2026-06-22) ──
+_GOV_DRAFTS_SQL = """-- 공단 서류 자동 저장 테이블 (Supabase SQL Editor에서 1회 실행)
+create table if not exists public.gov_doc_drafts (
+  id uuid primary key default gen_random_uuid(),
+  owner_partner_id uuid,
+  customer_id uuid,
+  doc_key text not null,
+  data jsonb not null default '{}'::jsonb,
+  updated_by uuid,
+  updated_at timestamptz not null default now()
+);
+create index if not exists idx_gov_doc_drafts_lookup
+  on public.gov_doc_drafts (doc_key, owner_partner_id, customer_id, updated_at desc);
+alter table public.gov_doc_drafts enable row level security;
+drop policy if exists gov_doc_drafts_all on public.gov_doc_drafts;
+create policy gov_doc_drafts_all on public.gov_doc_drafts
+  for all using (true) with check (true);"""
+
+
+def _gov_draft_load(user, customer, doc_key):
+    """마지막 저장 초안 1건 반환 ({'data':..., 'updated_at':...}) 또는 None."""
+    _pid = (user or {}).get("partner_id")
+    _cid = (customer or {}).get("id")
+    try:
+        _q = sb_admin().table("gov_doc_drafts").select("data,updated_at").eq("doc_key", doc_key)
+        _q = _q.eq("owner_partner_id", _pid) if _pid else _q.is_("owner_partner_id", "null")
+        _q = _q.eq("customer_id", _cid) if _cid else _q.is_("customer_id", "null")
+        _r = _q.order("updated_at", desc=True).limit(1).execute().data or []
+        return _r[0] if _r else None
+    except Exception:
+        return None
+
+
+def _gov_draft_save(user, customer, doc_key, data):
+    """초안 upsert. 반환 (성공여부, 에러문자열)."""
+    _pid = (user or {}).get("partner_id")
+    _cid = (customer or {}).get("id")
+    _row = {"owner_partner_id": _pid, "customer_id": _cid, "doc_key": doc_key,
+            "data": data, "updated_at": datetime.now().isoformat(),
+            "updated_by": (user or {}).get("id")}
+    try:
+        _q = sb_admin().table("gov_doc_drafts").select("id").eq("doc_key", doc_key)
+        _q = _q.eq("owner_partner_id", _pid) if _pid else _q.is_("owner_partner_id", "null")
+        _q = _q.eq("customer_id", _cid) if _cid else _q.is_("customer_id", "null")
+        _ex = _q.limit(1).execute().data or []
+        if _ex:
+            sb_admin().table("gov_doc_drafts").update(_row).eq("id", _ex[0]["id"]).execute()
+        else:
+            sb_admin().table("gov_doc_drafts").insert(_row).execute()
+        return True, None
+    except Exception as _e:
+        return False, str(_e)[:160]
+
+
+_ROSTER_COLS = ["연번", "사업장명", "사업자등록번호", "장애인근로자명", "주민등록번호",
+                "장애인정구분", "장애유형", "상이등급", "중증(경증)여부", "중증2배수인정여부",
+                "장애인정일", "입사일", "퇴사일", "근무직종", "임금(원)", "장려금·지원금 수령기간"]
+
+
+def _kead_roster_block(user, customer, ns):
+    """장애인 근로자 명부 편집기 — 자동 저장/불러오기 공용 (서류·사용자관리 공유).
+    customer 기준으로 gov_doc_drafts(doc_key='kead_roster')에 영속."""
+    _dfkey, _edkey = f"{ns}_roster_df", f"{ns}_roster_editor"
+    _tok = f"{ns}:{(customer or {}).get('id')}"
+    # 🔄 자동 불러오기 (customer 변경 시)
+    if st.session_state.get(f"{ns}_roster_loaded") != _tok:
+        _drf = _gov_draft_load(user, customer, "kead_roster")
+        _rows = (_drf or {}).get("data", {}).get("rows") if _drf else None
+        if _rows is not None:
+            st.session_state[_dfkey] = pd.DataFrame(_rows)
+        else:
+            _init = pd.DataFrame([{_c: "" for _c in _ROSTER_COLS} for _ in range(3)])
+            if customer:
+                _init["사업장명"] = customer.get("name") or ""
+                _init["사업자등록번호"] = customer.get("business_number") or ""
+            st.session_state[_dfkey] = _init
+        st.session_state.pop(_edkey, None)
+        st.session_state[f"{ns}_roster_loaded"] = _tok
+        st.session_state.pop(f"{ns}_roster_snap", None)
+
+    _up = st.file_uploader("기존 명부 엑셀 불러오기 (선택 · .xlsx)", type=["xlsx"], key=f"{ns}_roster_up")
+    if _up is not None and st.session_state.get(f"{ns}_roster_upname") != _up.name:
+        try:
+            _dfu = pd.read_excel(_up, header=2).iloc[:, :len(_ROSTER_COLS)]
+            _dfu.columns = _ROSTER_COLS[:_dfu.shape[1]]
+            _dfu = _dfu.dropna(how="all").fillna("").astype(str)
+            st.session_state[_dfkey] = _dfu
+            st.session_state.pop(_edkey, None)
+            st.session_state[f"{ns}_roster_upname"] = _up.name
+            st.success(f"✅ '{_up.name}' 불러왔습니다 ({len(_dfu)}행).")
+            st.rerun()
+        except Exception as _eu:
+            st.error(f"불러오기 실패: {str(_eu)[:120]}")
+
+    if customer:
+        if st.button(f"📌 '{customer.get('name')}'(으)로 사업장명·사업자번호 채우기", key=f"{ns}_roster_fill"):
+            _d2 = st.session_state.get(_dfkey)
+            if _d2 is not None and "사업장명" in _d2.columns:
+                _d2 = _d2.copy()
+                _d2["사업장명"] = customer.get("name") or ""
+                _d2["사업자등록번호"] = customer.get("business_number") or ""
+                st.session_state[_dfkey] = _d2
+                st.session_state.pop(_edkey, None)
+                st.rerun()
+
+    _base = st.session_state.get(_dfkey)
+    if _base is None or list(_base.columns) != _ROSTER_COLS:
+        _base = pd.DataFrame([{_c: "" for _c in _ROSTER_COLS} for _ in range(3)])
+    _ed = st.data_editor(_base, num_rows="dynamic", use_container_width=True, key=_edkey, height=340)
+    st.session_state[_dfkey] = _ed
+
+    _rows = [{_c: ("" if pd.isna(_v) else _v) for _c, _v in _r.items()}
+             for _r in _ed.to_dict("records")]
+    # 💾 자동 저장 (변경 시)
+    _snap = {"rows": _rows}
+    if st.session_state.get(f"{ns}_roster_snap") != _snap:
+        _ok, _err = _gov_draft_save(user, customer, "kead_roster", _snap)
+        st.session_state[f"{ns}_roster_snap"] = _snap
+        st.session_state[f"{ns}_roster_saveok"] = _ok
+        st.session_state[f"{ns}_roster_err"] = _err
+
+    _nonempty = [r for r in _rows if any(str(v).strip() for v in r.values())]
+    _xlsx = _kead_xlsx_bytes("[첨부서류 양식] 장애인 근로자 명부", _ROSTER_COLS, _nonempty,
+                             sheet_name="장애인근로자명부")
+    st.download_button(f"📥 공단 양식 엑셀 다운로드 ({len(_nonempty)}명)", _xlsx,
+                       file_name="장애인_근로자_명부.xlsx",
+                       mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                       type="primary", key=f"{ns}_roster_dl", use_container_width=True)
+    if st.session_state.get(f"{ns}_roster_err"):
+        st.warning("💾 자동 저장 미활성 — 아래 SQL 1회 실행 시 활성화 (지금은 세션 동안만 유지).")
+        with st.expander("📋 gov_doc_drafts 생성 SQL 보기"):
+            st.code(_GOV_DRAFTS_SQL, language="sql")
+    elif st.session_state.get(f"{ns}_roster_saveok"):
+        st.caption("💾 명부 자동 저장됨 — 서류 페이지·사용자 관리에서 공유 편집됩니다.")
+
+
 def log_monitoring_event(
     event_type,
     *,
@@ -14464,6 +14600,26 @@ else:
         st.markdown("### 👥 사용자 관리")
         st.caption("재직/퇴사 사용자 관리 + 신규 등록")
 
+        # ── 📄 공단 장애인 근로자 명부 (서류 페이지와 공유 편집) ──
+        with st.expander("📄 공단 장애인 근로자 명부 (공단 서류 대행과 공유 편집)", expanded=False):
+            st.caption("여기서 입력·수정한 명부는 **공단 서류 대행** 페이지의 명부와 자동으로 공유됩니다. "
+                       "고객(사업장)을 선택하면 해당 사업장 명부를 편집합니다.")
+            _um_scope, _, _ = _customer_scope(user)
+            try:
+                _um_cq = supabase.table("customers").select("id,name,business_number,customer_no")
+                if _um_scope is not None:
+                    _um_cq = _um_cq.in_("assigned_partner_id", _um_scope)
+                _um_custs = _um_cq.order("name").limit(500).execute().data or []
+            except Exception:
+                _um_custs = []
+            _um_opts = {f"{c.get('name','-')} · {c.get('customer_no') or '-'}": c for c in _um_custs}
+            if not _um_opts:
+                st.info("등록된 고객(사업장)이 없습니다. 먼저 고객사 관리에서 등록하세요.")
+            else:
+                _um_pick = st.selectbox("사업장(고객) 선택", list(_um_opts.keys()), key="um_roster_cust")
+                _kead_roster_block(user, _um_opts.get(_um_pick), "um")
+        st.divider()
+
         _cur = st.session_state.user or {}
         _agency_id = get_partner_id_for_user(_cur)  # Phase 3 듀얼 리드
         _role = _cur.get("role") or _cur.get("role_v2") or ""
@@ -15170,18 +15326,10 @@ else:
                     if _pick_dc and _pick_dc != "(선택 안 함)":
                         _c = _opts_dc[_pick_dc]
                         st.session_state["doc_customer"] = _c
-                        # 신청서(별지 제15호) 위젯 자동 채움
-                        st.session_state["sub_co"] = _c.get("name") or ""
-                        st.session_state["sub_ceo"] = _c.get("representative_name") or ""
-                        st.session_state["sub_bizno"] = _c.get("business_number") or ""
-                        st.session_state["sub_ind"] = _c.get("industry") or ""
-                        st.session_state["sub_addr"] = _c.get("address") or ""
-                        st.session_state["sub_tel"] = _c.get("phone") or ""
-                        st.session_state["sub_mgr"] = _c.get("contact_person_name") or ""
-                        st.session_state["sub_mgrhp"] = _c.get("contact_person_phone") or ""
-                        st.session_state["sub_mgremail"] = (_c.get("contact_person_email")
-                                                            or _c.get("email") or "")
-                        st.success(f"✅ '{_c.get('name')}' 기본정보를 적용했습니다.")
+                        # 저장 초안 우선 → 없으면 고객 기본정보로 채움 (아래 로드 로직이 처리)
+                        st.session_state.pop("_sub_loaded_for", None)
+                        st.session_state.pop("roster_loaded_cust", None)
+                        st.success(f"✅ '{_c.get('name')}' 적용 — 저장된 초안이 있으면 불러오고, 없으면 기본정보를 채웁니다.")
                         st.rerun()
                     else:
                         st.warning("고객을 먼저 선택하세요.")
@@ -15387,54 +15535,8 @@ else:
         elif _picked["key"] == "kead_roster":
             st.markdown("#### 📄 장애인 근로자 명부")
             st.caption("평소 **자원 관리는 이 표(엑셀)**로 하고, 공단 제출 시 같은 표를 「첨부서류 양식」 엑셀로 출력합니다. "
-                       "기존 명부 엑셀을 올리면 불러와 수정할 수 있습니다.")
-            _ROSTER_COLS = ["연번", "사업장명", "사업자등록번호", "장애인근로자명", "주민등록번호",
-                            "장애인정구분", "장애유형", "상이등급", "중증(경증)여부", "중증2배수인정여부",
-                            "장애인정일", "입사일", "퇴사일", "근무직종", "임금(원)", "장려금·지원금 수령기간"]
-
-            _up_r = st.file_uploader("기존 명부 엑셀 불러오기 (선택 · .xlsx)", type=["xlsx"], key="roster_up")
-            if _up_r is not None and st.session_state.get("roster_loaded") != _up_r.name:
-                try:
-                    _df_up = pd.read_excel(_up_r, header=2)
-                    _df_up = _df_up.iloc[:, :len(_ROSTER_COLS)]
-                    _df_up.columns = _ROSTER_COLS[:_df_up.shape[1]]
-                    _df_up = _df_up.dropna(how="all").fillna("").astype(str)
-                    st.session_state["roster_df"] = _df_up
-                    st.session_state["roster_loaded"] = _up_r.name
-                    st.session_state.pop("roster_editor", None)  # 에디터 리셋
-                    st.success(f"✅ '{_up_r.name}' 불러왔습니다 ({len(_df_up)}행). 아래 표에서 수정하세요.")
-                except Exception as _e_r:
-                    st.error(f"불러오기 실패: {str(_e_r)[:120]}")
-
-            _base_r = st.session_state.get("roster_df")
-            if _base_r is None or list(_base_r.columns) != _ROSTER_COLS:
-                _base_r = pd.DataFrame([{_c: "" for _c in _ROSTER_COLS} for _ in range(3)])
-            _dc_r = st.session_state.get("doc_customer")
-            if _dc_r:
-                if st.button(f"📌 '{_dc_r.get('name')}'(으)로 사업장명·사업자번호 일괄 채우기",
-                             key="roster_fill_co"):
-                    _rdf2 = st.session_state.get("roster_df")
-                    if _rdf2 is not None and "사업장명" in _rdf2.columns:
-                        _rdf2 = _rdf2.copy()
-                        _rdf2["사업장명"] = _dc_r.get("name") or ""
-                        _rdf2["사업자등록번호"] = _dc_r.get("business_number") or ""
-                        st.session_state["roster_df"] = _rdf2
-                        st.session_state.pop("roster_editor", None)  # 에디터 리셋
-                        st.success("✅ 사업장명·사업자번호를 채웠습니다."); st.rerun()
-            _edited_r = st.data_editor(_base_r, num_rows="dynamic", use_container_width=True,
-                                       key="roster_editor", height=340)
-            st.session_state["roster_df"] = _edited_r
-
-            _rows_r = [{_c: ("" if pd.isna(_v) else _v) for _c, _v in _rec.items()}
-                       for _rec in _edited_r.to_dict("records")]
-            _rows_r = [r for r in _rows_r if any(str(v).strip() for v in r.values())]
-            _xlsx_r = _kead_xlsx_bytes("[첨부서류 양식] 장애인 근로자 명부", _ROSTER_COLS, _rows_r,
-                                       sheet_name="장애인근로자명부")
-            st.download_button(
-                f"📥 공단 양식 엑셀 다운로드 ({len(_rows_r)}명)", _xlsx_r,
-                file_name="장애인_근로자_명부.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                type="primary", key="roster_dl", use_container_width=True)
+                       "입력 내용은 **자동 저장**되며 **사용자 관리** 페이지에서도 같은 명부를 편집할 수 있습니다.")
+            _kead_roster_block(user, st.session_state.get("doc_customer"), "doc")
             st.caption("⬆️ 이 엑셀이 공단 제출용 「첨부서류 양식」입니다. (아래한글 .hwp 출력은 기재사항 확정 후 연결)")
 
         # ─── 📄 장애인 고용장려금 지급신청서 (별지 제15호서식) ───
@@ -15442,6 +15544,43 @@ else:
             st.markdown("#### 📄 장애인 고용장려금 지급신청서")
             st.caption("장애인고용촉진법 시행규칙 [별지 제15호서식]. 기재사항을 입력·확인한 뒤 공단 제출용 엑셀로 출력합니다. "
                        "(공단 e신고서비스 esingo.or.kr 제출용)")
+
+            _SUB_KEYS = ["sub_co", "sub_ceo", "sub_corpno", "sub_bizno", "sub_ind", "sub_indcode",
+                         "sub_addr", "sub_nsite", "sub_tel", "sub_fax", "sub_kind", "sub_mgr",
+                         "sub_mgrhp", "sub_mgremail", "sub_year", "sub_amt", "sub_bank",
+                         "sub_acc", "sub_holder", "sub_accreal", "sub_date"]
+            # ── 🔄 자동 불러오기: 저장 초안 우선, 없으면 고객 기본정보 ──
+            _dc_s = st.session_state.get("doc_customer")
+            _tok_s = f"{(_dc_s or {}).get('id')}"
+            if st.session_state.get("_sub_loaded_for") != _tok_s:
+                _drf = _gov_draft_load(user, _dc_s, "kead_subsidy_app")
+                if _drf and _drf.get("data"):
+                    _d = _drf["data"]
+                    for _k, _v in (_d.get("fields") or {}).items():
+                        if _k == "sub_date":
+                            try:
+                                st.session_state["sub_date"] = date.fromisoformat(str(_v)[:10])
+                            except Exception:
+                                pass
+                        else:
+                            st.session_state[_k] = _v
+                    if _d.get("monthly"):
+                        st.session_state["sub_mon_df"] = pd.DataFrame(_d["monthly"])
+                        st.session_state.pop("sub_mon_editor", None)
+                    st.session_state["_sub_saved_at"] = "불러옴 · " + str(_drf.get("updated_at", ""))[:16].replace("T", " ")
+                elif _dc_s:
+                    st.session_state["sub_co"] = _dc_s.get("name") or ""
+                    st.session_state["sub_ceo"] = _dc_s.get("representative_name") or ""
+                    st.session_state["sub_bizno"] = _dc_s.get("business_number") or ""
+                    st.session_state["sub_ind"] = _dc_s.get("industry") or ""
+                    st.session_state["sub_addr"] = _dc_s.get("address") or ""
+                    st.session_state["sub_tel"] = _dc_s.get("phone") or ""
+                    st.session_state["sub_mgr"] = _dc_s.get("contact_person_name") or ""
+                    st.session_state["sub_mgrhp"] = _dc_s.get("contact_person_phone") or ""
+                    st.session_state["sub_mgremail"] = (_dc_s.get("contact_person_email")
+                                                        or _dc_s.get("email") or "")
+                st.session_state["_sub_loaded_for"] = _tok_s
+                st.session_state.pop("_sub_snapshot", None)
 
             st.markdown("##### ① 사업체 기본 정보")
             _s1, _s2, _s3 = st.columns(3)
@@ -15510,6 +15649,32 @@ else:
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 key="sub_mon_dl", use_container_width=True)
             st.caption("⬆️ 기재사항 확정 후, 공단 공식 HWP(아래한글) 양식으로 자동 채워 출력하도록 연결합니다.")
+
+            # ── 💾 자동 저장 (변경 시) — 다음 회차에 자동 불러오기 ──
+            _cur_sub = {
+                "fields": {_k: (st.session_state.get(_k).isoformat()
+                                if _k == "sub_date" and hasattr(st.session_state.get(_k), "isoformat")
+                                else ("" if st.session_state.get(_k) is None else st.session_state.get(_k)))
+                           for _k in _SUB_KEYS},
+                "monthly": _mon_ed.to_dict("records"),
+            }
+            if st.session_state.get("_sub_snapshot") != _cur_sub:
+                _ok_s, _err_s = _gov_draft_save(user, _dc_s, "kead_subsidy_app", _cur_sub)
+                st.session_state["_sub_snapshot"] = _cur_sub
+                if _ok_s:
+                    st.session_state["_sub_saved_at"] = datetime.now().strftime("%H:%M:%S")
+                    st.session_state.pop("_sub_save_err", None)
+                else:
+                    st.session_state["_sub_save_err"] = _err_s
+            if st.session_state.get("_sub_save_err"):
+                st.warning("💾 자동 저장이 아직 켜지지 않았습니다. 아래 SQL을 Supabase SQL Editor에서 1회 실행하면 "
+                           "자동 저장·다음 회차 자동 불러오기가 활성화됩니다. (지금은 화면 세션 동안만 유지)")
+                with st.expander("📋 gov_doc_drafts 생성 SQL 보기"):
+                    st.code(_GOV_DRAFTS_SQL, language="sql")
+            elif st.session_state.get("_sub_saved_at"):
+                _dcn = (_dc_s or {}).get("name")
+                st.success(f"💾 자동 저장됨 · {st.session_state['_sub_saved_at']}"
+                           f"{(' · ' + _dcn) if _dcn else ''} — 다음 회차에 자동으로 불러옵니다.")
 
         st.divider()
         if st.button("⬅️ 대시보드로 돌아가기", key="back_doc_agency"):
