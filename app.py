@@ -9065,6 +9065,7 @@ def go_to(page, from_tab=None):
         st.session_state.active_tab = from_tab
         st.session_state.prev_tab = from_tab  # 돌아올 탭도 from_tab으로 고정
     st.session_state.current_page = page
+    st.session_state.pop("_admin_console_focus", None)  # 다른 곳 이동 시 관리자 포커스 해제
 
 def go_back():
     st.session_state.current_page = st.session_state.prev_page
@@ -10472,10 +10473,22 @@ else:
         "terms_management", "payment_management", "notices",
         "campaign_consent",
     )
+    # 🛡️ 음성지원은 '모니터링' 업무 페이지 전용 — 파트너/관리/프로필 등 비모니터링
+    #    페이지에서는 toolbar 숨김 (2026-06-22 사용자 요청)
+    _NON_MONITORING_A11Y = {
+        "agency_dashboard", "customer_management", "user_management", "user_search",
+        "license_status", "license_request", "report_stats", "doc_agency",
+        "support_request", "partner_info", "partner_admins", "sales_pipeline",
+        "approval_requests", "distributor_sales", "partner_sales", "customer_detail",
+        "partner_register", "user_profile", "user_detail",
+    }
     _hide_a11y_toolbar = (
         GLOBAL_VOICE_DISABLED
         or _curr_page.startswith("campaign_")
         or _curr_page in _cmp_pages_for_a11y
+        or _curr_page in _NON_MONITORING_A11Y
+        or _qp_p_for_a11y in _NON_MONITORING_A11Y
+        or (_curr_page == "home" and bool(st.session_state.get("_admin_console_focus")))
         # ⭐ query_params.page도 함께 체크 — 새로고침 시 race 방지
         or _qp_p_for_a11y.startswith("campaign_")
         or _qp_p_for_a11y in _cmp_pages_for_a11y
@@ -11117,12 +11130,14 @@ else:
             if st.button(_notice_label, use_container_width=True, key="hdr_notice_btn"):
                 st.session_state.current_page = "home"
                 st.session_state.active_tab = 98
+                st.session_state.pop("_admin_console_focus", None)
                 st.rerun()
         if _show_admin_btn:
             with bc_admin:
                 if st.button(t("hdr_admin"), use_container_width=True, key="hdr_admin_btn"):
                     st.session_state.current_page = "home"
                     st.session_state.active_tab = 99
+                    st.session_state["_admin_console_focus"] = True  # 관리자 보기 = 챗·음성 숨김
                     st.rerun()
         with bc_profile:
             if st.button(t("hdr_profile"), use_container_width=True, key="hdr_profile_btn"):
@@ -27363,7 +27378,12 @@ else:
         # (line ~6563 부근의 voice_open 처리 블록 참조)
         # → 권찬 같은 본부관리자가 home_landing에 있어도 home으로 강제 이동
 
-        with st.container(border=True):
+        # 🛡️ 관리자 보기(👑 관리자 진입)에서는 상단 드래곤파더 챗 박스 숨김.
+        #    (드래곤파더는 별도 탭에 그대로 있어 모니터링에는 영향 없음)
+        _hide_top_chat = bool(st.session_state.get("_admin_console_focus"))
+
+        if not _hide_top_chat:
+          with st.container(border=True):
             chat_header1, chat_header2, chat_header3, chat_header4 = st.columns([2,1,1,1])
             with chat_header1:
                 st.markdown("### 🐲 드래곤파더")
