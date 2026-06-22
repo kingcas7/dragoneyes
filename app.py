@@ -15545,7 +15545,9 @@ else:
             st.caption("장애인고용촉진법 시행규칙 [별지 제15호서식]. 기재사항을 입력·확인한 뒤 공단 제출용 엑셀로 출력합니다. "
                        "(공단 e신고서비스 esingo.or.kr 제출용)")
 
-            _SUB_KEYS = ["sub_co", "sub_ceo", "sub_corpno", "sub_bizno", "sub_ind", "sub_indcode",
+            _SUB_KEYS = ["sub_doc_plan", "sub_doc_subsidy", "sub_doc_levy", "sub_doc_levy_kind",
+                         "sub_doc_install",
+                         "sub_co", "sub_ceo", "sub_corpno", "sub_bizno", "sub_ind", "sub_indcode",
                          "sub_addr", "sub_nsite", "sub_tel", "sub_fax", "sub_kind", "sub_mgr",
                          "sub_mgrhp", "sub_mgremail", "sub_year", "sub_amt", "sub_bank",
                          "sub_acc", "sub_holder", "sub_accreal", "sub_date"]
@@ -15581,6 +15583,21 @@ else:
                                                         or _dc_s.get("email") or "")
                 st.session_state["_sub_loaded_for"] = _tok_s
                 st.session_state.pop("_sub_snapshot", None)
+
+            # ── 📋 제출 문서 선택 (별지 제15호서식 — 4종 통합 서식, 해당 문서 체크) ──
+            if "sub_doc_subsidy" not in st.session_state:
+                st.session_state["sub_doc_subsidy"] = True   # 기본: 고용장려금 지급신청서
+            with st.container(border=True):
+                st.markdown("**📋 제출 문서 선택** — 이 서식으로 제출할 문서에 체크하세요 (복수 선택 가능)")
+                _dt1, _dt2 = st.columns(2)
+                _dt1.checkbox("① 장애인 고용계획 및 실시상황 보고서", key="sub_doc_plan")
+                _dt2.checkbox("② 장애인 고용장려금 지급신청서", key="sub_doc_subsidy")
+                _dt3, _dt4 = st.columns(2)
+                _levy_on = _dt3.checkbox("③ 장애인 고용부담금 신고서", key="sub_doc_levy")
+                _dt4.checkbox("④ 장애인 고용부담금 분할납부 신청서", key="sub_doc_install")
+                if _levy_on:
+                    st.radio("③ 부담금 신고 구분", ["신고서", "수정신고서"],
+                             horizontal=True, key="sub_doc_levy_kind")
 
             st.markdown("##### ① 사업체 기본 정보")
             _s1, _s2, _s3 = st.columns(3)
@@ -15630,7 +15647,17 @@ else:
             _f["신청일"] = st.date_input("신청일", value=date.today(), key="sub_date").isoformat()
 
             # 다운로드 — 신청서 본문(항목·값) + 월별표 2개 시트로
-            _info_rows = [{"항목": _k, "내용": _v} for _k, _v in _f.items()]
+            _checked_docs = []
+            if st.session_state.get("sub_doc_plan"):
+                _checked_docs.append("장애인 고용계획 및 실시상황 보고서")
+            if st.session_state.get("sub_doc_subsidy"):
+                _checked_docs.append("장애인 고용장려금 지급신청서")
+            if st.session_state.get("sub_doc_levy"):
+                _checked_docs.append(f"장애인 고용부담금 {st.session_state.get('sub_doc_levy_kind', '신고서')}")
+            if st.session_state.get("sub_doc_install"):
+                _checked_docs.append("장애인 고용부담금 분할납부 신청서")
+            _info_rows = ([{"항목": "■ 제출 문서", "내용": " / ".join(_checked_docs) or "(미선택)"}]
+                          + [{"항목": _k, "내용": _v} for _k, _v in _f.items()])
             _xlsx_s = _kead_xlsx_bytes(
                 "장애인 고용장려금 지급신청서 [별지 제15호서식]",
                 ["항목", "내용"], _info_rows, sheet_name="신청서",
