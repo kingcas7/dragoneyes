@@ -8426,6 +8426,81 @@ def _kead_xlsx_bytes(title, columns, data_rows, *, sheet_name="Sheet1", subtitle
     return _buf.getvalue()
 
 
+def _fill_kead_subsidy_hwpx(values):
+    """공단 공식 HWPX 템플릿(별지 제15호서식)에 사업체 정보를 채워 .hwpx bytes 반환.
+    라벨(단일 hp:t 런) 뒤에 값을 덧붙이는 안전한 주입 방식."""
+    import zipfile, io, html, re as _re
+    from xml.dom import minidom
+    _tpl = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        "templates", "kead_subsidy_form.hwpx")
+    with zipfile.ZipFile(_tpl, "r") as _zin:
+        _names = _zin.namelist()
+        _data = {_n: _zin.read(_n) for _n in _names}
+    _xml = _data["Contents/section0.xml"].decode("utf-8")
+
+    def _esc(v):
+        return html.escape(str(v or ""), quote=False)
+
+    def _append(label, val):
+        nonlocal _xml
+        if val:
+            _xml = _xml.replace(f"<hp:t>{label}</hp:t>",
+                                f"<hp:t>{label}  {_esc(val)}</hp:t>", 1)
+
+    _append("① 사업체명", values.get("사업체명"))
+    _append("② 대표자", values.get("대표자"))
+    _append("③ 법인(주민등록)번호", values.get("법인번호"))
+    _append("④ 사업자등록번호", values.get("사업자번호"))
+    _append("⑤ 업종(주된 생산품)", values.get("업종"))
+    _append("⑥ 업종코드", values.get("업종코드"))
+    _append("⑦ 소재지", values.get("소재지"))
+    _append("⑨ 사업체 전화번호 ", values.get("전화"))
+    _append("⑩ 사업체 팩스번호", values.get("팩스"))
+    _append("은행명", values.get("은행"))
+    _append("계좌번호", values.get("계좌"))
+    _append("예금주", values.get("예금주"))
+
+    if values.get("사업장수"):
+        _xml = _re.sub(r'(<hp:t>⑧ 사업장 수\s+)개</hp:t>',
+                       lambda m: f"{m.group(1)}{_esc(values['사업장수'])}  개</hp:t>",
+                       _xml, count=1)
+    if any(values.get(_k) for _k in ("담당자", "휴대", "이메일")):
+        def _rmgr(m):
+            _t = m.group(1)
+            _t = _t.replace("성명:", f"성명: {_esc(values.get('담당자',''))}")
+            _t = _t.replace("휴대전화번호:", f"휴대전화번호: {_esc(values.get('휴대',''))}")
+            _t = _t.replace("전자우편:", f"전자우편: {_esc(values.get('이메일',''))}")
+            return f"<hp:t>{_t}</hp:t>"
+        _xml = _re.sub(r'<hp:t>([^<]*성명:[^<]*전자우편:[^<]*)</hp:t>', _rmgr, _xml, count=1)
+    if values.get("구분"):
+        def _rkind(m):
+            _t = m.group(1).replace(f"[ ]{values['구분']}", f"[V]{values['구분']}")
+            return f"<hp:t>{_t}</hp:t>"
+        _xml = _re.sub(r'<hp:t>([^<]*사업장 구분:[^<]*)</hp:t>', _rkind, _xml, count=1)
+    # 제출 문서 체크 표시
+    if values.get("doc_subsidy"):
+        _xml = _xml.replace("<hp:t>장애인 고용장려금 지급신청서</hp:t>",
+                            "<hp:t>☑ 장애인 고용장려금 지급신청서</hp:t>", 1)
+    if values.get("doc_install"):
+        _xml = _xml.replace("<hp:t>고용부담금 분할납부 신청서</hp:t>",
+                            "<hp:t>☑ 고용부담금 분할납부 신청서</hp:t>", 1)
+
+    minidom.parseString(_xml.encode("utf-8"))  # well-formed 검증
+    _data["Contents/section0.xml"] = _xml.encode("utf-8")
+
+    _buf = io.BytesIO()
+    with zipfile.ZipFile(_buf, "w", zipfile.ZIP_DEFLATED) as _zout:
+        if "mimetype" in _data:  # mimetype은 선두·무압축이어야 함
+            _zi = zipfile.ZipInfo("mimetype")
+            _zi.compress_type = zipfile.ZIP_STORED
+            _zout.writestr(_zi, _data["mimetype"])
+        for _n in _names:
+            if _n == "mimetype":
+                continue
+            _zout.writestr(_n, _data[_n])
+    return _buf.getvalue()
+
+
 # ── 공단 서류 초안 영속 저장 (자동 저장·회차 불러오기, 2026-06-22) ──
 _GOV_DRAFTS_SQL = """-- 공단 서류 자동 저장 테이블 (Supabase SQL Editor에서 1회 실행)
 create table if not exists public.gov_doc_drafts (
@@ -15675,7 +15750,44 @@ else:
                 file_name="월별_장애인_고용현황.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 key="sub_mon_dl", use_container_width=True)
-            st.caption("⬆️ 기재사항 확정 후, 공단 공식 HWP(아래한글) 양식으로 자동 채워 출력하도록 연결합니다.")
+
+            # ── 📄 공단 공식 HWP(아래한글) 양식 자동 채움 다운로드 ──
+            st.markdown("**📄 공단 공식 양식(아래한글) 출력**")
+            _hwp_vals = {
+                "사업체명": st.session_state.get("sub_co"),
+                "대표자": st.session_state.get("sub_ceo"),
+                "법인번호": st.session_state.get("sub_corpno"),
+                "사업자번호": st.session_state.get("sub_bizno"),
+                "업종": st.session_state.get("sub_ind"),
+                "업종코드": st.session_state.get("sub_indcode"),
+                "소재지": st.session_state.get("sub_addr"),
+                "전화": st.session_state.get("sub_tel"),
+                "팩스": st.session_state.get("sub_fax"),
+                "사업장수": st.session_state.get("sub_nsite"),
+                "구분": st.session_state.get("sub_kind"),
+                "담당자": st.session_state.get("sub_mgr"),
+                "휴대": st.session_state.get("sub_mgrhp"),
+                "이메일": st.session_state.get("sub_mgremail"),
+                "은행": st.session_state.get("sub_bank"),
+                "계좌": st.session_state.get("sub_acc"),
+                "예금주": st.session_state.get("sub_holder"),
+                "doc_subsidy": st.session_state.get("sub_doc_subsidy"),
+                "doc_install": st.session_state.get("sub_doc_install"),
+            }
+            try:
+                _hwp_bytes = _fill_kead_subsidy_hwpx(_hwp_vals)
+            except Exception as _eh:
+                _hwp_bytes, _hwp_err = None, str(_eh)[:160]
+            if _hwp_bytes:
+                st.download_button(
+                    "📄 공단 HWP(아래한글) 양식 다운로드", _hwp_bytes,
+                    file_name="장애인_고용장려금_지급신청서.hwpx",
+                    mime="application/x-hwp", type="primary",
+                    key="sub_hwp_dl", use_container_width=True)
+                st.caption("받은 파일을 **아래한글**로 열면 사업체 기본정보가 채워진 공식 별지 제15호서식이 나옵니다. "
+                           "월별 고용현황·신청액 등 표 안 숫자는 아래한글에서 확인·보완해 제출하세요.")
+            else:
+                st.warning(f"HWP 양식 생성 실패: {_hwp_err} (템플릿 배포 확인 필요)")
 
             # ── 💾 자동 저장 (변경 시) — 다음 회차에 자동 불러오기 ──
             _cur_sub = {
