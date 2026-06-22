@@ -8378,6 +8378,54 @@ def _render_customer_sales_edit(customer, user):
                     st.error(f"수정 실패: {_le}")
 
 
+# ── 공단 제출용 엑셀 빌더 (2026-06-22) ──
+def _kead_xlsx_bytes(title, columns, data_rows, *, sheet_name="Sheet1", subtitle=None):
+    """제목행(병합) + (선택)부제 + 헤더 + 데이터. 공단 양식 엑셀 bytes 반환."""
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+    from openpyxl.utils import get_column_letter
+    from io import BytesIO
+    _wb = openpyxl.Workbook()
+    _ws = _wb.active
+    _ws.title = sheet_name[:31]
+    _thin = Side(style="thin", color="888888")
+    _bd = Border(left=_thin, right=_thin, top=_thin, bottom=_thin)
+    _hdr_fill = PatternFill("solid", fgColor="E8EEF7")
+    _n = max(1, len(columns))
+    _ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=_n)
+    _t = _ws.cell(row=1, column=1, value=title)
+    _t.font = Font(bold=True, size=13)
+    _t.alignment = Alignment(horizontal="center", vertical="center")
+    _hrow = 2
+    if subtitle:
+        _ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=_n)
+        _s = _ws.cell(row=2, column=1, value=subtitle)
+        _s.font = Font(size=10, color="555555")
+        _s.alignment = Alignment(horizontal="left")
+        _hrow = 3
+    for _j, _col in enumerate(columns, 1):
+        _h = _ws.cell(row=_hrow, column=_j, value=_col)
+        _h.font = Font(bold=True, size=9)
+        _h.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        _h.border = _bd
+        _h.fill = _hdr_fill
+    for _i, _row in enumerate(data_rows, _hrow + 1):
+        for _j, _col in enumerate(columns, 1):
+            if isinstance(_row, dict):
+                _v = _row.get(_col, "")
+            else:
+                _v = _row[_j - 1] if (_j - 1) < len(_row) else ""
+            _cell = _ws.cell(row=_i, column=_j, value=("" if _v is None else _v))
+            _cell.border = _bd
+            _cell.alignment = Alignment(vertical="center", wrap_text=True)
+    for _j in range(1, _n + 1):
+        _ws.column_dimensions[get_column_letter(_j)].width = 15
+    _ws.row_dimensions[_hrow].height = 30
+    _buf = BytesIO()
+    _wb.save(_buf)
+    return _buf.getvalue()
+
+
 def log_monitoring_event(
     event_type,
     *,
@@ -15100,8 +15148,8 @@ else:
                 {"key": "work_log", "label": "📋 근무일지 (일별·월별)", "ready": True},
             ]},
             {"agency": "한국장애인고용공단", "docs": [
-                {"key": "kead_monthly", "label": "📄 월별 근무상황부", "ready": False},
-                {"key": "kead_subsidy", "label": "📄 고용장려금 신청 첨부서류", "ready": False},
+                {"key": "kead_roster", "label": "📄 장애인 근로자 명부", "ready": True},
+                {"key": "kead_subsidy_app", "label": "📄 장애인 고용장려금 지급신청서", "ready": True},
             ]},
             {"agency": "노인인력개발원", "docs": [
                 {"key": "senior_activity", "label": "📄 월별 활동일지", "ready": False},
@@ -15276,6 +15324,121 @@ else:
                             key="xlsx_work_log",
                             sheet_name="근무일지",
                         )
+
+        # ─── 📄 장애인 근로자 명부 (한국장애인고용공단 첨부서류 양식) ───
+        elif _picked["key"] == "kead_roster":
+            st.markdown("#### 📄 장애인 근로자 명부")
+            st.caption("평소 **자원 관리는 이 표(엑셀)**로 하고, 공단 제출 시 같은 표를 「첨부서류 양식」 엑셀로 출력합니다. "
+                       "기존 명부 엑셀을 올리면 불러와 수정할 수 있습니다.")
+            _ROSTER_COLS = ["연번", "사업장명", "사업자등록번호", "장애인근로자명", "주민등록번호",
+                            "장애인정구분", "장애유형", "상이등급", "중증(경증)여부", "중증2배수인정여부",
+                            "장애인정일", "입사일", "퇴사일", "근무직종", "임금(원)", "장려금·지원금 수령기간"]
+
+            _up_r = st.file_uploader("기존 명부 엑셀 불러오기 (선택 · .xlsx)", type=["xlsx"], key="roster_up")
+            if _up_r is not None and st.session_state.get("roster_loaded") != _up_r.name:
+                try:
+                    _df_up = pd.read_excel(_up_r, header=2)
+                    _df_up = _df_up.iloc[:, :len(_ROSTER_COLS)]
+                    _df_up.columns = _ROSTER_COLS[:_df_up.shape[1]]
+                    _df_up = _df_up.dropna(how="all").fillna("").astype(str)
+                    st.session_state["roster_df"] = _df_up
+                    st.session_state["roster_loaded"] = _up_r.name
+                    st.success(f"✅ '{_up_r.name}' 불러왔습니다 ({len(_df_up)}행). 아래 표에서 수정하세요.")
+                except Exception as _e_r:
+                    st.error(f"불러오기 실패: {str(_e_r)[:120]}")
+
+            _base_r = st.session_state.get("roster_df")
+            if _base_r is None or list(_base_r.columns) != _ROSTER_COLS:
+                _base_r = pd.DataFrame([{_c: "" for _c in _ROSTER_COLS} for _ in range(3)])
+            _edited_r = st.data_editor(_base_r, num_rows="dynamic", use_container_width=True,
+                                       key="roster_editor", height=340)
+            st.session_state["roster_df"] = _edited_r
+
+            _rows_r = [{_c: ("" if pd.isna(_v) else _v) for _c, _v in _rec.items()}
+                       for _rec in _edited_r.to_dict("records")]
+            _rows_r = [r for r in _rows_r if any(str(v).strip() for v in r.values())]
+            _xlsx_r = _kead_xlsx_bytes("[첨부서류 양식] 장애인 근로자 명부", _ROSTER_COLS, _rows_r,
+                                       sheet_name="장애인근로자명부")
+            st.download_button(
+                f"📥 공단 양식 엑셀 다운로드 ({len(_rows_r)}명)", _xlsx_r,
+                file_name="장애인_근로자_명부.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                type="primary", key="roster_dl", use_container_width=True)
+            st.caption("⬆️ 이 엑셀이 공단 제출용 「첨부서류 양식」입니다. (아래한글 .hwp 출력은 기재사항 확정 후 연결)")
+
+        # ─── 📄 장애인 고용장려금 지급신청서 (별지 제15호서식) ───
+        elif _picked["key"] == "kead_subsidy_app":
+            st.markdown("#### 📄 장애인 고용장려금 지급신청서")
+            st.caption("장애인고용촉진법 시행규칙 [별지 제15호서식]. 기재사항을 입력·확인한 뒤 공단 제출용 엑셀로 출력합니다. "
+                       "(공단 e신고서비스 esingo.or.kr 제출용)")
+
+            st.markdown("##### ① 사업체 기본 정보")
+            _s1, _s2, _s3 = st.columns(3)
+            _f = {}
+            _f["사업체명"] = _s1.text_input("① 사업체명", key="sub_co")
+            _f["대표자"] = _s2.text_input("② 대표자", key="sub_ceo")
+            _f["법인(주민등록)번호"] = _s3.text_input("③ 법인(주민등록)번호", key="sub_corpno")
+            _s4, _s5, _s6 = st.columns(3)
+            _f["사업자등록번호"] = _s4.text_input("④ 사업자등록번호", key="sub_bizno")
+            _f["업종(주된생산품)"] = _s5.text_input("⑤ 업종(주된 생산품)", key="sub_ind")
+            _f["업종코드"] = _s6.text_input("⑥ 업종코드", key="sub_indcode")
+            _f["소재지"] = st.text_input("⑦ 소재지", key="sub_addr")
+            _s7, _s8, _s9 = st.columns(3)
+            _f["사업장수"] = _s7.text_input("⑧ 사업장 수", key="sub_nsite")
+            _f["사업체 전화번호"] = _s8.text_input("⑨ 전화번호", key="sub_tel")
+            _f["사업체 팩스번호"] = _s9.text_input("⑩ 팩스번호", key="sub_fax")
+            _f["사업장구분"] = st.radio("⑪ 사업장 구분", ["총괄", "사업장", "자회사형 표준사업장"],
+                                    horizontal=True, key="sub_kind")
+            _s10, _s11, _s12 = st.columns(3)
+            _f["담당자 성명"] = _s10.text_input("⑫ 담당자 성명", key="sub_mgr")
+            _f["담당자 휴대전화"] = _s11.text_input("담당자 휴대전화", key="sub_mgrhp")
+            _f["담당자 전자우편"] = _s12.text_input("담당자 전자우편", key="sub_mgremail")
+
+            st.markdown("##### 월별 장애인 고용현황")
+            _SUB_MON_COLS = ["월", "⑬전체근로자수", "⑮상시근로자수", "⑯의무고용인원",
+                             "⑱전체장애인근로자수", "⑲중증장애인수", "㉒고용장려금지급인원"]
+            _mon_base = st.session_state.get("sub_mon_df")
+            if _mon_base is None or list(_mon_base.columns) != _SUB_MON_COLS:
+                _mon_base = pd.DataFrame(
+                    [{"월": f"{_m}월", "⑬전체근로자수": "", "⑮상시근로자수": "", "⑯의무고용인원": "",
+                      "⑱전체장애인근로자수": "", "⑲중증장애인수": "", "㉒고용장려금지급인원": ""}
+                     for _m in range(1, 13)])
+            _mon_ed = st.data_editor(_mon_base, num_rows="fixed", use_container_width=True,
+                                     key="sub_mon_editor", height=300,
+                                     disabled=["월"])
+            st.session_state["sub_mon_df"] = _mon_ed
+
+            st.markdown("##### 장애인 고용장려금 신청")
+            _y1, _y2 = st.columns(2)
+            _f["신청연도"] = _y1.text_input("신청 연도", value=str(date.today().year), key="sub_year")
+            _f["㉚고용장려금 지급신청액(원)"] = _y2.text_input("㉚ 고용장려금 지급신청액(원)", key="sub_amt")
+            _b1, _b2, _b3, _b4 = st.columns(4)
+            _f["은행명"] = _b1.text_input("은행명", key="sub_bank")
+            _f["계좌번호"] = _b2.text_input("계좌번호", key="sub_acc")
+            _f["예금주"] = _b3.text_input("예금주", key="sub_holder")
+            _f["㉛계좌실명번호"] = _b4.text_input("㉛ 계좌실명번호", key="sub_accreal")
+            _f["신청일"] = st.date_input("신청일", value=date.today(), key="sub_date").isoformat()
+
+            # 다운로드 — 신청서 본문(항목·값) + 월별표 2개 시트로
+            _info_rows = [{"항목": _k, "내용": _v} for _k, _v in _f.items()]
+            _xlsx_s = _kead_xlsx_bytes(
+                "장애인 고용장려금 지급신청서 [별지 제15호서식]",
+                ["항목", "내용"], _info_rows, sheet_name="신청서",
+                subtitle="장애인고용촉진 및 직업재활법 시행규칙 [별지 제15호서식] — 한국장애인고용공단 이사장 귀하")
+            st.download_button(
+                "📥 공단 양식 엑셀 다운로드 (신청서)", _xlsx_s,
+                file_name="장애인_고용장려금_지급신청서.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                type="primary", key="sub_dl", use_container_width=True)
+            _mon_rows = _mon_ed.to_dict("records")
+            _xlsx_m = _kead_xlsx_bytes("월별 장애인 고용현황", _SUB_MON_COLS, _mon_rows,
+                                       sheet_name="월별고용현황")
+            st.download_button(
+                "📥 월별 고용현황 엑셀 다운로드", _xlsx_m,
+                file_name="월별_장애인_고용현황.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key="sub_mon_dl", use_container_width=True)
+            st.caption("⬆️ 기재사항 확정 후, 공단 공식 HWP(아래한글) 양식으로 자동 채워 출력하도록 연결합니다.")
 
         st.divider()
         if st.button("⬅️ 대시보드로 돌아가기", key="back_doc_agency"):
