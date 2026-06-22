@@ -30611,15 +30611,40 @@ DragonEyes 시스템 관리팀"""
 
                     try:
                         # 통계
-                        all_users_consent = supabase.table("users").select("id,name,email,role_v2,terms_agreed,terms_agreed_at,terms_version").execute().data or []
-                        agreed_users = [u for u in all_users_consent if u.get("terms_agreed")]
-                        not_agreed = [u for u in all_users_consent if not u.get("terms_agreed")]
+                        all_users_consent = supabase.table("users").select("id,name,email,role_v2,tenant_id,terms_agreed,terms_agreed_at,terms_version").execute().data or []
+
+                        # 🏢 고객사(업체) 검색 — 선택 시 해당 고객사 사용자만 + 미동의 누락 확인
+                        try:
+                            _tenants_cs = get_all_tenants() or []
+                        except Exception:
+                            _tenants_cs = []
+                        _tname_cs = {t["id"]: t.get("name", "(이름없음)") for t in _tenants_cs}
+                        _tids_present = sorted(
+                            {u.get("tenant_id") for u in all_users_consent if u.get("tenant_id")},
+                            key=lambda x: _tname_cs.get(x, ""))
+                        _tenant_opts_cs = {"전체 고객사": None}
+                        for _tid in _tids_present:
+                            _tenant_opts_cs[_tname_cs.get(_tid, str(_tid))] = _tid
+                        _sel_tlabel = st.selectbox("🏢 고객사 검색 (선택 시 해당 고객사 사용자만 표시)",
+                                                   list(_tenant_opts_cs.keys()), key="consent_tenant")
+                        _sel_tid = _tenant_opts_cs[_sel_tlabel]
+
+                        _scope_users = ([u for u in all_users_consent if u.get("tenant_id") == _sel_tid]
+                                        if _sel_tid else all_users_consent)
+                        agreed_users = [u for u in _scope_users if u.get("terms_agreed")]
+                        not_agreed = [u for u in _scope_users if not u.get("terms_agreed")]
 
                         cs1, cs2, cs3, cs4 = st.columns(4)
-                        cs1.metric("전체 사용자", f"{len(all_users_consent)}명")
+                        cs1.metric(("전체 사용자" if not _sel_tid else f"🏢 {_sel_tlabel}"), f"{len(_scope_users)}명")
                         cs2.metric("✅ 동의 완료", f"{len(agreed_users)}명")
-                        cs3.metric("⏳ 미동의", f"{len(not_agreed)}명")
+                        cs3.metric("⏳ 미동의(누락)", f"{len(not_agreed)}명")
                         cs4.metric("현재 약관 버전", TERMS_VERSION)
+                        if _sel_tid and not_agreed:
+                            st.warning(f"⚠️ **{_sel_tlabel}** — 미동의(누락) {len(not_agreed)}명: "
+                                       + ", ".join(u.get("name", "?") for u in not_agreed[:20])
+                                       + (" 외" if len(not_agreed) > 20 else ""))
+                        elif _sel_tid and _scope_users:
+                            st.success(f"🎉 {_sel_tlabel} — 전원 동의 완료 (누락 없음)")
                         st.divider()
 
                         # 필터
@@ -30681,6 +30706,7 @@ DragonEyes 시스템 관리팀"""
                             for u in display_agreed:
                                 uc1, uc2, uc3, uc4, uc5 = st.columns([2, 2.5, 1.5, 1.5, 1])
                                 uc1.write(f"✅ {u.get('name','')}")
+                                uc1.caption(f"🏢 {_tname_cs.get(u.get('tenant_id'), '-')}")
                                 uc2.caption(u.get("email",""))
                                 uc3.caption(role_label(u))
                                 uc4.caption(str(u.get("terms_agreed_at",""))[:16])
@@ -30699,6 +30725,7 @@ DragonEyes 시스템 관리팀"""
                                 for u in display_not:
                                     nc1, nc2, nc3, nc4 = st.columns([2, 2.5, 2, 1.5])
                                     nc1.write(f"⏳ {u.get('name','')}")
+                                    nc1.caption(f"🏢 {_tname_cs.get(u.get('tenant_id'), '-')}")
                                     nc2.caption(u.get("email",""))
                                     nc3.caption(role_label(u))
                                     with nc4:
