@@ -15138,6 +15138,64 @@ else:
         st.caption("장애인·노인 일자리 등 **고용지원금·장려금 신청용 제출 서류**를 "
                    "생성·엑셀 다운로드·출력합니다. 과거 이력도 선택해 발급할 수 있습니다.")
 
+        # ─── 🔎 고객 검색 → 기본정보 자동 채움 (오타 방지, 2026-06-22) ───
+        with st.container(border=True):
+            st.markdown("##### 🔎 고객 검색 → 기본정보 자동 채움")
+            _dsc1, _dsc2, _dsc3 = st.columns([3, 4, 1.2])
+            _dq = _dsc1.text_input("고객 검색 (상호/고객번호)", key="doc_cust_q",
+                                   placeholder="상호 또는 고객번호 일부")
+            _scope_pids_dc, _, _ = _customer_scope(user)
+            try:
+                _cqd = supabase.table("customers").select(
+                    "id,name,customer_no,business_number,representative_name,address,"
+                    "phone,email,industry,contact_person_name,contact_person_phone,"
+                    "contact_person_email,contact_person_position")
+                if _scope_pids_dc is not None:
+                    _cqd = _cqd.in_("assigned_partner_id", _scope_pids_dc)
+                _call_dc = _cqd.order("name").limit(500).execute().data or []
+            except Exception:
+                _call_dc = []
+            _qs_dc = (_dq or "").strip()
+            _cands_dc = [c for c in _call_dc if (not _qs_dc)
+                         or _qs_dc.lower() in (c.get("name") or "").lower()
+                         or _qs_dc in str(c.get("customer_no") or "")
+                         or _qs_dc.replace("-", "") in (c.get("business_number") or "")]
+            _opts_dc = {f"{c.get('name','-')} · 고객번호 {c.get('customer_no') or '-'} · "
+                        f"{c.get('representative_name') or '-'}": c for c in _cands_dc[:200]}
+            _pick_dc = _dsc2.selectbox("고객 선택", ["(선택 안 함)"] + list(_opts_dc.keys()),
+                                       key="doc_cust_pick")
+            with _dsc3:
+                st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+                if st.button("✅ 적용", key="doc_cust_apply", use_container_width=True, type="primary"):
+                    if _pick_dc and _pick_dc != "(선택 안 함)":
+                        _c = _opts_dc[_pick_dc]
+                        st.session_state["doc_customer"] = _c
+                        # 신청서(별지 제15호) 위젯 자동 채움
+                        st.session_state["sub_co"] = _c.get("name") or ""
+                        st.session_state["sub_ceo"] = _c.get("representative_name") or ""
+                        st.session_state["sub_bizno"] = _c.get("business_number") or ""
+                        st.session_state["sub_ind"] = _c.get("industry") or ""
+                        st.session_state["sub_addr"] = _c.get("address") or ""
+                        st.session_state["sub_tel"] = _c.get("phone") or ""
+                        st.session_state["sub_mgr"] = _c.get("contact_person_name") or ""
+                        st.session_state["sub_mgrhp"] = _c.get("contact_person_phone") or ""
+                        st.session_state["sub_mgremail"] = (_c.get("contact_person_email")
+                                                            or _c.get("email") or "")
+                        st.success(f"✅ '{_c.get('name')}' 기본정보를 적용했습니다.")
+                        st.rerun()
+                    else:
+                        st.warning("고객을 먼저 선택하세요.")
+            _dc_cur = st.session_state.get("doc_customer")
+            if _dc_cur:
+                _cc1, _cc2 = st.columns([5, 1])
+                _cc1.caption(f"📌 적용 고객: **{_dc_cur.get('name')}** · 사업자 "
+                             f"{_dc_cur.get('business_number') or '-'} · 대표 "
+                             f"{_dc_cur.get('representative_name') or '-'}  (다른 고객 적용 시 교체)")
+                if _cc2.button("✖ 해제", key="doc_cust_clear"):
+                    st.session_state.pop("doc_customer", None)
+                    st.rerun()
+        st.divider()
+
         # ─── 기관별 서류 양식 등록부 (확장 지점) ───────────────────────
         #  ▸ 새 기관 추가     : _doc_registry에 {"agency":..., "docs":[...]} 블록 추가
         #  ▸ 새 양식 추가     : 해당 기관 docs에 {"key":..., "label":..., "ready":...} 추가
@@ -15343,6 +15401,7 @@ else:
                     _df_up = _df_up.dropna(how="all").fillna("").astype(str)
                     st.session_state["roster_df"] = _df_up
                     st.session_state["roster_loaded"] = _up_r.name
+                    st.session_state.pop("roster_editor", None)  # 에디터 리셋
                     st.success(f"✅ '{_up_r.name}' 불러왔습니다 ({len(_df_up)}행). 아래 표에서 수정하세요.")
                 except Exception as _e_r:
                     st.error(f"불러오기 실패: {str(_e_r)[:120]}")
@@ -15350,6 +15409,18 @@ else:
             _base_r = st.session_state.get("roster_df")
             if _base_r is None or list(_base_r.columns) != _ROSTER_COLS:
                 _base_r = pd.DataFrame([{_c: "" for _c in _ROSTER_COLS} for _ in range(3)])
+            _dc_r = st.session_state.get("doc_customer")
+            if _dc_r:
+                if st.button(f"📌 '{_dc_r.get('name')}'(으)로 사업장명·사업자번호 일괄 채우기",
+                             key="roster_fill_co"):
+                    _rdf2 = st.session_state.get("roster_df")
+                    if _rdf2 is not None and "사업장명" in _rdf2.columns:
+                        _rdf2 = _rdf2.copy()
+                        _rdf2["사업장명"] = _dc_r.get("name") or ""
+                        _rdf2["사업자등록번호"] = _dc_r.get("business_number") or ""
+                        st.session_state["roster_df"] = _rdf2
+                        st.session_state.pop("roster_editor", None)  # 에디터 리셋
+                        st.success("✅ 사업장명·사업자번호를 채웠습니다."); st.rerun()
             _edited_r = st.data_editor(_base_r, num_rows="dynamic", use_container_width=True,
                                        key="roster_editor", height=340)
             st.session_state["roster_df"] = _edited_r
