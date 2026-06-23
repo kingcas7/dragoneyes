@@ -3858,7 +3858,8 @@ div[data-testid="stExpanderDetails"] { padding-top: 0.3rem !important; }
         gap: 1px 2px !important;
         row-gap: 2px !important;
     }
-    .dz-topnav-row [data-testid="column"] {
+    .dz-topnav-row [data-testid="column"],
+    .dz-topnav-row [data-testid="stColumn"] {
         width: auto !important;
         min-width: 0 !important;
         flex: 0 0 auto !important;
@@ -3867,10 +3868,6 @@ div[data-testid="stExpanderDetails"] { padding-top: 0.3rem !important; }
         min-height: 1.9rem !important;
         padding: 0.15rem 0.35rem !important;
         font-size: 0.72rem !important;
-    }
-    /* 마커가 든 spacer 컬럼은 숨김 */
-    .dz-topnav-row > [data-testid="column"]:first-child {
-        display: none !important;
     }
 }
 
@@ -11217,6 +11214,7 @@ else:
                 top.__dzNavFix = true;
                 var s = top.document.createElement('script');
                 s.textContent = `(function(){
+                  var SEL = '[data-testid="column"], [data-testid="stColumn"]';
                   function fix(){
                     try{
                       var mob = window.innerWidth <= 768;
@@ -11224,14 +11222,18 @@ else:
                       for(var i=0;i<blocks.length;i++){
                         var b = blocks[i];
                         var t = b.innerText || '';
+                        var btns = b.querySelectorAll('button').length;
                         var isNav = !!b.querySelector('.dz-topnav') ||
-                          (b.querySelectorAll('button').length >= 6 && t.indexOf('업무현황')>=0 && t.indexOf('통계')>=0);
+                          (btns >= 6 && t.indexOf('업무현황')>=0 && t.indexOf('통계')>=0);
                         if(!isNav) continue;
-                        var cols = b.querySelectorAll(':scope > [data-testid=\\"column\\"]');
+                        var cols = b.querySelectorAll(SEL);
                         if(mob){
+                          b.style.setProperty('display','flex','important');
+                          b.style.setProperty('flex-direction','row','important');
                           b.style.setProperty('flex-wrap','wrap','important');
                           b.style.setProperty('justify-content','center','important');
-                          b.style.setProperty('row-gap','2px','important');
+                          b.style.setProperty('align-items','center','important');
+                          b.style.setProperty('row-gap','3px','important');
                           b.style.setProperty('column-gap','2px','important');
                           for(var j=0;j<cols.length;j++){
                             cols[j].style.setProperty('width','auto','important');
@@ -11239,19 +11241,24 @@ else:
                             cols[j].style.setProperty('flex','0 0 auto','important');
                             var bt = cols[j].querySelector('button');
                             if(bt){ bt.style.setProperty('min-height','1.9rem','important');
-                                    bt.style.setProperty('padding','2px 5px','important');
-                                    bt.style.setProperty('font-size','0.72rem','important'); }
+                                    bt.style.setProperty('padding','2px 6px','important');
+                                    bt.style.setProperty('font-size','0.72rem','important');
+                                    bt.style.setProperty('white-space','nowrap','important'); }
                           }
+                          if(!b.__dzLogged){ b.__dzLogged=true; console.log('[dz navfix] applied — cols='+cols.length+', btns='+btns); }
                         } else {
+                          b.style.removeProperty('display');
+                          b.style.removeProperty('flex-direction');
                           b.style.removeProperty('flex-wrap');
                           for(var k=0;k<cols.length;k++){
                             cols[k].style.removeProperty('width');
                             cols[k].style.removeProperty('min-width');
                             cols[k].style.removeProperty('flex');
                           }
+                          b.__dzLogged=false;
                         }
                       }
-                    }catch(e){}
+                    }catch(e){ console.log('[dz navfix] err', e); }
                   }
                   fix();
                   try{ new MutationObserver(fix).observe(document.body, {childList:true, subtree:true}); }catch(e){}
