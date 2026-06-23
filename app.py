@@ -11359,32 +11359,11 @@ else:
                           }
                           var ci2 = cb.querySelector('[data-testid="stChatInput"]');
                           if(ci2){
+                            // 구조는 건드리지 않음(터치 영역 보존). 폭만 맞추고, textarea 높이만 살짝.
                             ci2.style.setProperty('width','100%','important');
                             ci2.style.setProperty('min-width','0','important');
-                            ci2.style.setProperty('min-height','0','important');
-                            // 모바일에서 전송버튼이 textarea 아래로 내려가 박스가 커지는 것 방지:
-                            //   내부 flex 래퍼들을 가로 한 줄(row nowrap)로 강제.
                             var ta = ci2.querySelector('textarea');
-                            if(ta){
-                              var fp = ta.parentElement;
-                              for(var fz=0; fz<4 && fp && fp!==ci2.parentElement; fz++){
-                                fp.style.setProperty('flex-direction','row','important');
-                                fp.style.setProperty('flex-wrap','nowrap','important');
-                                fp.style.setProperty('align-items','flex-end','important');
-                                fp.style.setProperty('min-height','0','important');
-                                fp = fp.parentElement;
-                              }
-                              ta.style.setProperty('min-height','2.4rem','important');
-                              ta.style.setProperty('max-height','7rem','important');
-                              ta.style.setProperty('flex','1 1 auto','important');
-                            }
-                            // 전송 버튼 컴팩트(정사각)
-                            var sb = ci2.querySelector('button');
-                            if(sb){ sb.style.setProperty('min-height','2.4rem','important');
-                                    sb.style.setProperty('height','2.4rem','important');
-                                    sb.style.setProperty('width','2.4rem','important');
-                                    sb.style.setProperty('min-width','2.4rem','important');
-                                    sb.style.setProperty('flex','0 0 auto','important'); }
+                            if(ta){ ta.style.setProperty('min-height','2.4rem','important'); ta.style.setProperty('max-height','7rem','important'); }
                           }
                         }
                       }
