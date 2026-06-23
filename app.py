@@ -3828,12 +3828,21 @@ button[kind="secondary"] { padding: 0.25rem 0.4rem !important; font-size: 0.82re
 p { margin-bottom: 0.2rem !important; }
 
 /* ── 2026-06-23 시연 대비 컴팩트·여백 1차 보정 (전 페이지 공통) ── */
-/* 🔝 최상단 여백 제거 — Streamlit 기본 헤더 영역을 0으로 (메인 아이콘 라인을 맨 위로) */
-[data-testid="stHeader"] { height: 0 !important; min-height: 0 !important; background: transparent !important; }
-[data-testid="stToolbar"] { right: 0.4rem !important; top: 0.2rem !important; }
+/* 🔝 최상단 여백 제거 + 실행(달리기) 표시 안 잘리게 */
+/*   헤더 높이는 0이되 overflow:visible — 달리기 아이콘/메뉴가 본문 위에 떠서 안 잘림 */
+[data-testid="stHeader"], header[data-testid="stHeader"], .stAppHeader {
+    height: 0 !important; min-height: 0 !important; background: transparent !important;
+    overflow: visible !important;
+}
+[data-testid="stToolbar"], [data-testid="stStatusWidget"], .stAppToolbar {
+    top: 0.15rem !important; right: 0.4rem !important;
+}
+/* 상단 불필요 여백 축소 — 신·구 컨테이너 클래스 모두 타깃 (Streamlit 버전별) */
 [data-testid="stAppViewContainer"] > section > div:first-child { padding-top: 0 !important; }
-/* 상단 불필요 여백 축소 */
-.block-container { padding-top: 0.2rem !important; padding-left: 0.9rem !important; padding-right: 0.9rem !important; }
+.block-container, .stMainBlockContainer, [data-testid="stMainBlockContainer"],
+section.main > div.block-container {
+    padding-top: 0.35rem !important; padding-left: 0.9rem !important; padding-right: 0.9rem !important;
+}
 /* 커스텀 액션/슬롯 카드 — 큰 아이콘·과한 패딩 축소 */
 .ac-card { min-height: 56px !important; padding: 8px 6px 6px !important; }
 .ac-card .ac-icon { font-size: 1.15rem !important; }
