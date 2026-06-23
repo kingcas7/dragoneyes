@@ -10525,31 +10525,24 @@ else:
         "approval_requests", "distributor_sales", "partner_sales", "customer_detail",
         "partner_register", "user_profile", "user_detail",
     }
+    # ── 음성지원(접근성)은 '모니터링 업무 페이지'에서만 노출 (일관성) ──
+    #    화이트리스트 방식 — 아래 목록 외(파트너/관리/프로필/캠페인 등)에서는
+    #    절대 안 뜸. sticky 플래그 제거로 '멋대로 활성화' 문제 해결.
+    _A11Y_MONITORING_PAGES = {
+        "home", "home_landing", "monitoring_dashboard", "dragon_chat",
+        "report_form", "monitoring_stats", "work_page",
+    }
+    _a11y_on_monitoring = (
+        (_curr_page in _A11Y_MONITORING_PAGES or _qp_p_for_a11y in _A11Y_MONITORING_PAGES)
+        and not (_curr_page == "home" and bool(st.session_state.get("_admin_console_focus")))
+        and not (_curr_page == "monitoring_stats" and bool(st.session_state.get("_stats_from_campaign")))
+    )
     _hide_a11y_toolbar = (
         GLOBAL_VOICE_DISABLED
-        or _curr_page.startswith("campaign_")
-        or _curr_page in _cmp_pages_for_a11y
-        or _curr_page in _NON_MONITORING_A11Y
-        or _qp_p_for_a11y in _NON_MONITORING_A11Y
-        or (_curr_page == "home" and bool(st.session_state.get("_admin_console_focus")))
-        # ⭐ query_params.page도 함께 체크 — 새로고침 시 race 방지
-        or _qp_p_for_a11y.startswith("campaign_")
-        or _qp_p_for_a11y in _cmp_pages_for_a11y
-        or (_curr_page == "monitoring_stats" and bool(st.session_state.get("_stats_from_campaign")))
+        or not _a11y_on_monitoring
         or bool((user or {}).get("is_campaign_only"))
         or ((user or {}).get("role_v2") in ("student", "parent", "institution_admin"))
-        # ⭐ 본부 admin도 캠페인 컨텍스트에 한 번 들어오면 그 후 토글로 다시 켤 때까지 숨김
-        or bool(st.session_state.get("_hide_a11y_forever"))
     )
-
-    # 본부 admin이 캠페인 페이지에 한 번이라도 진입하면 플래그 set (다음 새로고침에도 유지)
-    if (_curr_page.startswith("campaign_") or _curr_page in _cmp_pages_for_a11y
-        or _qp_p_for_a11y.startswith("campaign_") or _qp_p_for_a11y in _cmp_pages_for_a11y):
-        st.session_state["_hide_a11y_forever"] = True
-    # 모니터링 메인 페이지로 명시적으로 돌아가면 플래그 해제
-    if _curr_page in ("home_landing", "monitoring_dashboard") and \
-       not (_qp_p_for_a11y.startswith("campaign_") or _qp_p_for_a11y in _cmp_pages_for_a11y):
-        st.session_state.pop("_hide_a11y_forever", None)
 
     # ⭐ 캠페인 페이지/사용자 — 음성 발화 자체 무력화 (top.document에 직접 inject)
     #    components.html iframe에서 실행하면 top context patch가 약함.
@@ -10625,48 +10618,58 @@ else:
     _dict_on_now  = bool(st.session_state.get("dictation_enabled"))
     # ⭐ 캠페인 페이지/사용자는 toolbar 숨김 (모니터링 전용 기능)
     if not _hide_a11y_toolbar:
-        # ── 접근성: 한 줄 바로 on/off 버튼만 (2026-06-21, 사용자 요청) ──
-        #   기존 expander 박스 제거 — 버튼이 곧 마이크(빨강=음성/보라=받아쓰기)를
-        #   활성화하므로 박스는 중복. 상세 패널 삭제.
-        _qa1, _qa2, _qa3 = st.columns([2, 2, 6])
-        if _qa1.button(
-            "🔊 음성 안내 ON ✅" if _voice_on_now else "🔇 음성 안내 켜기",
-            key="a11y_quick_voice", use_container_width=True,
-            type=("primary" if _voice_on_now else "secondary"),
-            help="시각장애인용 음성 안내(빨간 마이크)를 바로 켜고 끕니다.",
-        ):
-            _nv = not _voice_on_now
-            st.session_state["voice_guide_enabled"] = _nv
-            st.session_state["a11y_main_voice_toggle"] = _nv
+        # ── 접근성: 작은 팝업(popover) 하나로 통일 (2026-06-23, 사용자 요청) ──
+        #   상단엔 '♿ 접근성' 버튼만. 누르면 팝업 안에서 음성/받아쓰기 on/off.
+        #   버튼 토글(단일 상태키) → 위젯 어긋남 없이 일관 동작.
+        def _a11y_set_voice(on):
+            st.session_state["voice_guide_enabled"] = on
+            st.session_state["a11y_main_voice_toggle"] = on
             try:
                 if user:
                     _a11y_save_to_user(supabase, user.get("id"))
             except Exception:
                 pass
             try:
-                _a11y_main_speak("음성 안내를 켭니다." if _nv else "음성 안내를 끕니다.")
+                _a11y_main_speak("음성 안내를 켭니다." if on else "음성 안내를 끕니다.")
             except Exception:
                 pass
-            st.rerun()
-        if _qa2.button(
-            "🎤 받아쓰기 ON ✅" if _dict_on_now else "🎤 받아쓰기 켜기",
-            key="a11y_quick_dict", use_container_width=True,
-            type=("primary" if _dict_on_now else "secondary"),
-            help="드래곤파더 음성 입력(보라 마이크)을 바로 켜고 끕니다.",
-        ):
-            _nd = not _dict_on_now
-            st.session_state["dictation_enabled"] = _nd
-            st.session_state["a11y_main_dictation_toggle"] = _nd
-            try:
-                if user:
-                    _a11y_save_to_user(supabase, user.get("id"))
-            except Exception:
-                pass
-            st.rerun()
 
-        # ⌨️ 음성 ON일 때만 키보드 접근(Tab+Enter) 마이크 버튼 노출 — 평소엔 숨김
-        if _voice_on_now:
-            accessibility.render_keyboard_mic()
+        def _a11y_set_dict(on):
+            st.session_state["dictation_enabled"] = on
+            st.session_state["a11y_main_dictation_toggle"] = on
+            try:
+                if user:
+                    _a11y_save_to_user(supabase, user.get("id"))
+            except Exception:
+                pass
+
+        _pop_l, _pop_r = st.columns([2.2, 7.8])
+        with _pop_l:
+            _pop_label = "♿ 접근성"
+            if _voice_on_now and _dict_on_now:
+                _pop_label += " · 🔊🎤 ON"
+            elif _voice_on_now:
+                _pop_label += " · 🔊 ON"
+            elif _dict_on_now:
+                _pop_label += " · 🎤 ON"
+            with st.popover(_pop_label, use_container_width=True):
+                st.caption("시각장애인 지원 — 모니터링 작업 시 필요할 때만 켜세요.")
+                _vc1, _vc2 = st.columns([3, 1])
+                _vc1.markdown(f"**🔊 음성 안내** {'🟢 켜짐' if _voice_on_now else '⚪ 꺼짐'}")
+                if _vc2.button("끄기" if _voice_on_now else "켜기", key="a11y_pop_voice",
+                               type=("secondary" if _voice_on_now else "primary"),
+                               use_container_width=True):
+                    _a11y_set_voice(not _voice_on_now); st.rerun()
+                _dc1, _dc2 = st.columns([3, 1])
+                _dc1.markdown(f"**🎤 받아쓰기** {'🟢 켜짐' if _dict_on_now else '⚪ 꺼짐'}")
+                if _dc2.button("끄기" if _dict_on_now else "켜기", key="a11y_pop_dict",
+                               type=("secondary" if _dict_on_now else "primary"),
+                               use_container_width=True):
+                    _a11y_set_dict(not _dict_on_now); st.rerun()
+                # ⌨️ 음성 ON일 때만 키보드 접근(Tab+Enter) 마이크 — 팝업 안에 노출
+                if _voice_on_now:
+                    st.divider()
+                    accessibility.render_keyboard_mic()
 
         # 🎤 음성 명령 floating 마이크 버튼 (음성 ON일 때 우하단 — 빨간 마이크)
         accessibility.render_floating_mic()
