@@ -9807,12 +9807,12 @@ if st.session_state.user is None:
         max-width: 1280px !important;
     }
     /* 로그인 페이지의 보이지 않는 스크립트 컴포넌트(iframe) 전부 접기 — 접근성 박스~토글 사이 빈 공간 제거.
-       (로그인 화면엔 시각적 iframe 컴포넌트가 없어 안전. 스크립트는 display:none이어도 1회 실행됨) */
-    div[data-testid="stCustomComponentV1"],
-    iframe[data-testid="stCustomComponentV1"],
-    .stElementContainer:has(> div[data-testid="stCustomComponentV1"]),
-    .stElementContainer:has(> iframe[title="streamlit_component"]),
-    .stElementContainer:has(> iframe[srcdoc]) {
+       (로그인 화면엔 시각적 iframe 컴포넌트가 없어 안전. 스크립트는 display:none이어도 1회 실행됨)
+       ※ wrapper가 중첩돼 있어 직계(>) 대신 descendant has(iframe)로 매칭 */
+    [data-testid="stIFrame"],
+    [data-testid="stCustomComponentV1"],
+    iframe[srcdoc],
+    .stElementContainer:has(iframe) {
         display: none !important; height: 0 !important; min-height: 0 !important;
         margin: 0 !important; padding: 0 !important;
     }
