@@ -11235,10 +11235,14 @@ else:
                           b.style.setProperty('align-items','center','important');
                           b.style.setProperty('row-gap','3px','important');
                           b.style.setProperty('column-gap','2px','important');
-                          b.style.setProperty('width','100%','important');
-                          b.style.setProperty('max-width','100%','important');
+                          b.style.setProperty('width','calc(100vw - 8px)','important');
+                          b.style.setProperty('max-width','calc(100vw - 8px)','important');
                           b.style.setProperty('box-sizing','border-box','important');
+                          b.style.setProperty('margin-left','0','important');
+                          b.style.setProperty('margin-right','0','important');
                           b.style.setProperty('overflow','visible','important');
+                          var par = b.parentElement;
+                          for(var p=0;p<4 && par;p++){ par.style.setProperty('overflow','visible','important'); par.style.setProperty('max-width','100vw','important'); par = par.parentElement; }
                           for(var j=0;j<cols.length;j++){
                             cols[j].style.setProperty('width','auto','important');
                             cols[j].style.setProperty('min-width','0','important');
