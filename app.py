@@ -3745,26 +3745,25 @@ div[data-testid="stExpanderDetails"] { padding-top: 0.3rem !important; }
     .ac-card .ac-title { font-size: 0.68rem !important; }
     h1 { font-size: 1.1rem !important; }
 
-    /* 📱 상단 nav(.dz-topnav 포함 블록)만 세로 스택 대신 '가로 줄바꿈' */
-    [data-testid="stHorizontalBlock"]:has(.dz-topnav) {
+    /* 📱 상단 nav(.dz-topnav-row, JS로 부여)만 세로 스택 대신 '가로 줄바꿈' */
+    .dz-topnav-row {
         flex-wrap: wrap !important;
         justify-content: center !important;
         gap: 1px 2px !important;
         row-gap: 2px !important;
     }
-    [data-testid="stHorizontalBlock"]:has(.dz-topnav) > [data-testid="column"] {
+    .dz-topnav-row [data-testid="column"] {
         width: auto !important;
         min-width: 0 !important;
         flex: 0 0 auto !important;
     }
-    /* nav 버튼 컴팩트 */
-    [data-testid="stHorizontalBlock"]:has(.dz-topnav) button {
+    .dz-topnav-row button {
         min-height: 1.9rem !important;
         padding: 0.15rem 0.35rem !important;
         font-size: 0.72rem !important;
     }
-    /* 마커가 든 spacer 컬럼은 숨김(공간 차지 X, :has는 DOM 기준이라 계속 매칭) */
-    [data-testid="stHorizontalBlock"]:has(.dz-topnav) > [data-testid="column"]:first-child {
+    /* 마커가 든 spacer 컬럼은 숨김 */
+    .dz-topnav-row > [data-testid="column"]:first-child {
         display: none !important;
     }
 }
@@ -11143,9 +11142,27 @@ else:
             spacer, bc_ko, bc_en, bc_jp, bc_work, bc_stats, bc_home, bc_write, bc_notice, bc_profile, bc_logout = st.columns([1.5, 0.28, 0.28, 0.28, 0.5, 0.55, 0.42, 0.42, 0.52, 0.5, 0.25])
             bc_agency = None
 
-        # 📱 모바일에서 상단 nav를 '가로 줄바꿈'으로 만들기 위한 마커 (CSS :has 타깃)
+        # 📱 모바일에서 상단 nav를 '가로 줄바꿈'으로 만들기 위한 마커 + JS 태깅
+        #    (:has() 미지원 브라우저(카카오톡 인앱 등)에서도 동작하도록 JS로 클래스 부여)
         with spacer:
             st.markdown('<span class="dz-topnav"></span>', unsafe_allow_html=True)
+        _a11y_components.html(
+            """
+            <script>
+            (function(){
+              var d = (window.top||window.parent||window).document;
+              function tag(){
+                var m = d.querySelector('.dz-topnav');
+                if(m){ var b = m.closest('[data-testid="stHorizontalBlock"]');
+                       if(b){ b.classList.add('dz-topnav-row'); return true; } }
+                return false;
+              }
+              if(!tag()){ var n=0, iv=setInterval(function(){ if(tag()||++n>40) clearInterval(iv); },120); }
+            })();
+            </script>
+            """,
+            height=0,
+        )
 
         with bc_ko:
             if st.button("🇰🇷", use_container_width=True, key="flag_ko", help="한국어"):
