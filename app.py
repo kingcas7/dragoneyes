@@ -10242,7 +10242,7 @@ if st.session_state.user is None:
         if _login_mode == "campaign":
             _mission_class  = "login-mission campaign-mission"
             _mission_icon   = "🎓"
-            _mission_title  = "온라인 유해컨텐츠 근절 캠페인"
+            _mission_title  = "온라인 유해컨텐츠 예방 캠페인"
             _mission_desc   = "교육기관·학부모·학생이 함께 만드는 안전한 온라인 환경"
             _feat1_icon, _feat1_title, _feat1_desc = "🏫", "교육기관 전용 대시보드", "학생 보호 교육·행동강령·저작권 등 미개척 분야 커리큘럼"
             _feat2_icon, _feat2_title, _feat2_desc = "📋", "학생 설문 + 봉사 점수", "50문항 성실 완료 → 교육부 인정 봉사시간 (4~8시간) 발급"
@@ -10513,7 +10513,7 @@ if st.session_state.user is None:
         if _login_mode == "campaign":
             st.markdown("")
             with st.container(border=True):
-                st.markdown("##### 🎓 온라인 유해컨텐츠 근절 캠페인")
+                st.markdown("##### 🎓 온라인 유해컨텐츠 예방 캠페인")
                 st.caption("교육기관 · 학부모 · 학생이 함께 만드는 안전한 온라인 환경")
                 st.markdown(
                     "- 🏫 **교육기관 전용 대시보드** — 학생 보호 교육·행동강령·저작권 등 미개척 분야 커리큘럼\n"
@@ -11300,7 +11300,7 @@ else:
         with _hdr_l:
             st.markdown(
                 '<div style="font-size:1.4rem; font-weight:700; padding:4px 0;">'
-                '🎓 드래곤아이즈 온라인 유해컨텐츠 근절 캠페인</div>',
+                '🎓 드래곤아이즈 온라인 유해컨텐츠 예방 캠페인</div>',
                 unsafe_allow_html=True,
             )
         with _hdr_r:
@@ -19023,7 +19023,7 @@ else:
         st.markdown("## 📜 캠페인 이용 동의서")
         st.caption(
             f"안녕하세요, **{_u_cc.get('name','사용자')}님**. "
-            "드래곤아이즈 온라인 유해컨텐츠 근절 캠페인 사이트를 이용하시려면 아래 약관에 동의해주세요. "
+            "드래곤아이즈 온라인 유해컨텐츠 예방 캠페인 사이트를 이용하시려면 아래 약관에 동의해주세요. "
             "약관이 변경된 경우에도 재동의가 필요합니다."
         )
 
@@ -19060,7 +19060,7 @@ else:
         st.markdown("---")
         st.markdown("##### ✅ 동의")
         _agree_all = st.checkbox(
-            f"**드래곤아이즈 온라인 유해컨텐츠 근절 캠페인 사이트 이용 동의서 ({_ctv_ver})** "
+            f"**드래곤아이즈 온라인 유해컨텐츠 예방 캠페인 사이트 이용 동의서 ({_ctv_ver})** "
             "에 모두 동의합니다.",
             key="cc_agree_all",
         )
@@ -19984,7 +19984,7 @@ else:
                     _cta_subject = f"[드래곤아이즈 캠페인] {_cta_name}님의 설문 배포 링크"
                     _cta_body = (
                         f"{_cta_name}님, 안녕하세요!\n\n"
-                        f"드래곤아이즈 온라인 유해컨텐츠 근절 캠페인에 참여해주셔서 감사합니다.\n\n"
+                        f"드래곤아이즈 온라인 유해컨텐츠 예방 캠페인에 참여해주셔서 감사합니다.\n\n"
                         f"━━━━━━━━━━━━━━━━━━━━━━━\n"
                         f"📋 내 설문 배포 링크:\n{_cta_url}\n"
                         f"━━━━━━━━━━━━━━━━━━━━━━━\n\n"
@@ -20099,7 +20099,7 @@ else:
                 st.caption("자녀의 설문 링크와 봉사 점수 현황을 확인하실 수 있습니다.")
             else:
                 st.markdown("## 🎒 학생 설문 + 봉사 점수")
-                st.caption("드래곤아이즈 온라인 유해콘텐츠 근절 캠페인 — 나의 학습·설문·봉사 현황")
+                st.caption("드래곤아이즈 온라인 유해콘텐츠 예방 캠페인 — 나의 학습·설문·봉사 현황")
         with _hh2:
             if st.button("← 캠페인 홈", key="csd_back", use_container_width=True):
                 # 자녀 둘러보기 모드면 학부모 dashboard로
@@ -20565,7 +20565,7 @@ else:
                             _csubject = f"[드래곤아이즈 캠페인] {_u_csd.get('name','')}님의 설문 링크"
                             _cbody = (
                                 f"{_u_csd.get('name','')}님, 안녕하세요!\n\n"
-                                f"드래곤아이즈 온라인 유해컨텐츠 근절 캠페인에 참여해주셔서 감사합니다.\n\n"
+                                f"드래곤아이즈 온라인 유해컨텐츠 예방 캠페인에 참여해주셔서 감사합니다.\n\n"
                                 f"━━━━━━━━━━━━━━━━━━━━━━━\n"
                                 f"📋 내 설문 링크:\n{_csurvey_url}\n"
                                 f"━━━━━━━━━━━━━━━━━━━━━━━\n\n"
@@ -20757,7 +20757,7 @@ else:
         st.markdown("---")
         st.markdown("### 🏆 봉사활동 인증서")
         st.caption(
-            "온라인 유해컨텐츠 근절 캠페인 참여로 발급된 봉사활동 인증서입니다. "
+            "온라인 유해컨텐츠 예방 캠페인 참여로 발급된 봉사활동 인증서입니다. "
             "필요하실 때 언제든 재출력하실 수 있고, 시리얼 번호로 진위 확인이 가능합니다."
         )
 
@@ -20787,7 +20787,7 @@ else:
                 _grade = _cert.get("snapshot_grade")
                 _class_no = _cert.get("snapshot_class_no")
                 _stu_name = _cert.get("snapshot_student_name") or ""
-                _act_title = _cert.get("activity_title") or "온라인 유해컨텐츠 근절 캠페인 참여"
+                _act_title = _cert.get("activity_title") or "온라인 유해컨텐츠 예방 캠페인 참여"
                 _reprint = int(_cert.get("reprint_count") or 0)
                 _grade_disp = f"{_grade}학년 {_class_no}반" if _grade and _class_no else (f"{_grade}학년" if _grade else "")
 
@@ -20863,7 +20863,7 @@ else:
                             f"<tr><td style='color:#475569;'>발 급 일</td><td>{_issued_at}</td></tr>"
                             "</table>"
                             "<div style='margin-top:36px;text-align:center;font-size:17px;line-height:1.8;'>"
-                            "위 학생은 드래곤아이즈 주식회사가 운영하는 <b>온라인 유해컨텐츠 근절 캠페인</b>에<br>"
+                            "위 학생은 드래곤아이즈 주식회사가 운영하는 <b>온라인 유해컨텐츠 예방 캠페인</b>에<br>"
                             "성실히 참여하였기에 이를 인증합니다.</div>"
                             f"<div style='margin-top:48px;text-align:center;font-size:18px;font-weight:bold;'>{_issued_at[:4]}년 {_issued_at[5:7]}월 {_issued_at[8:10]}일</div>"
                             f"<div style='margin-top:24px;text-align:center;font-size:20px;font-weight:bold;'>"
@@ -21194,7 +21194,7 @@ else:
                                                                               "closed":"🔴 종료",
                                                                               "archived":"📦 보관"}.get(x, x))
                         _nc_title = st.text_input("캠페인 명 *",
-                                                  placeholder="2026년 온라인 유해컨텐츠 근절 캠페인")
+                                                  placeholder="2026년 온라인 유해컨텐츠 예방 캠페인")
                         _nc_subtitle = st.text_input("부제목")
                         _nc_desc = st.text_area("설명", height=80)
 
@@ -22396,7 +22396,7 @@ else:
         _curr_sy = _now_t.year if _now_t.month >= 3 else _now_t.year - 1
         if _is_hq_admin_inst:
             st.markdown(
-                f"### 🎯 {_curr_sy}년 전국 — 드래곤아이즈 온라인 유해컨텐츠 근절 캠페인 현황"
+                f"### 🎯 {_curr_sy}년 전국 — 드래곤아이즈 온라인 유해컨텐츠 예방 캠페인 현황"
             )
             st.caption(
                 f"🔍 미리보기 기관: **{_inst.get('name','')}** · "
@@ -22552,7 +22552,7 @@ else:
 
         # ─────────── 🎯 섹션 2: 캠페인 참여 현황 ───────────
         with st.container(border=True):
-            st.markdown("### 🎯 온라인 유해컨텐츠 근절 캠페인 현황")
+            st.markdown("### 🎯 온라인 유해컨텐츠 예방 캠페인 현황")
             st.caption("학생 참여·설문 완료·봉사 시간 — 학교별·지역별·전국 집계")
 
             _participating_school_ids = set(s.get("institution_id") for s in _stu_all if s.get("institution_id"))
@@ -23101,7 +23101,7 @@ else:
                         _stu_name = _cf.get("student_name") or ""
                         _school = _cf.get("school_name") or _inst.get("name","")
                         _gd = f"{_cf.get('grade')}학년 {_cf.get('class_no')}반" if _cf.get('grade') and _cf.get('class_no') else ""
-                        _act_title = _cf.get("activity_title") or "온라인 유해컨텐츠 근절 캠페인 참여"
+                        _act_title = _cf.get("activity_title") or "온라인 유해컨텐츠 예방 캠페인 참여"
                         _verify_url = f"https://dragoneyes-production.up.railway.app/?cert={_serial}"
                         _de_seal = (
                             "<svg width='90' height='90' viewBox='0 0 100 100' "
@@ -23130,7 +23130,7 @@ else:
                             f"<tr><td style='color:#475569;'>발 급 일</td><td>{_issued_at}</td></tr>"
                             "</table>"
                             "<div style='margin-top:36px;text-align:center;font-size:17px;line-height:1.8;'>"
-                            "위 학생은 드래곤아이즈 주식회사가 운영하는 <b>온라인 유해컨텐츠 근절 캠페인</b>에<br>"
+                            "위 학생은 드래곤아이즈 주식회사가 운영하는 <b>온라인 유해컨텐츠 예방 캠페인</b>에<br>"
                             "성실히 참여하였기에 이를 인증합니다.</div>"
                             f"<div style='margin-top:48px;text-align:center;font-size:18px;font-weight:bold;'>{_issued_at[:4]}년 {_issued_at[5:7]}월 {_issued_at[8:10]}일</div>"
                             f"<div style='margin-top:24px;text-align:center;font-size:20px;font-weight:bold;'>"
@@ -26117,7 +26117,7 @@ else:
                 with _nc1:
                     _nn_title = st.text_input(
                         "제목 *", key="sm_nn_title",
-                        placeholder="예: 온라인 유해콘텐츠 근절 캠페인 설문 (중학생용)",
+                        placeholder="예: 온라인 유해콘텐츠 예방 캠페인 설문 (중학생용)",
                     )
                     _nn_band = st.selectbox(
                         "학년대 *",
@@ -26553,7 +26553,7 @@ else:
                 _nv_ver = st.text_input("새 버전 *", key="tm_nv_ver",
                                           placeholder="예: v1.1 또는 2026-12-01")
                 _nv_title = st.text_input("제목 *", key="tm_nv_title",
-                                            value="드래곤아이즈 온라인 유해컨텐츠 근절 캠페인 사이트 이용 동의서")
+                                            value="드래곤아이즈 온라인 유해컨텐츠 예방 캠페인 사이트 이용 동의서")
                 _nv_body = st.text_area("본문 (Markdown) *", key="tm_nv_body",
                                           height=400,
                                           value=(_active_ver_row.get("body_md") if _active_ver_row else ""),
