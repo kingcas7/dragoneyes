@@ -3725,6 +3725,27 @@ hr { margin: 0.25rem 0 !important; }
 button[kind="secondary"] { padding: 0.25rem 0.4rem !important; font-size: 0.82rem !important; }
 p { margin-bottom: 0.2rem !important; }
 
+/* ── 2026-06-23 시연 대비 컴팩트·여백 1차 보정 (전 페이지 공통) ── */
+/* 상단 불필요 여백 축소 */
+.block-container { padding-top: 0.5rem !important; padding-left: 0.9rem !important; padding-right: 0.9rem !important; }
+/* 커스텀 액션/슬롯 카드 — 큰 아이콘·과한 패딩 축소 */
+.ac-card { min-height: 56px !important; padding: 8px 6px 6px !important; }
+.ac-card .ac-icon { font-size: 1.15rem !important; }
+.ac-card .ac-title { font-size: 0.74rem !important; }
+.ac-card .ac-desc { font-size: 0.6rem !important; }
+/* expander 내용 상단 여백 축소 */
+div[data-testid="stExpanderDetails"] { padding-top: 0.3rem !important; }
+/* 캡션·서브헤더 위아래 여백 축소 */
+[data-testid="stCaptionContainer"] { margin: 0.1rem 0 !important; }
+/* 모바일에서 더 촘촘하게 + 아이콘 더 작게 */
+@media (max-width: 768px) {
+    .block-container { padding-top: 0.3rem !important; padding-left: 0.5rem !important; padding-right: 0.5rem !important; }
+    .ac-card { min-height: 48px !important; padding: 6px 4px !important; }
+    .ac-card .ac-icon { font-size: 1rem !important; }
+    .ac-card .ac-title { font-size: 0.68rem !important; }
+    h1 { font-size: 1.1rem !important; }
+}
+
 /* PWA 스타일 — 상태바 영역 대응 */
 @media (display-mode: standalone) {
     .block-container {
