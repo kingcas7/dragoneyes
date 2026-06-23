@@ -11268,9 +11268,21 @@ else:
                       if(!window.__dzTrimLogged && (cc.length||hidden)){ window.__dzTrimLogged=true; console.log('[dz trimTop] containers='+cc.length+', hiddenIframes='+hidden); }
                     }catch(e){}
                   }
+                  function hideTabs(){
+                    try{
+                      var tabs = document.querySelectorAll('button[data-baseweb="tab"]');
+                      for(var i=0;i<tabs.length;i++){
+                        var tx = tabs[i].innerText || '';
+                        if(tx.indexOf('드래곤파더')>=0 || tx.indexOf('텍스트 분석')>=0){
+                          tabs[i].style.setProperty('display','none','important');
+                        }
+                      }
+                    }catch(e){}
+                  }
                   function fix(){
                     try{
                       trimTop();
+                      hideTabs();
                       var mob = window.innerWidth <= 768;
                       var blocks = document.querySelectorAll('[data-testid="stHorizontalBlock"]');
                       for(var i=0;i<blocks.length;i++){
@@ -27791,14 +27803,17 @@ else:
 
         active_tab_idx = st.session_state.get("active_tab", 0)
 
+        # 🔀 탭 순서(2026-06-23): 추천·히스토리·보고서를 맨 앞으로.
+        #   chat(드래곤파더)/text(텍스트 분석)는 콘텐츠 참조가 많아 정의는 유지하되
+        #   탭 버튼은 JS로 숨김(시각적 제거) — 드래곤파더 챗은 상단 박스에 별도 존재.
         tab_defs = [
             ("dragon",  t("tab_dragon")),
+            ("history", t("tab_history")),
+            ("reports", t("tab_reports")),
             ("youtube", t("tab_youtube")),
             ("keyword", t("tab_keyword")),
             ("naver",   "🟢 네이버 탐색"),
             ("discord", "💬 디스코드 탐색"),
-            ("history", t("tab_history")),
-            ("reports", t("tab_reports")),
             ("stats",   t("tab_stats")),
             ("notice",  "📢 공지사항"),
             ("chat",    "🐲 드래곤파더"),
@@ -27824,8 +27839,9 @@ else:
             st.session_state.active_tab = 0
 
         if active_tab_idx == 3:
-            dragon_item = tab_defs.pop(3)
-            tab_defs.insert(0, dragon_item)
+            dragon_keys = [i for i, d in enumerate(tab_defs) if d[0] == "dragon"]
+            if dragon_keys:
+                tab_defs.insert(0, tab_defs.pop(dragon_keys[0]))
             st.session_state.active_tab = 0
 
         # 🎤 접근성: 음성 명령 "동영상 열기" → history 탭 강제 활성화
