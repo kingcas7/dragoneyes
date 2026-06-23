@@ -9806,11 +9806,15 @@ if st.session_state.user is None:
         padding-bottom: 1rem !important;
         max-width: 1280px !important;
     }
-    /* 0높이 빈 커스텀 컴포넌트(iframe) 컨테이너 접기 — 상단 여백 유발 제거 */
-    .stElementContainer:has(> iframe[height="0"]),
-    .stElementContainer:has(> div[data-testid="stCustomComponentV1"] iframe[height="0"]),
-    [data-testid="stCustomComponentV1"]:has(iframe[height="0"]) {
-        display: none !important; height: 0 !important; margin: 0 !important; padding: 0 !important;
+    /* 로그인 페이지의 보이지 않는 스크립트 컴포넌트(iframe) 전부 접기 — 접근성 박스~토글 사이 빈 공간 제거.
+       (로그인 화면엔 시각적 iframe 컴포넌트가 없어 안전. 스크립트는 display:none이어도 1회 실행됨) */
+    div[data-testid="stCustomComponentV1"],
+    iframe[data-testid="stCustomComponentV1"],
+    .stElementContainer:has(> div[data-testid="stCustomComponentV1"]),
+    .stElementContainer:has(> iframe[title="streamlit_component"]),
+    .stElementContainer:has(> iframe[srcdoc]) {
+        display: none !important; height: 0 !important; min-height: 0 !important;
+        margin: 0 !important; padding: 0 !important;
     }
     /* 로그인 페이지 카드 스타일 */
     .login-left-card {
