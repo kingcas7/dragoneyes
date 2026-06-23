@@ -11142,46 +11142,68 @@ else:
             spacer, bc_ko, bc_en, bc_jp, bc_work, bc_stats, bc_home, bc_write, bc_notice, bc_profile, bc_logout = st.columns([1.5, 0.28, 0.28, 0.28, 0.5, 0.55, 0.42, 0.42, 0.52, 0.5, 0.25])
             bc_agency = None
 
-        # 📱 모바일에서 상단 nav를 '가로 줄바꿈'으로 만들기 위한 마커 + 영구 JS 태깅
+        # 📱 모바일에서 상단 nav를 '가로 줄바꿈'으로 — JS가 nav 컬럼에 inline !important
+        #    스타일을 직접 박음(어떤 스타일시트 규칙도 못 이기는 방식).
         with spacer:
             st.markdown('<span class="dz-topnav"></span>', unsafe_allow_html=True)
-        if not st.session_state.get("_topnav_tagger_installed"):
-            st.session_state["_topnav_tagger_installed"] = True
-            _a11y_components.html(
-                r"""
-                <script>
-                (function(){
-                  try{
-                    var top = window.top || window.parent || window;
-                    if(top.__dzTopnavTagger) return;
-                    top.__dzTopnavTagger = true;
-                    var s = top.document.createElement('script');
-                    s.textContent = `(function(){
-                      function tag(){
-                        try{
-                          var blocks = document.querySelectorAll('[data-testid="stHorizontalBlock"]');
-                          for(var i=0;i<blocks.length;i++){
-                            var b = blocks[i];
-                            if(b.querySelector('.dz-topnav')){ b.classList.add('dz-topnav-row'); continue; }
-                            var txt = b.innerText || '';
-                            var btns = b.querySelectorAll('button').length;
-                            if(btns >= 6 && txt.indexOf('업무현황')>=0 && txt.indexOf('통계')>=0){
-                              b.classList.add('dz-topnav-row');
-                            }
+        _a11y_components.html(
+            r"""
+            <script>
+            (function(){
+              try{
+                var top = window.top || window.parent || window;
+                if(top.__dzNavFix) return;
+                top.__dzNavFix = true;
+                var s = top.document.createElement('script');
+                s.textContent = `(function(){
+                  function fix(){
+                    try{
+                      var mob = window.innerWidth <= 768;
+                      var blocks = document.querySelectorAll('[data-testid="stHorizontalBlock"]');
+                      for(var i=0;i<blocks.length;i++){
+                        var b = blocks[i];
+                        var t = b.innerText || '';
+                        var isNav = !!b.querySelector('.dz-topnav') ||
+                          (b.querySelectorAll('button').length >= 6 && t.indexOf('업무현황')>=0 && t.indexOf('통계')>=0);
+                        if(!isNav) continue;
+                        var cols = b.querySelectorAll(':scope > [data-testid=\\"column\\"]');
+                        if(mob){
+                          b.style.setProperty('flex-wrap','wrap','important');
+                          b.style.setProperty('justify-content','center','important');
+                          b.style.setProperty('row-gap','2px','important');
+                          b.style.setProperty('column-gap','2px','important');
+                          for(var j=0;j<cols.length;j++){
+                            cols[j].style.setProperty('width','auto','important');
+                            cols[j].style.setProperty('min-width','0','important');
+                            cols[j].style.setProperty('flex','0 0 auto','important');
+                            var bt = cols[j].querySelector('button');
+                            if(bt){ bt.style.setProperty('min-height','1.9rem','important');
+                                    bt.style.setProperty('padding','2px 5px','important');
+                                    bt.style.setProperty('font-size','0.72rem','important'); }
                           }
-                        }catch(e){}
+                        } else {
+                          b.style.removeProperty('flex-wrap');
+                          for(var k=0;k<cols.length;k++){
+                            cols[k].style.removeProperty('width');
+                            cols[k].style.removeProperty('min-width');
+                            cols[k].style.removeProperty('flex');
+                          }
+                        }
                       }
-                      tag();
-                      try{ new MutationObserver(tag).observe(document.body, {childList:true, subtree:true}); }catch(e){}
-                      setInterval(tag, 1200);
-                    })();`;
-                    top.document.head.appendChild(s);
-                  }catch(e){ console.log('dz topnav tagger err', e); }
-                })();
-                </script>
-                """,
-                height=0,
-            )
+                    }catch(e){}
+                  }
+                  fix();
+                  try{ new MutationObserver(fix).observe(document.body, {childList:true, subtree:true}); }catch(e){}
+                  window.addEventListener('resize', fix);
+                  setInterval(fix, 1000);
+                })();`;
+                top.document.head.appendChild(s);
+              }catch(e){ console.log('dz navfix err', e); }
+            })();
+            </script>
+            """,
+            height=0,
+        )
 
         with bc_ko:
             if st.button("🇰🇷", use_container_width=True, key="flag_ko", help="한국어"):
