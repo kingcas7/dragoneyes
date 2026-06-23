@@ -11366,6 +11366,34 @@ else:
                             if(ta){ ta.style.setProperty('min-height','2.4rem','important'); ta.style.setProperty('max-height','7rem','important'); }
                           }
                         }
+                        // 🔘 일반 '버튼 행': 모든 컬럼이 버튼인 leaf 블록 → 가로 줄바꿈
+                        //    (추천 일반/Roblox/Minecraft/도박, 텍스트·유튜브·보고서 분석 등)
+                        var bbs = document.querySelectorAll('[data-testid="stHorizontalBlock"]');
+                        for(var bbi=0;bbi<bbs.length;bbi++){
+                          var bb = bbs[bbi];
+                          if(bb.querySelector('[data-testid="stHorizontalBlock"]')) continue; // 바깥 컨테이너 제외
+                          if(bb.querySelector('.dz-topnav')) continue;                        // nav는 별도
+                          if(bb.querySelector('[data-testid="stMetric"], [data-testid="metric-container"], [data-testid="stChatInput"]')) continue;
+                          var bcols = bb.querySelectorAll(SEL);
+                          if(bcols.length < 2) continue;
+                          var allBtn = true;
+                          for(var bc=0;bc<bcols.length;bc++){ if(!bcols[bc].querySelector('button')){ allBtn=false; break; } }
+                          if(!allBtn) continue;
+                          bb.style.setProperty('display','flex','important');
+                          bb.style.setProperty('flex-direction','row','important');
+                          bb.style.setProperty('flex-wrap','wrap','important');
+                          bb.style.setProperty('justify-content','center','important');
+                          bb.style.setProperty('align-items','stretch','important');
+                          bb.style.setProperty('width','100%','important');
+                          bb.style.setProperty('max-width','100vw','important');
+                          bb.style.setProperty('row-gap','4px','important');
+                          bb.style.setProperty('column-gap','4px','important');
+                          for(var bc2=0;bc2<bcols.length;bc2++){
+                            bcols[bc2].style.setProperty('flex','0 1 auto','important');
+                            bcols[bc2].style.setProperty('min-width','0','important');
+                            bcols[bc2].style.setProperty('width','auto','important');
+                          }
+                        }
                       }
                     }catch(e){ console.log('[dz navfix] err', e); }
                   }
