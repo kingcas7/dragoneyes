@@ -11316,6 +11316,7 @@ else:
                         for(var mi=0;mi<mblocks.length;mi++){
                           var mb = mblocks[mi];
                           if(!mb.querySelector('[data-testid="stMetric"], [data-testid="metric-container"]')) continue;
+                          if(mb.querySelector('[data-testid="stHorizontalBlock"]')) continue; // 중첩 행 포함한 바깥 컨테이너는 제외(2열 레이아웃 보호)
                           mb.style.setProperty('display','flex','important');
                           mb.style.setProperty('flex-direction','row','important');
                           mb.style.setProperty('flex-wrap','nowrap','important');
@@ -11338,6 +11339,7 @@ else:
                         for(var cbi=0;cbi<chatBlocks.length;cbi++){
                           var cb = chatBlocks[cbi];
                           if(!cb.querySelector('[data-testid="stChatInput"]')) continue;
+                          if(cb.querySelector('[data-testid="stHorizontalBlock"]')) continue; // 바깥 컨테이너 제외
                           cb.style.setProperty('display','flex','important');
                           cb.style.setProperty('flex-direction','row','important');
                           cb.style.setProperty('flex-wrap','nowrap','important');
