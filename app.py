@@ -11362,15 +11362,29 @@ else:
                             ci2.style.setProperty('width','100%','important');
                             ci2.style.setProperty('min-width','0','important');
                             ci2.style.setProperty('min-height','0','important');
-                            // 기본 1줄 높이 + 입력 길어지면 늘어남(최대 8rem 후 스크롤)
+                            // 모바일에서 전송버튼이 textarea 아래로 내려가 박스가 커지는 것 방지:
+                            //   내부 flex 래퍼들을 가로 한 줄(row nowrap)로 강제.
                             var ta = ci2.querySelector('textarea');
                             if(ta){
-                              ta.style.setProperty('min-height','2.5rem','important');
-                              ta.style.setProperty('max-height','8rem','important');
+                              var fp = ta.parentElement;
+                              for(var fz=0; fz<4 && fp && fp!==ci2.parentElement; fz++){
+                                fp.style.setProperty('flex-direction','row','important');
+                                fp.style.setProperty('flex-wrap','nowrap','important');
+                                fp.style.setProperty('align-items','flex-end','important');
+                                fp.style.setProperty('min-height','0','important');
+                                fp = fp.parentElement;
+                              }
+                              ta.style.setProperty('min-height','2.4rem','important');
+                              ta.style.setProperty('max-height','7rem','important');
+                              ta.style.setProperty('flex','1 1 auto','important');
                             }
-                            // 컨테이너 안쪽 래퍼들의 큰 min-height 제거
-                            var inn = ci2.querySelectorAll('div');
-                            for(var iq=0;iq<inn.length;iq++){ inn[iq].style.setProperty('min-height','0','important'); }
+                            // 전송 버튼 컴팩트(정사각)
+                            var sb = ci2.querySelector('button');
+                            if(sb){ sb.style.setProperty('min-height','2.4rem','important');
+                                    sb.style.setProperty('height','2.4rem','important');
+                                    sb.style.setProperty('width','2.4rem','important');
+                                    sb.style.setProperty('min-width','2.4rem','important');
+                                    sb.style.setProperty('flex','0 0 auto','important'); }
                           }
                         }
                       }
