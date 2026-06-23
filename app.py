@@ -10315,12 +10315,33 @@ if st.session_state.user is None:
         # ⭐ 캠페인 모드 — 회원가입 진입 버튼 (Phase 3)
         if _login_mode == "campaign":
             st.markdown("---")
-            if st.button("🆕 캠페인 회원가입 (교육기관·학부모·학생)",
-                         use_container_width=True,
-                         key="login_to_campaign_signup",
-                         help="처음 이용하시는 경우 클릭"):
-                st.session_state["current_page"] = "campaign_signup_select"
-                st.rerun()
+            st.markdown("##### 🆕 캠페인 회원가입")
+            st.caption("가입 시 휴대폰 본인인증으로 본인 확인(미성년자 여부 포함)을 진행합니다.")
+            _sc1, _sc2, _sc3 = st.columns(3)
+            with _sc1:
+                with st.container(border=True):
+                    st.markdown("**🏫 교육기관**")
+                    st.caption("교육부·교육청·초중고·청소년 교육시설")
+                    if st.button("교육기관 회원 가입하기", use_container_width=True,
+                                 key="login_signup_inst"):
+                        st.session_state["current_page"] = "campaign_signup_institution"
+                        st.rerun()
+            with _sc2:
+                with st.container(border=True):
+                    st.markdown("**🎒 학생**")
+                    st.caption("📌 보호자 정보를 기재해야 합니다.")
+                    if st.button("학생 회원 가입하기", use_container_width=True,
+                                 key="login_signup_stu"):
+                        st.session_state["current_page"] = "campaign_signup_student"
+                        st.rerun()
+            with _sc3:
+                with st.container(border=True):
+                    st.markdown("**👨‍👩‍👧 학부모**")
+                    st.caption("📌 자녀의 재학 정보를 기재해야 합니다.")
+                    if st.button("학부모 회원 가입하기", use_container_width=True,
+                                 key="login_signup_parent"):
+                        st.session_state["current_page"] = "campaign_signup_parent"
+                        st.rerun()
 
         # 카카오 로그인 버튼 (비활성, Coming Soon)
         st.markdown(f"""
