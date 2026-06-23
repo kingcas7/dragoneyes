@@ -11142,27 +11142,46 @@ else:
             spacer, bc_ko, bc_en, bc_jp, bc_work, bc_stats, bc_home, bc_write, bc_notice, bc_profile, bc_logout = st.columns([1.5, 0.28, 0.28, 0.28, 0.5, 0.55, 0.42, 0.42, 0.52, 0.5, 0.25])
             bc_agency = None
 
-        # 📱 모바일에서 상단 nav를 '가로 줄바꿈'으로 만들기 위한 마커 + JS 태깅
-        #    (:has() 미지원 브라우저(카카오톡 인앱 등)에서도 동작하도록 JS로 클래스 부여)
+        # 📱 모바일에서 상단 nav를 '가로 줄바꿈'으로 만들기 위한 마커 + 영구 JS 태깅
         with spacer:
             st.markdown('<span class="dz-topnav"></span>', unsafe_allow_html=True)
-        _a11y_components.html(
-            """
-            <script>
-            (function(){
-              var d = (window.top||window.parent||window).document;
-              function tag(){
-                var m = d.querySelector('.dz-topnav');
-                if(m){ var b = m.closest('[data-testid="stHorizontalBlock"]');
-                       if(b){ b.classList.add('dz-topnav-row'); return true; } }
-                return false;
-              }
-              if(!tag()){ var n=0, iv=setInterval(function(){ if(tag()||++n>40) clearInterval(iv); },120); }
-            })();
-            </script>
-            """,
-            height=0,
-        )
+        if not st.session_state.get("_topnav_tagger_installed"):
+            st.session_state["_topnav_tagger_installed"] = True
+            _a11y_components.html(
+                r"""
+                <script>
+                (function(){
+                  try{
+                    var top = window.top || window.parent || window;
+                    if(top.__dzTopnavTagger) return;
+                    top.__dzTopnavTagger = true;
+                    var s = top.document.createElement('script');
+                    s.textContent = `(function(){
+                      function tag(){
+                        try{
+                          var blocks = document.querySelectorAll('[data-testid="stHorizontalBlock"]');
+                          for(var i=0;i<blocks.length;i++){
+                            var b = blocks[i];
+                            if(b.querySelector('.dz-topnav')){ b.classList.add('dz-topnav-row'); continue; }
+                            var txt = b.innerText || '';
+                            var btns = b.querySelectorAll('button').length;
+                            if(btns >= 6 && txt.indexOf('업무현황')>=0 && txt.indexOf('통계')>=0){
+                              b.classList.add('dz-topnav-row');
+                            }
+                          }
+                        }catch(e){}
+                      }
+                      tag();
+                      try{ new MutationObserver(tag).observe(document.body, {childList:true, subtree:true}); }catch(e){}
+                      setInterval(tag, 1200);
+                    })();`;
+                    top.document.head.appendChild(s);
+                  }catch(e){ console.log('dz topnav tagger err', e); }
+                })();
+                </script>
+                """,
+                height=0,
+            )
 
         with bc_ko:
             if st.button("🇰🇷", use_container_width=True, key="flag_ko", help="한국어"):
