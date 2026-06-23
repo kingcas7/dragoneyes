@@ -9774,8 +9774,10 @@ if st.session_state.user is None:
             "section[data-testid='stMain'] { padding-top: 0 !important; }"
             "section[data-testid='stMain'] > div { padding-top: 0 !important; }"
             ".main { padding-top: 0 !important; }"
-            ".block-container { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; margin-top: 0 !important; }"
-            # 첫 번째 element 위 마진 제거
+            # ⚠️ 최신 Streamlit 실제 컨테이너는 stMainBlockContainer (옛 .block-container 아님) — 둘 다 타깃
+            ".block-container, .stMainBlockContainer, [data-testid='stMainBlockContainer'] { padding-top: 0.4rem !important; padding-bottom: 0.5rem !important; margin-top: 0 !important; }"
+            # 헤더 자리 확보용 큰 padding-top을 가진 stMain 첫 자식 제거 (←진짜 여백 원인)
+            "div[data-testid='stMain'] > div:first-child { padding-top: 0 !important; margin-top: 0 !important; }"
             ".main .block-container > div:first-child { margin-top: 0 !important; padding-top: 0 !important; }"
             # 모드 토글 버튼 작게 (70px → 48px)
             ".login-mode-toggle .stButton > button { height: 48px !important; font-size: 13px !important; padding: 4px 12px !important; }"
@@ -9789,9 +9791,8 @@ if st.session_state.user is None:
             ".main .block-container [data-testid='stVerticalBlock'] { gap: 0.35rem !important; }"
             # 접근성 expander 위/아래 여백 축소
             "[data-testid='stExpander'] { margin-top: 0.2rem !important; margin-bottom: 0.2rem !important; }"
-            # 빈(0높이) 컴포넌트 iframe 컨테이너 접기 — 접근성 박스~토글 사이 여백 제거
-            ".stElementContainer:has(> iframe[height='0']) { display: none !important; height: 0 !important; margin: 0 !important; }"
-            "iframe[height='0'] { display: none !important; height: 0 !important; }"
+            # 보이지 않는 스크립트 컴포넌트(srcdoc iframe) 접기 — 빈 여백 제거(실제 영상 embed[src]는 보존)
+            ".stElementContainer:has(iframe[srcdoc]) { display: none !important; height: 0 !important; margin: 0 !important; padding: 0 !important; }"
             "</style>",
             unsafe_allow_html=True,
         )
