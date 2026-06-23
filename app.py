@@ -382,8 +382,9 @@ def _a11y_push_voice_flag():
     어떤 발화 경로(focusin 등)든 OFF면 막힘. 예외: '접근성'/'켭니다'/'끕니다'."""
     _on = "true" if bool(st.session_state.get("voice_guide_enabled")) else "false"
     _a11y_components.html(
-        "<script>(function(){try{"
-        "var top=window.top||window.parent||window;"
+        "<script>(function(){"
+        "var top;try{top=window.top||window.parent||window;}catch(e){top=window;}"
+        "function apply(){try{"
         "top.__a11yVoiceOn=" + _on + ";"
         "if(top.__a11ySpeak && !top.__a11ySpeakGated){"
         "top.__a11ySpeakGated=true;"
@@ -392,9 +393,11 @@ def _a11y_push_voice_flag():
         "try{if(!top.__a11yVoiceOn){var s=String(t||'');"
         "if(s.indexOf('접근성')<0&&s.indexOf('켭니다')<0&&s.indexOf('끕니다')<0){return false;}}}catch(e){}"
         "return _o.apply(this,arguments);};"
-        "console.log('[A11y] __a11ySpeak OFF-gate installed');"
+        "console.log('[A11y] __a11ySpeak OFF-gate installed, voiceOn='+top.__a11yVoiceOn);"
         "}"
-        "}catch(e){}})();</script>",
+        "}catch(e){}}"
+        "apply();var n=0,iv=setInterval(function(){apply();if(top.__a11ySpeakGated||++n>40)clearInterval(iv);},150);"
+        "})();</script>",
         height=0,
     )
 
