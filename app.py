@@ -377,13 +377,24 @@ def _a11y_main_install_once():
 
 
 def _a11y_push_voice_flag():
-    """접근성 음성 스위치 상태(voice_guide_enabled)를 top window 전역 플래그로 노출.
-    focusin TTS 핸들러가 이 플래그(__a11yVoiceOn)를 보고 발화 여부를 결정.
-    매 렌더마다 호출해 최신 상태 유지."""
+    """접근성 음성 스위치 상태(voice_guide_enabled)를 top window 전역 플래그로 노출 +
+    발화 함수(__a11ySpeak)를 OFF일 때 무음 처리하도록 wrapping.
+    어떤 발화 경로(focusin 등)든 OFF면 막힘. 예외: '접근성'/'켭니다'/'끕니다'."""
     _on = "true" if bool(st.session_state.get("voice_guide_enabled")) else "false"
     _a11y_components.html(
-        "<script>(function(){try{(window.top||window.parent||window).__a11yVoiceOn="
-        + _on + ";}catch(e){}})();</script>",
+        "<script>(function(){try{"
+        "var top=window.top||window.parent||window;"
+        "top.__a11yVoiceOn=" + _on + ";"
+        "if(top.__a11ySpeak && !top.__a11ySpeakGated){"
+        "top.__a11ySpeakGated=true;"
+        "var _o=top.__a11ySpeak;"
+        "top.__a11ySpeak=function(t){"
+        "try{if(!top.__a11yVoiceOn){var s=String(t||'');"
+        "if(s.indexOf('접근성')<0&&s.indexOf('켭니다')<0&&s.indexOf('끕니다')<0){return false;}}}catch(e){}"
+        "return _o.apply(this,arguments);};"
+        "console.log('[A11y] __a11ySpeak OFF-gate installed');"
+        "}"
+        "}catch(e){}})();</script>",
         height=0,
     )
 
