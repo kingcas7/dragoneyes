@@ -7186,6 +7186,67 @@ def render_survey_respond_page():
     st.markdown('</div>', unsafe_allow_html=True)
 
 
+# ══════════════════════════════
+# 📱 휴대폰 본인인증 (캠페인 가입 공통) — NICE/PASS 공식 연동 자리 + 임시 폴백
+# ══════════════════════════════
+def _idv_nice_configured():
+    """공식 NICE 본인인증 키가 환경변수(Railway)에 설정되어 있는지."""
+    return bool(os.environ.get("NICE_CLIENT_ID") and os.environ.get("NICE_CLIENT_SECRET"))
+
+
+def _render_identity_verification(role_key):
+    """휴대폰 본인인증 게이트 — st.form 밖에서 호출. 결과를 session_state['_idv_<role>']에 저장.
+    반환: dict(verified/name/phone/birth/age/is_minor) 또는 None.
+    공식 NICE 키가 설정되면 NICE 흐름, 아니면 임시(휴대폰번호+생년월일→미성년 판별) 폴백.
+    """
+    _k = f"_idv_{role_key}"
+    _res = st.session_state.get(_k)
+    st.markdown("##### 📱 휴대폰 본인인증 (필수)")
+    if _res and _res.get("verified"):
+        _age = _res.get("age")
+        _agetxt = f"만 {_age}세" if _age is not None else "나이 미상"
+        st.success(
+            f"✅ 본인인증 완료 — {_res.get('name','')} / {_agetxt}"
+            + ("  ⚠️ 미성년자" if _res.get("is_minor") else "")
+        )
+        if st.button("🔄 다시 인증", key=f"idv_reset_{role_key}"):
+            st.session_state.pop(_k, None)
+            st.rerun()
+        return _res
+
+    st.caption("미성년자 여부 확인을 위해 본인 명의 휴대폰으로 인증합니다.")
+    if _idv_nice_configured():
+        st.info("📱 NICE 공식 휴대폰 본인인증으로 진행합니다.")
+        if st.button("📱 NICE 휴대폰 본인인증 시작", key=f"idv_nice_{role_key}",
+                     type="primary", use_container_width=True):
+            # TODO(키 수령 후): NICE 표준창 토큰 발급 → window.open → 콜백(enc_data) 복호화 → 결과 저장
+            st.warning("NICE 연동 키는 설정되었으나 콜백 검증이 필요합니다. 관리자에게 문의해주세요.")
+        return None
+
+    # 임시 폴백 — 공식 키 설정 전. 휴대폰번호+이름+생년월일로 미성년 여부 판별.
+    st.info("⚠️ 공식 본인인증(NICE/PASS) 연동 키 설정 전 **임시 인증**입니다. (정식 연동 시 자동 전환)")
+    _nm = st.text_input("이름 *", key=f"idv_nm_{role_key}")
+    _ph = st.text_input("휴대폰번호 *", placeholder="010-0000-0000", key=f"idv_ph_{role_key}")
+    _bd = st.date_input("생년월일 *", value=None, min_value=date(1930, 1, 1),
+                        max_value=date.today(), key=f"idv_bd_{role_key}")
+    if st.button("✅ 휴대폰 본인인증 (임시)", key=f"idv_tmp_{role_key}",
+                 type="primary", use_container_width=True):
+        import re as _re
+        if not (_nm and _ph and _bd):
+            st.warning("이름·휴대폰번호·생년월일을 모두 입력해주세요.")
+        elif not _re.match(r"^01[016789]-?\d{3,4}-?\d{4}$", _ph.replace(" ", "")):
+            st.warning("올바른 휴대폰번호 형식이 아닙니다. 예: 010-1234-5678")
+        else:
+            _age = _campaign_calc_age(_bd)
+            st.session_state[_k] = {
+                "verified": True, "name": _nm, "phone": _ph, "birth": str(_bd),
+                "age": _age, "is_minor": (_age is not None and _age < 19),
+                "method": "temp",
+            }
+            st.rerun()
+    return st.session_state.get(_k)
+
+
 def render_campaign_signup_page(page_key):
     """캠페인 회원가입 페이지 렌더링.
     page_key: 'campaign_signup_select' | 'campaign_signup_institution'
@@ -7315,6 +7376,7 @@ def _render_signup_institution():
             else:
                 st.info("🔍 NEIS 검색 결과 없음.")
 
+    _render_identity_verification("institution")
     with st.form("inst_signup_form"):
         st.markdown("##### 👤 가입자 정보 (기관 담당자)")
         c1, c2 = st.columns(2)
@@ -7403,6 +7465,10 @@ def _render_signup_institution():
         _submitted = st.form_submit_button("✅ 가입 신청", type="primary", use_container_width=True)
 
     if _submitted:
+        _idv = st.session_state.get("_idv_institution")
+        if not (_idv and _idv.get("verified")):
+            st.error("📱 휴대폰 본인인증을 먼저 완료해주세요.")
+            return
         if not _agree:
             st.error("약관에 동의해주세요.")
             return
@@ -7509,6 +7575,7 @@ def _render_signup_parent():
     st.markdown("### 👨‍👩‍👧 학부모 가입")
     st.caption("가입 후 자녀를 등록하실 수 있습니다. 자녀는 가입 후 대시보드에서 추가 가능.")
 
+    _render_identity_verification("parent")
     with st.form("parent_signup_form"):
         st.markdown("##### 👤 학부모 정보")
         c1, c2 = st.columns(2)
@@ -7540,6 +7607,10 @@ def _render_signup_parent():
         _submitted = st.form_submit_button("✅ 학부모 가입", type="primary", use_container_width=True)
 
     if _submitted:
+        _idv = st.session_state.get("_idv_parent")
+        if not (_idv and _idv.get("verified")):
+            st.error("📱 휴대폰 본인인증을 먼저 완료해주세요.")
+            return
         if not (_agree and _consent):
             st.error("약관과 보호자 동의 항목 모두 체크해주세요.")
             return
@@ -7621,6 +7692,7 @@ def _render_signup_student():
     except Exception:
         _insts = []
 
+    _render_identity_verification("student")
     with st.form("student_signup_form"):
         st.markdown("##### 👤 학생 정보")
         c1, c2 = st.columns(2)
@@ -7674,6 +7746,10 @@ def _render_signup_student():
         _submitted = st.form_submit_button("✅ 학생 가입", type="primary", use_container_width=True)
 
     if _submitted:
+        _idv = st.session_state.get("_idv_student")
+        if not (_idv and _idv.get("verified")):
+            st.error("📱 휴대폰 본인인증을 먼저 완료해주세요.")
+            return
         if not _agree:
             st.error("약관에 동의해주세요.")
             return
