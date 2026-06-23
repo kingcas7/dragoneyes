@@ -11241,7 +11241,19 @@ else:
                       for(var ci=0;ci<cc.length;ci++){
                         cc[ci].style.setProperty('padding-top','0.4rem','important');
                       }
-                      if(!window.__dzTrimLogged && cc.length){ window.__dzTrimLogged=true; console.log('[dz trimTop] containers='+cc.length); }
+                      // ⭐ 높이 0짜리(보이지 않는) 컴포넌트 iframe들이 차지하는 빈 공간 제거.
+                      //   스크립트는 top.document에 주입되므로 컨테이너를 숨겨도 계속 동작함.
+                      var ifr = document.querySelectorAll('iframe');
+                      var hidden = 0;
+                      for(var fi=0;fi<ifr.length;fi++){
+                        var f = ifr[fi];
+                        var fh = f.getAttribute('height');
+                        if(f.offsetHeight <= 4 || fh==='0' || fh==='1'){
+                          var cont = f.closest('[data-testid="stElementContainer"]') || f.closest('[data-testid="element-container"]') || f.parentElement;
+                          if(cont && cont.getAttribute('data-dzHidden')!=='1'){ cont.style.setProperty('display','none','important'); cont.setAttribute('data-dzHidden','1'); hidden++; }
+                        }
+                      }
+                      if(!window.__dzTrimLogged && (cc.length||hidden)){ window.__dzTrimLogged=true; console.log('[dz trimTop] containers='+cc.length+', hiddenIframes='+hidden); }
                     }catch(e){}
                   }
                   function fix(){
