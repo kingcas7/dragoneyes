@@ -8969,15 +8969,22 @@ def save_report(content, result, severity, category, platform="manual"):
             "analyzed_url_id": analyzed_url_id,  # analyzed_urls 연결
         }).execute()
 
-        # 보고서 ID 가져와서 analyzed_urls에 역방향 연결
-        if res.data and analyzed_url_id:
+        # 보고서 ID 가져와서 analyzed_urls에 reported=True + 역방향 연결
+        #   ⭐ ID 기준 우선(확실) → 없으면 url 매칭(폴백). URL이 편집/불일치해도 안전.
+        _target_au_id = st.session_state.get("report_target_au_id") or analyzed_url_id
+        if res.data:
             report_id = res.data[0]["id"]
-            supabase.table("analyzed_urls").update({
-                "reported": True,
-                "report_id": report_id,  # reports 역방향 연결
-            }).eq("url", content).execute()
-        elif "youtube.com" in content or "youtu.be" in content:
-            supabase.table("analyzed_urls").update({"reported": True}).eq("url", content).execute()
+            try:
+                if _target_au_id:
+                    supabase.table("analyzed_urls").update({
+                        "reported": True, "report_id": report_id,
+                    }).eq("id", _target_au_id).execute()
+                elif content and ("youtube.com" in content or "youtu.be" in content):
+                    supabase.table("analyzed_urls").update({
+                        "reported": True, "report_id": report_id,
+                    }).eq("url", content).execute()
+            except Exception:
+                pass
 
         # 키워드 자동 학습 (심각도 3 이상)
         if severity >= 3:
@@ -9246,12 +9253,14 @@ def go_home():
         st.session_state.prev_page = "home_landing"
     st.session_state.selected_report = None
 
-def open_report_form(content="", result="", severity=1, category="안전", platform="YouTube", from_tab=None):
+def open_report_form(content="", result="", severity=1, category="안전", platform="YouTube", from_tab=None, au_id=None):
     st.session_state.prefill_content = content
     st.session_state.prefill_result = result
     st.session_state.prefill_severity = severity
     st.session_state.prefill_category = category
     st.session_state.prefill_platform = platform
+    # 이 보고서가 처리하는 analyzed_urls id (모니터링 사이클에서 reported 확실히 찍기/히스토리 복귀용)
+    st.session_state["report_target_au_id"] = au_id
     go_to("report_form", from_tab)
 
 def parse_keywords(text):
@@ -11588,8 +11597,11 @@ else:
                     final = st.session_state.prefill_result or f"[{t('cat_safe')}]\n{t('category')}: {report_category}\n{t('severity')}: {report_severity}"
                     if report_memo:
                         final += f"\n\n[{t('memo')}]\n{report_memo}"
+                    # 이 보고서가 모니터링 영상에 대한 것인지(=히스토리 복귀 대상) save_report 전에 캡처
+                    _was_monitoring = bool(st.session_state.get("report_target_au_id"))
                     if save_report(report_content, final, report_severity, report_category, report_platform.lower()):
                         # prefill 정리
+                        st.session_state["report_target_au_id"] = None
                         st.session_state.prefill_content = ""
                         st.session_state.prefill_result = ""
                         st.session_state["prefill_memo"] = ""
@@ -11660,6 +11672,17 @@ else:
                                 pass
                             try:
                                 st.toast("✅ 보고서 제출·이메일 발송 — 탐색 히스토리로 복귀", icon="🎉")
+                            except Exception:
+                                pass
+                        elif _was_monitoring:
+                            # 🔄 수동 제출이라도 '모니터링 영상' 보고서면 탐색 히스토리로 복귀(사이클 유지)
+                            st.session_state.current_page = "home"
+                            st.session_state.active_tab = 5  # history 탭
+                            st.session_state.pop("_a11y_announced_history_tab_entry", None)
+                            st.session_state.pop("_a11y_announced_history_tab_empty", None)
+                            st.session_state["_explicit_tab_nav"] = "history"
+                            try:
+                                st.toast("✅ 보고서 제출 — 탐색 히스토리로 복귀", icon="🎉")
                             except Exception:
                                 pass
                         else:
@@ -14051,8 +14074,9 @@ else:
                         else:
                             st.markdown(f"[🔗 링크 열기]({url})")
                     if st.button(t("popup_write"), type="primary", use_container_width=True, key="popup_write_btn"):
+                        _wpid = st.session_state.work_popup_id
                         st.session_state.work_popup_id = None
-                        open_report_form(url,"",1,t("write_report_safe"),"YouTube",from_tab=4)
+                        open_report_form(url,"",1,t("write_report_safe"),"YouTube",from_tab=4, au_id=_wpid)
                         st.session_state.current_page = "report_form"; st.rerun()
 
         work_left, work_right = st.columns([1, 1])
@@ -14146,7 +14170,7 @@ else:
                             st.session_state.work_popup_id = d["id"]; st.rerun()
                     with dc3:
                         if st.button("📋", key=f"work_rep_{d['id']}", help=t("write_report_help")):
-                            open_report_form(d["url"],"",1,t("write_report_safe"),"YouTube",from_tab=4)
+                            open_report_form(d["url"],"",1,t("write_report_safe"),"YouTube",from_tab=4, au_id=d.get("id"))
                             st.session_state.current_page = "report_form"; st.rerun()
                     st.markdown("<hr style='margin:0;border-color:#e2e8f0;'>", unsafe_allow_html=True)
 
@@ -28361,7 +28385,9 @@ else:
             with fc1:
                 ftype = st.selectbox(t("filter_type"), LANG.get(st.session_state.get("lang","ko"),LANG["ko"]).get("history_types",["전체","🐉 일반추천","🎮 Roblox추천","⛏️ Minecraft추천","🔍 키워드탐색"]))
             with fc2:
-                freported = st.selectbox(t("filter_reported"), ["전체",t("reported"),t("not_reported")])
+                # ⭐ 기본값을 '미작성'으로 — 보고 완료분은 자동으로 빠지고(보고서 목록에서 확인),
+                #    모니터링 사이클이 다음 미작성 영상을 서빙. 필요 시 '전체'로 전환.
+                freported = st.selectbox(t("filter_reported"), ["전체", t("reported"), t("not_reported")], index=2)
             with fc3:
                 fdate = st.date_input(t("after_date"), value=None, key="hist_date")
 
@@ -28595,7 +28621,7 @@ else:
                                 if st.button("📝 보고서 작성", type="primary", use_container_width=True,
                                              key="hist_popup_write_top"):
                                     st.session_state.hist_popup_id = None
-                                    open_report_form(hurl,"",1,t("write_report_safe"),"YouTube",from_tab=4); st.rerun()
+                                    open_report_form(hurl,"",1,t("write_report_safe"),"YouTube",from_tab=4, au_id=hist_popup_d.get("id")); st.rerun()
                         if not hist_popup_d.get("reported"):
                             if st.button(t("popup_write"), type="secondary", use_container_width=True, key="hist_popup_write"):
                                 st.session_state.hist_popup_id = None
