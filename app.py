@@ -654,6 +654,12 @@ def _a11y_inject_shortcuts():
                     const text = _extractText(e.target);
                     console.log('[A11y focusin]', e.target?.tagName, e.target?.type || '', '→ text:', text || '(empty)', 'isTrusted=', e.isTrusted);
                     if (!text) return;
+                    // ⭐ 접근성 음성 스위치 OFF면 발화 안 함 (단 '접근성/♿' 컨트롤은 예외)
+                    try {{
+                        var _vOn2 = !!((w.top || w).__a11yVoiceOn);
+                        var _isA11y2 = (text.indexOf('접근성') >= 0 || text.indexOf('♿') >= 0);
+                        if (!_vOn2 && !_isA11y2) {{ console.log('[A11y focusin] SKIP — 음성 안내 OFF'); return; }}
+                    }} catch(_){{}}
                     const now = Date.now();
                     // ⭐ Gate 0: 답변 발화 중에는 focusin 안내 suppress
                     try {{
