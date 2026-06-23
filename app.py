@@ -4906,6 +4906,38 @@ if "survey_token" in params:
         st.session_state["_survey_token"] = _stoken
         st.session_state["current_page"] = "survey_respond"
 
+# 🔐 비밀번호 재설정(복구) 모드 — 이메일 복구 링크가 sid+pwreset 으로 복귀시킴
+if "pwreset" in params:
+    st.session_state["_pw_recovery_mode"] = True
+
+# 🔐 복구 링크의 해시(#type=recovery&refresh_token=...) 캡처 → sid+pwreset 쿼리파라미터로 변환
+#    Supabase 복구 링크는 토큰을 URL 해시에 실어 보내는데 Streamlit 서버는 해시를 못 보므로,
+#    최상위 창에서 해시를 읽어 기존 sid(세션복원) 메커니즘으로 넘긴다.
+try:
+    _a11y_components.html(
+        """
+        <script>
+        (function(){
+          try{
+            var W = window.top || window;
+            var h = W.location.hash || "";
+            if(h.indexOf("type=recovery") >= 0){
+              var qs = new URLSearchParams(h.replace(/^#/, ""));
+              var rt = qs.get("refresh_token");
+              if(rt){
+                var base = W.location.origin + W.location.pathname;
+                W.location.replace(base + "?sid=" + encodeURIComponent(rt) + "&pwreset=1");
+              }
+            }
+          }catch(e){}
+        })();
+        </script>
+        """,
+        height=0,
+    )
+except Exception:
+    pass
+
 # ─── 🔐 세션 복원: sid (refresh_token) 사용 ───
 # 옛 token 파라미터 호환 (기존 세션 마이그레이션) — 로그아웃 직후엔 skip
 if "token" in params and st.session_state.user is None and "logged_out" not in params:
@@ -9461,6 +9493,69 @@ def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="
         analyzed_urls.add(url)
     return results
 
+def render_password_reset_recovery_page(user):
+    """🔐 비밀번호 재설정 복구 모드 — 이메일 복구 링크로 본인확인된 사용자가
+    새 비밀번호를 직접 설정. 설정 전까지 다른 화면 접근 차단."""
+    _lang = st.session_state.get("lang", "ko")
+    _TXT = {
+        "ko": {"title":"🔑 새 비밀번호 설정",
+               "info":"본인 확인이 완료되었습니다. 새 비밀번호를 설정해주세요.",
+               "pw1":"새 비밀번호","pw2":"새 비밀번호 확인",
+               "submit":"✅ 비밀번호 변경","cancel":"취소(로그아웃)",
+               "short":"비밀번호는 6자 이상이어야 합니다.","mismatch":"비밀번호가 일치하지 않습니다.",
+               "ok":"✅ 비밀번호가 변경되었습니다. 잠시 후 메인으로 이동합니다.","fail":"변경 실패"},
+        "en": {"title":"🔑 Set a new password",
+               "info":"Your identity is verified. Please set a new password.",
+               "pw1":"New password","pw2":"Confirm new password",
+               "submit":"✅ Change password","cancel":"Cancel (log out)",
+               "short":"Password must be at least 6 characters.","mismatch":"Passwords do not match.",
+               "ok":"✅ Password changed. Redirecting shortly.","fail":"Failed"},
+        "ja": {"title":"🔑 新しいパスワードの設定",
+               "info":"本人確認が完了しました。新しいパスワードを設定してください。",
+               "pw1":"新しいパスワード","pw2":"新しいパスワード（確認）",
+               "submit":"✅ パスワード変更","cancel":"キャンセル（ログアウト）",
+               "short":"パスワードは6文字以上にしてください。","mismatch":"パスワードが一致しません。",
+               "ok":"✅ パスワードを変更しました。まもなくメインへ移動します。","fail":"失敗"},
+    }
+    _x = _TXT.get(_lang, _TXT["ko"])
+    st.markdown(f"## {_x['title']}")
+    st.info(f"{_x['info']}  ({user.get('email','')})")
+    pw1 = st.text_input(_x["pw1"], type="password", key="pwrec_pw1")
+    pw2 = st.text_input(_x["pw2"], type="password", key="pwrec_pw2")
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button(_x["submit"], type="primary", use_container_width=True, key="pwrec_submit"):
+            if not pw1 or len(pw1) < 6:
+                st.error(_x["short"])
+            elif pw1 != pw2:
+                st.error(_x["mismatch"])
+            else:
+                try:
+                    supabase.auth.update_user({"password": pw1})
+                    st.session_state.pop("_pw_recovery_mode", None)
+                    try:
+                        if "pwreset" in st.query_params:
+                            del st.query_params["pwreset"]
+                    except Exception:
+                        pass
+                    st.success(_x["ok"])
+                    st.balloons()
+                    import time as _t; _t.sleep(1.5)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"{_x['fail']}: {e}")
+    with c2:
+        if st.button(_x["cancel"], use_container_width=True, key="pwrec_cancel"):
+            st.session_state.pop("_pw_recovery_mode", None)
+            try: supabase.auth.sign_out()
+            except Exception: pass
+            for _k in list(st.session_state.keys()):
+                try: del st.session_state[_k]
+                except Exception: pass
+            try: st.query_params.clear()
+            except Exception: pass
+            st.rerun()
+
 # ══════════════════════════════
 # ══════════════════════════════
 # 로그인 화면 (v2026.05.05 - 70:30 리디자인 + 다국어 + 카카오 버튼)
@@ -10178,6 +10273,45 @@ if st.session_state.user is None:
                 accessibility.announce("이메일과 비밀번호를 모두 입력하세요.")
                 st.warning(t("login_warn"))
 
+        # 🔑 비밀번호 찾기 / 재설정 — 등록 이메일(=아이디)로 재설정 링크 발송
+        _pwr_lang = st.session_state.get("lang", "ko")
+        _PWR = {
+            "ko": {"q":"🔑 비밀번호를 잊으셨나요?","cap":"가입하신 이메일(=아이디)로 비밀번호 재설정 링크를 보내드립니다.",
+                   "email":"이메일","send":"📧 재설정 메일 받기",
+                   "ok":"✅ 재설정 링크를 이메일로 보냈습니다. 메일함(스팸함 포함)을 확인하고 링크를 눌러 새 비밀번호를 설정하세요.",
+                   "bad":"올바른 이메일을 입력해주세요.","fail":"메일 발송 실패"},
+            "en": {"q":"🔑 Forgot your password?","cap":"We'll email a reset link to your registered email (your ID).",
+                   "email":"Email","send":"📧 Send reset email",
+                   "ok":"✅ Reset link sent. Check your inbox (and spam) and click the link to set a new password.",
+                   "bad":"Please enter a valid email.","fail":"Failed to send email"},
+            "ja": {"q":"🔑 パスワードをお忘れですか？","cap":"登録メール（=ID）にパスワード再設定リンクをお送りします。",
+                   "email":"メールアドレス","send":"📧 再設定メールを送る",
+                   "ok":"✅ 再設定リンクを送信しました。受信箱（迷惑メール含む）を確認しリンクから新しいパスワードを設定してください。",
+                   "bad":"正しいメールアドレスを入力してください。","fail":"送信に失敗しました"},
+        }
+        _pw = _PWR.get(_pwr_lang, _PWR["ko"])
+        with st.expander(_pw["q"]):
+            st.caption(_pw["cap"])
+            _reset_email = st.text_input(_pw["email"], placeholder="email@example.com",
+                                         key="pwreset_email_input", label_visibility="collapsed")
+            if st.button(_pw["send"], use_container_width=True, key="pwreset_send_btn"):
+                if _reset_email and "@" in _reset_email:
+                    try:
+                        _auth = supabase.auth
+                        _fn = getattr(_auth, "reset_password_for_email", None) or getattr(_auth, "reset_password_email", None)
+                        if _fn is None:
+                            raise RuntimeError("reset method unavailable")
+                        _site = "https://dragoneyes-production.up.railway.app"
+                        try:
+                            _fn(_reset_email, {"redirect_to": _site})
+                        except TypeError:
+                            _fn(_reset_email)
+                        st.success(_pw["ok"])
+                    except Exception as e:
+                        st.error(f"{_pw['fail']}: {e}")
+                else:
+                    st.warning(_pw["bad"])
+
         # ⭐ 캠페인 모드 — 회원가입 진입 버튼 (Phase 3)
         if _login_mode == "campaign":
             st.markdown("---")
@@ -10267,6 +10401,11 @@ if st.session_state.user is None:
 # ══════════════════════════════
 else:
     user = st.session_state.user
+
+    # 🔐 비밀번호 재설정 복구 모드 — 이메일 링크로 복귀한 사용자는 새 비밀번호부터 설정
+    if st.session_state.get("_pw_recovery_mode"):
+        render_password_reset_recovery_page(user)
+        st.stop()
 
     # ══════════════════════════════════════════════════════════
     # 🎤 voice_open 처리는 widget instantiated 전 반드시 실행
