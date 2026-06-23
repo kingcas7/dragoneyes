@@ -308,8 +308,23 @@ def _a11y_main_install_once():
                             //   isTrusted=false 자동 focus는 이미 Gate 1로 차단.
                             //   사용자가 직접 Tab한 경우 = 의도 → 발화.
                             if (window.__a11yLastFocusText === text && (now - (window.__a11yLastFocusTime || 0)) < 1500) return;
+
+                            // ⭐ Gate 3: 접근성 스위치(음성 안내)가 OFF면 발화 안 함.
+                            //   예외: '접근성(♿)' 컨트롤로 이동 시엔 OFF여도 안내(스위치 위치 안내).
+                            var _voiceOn = false;
+                            try { _voiceOn = !!((window.top || window).__a11yVoiceOn); } catch(_) { _voiceOn = !!window.__a11yVoiceOn; }
+                            var _isA11yControl = (text.indexOf('접근성') >= 0 || text.indexOf('♿') >= 0);
+                            if (!_voiceOn && !_isA11yControl) {
+                                console.log('[A11y main focusin] SKIP — 음성 안내 OFF');
+                                return;
+                            }
                             window.__a11yLastFocusText = text;
                             window.__a11yLastFocusTime = now;
+                            // 접근성 컨트롤로 이동(아이콘/짧은 라벨)했고 OFF면 안내 멘트만
+                            if (_isA11yControl && (text === '♿' || text.length <= 3)) {
+                                window.__a11ySpeak('접근성 메뉴입니다. 엔터 키를 누르면 음성 안내를 켜거나 끌 수 있습니다.');
+                                return;
+                            }
 
                             const tag = (el.tagName || '').toUpperCase();
                             const type = (el.type || '').toLowerCase();
@@ -357,6 +372,18 @@ def _a11y_main_install_once():
         })();
         </script>
         """,
+        height=0,
+    )
+
+
+def _a11y_push_voice_flag():
+    """접근성 음성 스위치 상태(voice_guide_enabled)를 top window 전역 플래그로 노출.
+    focusin TTS 핸들러가 이 플래그(__a11yVoiceOn)를 보고 발화 여부를 결정.
+    매 렌더마다 호출해 최신 상태 유지."""
+    _on = "true" if bool(st.session_state.get("voice_guide_enabled")) else "false"
+    _a11y_components.html(
+        "<script>(function(){try{(window.top||window.parent||window).__a11yVoiceOn="
+        + _on + ";}catch(e){}})();</script>",
         height=0,
     )
 
@@ -9477,6 +9504,7 @@ if st.session_state.user is None:
         #    필요할 때 펼쳐서 사용. 기본 접힘.
         with st.expander("♿ 접근성 · 음성 안내 / 받아쓰기 (시각장애인 지원)", expanded=False):
             accessibility.render_toolbar(key_prefix="a11y_login", compact=True)
+        _a11y_push_voice_flag()  # 로그인 페이지도 스위치 상태를 JS에 노출 (focusin gate)
         # 스크린리더용 invisible landmark
         accessibility.aria_landmark("드래곤아이즈 로그인 페이지")
         # 음성 토글 ON 시 페이지 진입 안내 (세션당 1회)
@@ -10675,6 +10703,7 @@ else:
 
     _voice_on_now = bool(st.session_state.get("voice_guide_enabled"))
     _dict_on_now  = bool(st.session_state.get("dictation_enabled"))
+    _a11y_push_voice_flag()  # 음성 스위치 상태를 JS에 노출 (focusin 발화 gate)
     # ⭐ 접근성 팝업(♿)은 상단 nav 줄 맨 앞(태극기 앞)에서 렌더 — 별도 줄 없이 컴팩트.
     #   여기서는 floating 마이크만(음성 ON일 때 우하단).
     if not _hide_a11y_toolbar:
