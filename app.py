@@ -3097,6 +3097,7 @@ def _a11y_render_toolbar(*, supabase=None, user_id=None, key_prefix="a11y", comp
                     pass
                 st.rerun()
         st.caption(
+            "🗣️ **Tab 키로 이동하시면 각 해당 아이콘에 대한 안내를 들으실 수 있습니다.**\n\n"
             "💡 Tab 키로 이동 시 메뉴 안내 음성. Enter로 활성화.\n\n"
             "단축키: Win `Ctrl+Shift+V` · Mac `Cmd+Shift+V` / `F2` / `Option+V`"
         )
