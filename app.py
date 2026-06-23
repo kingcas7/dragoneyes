@@ -4906,6 +4906,19 @@ if "survey_token" in params:
         st.session_state["_survey_token"] = _stoken
         st.session_state["current_page"] = "survey_respond"
 
+# 🔁 캠페인 가입 단계 — 새로고침해도 현재 가입 페이지 유지 (URL ?signup=...)
+if "signup" in params:
+    _sg = params.get("signup")
+    _sg_map = {
+        "select": "campaign_signup_select",
+        "institution": "campaign_signup_institution",
+        "parent": "campaign_signup_parent",
+        "student": "campaign_signup_student",
+    }
+    if _sg in _sg_map:
+        st.session_state["login_mode"] = "campaign"
+        st.session_state["current_page"] = _sg_map[_sg]
+
 # 🔐 비밀번호 재설정(복구) 모드 — 이메일 복구 링크가 sid+pwreset 으로 복귀시킴
 if "pwreset" in params:
     st.session_state["_pw_recovery_mode"] = True
@@ -7252,13 +7265,25 @@ def render_campaign_signup_page(page_key):
     page_key: 'campaign_signup_select' | 'campaign_signup_institution'
             | 'campaign_signup_parent' | 'campaign_signup_student'
     """
-    # 상단 헤더 + 로그인으로 돌아가기
-    _h1, _h2 = st.columns([6, 1])
+    # 🔁 새로고침해도 현재 가입 단계 유지 — URL에 signup 파라미터 동기화
+    try:
+        st.query_params["signup"] = page_key.replace("campaign_signup_", "")
+    except Exception:
+        pass
+
+    # 상단 헤더 + 전단계로 가기
+    _h1, _h2 = st.columns([5, 2])
     with _h1:
         st.markdown("## 🎓 캠페인 회원가입")
     with _h2:
-        if st.button("← 로그인", key=f"signup_back_login_{page_key}", use_container_width=True):
+        if st.button("← 전단계로 가기", key=f"signup_back_{page_key}", use_container_width=True):
+            st.session_state["login_mode"] = "campaign"
             st.session_state["current_page"] = None
+            try:
+                if "signup" in st.query_params:
+                    del st.query_params["signup"]
+            except Exception:
+                pass
             st.rerun()
     st.divider()
 
@@ -7566,6 +7591,11 @@ def _render_signup_institution():
         st.success("🎉 가입 신청 완료! 로그인 페이지에서 로그인해주세요.")
         st.balloons()
         st.session_state["current_page"] = None
+        try:
+            if "signup" in st.query_params:
+                del st.query_params["signup"]
+        except Exception:
+            pass
         if st.button("🚪 로그인 페이지로 이동", type="primary"):
             st.rerun()
 
@@ -7649,6 +7679,11 @@ def _render_signup_parent():
         st.success("🎉 학부모 가입 완료! 로그인 후 자녀를 등록해주세요.")
         st.balloons()
         st.session_state["current_page"] = None
+        try:
+            if "signup" in st.query_params:
+                del st.query_params["signup"]
+        except Exception:
+            pass
         if st.button("🚪 로그인 페이지로 이동", type="primary"):
             st.rerun()
 
@@ -7822,6 +7857,11 @@ def _render_signup_student():
             st.success("🎉 학생 가입 완료! 로그인 후 캠페인을 시작해주세요.")
         st.balloons()
         st.session_state["current_page"] = None
+        try:
+            if "signup" in st.query_params:
+                del st.query_params["signup"]
+        except Exception:
+            pass
         if st.button("🚪 로그인 페이지로 이동", type="primary"):
             st.rerun()
 
