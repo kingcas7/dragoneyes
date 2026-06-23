@@ -10304,14 +10304,6 @@ if st.session_state.user is None:
             </div>
         """, unsafe_allow_html=True)
 
-        # ⭐ 캠페인 모드 — 학생 안내 배너
-        if _login_mode == "campaign":
-            st.markdown(
-                '<div class="student-warning">⚠️ 학생 사용자는 유해 컨텐츠 모니터링 시스템에 접근할 수 없습니다. '
-                '캠페인 자료 열람·설문·봉사 점수만 가능합니다.</div>',
-                unsafe_allow_html=True,
-            )
-
         email = st.text_input(t("email"), placeholder="email@example.com", label_visibility="visible")
         password = st.text_input(t("password"), type="password", placeholder="••••••••", label_visibility="visible")
 
