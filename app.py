@@ -11335,12 +11335,10 @@ else:
 
             _notice_label = f"🔔 공지" if _unread_n == 0 else f"🔔 공지 ({_unread_n})"
 
-            # ← 뒤로 / 🏠 홈 / 🔔 공지 / 🛡️ 모니터링 시스템(학생 제외) / 🚪 로그아웃
-            if _hdr_is_student:
-                _hb_back, _hb_home, _hb_notice, _hb_logout = st.columns([1, 1, 1.2, 1])
-                _hb_mon = None
-            else:
-                _hb_back, _hb_home, _hb_notice, _hb_mon, _hb_logout = st.columns([1, 1, 1.2, 1.4, 1])
+            # ← 뒤로 / 🏠 홈 / 🔔 공지 / 🚪 로그아웃
+            #   ※ '🛡️ 모니터링 시스템' 버튼은 동작하지 않아 제거 (campaign_landing에서 이동 불가)
+            _hb_back, _hb_home, _hb_notice, _hb_logout = st.columns([1, 1, 1.2, 1])
+            _hb_mon = None
 
             with _hb_back:
                 if st.button("← 뒤로", key="cmp_hdr_back", use_container_width=True,
