@@ -3834,9 +3834,12 @@ p { margin-bottom: 0.2rem !important; }
     height: 0 !important; min-height: 0 !important; background: transparent !important;
     overflow: visible !important;
 }
-[data-testid="stToolbar"], [data-testid="stStatusWidget"], .stAppToolbar {
-    top: 0.15rem !important; right: 0.4rem !important;
+[data-testid="stToolbar"], [data-testid="stStatusWidget"], .stAppToolbar,
+[data-testid="stToolbarActions"], [data-testid="stMainMenu"], [data-testid="stDecoration"] {
+    top: 0.6rem !important; right: 0.5rem !important; transform: none !important;
 }
+/* 달리기(실행) 표시가 위로 잘리지 않게 — 충분히 아래로 + 안 잘림 */
+[data-testid="stStatusWidget"] { margin-top: 0.5rem !important; }
 /* 상단 불필요 여백 축소 — 신·구 컨테이너 클래스 모두 타깃 (Streamlit 버전별) */
 [data-testid="stAppViewContainer"] > section > div:first-child { padding-top: 0 !important; }
 .block-container, .stMainBlockContainer, [data-testid="stMainBlockContainer"],
