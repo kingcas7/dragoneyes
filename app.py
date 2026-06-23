@@ -11224,8 +11224,29 @@ else:
                 var s = top.document.createElement('script');
                 s.textContent = `(function(){
                   var SEL = '[data-testid="column"], [data-testid="stColumn"]';
+                  function trimTop(){
+                    try{
+                      // 상단 헤더 collapse (실행 표시는 overflow:visible로 안 잘림)
+                      var hs = document.querySelectorAll('header');
+                      for(var hi=0;hi<hs.length;hi++){
+                        var hid = (hs[hi].getAttribute('data-testid')||'') + ' ' + (hs[hi].className||'').toString();
+                        if(hid.indexOf('Header')>=0){
+                          hs[hi].style.setProperty('height','0','important');
+                          hs[hi].style.setProperty('min-height','0','important');
+                          hs[hi].style.setProperty('overflow','visible','important');
+                        }
+                      }
+                      // 본문 컨테이너 상단 큰 패딩 축소 — 클래스명 몰라도 'BlockContainer' 포함으로 탐지
+                      var cc = document.querySelectorAll('[class*="block-container"], [class*="BlockContainer"], [data-testid="stMainBlockContainer"]');
+                      for(var ci=0;ci<cc.length;ci++){
+                        cc[ci].style.setProperty('padding-top','0.4rem','important');
+                      }
+                      if(!window.__dzTrimLogged && cc.length){ window.__dzTrimLogged=true; console.log('[dz trimTop] containers='+cc.length); }
+                    }catch(e){}
+                  }
                   function fix(){
                     try{
+                      trimTop();
                       var mob = window.innerWidth <= 768;
                       var blocks = document.querySelectorAll('[data-testid="stHorizontalBlock"]');
                       for(var i=0;i<blocks.length;i++){
