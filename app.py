@@ -11295,6 +11295,18 @@ else:
         or ((user or {}).get("role_v2") in ("student", "parent", "institution_admin"))
     )
     if _is_campaign_hdr:
+        # 🔼 캠페인 페이지 상단 여백 압축 (제목 위로) — 헤더 저높이 + 패딩 축소 +
+        #    보이지 않는 스크립트 컴포넌트(srcdoc iframe)만 접기(실제 영상 embed[src]는 보존)
+        st.markdown(
+            "<style>"
+            "header[data-testid='stHeader'], .stApp > header { background: transparent !important; height: 2.2rem !important; min-height: 0 !important; box-shadow: none !important; }"
+            "section[data-testid='stMain'] { padding-top: 0 !important; }"
+            ".block-container, .stMainBlockContainer, [data-testid='stMainBlockContainer'] { padding-top: 0.3rem !important; margin-top: 0 !important; }"
+            "div[data-testid='stMain'] > div:first-child { padding-top: 0 !important; margin-top: 0 !important; }"
+            ".stElementContainer:has(iframe[srcdoc]) { display: none !important; height: 0 !important; margin: 0 !important; padding: 0 !important; }"
+            "</style>",
+            unsafe_allow_html=True,
+        )
         # 캠페인 전용 헤더 — 모니터링 UI/메뉴/슬로건 완전 차단
         _hdr_l, _hdr_r = st.columns([5, 5])
         with _hdr_l:
