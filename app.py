@@ -11358,7 +11358,20 @@ else:
                             ccols[cc].style.setProperty('width','auto','important');
                           }
                           var ci2 = cb.querySelector('[data-testid="stChatInput"]');
-                          if(ci2){ ci2.style.setProperty('width','100%','important'); ci2.style.setProperty('min-width','0','important'); }
+                          if(ci2){
+                            ci2.style.setProperty('width','100%','important');
+                            ci2.style.setProperty('min-width','0','important');
+                            ci2.style.setProperty('min-height','0','important');
+                            // 기본 1줄 높이 + 입력 길어지면 늘어남(최대 8rem 후 스크롤)
+                            var ta = ci2.querySelector('textarea');
+                            if(ta){
+                              ta.style.setProperty('min-height','2.5rem','important');
+                              ta.style.setProperty('max-height','8rem','important');
+                            }
+                            // 컨테이너 안쪽 래퍼들의 큰 min-height 제거
+                            var inn = ci2.querySelectorAll('div');
+                            for(var iq=0;iq<inn.length;iq++){ inn[iq].style.setProperty('min-height','0','important'); }
+                          }
                         }
                       }
                     }catch(e){ console.log('[dz navfix] err', e); }
