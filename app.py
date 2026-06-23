@@ -9769,9 +9769,8 @@ if st.session_state.user is None:
     if True:  # 캠페인뿐 아니라 모니터링 로그인에도 동일 적용
         st.markdown(
             "<style>"
-            # ⭐ 가장 강력한 위쪽 여백 제거 — 모든 가능한 셀렉터 일괄 적용
-            ".stApp > header { display: none !important; }"
-            "header[data-testid='stHeader'] { display: none !important; height: 0 !important; }"
+            # ⭐ 위쪽 여백 최소화 — 단, 헤더(달리기 표시 + 삼선 메뉴)는 보이게 유지(투명·저높이)
+            ".stApp > header, header[data-testid='stHeader'] { display: flex !important; background: transparent !important; height: 2.2rem !important; min-height: 0 !important; box-shadow: none !important; }"
             "section[data-testid='stMain'] { padding-top: 0 !important; }"
             "section[data-testid='stMain'] > div { padding-top: 0 !important; }"
             ".main { padding-top: 0 !important; }"
