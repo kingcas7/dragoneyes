@@ -9795,11 +9795,17 @@ if st.session_state.user is None:
     # ── 로그인 페이지 전용 CSS ──
     st.markdown("""
     <style>
-    /* 메인 컨테이너 패딩 줄이기 */
+    /* 메인 컨테이너 패딩 줄이기 — 상단 빈 공간 최소화 (토글 박스 위로) */
     .block-container {
-        padding-top: 2rem !important;
+        padding-top: 0.6rem !important;
         padding-bottom: 1rem !important;
         max-width: 1280px !important;
+    }
+    /* 0높이 빈 커스텀 컴포넌트(iframe) 컨테이너 접기 — 상단 여백 유발 제거 */
+    .stElementContainer:has(> iframe[height="0"]),
+    .stElementContainer:has(> div[data-testid="stCustomComponentV1"] iframe[height="0"]),
+    [data-testid="stCustomComponentV1"]:has(iframe[height="0"]) {
+        display: none !important; height: 0 !important; margin: 0 !important; padding: 0 !important;
     }
     /* 로그인 페이지 카드 스타일 */
     .login-left-card {
