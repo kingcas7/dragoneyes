@@ -3321,6 +3321,60 @@ accessibility = _A11ySimpleNamespace(
     render_floating_mic=_a11y_render_floating_mic,
     render_keyboard_mic=_a11y_render_keyboard_mic,
 )
+
+
+def _render_a11y_popover(user):
+    """상단 nav 줄에 넣는 접근성 팝업(♿) — 음성/받아쓰기 on·off.
+    단일 상태키(voice_guide_enabled/dictation_enabled)만 토글해 일관 동작."""
+    _v = bool(st.session_state.get("voice_guide_enabled"))
+    _d = bool(st.session_state.get("dictation_enabled"))
+
+    def _set_voice(on):
+        st.session_state["voice_guide_enabled"] = on
+        st.session_state["a11y_main_voice_toggle"] = on
+        try:
+            if user:
+                _a11y_save_to_user(supabase, user.get("id"))
+        except Exception:
+            pass
+        try:
+            _a11y_main_speak("음성 안내를 켭니다." if on else "음성 안내를 끕니다.")
+        except Exception:
+            pass
+
+    def _set_dict(on):
+        st.session_state["dictation_enabled"] = on
+        st.session_state["a11y_main_dictation_toggle"] = on
+        try:
+            if user:
+                _a11y_save_to_user(supabase, user.get("id"))
+        except Exception:
+            pass
+
+    _lbl = "♿"
+    if _v and _d:
+        _lbl = "♿🔊🎤"
+    elif _v:
+        _lbl = "♿🔊"
+    elif _d:
+        _lbl = "♿🎤"
+    with st.popover(_lbl, use_container_width=True):
+        st.caption("접근성 — 시각장애인 음성 안내/받아쓰기 (필요할 때만)")
+        _c1, _c2 = st.columns([3, 1])
+        _c1.markdown(f"**🔊 음성 안내** {'🟢 켜짐' if _v else '⚪ 꺼짐'}")
+        if _c2.button("끄기" if _v else "켜기", key="a11y_pop_voice",
+                      type=("secondary" if _v else "primary"), use_container_width=True):
+            _set_voice(not _v); st.rerun()
+        _d1, _d2 = st.columns([3, 1])
+        _d1.markdown(f"**🎤 받아쓰기** {'🟢 켜짐' if _d else '⚪ 꺼짐'}")
+        if _d2.button("끄기" if _d else "켜기", key="a11y_pop_dict",
+                      type=("secondary" if _d else "primary"), use_container_width=True):
+            _set_dict(not _d); st.rerun()
+        if _v:
+            st.divider()
+            accessibility.render_keyboard_mic()
+
+
 # v2026.03.15 — 보고서↔탐색URL 양방향 연결, YouTube 메타데이터 30일 보관 정책, 모바일 PWA 최적화
 # v2026.04.19 — 보안 패치: URL 토큰 노출 방지, 세션 복원 시 토큰 즉시 삭제
 # v2026.04.21 — 한국어 번역 62개 추가
@@ -10616,62 +10670,9 @@ else:
 
     _voice_on_now = bool(st.session_state.get("voice_guide_enabled"))
     _dict_on_now  = bool(st.session_state.get("dictation_enabled"))
-    # ⭐ 캠페인 페이지/사용자는 toolbar 숨김 (모니터링 전용 기능)
+    # ⭐ 접근성 팝업(♿)은 상단 nav 줄 맨 앞(태극기 앞)에서 렌더 — 별도 줄 없이 컴팩트.
+    #   여기서는 floating 마이크만(음성 ON일 때 우하단).
     if not _hide_a11y_toolbar:
-        # ── 접근성: 작은 팝업(popover) 하나로 통일 (2026-06-23, 사용자 요청) ──
-        #   상단엔 '♿ 접근성' 버튼만. 누르면 팝업 안에서 음성/받아쓰기 on/off.
-        #   버튼 토글(단일 상태키) → 위젯 어긋남 없이 일관 동작.
-        def _a11y_set_voice(on):
-            st.session_state["voice_guide_enabled"] = on
-            st.session_state["a11y_main_voice_toggle"] = on
-            try:
-                if user:
-                    _a11y_save_to_user(supabase, user.get("id"))
-            except Exception:
-                pass
-            try:
-                _a11y_main_speak("음성 안내를 켭니다." if on else "음성 안내를 끕니다.")
-            except Exception:
-                pass
-
-        def _a11y_set_dict(on):
-            st.session_state["dictation_enabled"] = on
-            st.session_state["a11y_main_dictation_toggle"] = on
-            try:
-                if user:
-                    _a11y_save_to_user(supabase, user.get("id"))
-            except Exception:
-                pass
-
-        _pop_l, _pop_r = st.columns([2.2, 7.8])
-        with _pop_l:
-            _pop_label = "♿ 접근성"
-            if _voice_on_now and _dict_on_now:
-                _pop_label += " · 🔊🎤 ON"
-            elif _voice_on_now:
-                _pop_label += " · 🔊 ON"
-            elif _dict_on_now:
-                _pop_label += " · 🎤 ON"
-            with st.popover(_pop_label, use_container_width=True):
-                st.caption("시각장애인 지원 — 모니터링 작업 시 필요할 때만 켜세요.")
-                _vc1, _vc2 = st.columns([3, 1])
-                _vc1.markdown(f"**🔊 음성 안내** {'🟢 켜짐' if _voice_on_now else '⚪ 꺼짐'}")
-                if _vc2.button("끄기" if _voice_on_now else "켜기", key="a11y_pop_voice",
-                               type=("secondary" if _voice_on_now else "primary"),
-                               use_container_width=True):
-                    _a11y_set_voice(not _voice_on_now); st.rerun()
-                _dc1, _dc2 = st.columns([3, 1])
-                _dc1.markdown(f"**🎤 받아쓰기** {'🟢 켜짐' if _dict_on_now else '⚪ 꺼짐'}")
-                if _dc2.button("끄기" if _dict_on_now else "켜기", key="a11y_pop_dict",
-                               type=("secondary" if _dict_on_now else "primary"),
-                               use_container_width=True):
-                    _a11y_set_dict(not _dict_on_now); st.rerun()
-                # ⌨️ 음성 ON일 때만 키보드 접근(Tab+Enter) 마이크 — 팝업 안에 노출
-                if _voice_on_now:
-                    st.divider()
-                    accessibility.render_keyboard_mic()
-
-        # 🎤 음성 명령 floating 마이크 버튼 (음성 ON일 때 우하단 — 빨간 마이크)
         accessibility.render_floating_mic()
 
     # ── 최종사용자 동의 체크 (미동의 시 강제 표시) ──
@@ -11149,6 +11150,9 @@ else:
         #    스타일을 직접 박음(어떤 스타일시트 규칙도 못 이기는 방식).
         with spacer:
             st.markdown('<span class="dz-topnav"></span>', unsafe_allow_html=True)
+            # ♿ 접근성 팝업 — 태극기 앞(nav 줄 맨 앞). 모니터링 페이지에서만 노출.
+            if not _hide_a11y_toolbar:
+                _render_a11y_popover(user)
         _a11y_components.html(
             r"""
             <script>
