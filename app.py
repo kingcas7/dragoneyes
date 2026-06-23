@@ -11310,6 +11310,55 @@ else:
                           b.__dzLogged=false;
                         }
                       }
+                      // 📊 메트릭(토큰 현황 등) 블록: 모바일에서 세로 스택 대신 한 줄 유지 + 숫자 축소
+                      if(mob){
+                        var mblocks = document.querySelectorAll('[data-testid="stHorizontalBlock"]');
+                        for(var mi=0;mi<mblocks.length;mi++){
+                          var mb = mblocks[mi];
+                          if(!mb.querySelector('[data-testid="stMetric"], [data-testid="metric-container"]')) continue;
+                          mb.style.setProperty('display','flex','important');
+                          mb.style.setProperty('flex-direction','row','important');
+                          mb.style.setProperty('flex-wrap','nowrap','important');
+                          mb.style.setProperty('width','100%','important');
+                          mb.style.setProperty('max-width','100vw','important');
+                          mb.style.setProperty('column-gap','3px','important');
+                          var mcols = mb.querySelectorAll(SEL);
+                          for(var mc=0;mc<mcols.length;mc++){
+                            mcols[mc].style.setProperty('flex','1 1 0','important');
+                            mcols[mc].style.setProperty('min-width','0','important');
+                            mcols[mc].style.setProperty('width','auto','important');
+                          }
+                          var mvals = mb.querySelectorAll('[data-testid="stMetricValue"]');
+                          for(var mv=0;mv<mvals.length;mv++){ mvals[mv].style.setProperty('font-size','0.82rem','important'); mvals[mv].style.setProperty('line-height','1.1','important'); }
+                          var mlbls = mb.querySelectorAll('[data-testid="stMetricLabel"]');
+                          for(var ml=0;ml<mlbls.length;ml++){ mlbls[ml].style.setProperty('font-size','0.6rem','important'); }
+                        }
+                        // 💬 채팅 입력창 + 쓰레기통(🗑️): 세로 스택 대신 한 줄로
+                        var chatBlocks = document.querySelectorAll('[data-testid="stHorizontalBlock"]');
+                        for(var cbi=0;cbi<chatBlocks.length;cbi++){
+                          var cb = chatBlocks[cbi];
+                          if(!cb.querySelector('[data-testid="stChatInput"]')) continue;
+                          cb.style.setProperty('display','flex','important');
+                          cb.style.setProperty('flex-direction','row','important');
+                          cb.style.setProperty('flex-wrap','nowrap','important');
+                          cb.style.setProperty('align-items','center','important');
+                          cb.style.setProperty('width','100%','important');
+                          cb.style.setProperty('max-width','100vw','important');
+                          cb.style.setProperty('column-gap','4px','important');
+                          var ccols = cb.querySelectorAll(SEL);
+                          for(var cc=0;cc<ccols.length;cc++){
+                            if(ccols[cc].querySelector('[data-testid="stChatInput"]')){
+                              ccols[cc].style.setProperty('flex','1 1 auto','important');
+                            } else {
+                              ccols[cc].style.setProperty('flex','0 0 auto','important');
+                            }
+                            ccols[cc].style.setProperty('min-width','0','important');
+                            ccols[cc].style.setProperty('width','auto','important');
+                          }
+                          var ci2 = cb.querySelector('[data-testid="stChatInput"]');
+                          if(ci2){ ci2.style.setProperty('width','100%','important'); ci2.style.setProperty('min-width','0','important'); }
+                        }
+                      }
                     }catch(e){ console.log('[dz navfix] err', e); }
                   }
                   fix();
