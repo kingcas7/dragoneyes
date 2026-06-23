@@ -9765,8 +9765,8 @@ if st.session_state.user is None:
             )
             st.session_state["_login_announced"] = True
 
-    # ── 캠페인 모드 — 위쪽 여백 + 박스 압축 CSS (한 화면에 다 보이게) ──
-    if _login_mode_pre == "campaign":
+    # ── 모든 로그인 모드 — 위쪽 여백 + 박스 압축 CSS (상단 빈 공간 제거) ──
+    if True:  # 캠페인뿐 아니라 모니터링 로그인에도 동일 적용
         st.markdown(
             "<style>"
             # ⭐ 가장 강력한 위쪽 여백 제거 — 모든 가능한 셀렉터 일괄 적용
@@ -9788,6 +9788,11 @@ if st.session_state.user is None:
             ".stTextInput { margin-bottom: 4px !important; }"
             # 기본 element 간 vertical gap 압축
             ".main .block-container [data-testid='stVerticalBlock'] { gap: 0.35rem !important; }"
+            # 접근성 expander 위/아래 여백 축소
+            "[data-testid='stExpander'] { margin-top: 0.2rem !important; margin-bottom: 0.2rem !important; }"
+            # 빈(0높이) 컴포넌트 iframe 컨테이너 접기 — 접근성 박스~토글 사이 여백 제거
+            ".stElementContainer:has(> iframe[height='0']) { display: none !important; height: 0 !important; margin: 0 !important; }"
+            "iframe[height='0'] { display: none !important; height: 0 !important; }"
             "</style>",
             unsafe_allow_html=True,
         )
