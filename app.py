@@ -29985,6 +29985,38 @@ else:
                                     record_count=len(summary),
                                 )
 
+                            # 🔑 비밀번호 재설정 (관리자 직접 — Supabase URL 설정과 무관하게 즉시 적용)
+                            st.markdown("---")
+                            with st.expander("🔑 사용자 비밀번호 재설정 (관리자)", expanded=False):
+                                st.caption("선택한 사용자의 비밀번호를 임시 비번으로 즉시 재설정합니다. (이메일 링크 불필요)")
+                                _pw_opts = {f'{u["name"]} ({u.get("email","")})': u
+                                            for u in (all_users_data.data or [])}
+                                _pw_sel = st.selectbox("대상 사용자", list(_pw_opts.keys()),
+                                                       key="admin_pwreset_user")
+                                _pw_new = st.text_input("새 임시 비밀번호 (비우면 14자 자동 생성)",
+                                                        type="password", key="admin_pwreset_newpw")
+                                if st.button("✅ 비밀번호 재설정 실행", type="primary",
+                                             key="admin_pwreset_do", use_container_width=True):
+                                    _tu = _pw_opts.get(_pw_sel)
+                                    if not _tu:
+                                        st.error("대상 사용자를 선택해주세요.")
+                                    else:
+                                        try:
+                                            import secrets as _sec4, string as _strm4
+                                            _newpw = ((_pw_new or "").strip()
+                                                      or "".join(_sec4.choice(_strm4.ascii_letters + _strm4.digits + "!@#$")
+                                                                 for _ in range(14)))
+                                            if len(_newpw) < 6:
+                                                st.error("⚠️ 비밀번호는 최소 6자 이상이어야 합니다.")
+                                            else:
+                                                sb_admin().auth.admin.update_user_by_id(
+                                                    _tu["id"], {"password": _newpw})
+                                                st.success(f"✅ {_tu['name']} ({_tu.get('email','')}) 비밀번호 재설정 완료")
+                                                st.info(f"🔑 새 임시 비밀번호: `{_newpw}` — **안전한 채널**로 전달하고, "
+                                                        f"첫 로그인 후 변경하도록 안내해주세요.")
+                                        except Exception as _e_pwr:
+                                            st.error(f"❌ 재설정 실패: {str(_e_pwr)[:200]}")
+
                     with view_tab2:
                         # 그룹 역할 정의
                         group_options = {
