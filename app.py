@@ -29986,9 +29986,14 @@ else:
                                 )
 
                             # 🔑 비밀번호 재설정 (관리자 직접 — Supabase URL 설정과 무관하게 즉시 적용)
+                            #   ※ expander는 rerun 시 접혀서 결과 메시지가 안 보이므로 항상 보이는 컨테이너로 구성
                             st.markdown("---")
-                            with st.expander("🔑 사용자 비밀번호 재설정 (관리자)", expanded=False):
+                            st.markdown("#### 🔑 사용자 비밀번호 재설정 (관리자)")
+                            with st.container(border=True):
                                 st.caption("선택한 사용자의 비밀번호를 임시 비번으로 즉시 재설정합니다. (이메일 링크 불필요)")
+                                if not os.getenv("SUPABASE_SERVICE_ROLE_KEY"):
+                                    st.warning("⚠️ 서버에 SUPABASE_SERVICE_ROLE_KEY가 설정돼 있어야 동작합니다. "
+                                               "Railway 환경변수에 추가 후 재배포가 필요합니다.")
                                 _pw_opts = {f'{u["name"]} ({u.get("email","")})': u
                                             for u in (all_users_data.data or [])}
                                 _pw_sel = st.selectbox("대상 사용자", list(_pw_opts.keys()),
@@ -30009,13 +30014,24 @@ else:
                                             if len(_newpw) < 6:
                                                 st.error("⚠️ 비밀번호는 최소 6자 이상이어야 합니다.")
                                             else:
-                                                sb_admin().auth.admin.update_user_by_id(
+                                                _res_pw = sb_admin().auth.admin.update_user_by_id(
                                                     _tu["id"], {"password": _newpw})
-                                                st.success(f"✅ {_tu['name']} ({_tu.get('email','')}) 비밀번호 재설정 완료")
-                                                st.info(f"🔑 새 임시 비밀번호: `{_newpw}` — **안전한 채널**로 전달하고, "
-                                                        f"첫 로그인 후 변경하도록 안내해주세요.")
+                                                # 결과를 session에 저장 → rerun 후에도 표시
+                                                st.session_state["_admin_pwreset_result"] = {
+                                                    "name": _tu.get("name", ""),
+                                                    "email": _tu.get("email", ""),
+                                                    "pw": _newpw,
+                                                }
+                                                st.rerun()
                                         except Exception as _e_pwr:
-                                            st.error(f"❌ 재설정 실패: {str(_e_pwr)[:200]}")
+                                            st.error(f"❌ 재설정 실패: {str(_e_pwr)[:300]}")
+                                            st.caption("‘User not allowed’ 류 메시지면 SUPABASE_SERVICE_ROLE_KEY 문제입니다.")
+                                # rerun 후 결과 표시 (한 번만)
+                                _pwr_res = st.session_state.pop("_admin_pwreset_result", None)
+                                if _pwr_res:
+                                    st.success(f"✅ {_pwr_res['name']} ({_pwr_res['email']}) 비밀번호 재설정 완료")
+                                    st.info(f"🔑 새 임시 비밀번호: `{_pwr_res['pw']}` — **안전한 채널**로 전달하고, "
+                                            f"첫 로그인 후 변경하도록 안내해주세요.")
 
                     with view_tab2:
                         # 그룹 역할 정의
