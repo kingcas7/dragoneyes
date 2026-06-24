@@ -3883,6 +3883,19 @@ div[data-testid="stExpanderDetails"] { padding-top: 0.3rem !important; }
     }
 }
 
+/* 🖥️ 데스크톱 상단 nav: 항목이 많아 폭을 넘쳐도 잘리지 않게 줄바꿈 허용 + 컴팩트
+   (로그아웃·사용자·관리자 등 우측 항목이 화면 밖으로 사라지는 문제 방지) */
+[data-testid="stHorizontalBlock"]:has(.dz-topnav) {
+    flex-wrap: wrap !important;
+    row-gap: 3px !important;
+    overflow: visible !important;
+}
+[data-testid="stHorizontalBlock"]:has(.dz-topnav) button {
+    padding: 0.2rem 0.4rem !important;
+    font-size: 0.8rem !important;
+    white-space: nowrap !important;
+}
+
 /* PWA 스타일 — 상태바 영역 대응 */
 @media (display-mode: standalone) {
     .block-container {
