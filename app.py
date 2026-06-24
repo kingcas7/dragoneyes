@@ -30022,6 +30022,10 @@ else:
                                                     "email": _tu.get("email", ""),
                                                     "pw": _newpw,
                                                 }
+                                                # ⭐ rerun 시 관리자 대시보드(active_tab=99) 유지 — 안 그러면 첫 탭으로 튕김
+                                                st.session_state["current_page"] = "home"
+                                                st.session_state["active_tab"] = 99
+                                                st.session_state["_admin_console_focus"] = True
                                                 st.rerun()
                                         except Exception as _e_pwr:
                                             st.error(f"❌ 재설정 실패: {str(_e_pwr)[:300]}")
