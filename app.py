@@ -4919,6 +4919,13 @@ if "survey_token" in params:
         st.session_state["_survey_token"] = _stoken
         st.session_state["current_page"] = "survey_respond"
 
+# 🔑 커스텀 비밀번호 재설정 토큰 링크 (Resend로 보낸 자체 링크 — Supabase 설정 무관)
+if "pwreset_token" in params:
+    _prt = params.get("pwreset_token")
+    if _prt:
+        st.session_state["_pwreset_token"] = _prt
+        st.session_state["current_page"] = "pwreset_custom"
+
 # 🔁 캠페인 가입 단계 — 새로고침해도 현재 가입 페이지 유지 (URL ?signup=...)
 if "signup" in params:
     _sg = params.get("signup")
@@ -9622,6 +9629,77 @@ def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="
         analyzed_urls.add(url)
     return results
 
+def render_custom_pwreset_page():
+    """🔑 커스텀 비밀번호 재설정 페이지 (Resend 토큰 링크). 로그인 불필요.
+    우리가 직접 발급한 토큰을 검증 → 본인 확인 → 새 비밀번호 설정(admin API).
+    Supabase Site URL/Redirect 설정과 무관하게 동작."""
+    import datetime as _dtt
+    _token = st.session_state.get("_pwreset_token") or st.query_params.get("pwreset_token")
+    st.markdown("## 🔑 비밀번호 재설정")
+    if not _token:
+        st.error("유효하지 않은 접근입니다.")
+        return
+    # 토큰으로 사용자 조회 (사용자 수가 적어 전체 조회 후 매칭 — JSON 필터 의존 제거)
+    _u = None
+    try:
+        _all = supabase.table("users").select("id,name,email,preferences").execute().data or []
+        _u = next((x for x in _all
+                   if (x.get("preferences") or {}).get("pwreset_token") == _token), None)
+    except Exception as _e:
+        st.error(f"조회 실패: {str(_e)[:200]}")
+        return
+    _valid = False
+    if _u:
+        _exp = (_u.get("preferences") or {}).get("pwreset_expires")
+        try:
+            if _exp and _dtt.datetime.fromisoformat(_exp) > _dtt.datetime.now():
+                _valid = True
+        except Exception:
+            _valid = False
+    if not _valid:
+        st.error("⛔ 재설정 링크가 만료되었거나 유효하지 않습니다. (유효시간 30분)")
+        st.caption("로그인 화면에서 '비밀번호를 잊으셨나요?'로 다시 요청해주세요.")
+        if st.button("← 로그인 화면으로", key="cpr_back"):
+            st.session_state["current_page"] = None
+            st.session_state.pop("_pwreset_token", None)
+            try:
+                if "pwreset_token" in st.query_params:
+                    del st.query_params["pwreset_token"]
+            except Exception:
+                pass
+            st.rerun()
+        return
+    st.success(f"✅ 본인 확인 완료 — {_u.get('email','')}")
+    st.caption("새 비밀번호를 설정해주세요.")
+    _p1 = st.text_input("새 비밀번호 (6자 이상)", type="password", key="cpr_pw1")
+    _p2 = st.text_input("새 비밀번호 확인", type="password", key="cpr_pw2")
+    if st.button("✅ 비밀번호 변경", type="primary", use_container_width=True, key="cpr_do"):
+        if not _p1 or len(_p1) < 6:
+            st.error("비밀번호는 6자 이상이어야 합니다.")
+        elif _p1 != _p2:
+            st.error("비밀번호가 일치하지 않습니다.")
+        else:
+            try:
+                sb_admin().auth.admin.update_user_by_id(_u["id"], {"password": _p1})
+                # 토큰 폐기
+                _prefs = _u.get("preferences") or {}
+                _prefs.pop("pwreset_token", None)
+                _prefs.pop("pwreset_expires", None)
+                supabase.table("users").update({"preferences": _prefs}).eq("id", _u["id"]).execute()
+                st.session_state.pop("_pwreset_token", None)
+                try:
+                    if "pwreset_token" in st.query_params:
+                        del st.query_params["pwreset_token"]
+                except Exception:
+                    pass
+                st.session_state["current_page"] = None
+                st.success("🎉 비밀번호가 변경되었습니다! 로그인 화면에서 새 비밀번호로 로그인하세요.")
+                st.balloons()
+            except Exception as _e2:
+                st.error(f"❌ 변경 실패: {str(_e2)[:300]}")
+                st.caption("‘User not allowed’ 류면 서버에 SUPABASE_SERVICE_ROLE_KEY 설정이 필요합니다.")
+
+
 def render_password_reset_recovery_page(user):
     """🔐 비밀번호 재설정 복구 모드 — 이메일 복구 링크로 본인확인된 사용자가
     새 비밀번호를 직접 설정. 설정 전까지 다른 화면 접근 차단."""
@@ -9684,6 +9762,11 @@ def render_password_reset_recovery_page(user):
             try: st.query_params.clear()
             except Exception: pass
             st.rerun()
+
+# 🔑 커스텀 비밀번호 재설정 (토큰 링크) — 로그인 여부와 무관하게 최우선 처리
+if st.session_state.get("current_page") == "pwreset_custom" or "pwreset_token" in params:
+    render_custom_pwreset_page()
+    st.stop()
 
 # ══════════════════════════════
 # ══════════════════════════════
@@ -10432,19 +10515,50 @@ if st.session_state.user is None:
                                          key="pwreset_email_input", label_visibility="collapsed")
             if st.button(_pw["send"], use_container_width=True, key="pwreset_send_btn"):
                 if _reset_email and "@" in _reset_email:
+                    # 🔑 자체 토큰 링크 발송 (Resend) — Supabase Site URL 설정과 무관하게 운영 URL로 복귀
                     try:
-                        _auth = supabase.auth
-                        _fn = getattr(_auth, "reset_password_for_email", None) or getattr(_auth, "reset_password_email", None)
-                        if _fn is None:
-                            raise RuntimeError("reset method unavailable")
-                        _site = "https://dragoneyes-production.up.railway.app"
-                        try:
-                            _fn(_reset_email, {"redirect_to": _site})
-                        except TypeError:
-                            _fn(_reset_email)
+                        import secrets as _sct, datetime as _dtt2
+                        _em = _reset_email.strip()
+                        _ures = supabase.table("users").select(
+                            "id,name,email,preferences").eq("email", _em).limit(1).execute()
+                        # 보안: 계정 존재 여부를 노출하지 않도록 항상 동일한 성공 메시지
+                        if _ures.data:
+                            _u = _ures.data[0]
+                            _token = _sct.token_urlsafe(32)
+                            _prefs = _u.get("preferences") or {}
+                            if not isinstance(_prefs, dict):
+                                _prefs = {}
+                            _prefs["pwreset_token"] = _token
+                            _prefs["pwreset_expires"] = (
+                                _dtt2.datetime.now() + _dtt2.timedelta(minutes=30)).isoformat()
+                            supabase.table("users").update(
+                                {"preferences": _prefs}).eq("id", _u["id"]).execute()
+                            _link = f"https://dragoneyes-production.up.railway.app/?pwreset_token={_token}"
+                            if RESEND_API_KEY:
+                                resend.api_key = RESEND_API_KEY
+                                resend.Emails.send({
+                                    "from": "AI agent_dragoneyes <dragoneyes@dragoneyes.co.kr>",
+                                    "to": [_u["email"]],
+                                    "subject": "[DragonEyes] 비밀번호 재설정 안내",
+                                    "html": f"""
+                                    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+                                      <div style="background:linear-gradient(135deg,#0f3460,#16213e);padding:18px;border-radius:8px;margin-bottom:18px;">
+                                        <h2 style="color:white;margin:0;">🐉 DragonEyes 비밀번호 재설정</h2>
+                                      </div>
+                                      <div style="background:#f8fafc;padding:20px;border-radius:8px;border:1px solid #e2e8f0;color:#334155;line-height:1.7;">
+                                        <p>아래 버튼을 눌러 새 비밀번호를 설정하세요. (유효시간 30분)</p>
+                                        <p style="text-align:center;margin:24px 0;">
+                                          <a href="{_link}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;">비밀번호 재설정하기</a>
+                                        </p>
+                                        <p style="font-size:0.85rem;color:#64748b;">버튼이 안 되면 아래 주소를 복사해 접속하세요:<br>{_link}</p>
+                                        <p style="font-size:0.85rem;color:#94a3b8;">본인이 요청하지 않았다면 이 메일을 무시하세요.</p>
+                                      </div>
+                                    </div>
+                                    """,
+                                })
                         st.success(_pw["ok"])
                     except Exception as e:
-                        st.error(f"{_pw['fail']}: {e}")
+                        st.error(f"{_pw['fail']}: {str(e)[:200]}")
                 else:
                     st.warning(_pw["bad"])
 
