@@ -3450,10 +3450,10 @@ def sb_admin():
     global _sb_admin_cached
     if _sb_admin_cached is not None:
         return _sb_admin_cached
-    _srk = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    _srk = (os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "").strip()  # 끝 공백/줄바꿈 제거(Bearer 깨짐 방지)
     if _srk:
         try:
-            _sb_admin_cached = create_client(os.getenv("SUPABASE_URL"), _srk)
+            _sb_admin_cached = create_client((os.getenv("SUPABASE_URL") or "").strip(), _srk)
         except Exception:
             _sb_admin_cached = supabase
     else:
@@ -12450,7 +12450,29 @@ else:
                                     f"로그인 화면에서 **모니터링 / 캠페인 모드 모두** 사용 가능합니다.")
                     except Exception as _bt_e:
                         st.error(f"❌ 등록 실패: {str(_bt_e)[:250]}")
-                        st.caption("‘User not allowed’/키 오류면 SUPABASE_SERVICE_ROLE_KEY 설정 필요. 또는 이메일 중복일 수 있습니다.")
+                        # 🔍 진단: 키 상태를 정확히 표시 (원인 즉시 판별)
+                        try:
+                            import base64 as _b64d, json as _jsd
+                            _k_raw = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or ""
+                            _k_str = _k_raw.strip()
+                            _role_dbg = "?"
+                            try:
+                                _seg = _k_str.split(".")[1]
+                                _seg += "=" * (-len(_seg) % 4)
+                                _role_dbg = _jsd.loads(_b64d.urlsafe_b64decode(_seg)).get("role", "?")
+                            except Exception:
+                                _role_dbg = "디코드실패"
+                            st.caption(
+                                f"🔍 진단 — 키설정: {bool(_k_raw)} · 원본길이: {len(_k_raw)} · "
+                                f"공백제거후: {len(_k_str)} · 끝공백여부: {len(_k_raw) != len(_k_str)} · "
+                                f"role: **{_role_dbg}** · URL설정: {bool(os.getenv('SUPABASE_URL'))}"
+                            )
+                            if _role_dbg == "anon":
+                                st.caption("→ ⚠️ anon 키가 들어있습니다. Legacy 탭의 service_role(secret)로 교체하세요.")
+                            elif _role_dbg == "service_role":
+                                st.caption("→ 키는 service_role 정상. 재배포 미완료(빌드 중 테스트) 또는 이메일 중복일 수 있습니다.")
+                        except Exception:
+                            pass
         st.markdown("---")
 
         # Phase 4: 파트너 정보 조회 (user.partner_id 직접 사용)
