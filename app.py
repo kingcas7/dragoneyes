@@ -12383,6 +12383,76 @@ else:
 
         st.info("💡 신청 후 시스템관리자 검토 → 업체 관리자 이메일 동의 → 라이선스 활성화 순으로 진행됩니다.")
 
+        # ══════════════════════════════
+        # 🧪 드래곤아이즈 베타테스터 추가 (PO·소속 고객 없이 일반 사용자 즉시 등록)
+        # ══════════════════════════════
+        st.markdown("---")
+        st.markdown("### 🧪 드래곤아이즈 베타테스터 추가")
+        st.caption("PO·소속 고객 입력 없이 일반 사용자(테스터)를 즉시 등록합니다. "
+                   "등록된 테스터는 **모니터링·캠페인 모두 로그인** 가능하며, 관리자/파트너 페이지는 보이지 않습니다. "
+                   "소속이 서로 달라도 자유롭게 입력하면 됩니다.")
+        with st.container(border=True):
+            _bt_c1, _bt_c2 = st.columns(2)
+            with _bt_c1:
+                _bt_email = st.text_input("이메일 *", key="bt_email", placeholder="tester@example.com")
+                _bt_name = st.text_input("이름 *", key="bt_name", placeholder="홍길동")
+            with _bt_c2:
+                _bt_org = st.text_input("소속 (선택, 자유 입력)", key="bt_org",
+                                        placeholder="소속이 달라도 자유롭게 — 예: ○○복지관, 무소속")
+                _bt_pw = st.text_input("임시 비밀번호 (비우면 14자 자동 생성)", type="password", key="bt_pw")
+            _bt_card = st.file_uploader("명함 이미지 (선택)", type=["jpg", "jpeg", "png", "pdf"], key="bt_card")
+            if st.button("✅ 베타테스터 등록", type="primary", key="bt_create", use_container_width=True):
+                if not (_bt_email and "@" in _bt_email and _bt_name):
+                    st.error("이메일(올바른 형식)과 이름은 필수입니다.")
+                else:
+                    try:
+                        import secrets as _scb, string as _stcb
+                        _bt_pwd = ((_bt_pw or "").strip()
+                                   or "".join(_scb.choice(_stcb.ascii_letters + _stcb.digits + "!@#$") for _ in range(14)))
+                        _bt_ar = sb_admin().auth.admin.create_user({
+                            "email": _bt_email.strip(),
+                            "password": _bt_pwd,
+                            "email_confirm": True,
+                            "user_metadata": {"name": _bt_name.strip()},
+                        })
+                        _bt_uid = _bt_ar.user.id if getattr(_bt_ar, "user", None) else None
+                        if not _bt_uid:
+                            st.error("❌ Auth 응답에 사용자 ID가 없습니다.")
+                        else:
+                            # 명함 이미지(선택) 업로드
+                            _bt_card_path = None
+                            if _bt_card is not None:
+                                try:
+                                    _bt_ext = _bt_card.name.split(".")[-1].lower()
+                                    _bt_card_path = f"beta-testers/{_bt_uid}/card.{_bt_ext}"
+                                    supabase.storage.from_("license-documents").upload(
+                                        _bt_card_path, _bt_card.getvalue(),
+                                        file_options={"content-type": _bt_card.type or "application/octet-stream"})
+                                except Exception:
+                                    _bt_card_path = None
+                            # 일반 사용자(role=user) — 모니터링+캠페인 접근, 관리자/파트너 미노출. 파트너/소속 미지정.
+                            supabase.table("users").insert({
+                                "id": _bt_uid,
+                                "email": _bt_email.strip(),
+                                "name": _bt_name.strip(),
+                                "role": "user",
+                                "is_campaign_only": False,
+                                "status": "active",
+                                "preferences": {
+                                    "beta_tester": True,
+                                    "org": (_bt_org or "").strip(),
+                                    "business_card": _bt_card_path,
+                                },
+                            }).execute()
+                            st.success(f"✅ {_bt_name.strip()} ({_bt_email.strip()}) 베타테스터 등록 완료"
+                                       + (f" · 소속: {_bt_org.strip()}" if (_bt_org or '').strip() else ""))
+                            st.info(f"🔑 임시 비밀번호: `{_bt_pwd}` — **안전한 채널**로 전달하고 첫 로그인 후 변경 안내. "
+                                    f"로그인 화면에서 **모니터링 / 캠페인 모드 모두** 사용 가능합니다.")
+                    except Exception as _bt_e:
+                        st.error(f"❌ 등록 실패: {str(_bt_e)[:250]}")
+                        st.caption("‘User not allowed’/키 오류면 SUPABASE_SERVICE_ROLE_KEY 설정 필요. 또는 이메일 중복일 수 있습니다.")
+        st.markdown("---")
+
         # Phase 4: 파트너 정보 조회 (user.partner_id 직접 사용)
         my_agency = None
         try:
