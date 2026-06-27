@@ -570,7 +570,22 @@ def _a11y_inject_shortcuts():
                         u.lang = lang || w.__a11yLang || 'ko-KR';
                         u.rate = (typeof rate === 'number' && rate > 0) ? rate : (w.__a11ySpeed || 1.0);
                         u.pitch = 1.0; u.volume = 1.0;
+                        // ⭐ 피드백 루프 차단 — 발화 중엔 마이크가 자기 목소리를 명령으로 오인하지 않게 플래그 ON
+                        w._dragoneyesTtsSpeaking = true;
+                        if (w._dragoneyesTtsClearTimer) clearTimeout(w._dragoneyesTtsClearTimer);
+                        var _clearTts = function() {{
+                            if (w._dragoneyesTtsClearTimer) clearTimeout(w._dragoneyesTtsClearTimer);
+                            w._dragoneyesTtsClearTimer = setTimeout(function(){{
+                                // 아직 다른 발화가 진행 중이면 플래그 유지
+                                try {{ if (w.speechSynthesis && w.speechSynthesis.speaking) return; }} catch(_){{}}
+                                w._dragoneyesTtsSpeaking = false;
+                            }}, 700);
+                        }};
+                        u.onend = _clearTts;
+                        u.onerror = _clearTts;
                         w.speechSynthesis.speak(u);
+                        // 안전장치 — onend 미수신 대비 8초 후 강제 해제
+                        setTimeout(function(){{ if (w._dragoneyesTtsSpeaking) w._dragoneyesTtsSpeaking = false; }}, 8000);
                     }} catch (e) {{ console.error('DragonEyes TTS error:', e); }}
                 }};
 
@@ -2301,14 +2316,31 @@ def _a11y_render_floating_mic():
                 //   심각도/분류/메모/제출을 음성 명령으로 처리.
                 //   query_params를 통해 URL 변경 → 페이지 reload → Python이 처리.
                 const _voiceUrlSet = function(key, val) {
+                    // 샌드박스 iframe에서 top 이동 — 4가지 방법 시도 (_doVoiceRedirect와 동일)
+                    var newUrl = null;
                     try {
                         const tp = w.top || w.parent || w;
                         const url = new URL(tp.location.href);
                         url.searchParams.set(key, String(val));
                         const prevVt = url.searchParams.get('vt');
                         url.searchParams.set('vt', String((prevVt ? Number(prevVt) : 0) + 1));
-                        tp.location.href = url.toString();
-                    } catch(e) { console.error('[A11y] voiceUrlSet err:', e); }
+                        newUrl = url.toString();
+                    } catch(e) { console.error('[A11y] voiceUrlSet build err:', e); return; }
+                    // 시도 1: top.location
+                    try { if (w.top && w.top !== w) { w.top.location.href = newUrl; return; } } catch(e) {}
+                    // 시도 2: parent.location
+                    try { if (w.parent && w.parent !== w) { w.parent.location.href = newUrl; return; } } catch(e) {}
+                    // 시도 3: anchor click target=_top (sandbox allow-top-navigation-by-user-activation 우회)
+                    try {
+                        const a = w.document.createElement('a');
+                        a.href = newUrl; a.target = '_top'; a.rel = 'noopener';
+                        a.style.position = 'fixed'; a.style.left = '-9999px';
+                        w.document.body.appendChild(a);
+                        a.click();
+                        console.log('[A11y] voiceUrlSet via anchor click', key, val);
+                        setTimeout(function(){ try { w.open(newUrl, '_top'); } catch(e){} }, 300);
+                        return;
+                    } catch(e) { console.error('[A11y] voiceUrlSet anchor err:', e); }
                 };
 
                 // ── 심각도 안내 (목록 음성) ──
@@ -2834,6 +2866,11 @@ def _a11y_render_floating_mic():
 
                     let _interim = '';
                     recog.onresult = function(event) {
+                        // ⭐ 피드백 루프 차단 — TTS 발화 중 들어온 인식은 스피커(자기 목소리)이므로 무시
+                        if (w._dragoneyesTtsSpeaking) {
+                            console.log('[DragonEyes Voice] (무시 — TTS 발화 중)');
+                            return;
+                        }
                         // 모든 결과 후보 추출
                         const results = event.results[event.resultIndex];
                         const isFinal = results.isFinal;
