@@ -9450,6 +9450,50 @@ def forward_to_manager_review(au_id, url, title=""):
         st.error(f"매니저 보고 실패: {e}")
         return False
 
+def _yt_video_id(url):
+    """YouTube URL → 영상 ID 추출."""
+    if not url:
+        return ""
+    if "v=" in url:
+        return url.split("v=")[-1].split("&")[0]
+    if "youtu.be/" in url:
+        return url.split("youtu.be/")[-1].split("?")[0].split("&")[0]
+    if "/embed/" in url:
+        return url.split("/embed/")[-1].split("?")[0].split("&")[0]
+    return ""
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_video_durations(video_ids_tuple):
+    """YouTube 영상 ID들의 원래 재생시간(초)을 배치(50개씩) 조회 — 1시간 캐시.
+    근무표의 '모니터링한 동영상 총 재생시간' 합산용 (일부만 시청했어도 풀 길이로 집계)."""
+    import re as _re_dur
+    out = {}
+    ids = [v for v in video_ids_tuple if v]
+    for i in range(0, len(ids), 50):
+        chunk = ids[i:i + 50]
+        try:
+            resp = youtube.videos().list(part="contentDetails", id=",".join(chunk)).execute()
+            for item in resp.get("items", []):
+                dur = (item.get("contentDetails", {}) or {}).get("duration", "")
+                m = _re_dur.match(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', dur or "")
+                secs = 0
+                if m:
+                    _h, _mi, _s = m.groups()
+                    secs = (int(_h or 0) * 3600) + (int(_mi or 0) * 60) + int(_s or 0)
+                out[item["id"]] = secs
+        except Exception:
+            pass
+    return out
+
+def _fmt_hm(total_sec):
+    """초 → 'N시간 M분' (1분 미만은 '1분 미만')."""
+    if not total_sec:
+        return "—"
+    _m = int(total_sec) // 60
+    if _m <= 0:
+        return "1분 미만"
+    return (f"{_m//60}시간 {_m%60}분" if _m >= 60 else f"{_m}분")
+
 @st.cache_data(ttl=30, show_spinner=False)
 def get_analyzed_urls():
     try:
@@ -29806,20 +29850,25 @@ else:
                             f"<div style='font-size:0.85rem;color:#475569;margin-top:2px;'>🏢 {_my_org} · 👤 {user['name']}</div>"
                             f"</div>",
                             unsafe_allow_html=True)
-                    _AVG_WORK_MIN, _AVG_WATCH_MIN = 7, 5  # 건당 평균(작업=시청+보고, 시청)
+                    # 이번 주 영상들의 원래 재생시간 합계 (일부만 시청해도 풀 길이로 집계)
+                    df["_vid"] = df["content"].apply(_yt_video_id) if "content" in df.columns else ""
+                    _week_vids = tuple(sorted(set(
+                        v for v in df.loc[df["_kdate"].isin(_week_days), "_vid"].tolist() if v
+                    )))
+                    _dur_map = get_video_durations(_week_vids) if _week_vids else {}
                     _rows_html = ""
-                    _wk_cnt = _wk_work = 0
+                    _wk_cnt = _wk_dur = 0
                     for _d, _wn in zip(_week_days, _wnames):
                         _day_df = df[df["_kdate"] == _d]
                         _cnt = len(_day_df)
                         _wk_cnt += _cnt
                         if _cnt > 0:
                             _span = f"{_day_df['_kdt'].min().strftime('%H:%M')} ~ {_day_df['_kdt'].max().strftime('%H:%M')}"
-                            _wm = _cnt * _AVG_WORK_MIN
-                            _wk_work += _wm
-                            _work_str = (f"{_wm//60}시간 {_wm%60}분" if _wm >= 60 else f"{_wm}분")
+                            _day_dur = int(sum(_dur_map.get(v, 0) for v in _day_df["_vid"].tolist()))
+                            _wk_dur += _day_dur
+                            _dur_str = _fmt_hm(_day_dur)
                         else:
-                            _span, _work_str = "—", "—"
+                            _span, _dur_str = "—", "—"
                         _is_today = (_d == _today_kst)
                         _bg = "#eef6ff" if _is_today else ("#ffffff" if _d.weekday() < 5 else "#fff6f6")
                         _daycol = "#dc2626" if _d.weekday() == 6 else ("#2563eb" if _d.weekday() == 5 else "#111")
@@ -29830,7 +29879,7 @@ else:
                             f"{' 🔵' if _is_today else ''}</td>"
                             f"<td style='padding:7px 10px;text-align:center;font-weight:600;'>{_cnt if _cnt else '—'}</td>"
                             f"<td style='padding:7px 10px;text-align:center;color:#555;font-variant-numeric:tabular-nums;'>{_span}</td>"
-                            f"<td style='padding:7px 10px;text-align:center;'>{_work_str}</td></tr>"
+                            f"<td style='padding:7px 10px;text-align:center;font-weight:600;'>{_dur_str}</td></tr>"
                         )
                     st.markdown(
                         "<table style='width:100%;border-collapse:collapse;font-size:0.9rem;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;'>"
@@ -29838,17 +29887,13 @@ else:
                         "<th style='padding:7px 10px;text-align:left;'>요일</th>"
                         "<th style='padding:7px 10px;'>모니터링</th>"
                         "<th style='padding:7px 10px;'>활동 시간대(출·퇴근)</th>"
-                        "<th style='padding:7px 10px;'>작업시간(추정)</th>"
+                        "<th style='padding:7px 10px;'>영상 재생시간(합계)</th>"
                         f"</tr></thead><tbody>{_rows_html}</tbody></table>",
                         unsafe_allow_html=True)
-                    _wkw = f"{_wk_work//60}시간 {_wk_work%60}분" if _wk_work >= 60 else f"{_wk_work}분"
-                    _wkv = _wk_cnt * _AVG_WATCH_MIN
-                    _wkv_str = f"{_wkv//60}시간 {_wkv%60}분" if _wkv >= 60 else f"{_wkv}분"
-                    _m1, _m2, _m3 = st.columns(3)
+                    _m1, _m2 = st.columns(2)
                     _m1.metric("주간 모니터링", f"{_wk_cnt}건")
-                    _m2.metric("주간 작업시간(추정)", _wkw)
-                    _m3.metric("주간 예상 시청시간", _wkv_str)
-                    st.caption("⏱️ 활동 시간대는 실제 보고 시각(첫~마지막) 기준입니다. 작업·시청 시간은 건당 평균(작업 7분·시청 5분)으로 추정한 값으로, 정확한 영상 재생시간 집계가 필요하면 영상 길이 저장 기능을 추가하겠습니다.")
+                    _m2.metric("주간 총 영상 재생시간", _fmt_hm(_wk_dur))
+                    st.caption("⏱️ '영상 재생시간'은 모니터링한 동영상의 원래 전체 길이를 합산한 값입니다 (일부만 시청했더라도 풀 길이로 집계). 활동 시간대는 실제 보고 시각(첫~마지막) 기준입니다.")
                 except Exception as _e_wk:
                     st.caption(f"주간 근무표 표시 오류: {str(_e_wk)[:80]}")
 
