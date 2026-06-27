@@ -2631,8 +2631,13 @@ def _a11y_render_floating_mic():
 
                 // 같은 페이지 반복 안내 차단
                 const pageKey = title;
-                if (!force && pageKey === _lastAnnouncedPageKey) return;
+                // ⭐ 중복 방지 키를 top window에 영속화 — rerun마다 스크립트가 재주입돼
+                //    클로저 변수가 리셋되며 같은 팝업/페이지 제목(예: 영상 제목)을 반복 발화하던 버그 차단
+                var _persistKey = '';
+                try { _persistKey = (w.top||w).__a11yLastAnnouncedPageKey || ''; } catch(_){ _persistKey = _lastAnnouncedPageKey; }
+                if (!force && pageKey === _persistKey) return;
                 _lastAnnouncedPageKey = pageKey;
+                try { (w.top||w).__a11yLastAnnouncedPageKey = pageKey; } catch(_){}
 
                 // 페이지 매칭 — 제목에 키워드 포함되면 해당 워크플로우 발화
                 let _matched = null;
@@ -2820,6 +2825,7 @@ def _a11y_render_floating_mic():
                 w._dragoneyesRecogInstance = null;
                 w._dragoneyesIsListening = false;
                 try { (w.top||w).__a11yMicListening = false; } catch(_){}
+                try { (w.top||w).__a11yMicShouldListen = false; } catch(_){}  // 명시적 중지 → 자동 재개 안 함
                 w._dragoneyesContinuousMode = false;  // 연속모드도 함께 종료
                 const tBtn = w.document.getElementById('a11y-mic-toggle');
                 if (tBtn) { tBtn.style.background = '#6b7280'; tBtn.innerHTML = '🔁 OFF'; }
@@ -2861,6 +2867,8 @@ def _a11y_render_floating_mic():
                         w._dragoneyesIsListening = true;
                         // ⭐ 듣는 동안 모든 안내 TTS 침묵 — 마이크가 자기(시스템) 음성을 듣지 않도록
                         try { (w.top||w).__a11yMicListening = true; } catch(_){}
+                        // ⭐ "계속 듣기" 의도 기억 — rerun 후 자동 재개용 (중지/권한거부 시에만 해제)
+                        try { (w.top||w).__a11yMicShouldListen = true; } catch(_){}
                         showDiag('<b style="color:#16a34a;">🎤 듣고 있어요...</b><br>중지: 백틱 키(`) 또는 "중지" 발화<br>• "통계" / "홈" / "모니터링"<br>• "업무" / "파트너" / "관리자"<br>• "현재 페이지 설명"<br>• "메뉴 읽어줘"');
                         // ⭐ 듣는 중에는 발화하지 않음 — 프롬프트는 recog.start() 전에 미리 말함(아래)
                         //    (마이크가 자기 프롬프트를 명령으로 오인해 인식 기회를 소진하던 문제 해결)
@@ -2921,6 +2929,7 @@ def _a11y_render_floating_mic():
                         if (b) { b.style.background = '#dc2626'; b.style.animation = ''; }
 
                         if (e.error === 'not-allowed') {
+                            try { (w.top||w).__a11yMicShouldListen = false; } catch(_){}  // 권한 거부 → 자동 재개 중단
                             showDiag('<b style="color:#dc2626;">🎤 마이크 권한 거부됨</b><br>주소창 좌측 🔒 자물쇠 → 사이트 설정 → 마이크 → "허용"으로 변경 후 페이지 새로고침.', 15000);
                             alert('🎤 마이크 권한 거부됨\\n\\n주소창 좌측 자물쇠 → 사이트 설정 → 마이크 → "허용"으로 변경 후 다시 시도하세요.');
                         } else if (e.error === 'no-speech') {
@@ -3071,6 +3080,24 @@ def _a11y_render_floating_mic():
                 w.document.body.appendChild(toggleBtn);
 
                 console.log('[DragonEyes Voice] mic + toggle injected at', w.location.href);
+
+                // ⭐ 마이크 자동 재개 — 사용자가 켜둔 상태(__a11yMicShouldListen)면 rerun으로
+                //    스크립트가 재주입돼도 자동으로 다시 듣기 시작. "중지"·토글·권한거부로만 꺼짐.
+                //    → 시각장애인이 명령마다 마이크를 다시 켤 필요 없음.
+                try {
+                    var _tw = w.top || w;
+                    if (_tw.__a11yMicShouldListen && !w._dragoneyesIsListening) {
+                        setTimeout(function() {
+                            try {
+                                if (_tw.__a11yMicShouldListen && !w._dragoneyesIsListening) {
+                                    console.log('[DragonEyes Voice] auto-resume listening after rerun');
+                                    if (typeof w._dragoneyesStartListening === 'function') w._dragoneyesStartListening();
+                                    else if (typeof startListening === 'function') startListening();
+                                }
+                            } catch(e) { console.error('[A11y] auto-resume err', e); }
+                        }, 1800);
+                    }
+                } catch(e) {}
             } catch (e) {
                 console.error('[A11y] mic btn inject error:', e);
             }
@@ -29119,7 +29146,7 @@ else:
                             _intro += "정보 안내를 마쳤습니다. 잠시 후 동영상이 자동으로 재생됩니다. "
                             _intro += "지금 바로 재생을 원하시면 엔터 키를 누르세요."
                             try:
-                                accessibility.force_announce(_intro)
+                                accessibility.force_announce(_intro, once_key=f"vid_intro_{_vp_id}")
                             except Exception:
                                 accessibility.announce(_intro)
                             # 안내 길이 → 자동 재생 지연 (글자당 ~130ms + 최소 16초)
