@@ -42,8 +42,9 @@ def _a11y_load_from_user(user_dict):
             prefs = {}
     if not isinstance(prefs, dict):
         return
-    if "voice_guide_enabled" in prefs:
-        st.session_state["voice_guide_enabled"] = bool(prefs["voice_guide_enabled"])
+    # ⭐ 음성 안내는 매 세션 항상 OFF로 시작 — 일반(비장애) 사용자 다수이므로 불편 방지.
+    #    DB 저장값을 복원하지 않음. 사용자가 Tab→Enter로 직접 켜는 opt-in 방식.
+    st.session_state["voice_guide_enabled"] = False
     if "voice_speed" in prefs:
         try:
             v = float(prefs["voice_speed"])
@@ -2854,9 +2855,8 @@ def _a11y_render_floating_mic():
                         w._dragoneyesRecogInstance = recog;
                         w._dragoneyesIsListening = true;
                         showDiag('<b style="color:#16a34a;">🎤 듣고 있어요...</b><br>중지: 백틱 키(`) 또는 "중지" 발화<br>• "통계" / "홈" / "모니터링"<br>• "업무" / "파트너" / "관리자"<br>• "현재 페이지 설명"<br>• "메뉴 읽어줘"');
-                        if (w._dragoneyesSpeak) {
-                            w._dragoneyesSpeak("음성 명령을 말씀하세요.");
-                        }
+                        // ⭐ 듣는 중에는 발화하지 않음 — 프롬프트는 recog.start() 전에 미리 말함(아래)
+                        //    (마이크가 자기 프롬프트를 명령으로 오인해 인식 기회를 소진하던 문제 해결)
                         const b = w.document.getElementById('a11y-mic-floating');
                         if (b) {
                             b.style.background = '#16a34a';
@@ -2983,7 +2983,30 @@ def _a11y_render_floating_mic():
                         }
                     };
 
-                    recog.start();
+                    // ⭐ 프롬프트("말씀하세요")를 먼저 발화하고, 끝난 뒤에 인식 시작.
+                    //    이렇게 해야 마이크가 자기 프롬프트를 듣지 않아 사용자 명령이 정상 입력됨.
+                    (function() {
+                        var _started = false;
+                        var _go = function() {
+                            if (_started) return; _started = true;
+                            try { recog.start(); } catch(e) { console.error('[DragonEyes Voice] start err', e); }
+                        };
+                        try {
+                            if ('speechSynthesis' in w) {
+                                w.speechSynthesis.cancel();
+                                var _pu = new w.SpeechSynthesisUtterance("말씀하세요.");
+                                _pu.lang = 'ko-KR';
+                                _pu.rate = (w.__a11ySpeed || 1.0);
+                                _pu.onend = _go;
+                                _pu.onerror = _go;
+                                w.speechSynthesis.speak(_pu);
+                                // 안전장치 — 프롬프트가 2.5초 내 안 끝나면 강제 시작
+                                setTimeout(_go, 2500);
+                            } else {
+                                _go();
+                            }
+                        } catch(e) { _go(); }
+                    })();
                 } catch (err) {
                     console.error('[DragonEyes Voice] startListening error:', err);
                     showDiag('<b style="color:#dc2626;">❌ 시작 실패</b><br>' + err.message, 10000);
