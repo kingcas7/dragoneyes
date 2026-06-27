@@ -29133,12 +29133,26 @@ else:
                             pv1, pv2, pv3 = st.columns([1, 3, 1])
                             with pv2:
                                 if "youtube.com" in hurl or "youtu.be" in hurl:
-                                    try:
-                                        st.video(hurl, autoplay=True, muted=False)
-                                        st.caption("🎬 자동 재생 중 — 소리 안 들리면 영상의 🔊 아이콘 클릭")
-                                    except TypeError:
-                                        st.video(hurl)
-                                        st.caption("▶️ 재생 버튼을 눌러 시작하세요")
+                                    # 영상 ID 추출
+                                    if "v=" in hurl:
+                                        _emb_vid = hurl.split("v=")[-1].split("&")[0]
+                                    elif "youtu.be/" in hurl:
+                                        _emb_vid = hurl.split("youtu.be/")[-1].split("?")[0].split("&")[0]
+                                    else:
+                                        _emb_vid = ""
+                                    if _emb_vid:
+                                        # 유튜브 iframe 직접 임베드 — autoplay=1&mute=1 (브라우저는 무음 자동재생만 허용)
+                                        _a11y_components.html(
+                                            '<iframe width="100%" height="360" '
+                                            f'src="https://www.youtube.com/embed/{_emb_vid}?autoplay=1&mute=1&rel=0&playsinline=1" '
+                                            'title="video" frameborder="0" style="border-radius:10px;" '
+                                            'allow="autoplay; encrypted-media; picture-in-picture; fullscreen" '
+                                            'allowfullscreen></iframe>',
+                                            height=375,
+                                        )
+                                        st.caption("🎬 자동 재생 중(무음) — 소리는 영상의 🔊 아이콘을 눌러 켜세요.")
+                                    else:
+                                        st.markdown(f"[🔗 유튜브에서 열기]({hurl})")
                                 else:
                                     st.markdown(f"[🔗 링크 열기]({hurl})")
                         # ── 🎤 음성 명령 사용자를 위한 다음 단계 안내 + 토글 + 마이크 ──
