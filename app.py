@@ -29070,7 +29070,9 @@ else:
                             st.markdown(f"**🎬 {hist_popup_d.get('title','')[:100]}**")
                         with hp2:
                             if st.button(t("popup_close"), key="hist_popup_close", use_container_width=True):
-                                st.session_state.hist_popup_id = None; st.rerun()
+                                st.session_state.hist_popup_id = None
+                                st.session_state.active_tab = 5  # 닫아도 히스토리에 머묾
+                                st.rerun()
 
                         if not _video_ready:
                             # ── 1단계: 정보 카드 + 즉시 재생 버튼 (영상 미표시) ──
@@ -29097,6 +29099,7 @@ else:
                                              type="primary", use_container_width=True,
                                              key=f"hist_popup_play_now_{_vp_id}"):
                                     st.session_state[_vp_show_video_key] = True
+                                    st.session_state.active_tab = 5  # 히스토리 탭 고정(영상 단계 유지)
                                     st.rerun()
                             st.caption("⏳ 음성 안내가 끝나면 자동으로 영상이 재생됩니다.")
 
@@ -29156,6 +29159,7 @@ else:
                                         st.query_params["toggle_voice"] = "1"
                                     except Exception:
                                         pass
+                                    st.session_state.active_tab = 5  # 히스토리 탭 고정
                                     st.rerun()
                             else:
                                 st.success("🔊 음성 안내 ON — 우하단 마이크 활성")
@@ -29186,7 +29190,9 @@ else:
                 with cb:
                     if "youtube.com" in d.get("url","") or "youtu.be" in d.get("url",""):
                         if st.button(t("yt_open_link"), key=f"hist_open_{d['id']}"):
-                            st.session_state.hist_popup_id = d["id"]; st.rerun()
+                            st.session_state.hist_popup_id = d["id"]
+                            st.session_state.active_tab = 5  # 탐색 히스토리 탭 고정(추천 탭 튕김 방지)
+                            st.rerun()
                     if d.get("reported") and report_id:
                         # 보고서 바로 보기 버튼
                         if st.button("📄 보고서", key=f"hist_rep_view_{d['id']}"):
