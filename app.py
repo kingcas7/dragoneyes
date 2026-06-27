@@ -2348,6 +2348,67 @@ def _a11y_render_floating_mic():
                     } catch(e) { console.error('[A11y] voiceUrlSet anchor err:', e); }
                 };
 
+                // ⭐ DOM 직접 조작 — URL 리로드 없이 보고서 폼 입력(세션 유지, 홈 튕김 방지)
+                //    Streamlit selectbox/textarea/button을 실제 사용자처럼 조작 → 일반 rerun
+                const _voiceSelectOption = function(labelKeyword, matcher) {
+                    try {
+                        const tdoc = (w.top || w).document;
+                        var target = null;
+                        const boxes = tdoc.querySelectorAll('[data-testid="stSelectbox"]');
+                        for (const b of boxes) {
+                            if ((b.innerText || '').indexOf(labelKeyword) >= 0) { target = b; break; }
+                        }
+                        if (!target) { console.warn('[A11y] selectbox 못찾음:', labelKeyword); return false; }
+                        const combo = target.querySelector('[data-baseweb="select"]') || target;
+                        combo.click();
+                        setTimeout(function() {
+                            try {
+                                const opts = Array.from(tdoc.querySelectorAll('li[role="option"], [role="option"]'));
+                                var picked = null;
+                                for (var i = 0; i < opts.length; i++) {
+                                    const ot = (opts[i].innerText || opts[i].textContent || '').trim();
+                                    if (matcher(ot, i)) { picked = opts[i]; break; }
+                                }
+                                if (picked) { picked.click(); console.log('[A11y] 선택:', labelKeyword, (picked.innerText||'').trim()); }
+                                else { console.warn('[A11y] 옵션 못찾음:', labelKeyword, 'cnt=', opts.length); }
+                            } catch(e) { console.error('[A11y] option click err', e); }
+                        }, 300);
+                        return true;
+                    } catch(e) { console.error('[A11y] selectOption err', e); return false; }
+                };
+                const _voiceFillTextarea = function(labelKeyword, text) {
+                    try {
+                        const tdoc = (w.top || w).document;
+                        var ta = null;
+                        const areas = tdoc.querySelectorAll('[data-testid="stTextArea"]');
+                        for (const a of areas) {
+                            if ((a.innerText || '').indexOf(labelKeyword) >= 0) { ta = a.querySelector('textarea'); break; }
+                        }
+                        if (!ta) { console.warn('[A11y] textarea 못찾음:', labelKeyword); return false; }
+                        const proto = (w.top || w).HTMLTextAreaElement || window.HTMLTextAreaElement;
+                        const setter = Object.getOwnPropertyDescriptor(proto.prototype, 'value').set;
+                        ta.focus();
+                        setter.call(ta, text);
+                        ta.dispatchEvent(new Event('input', { bubbles: true }));
+                        setTimeout(function() { try { ta.blur(); } catch(_){} }, 100);  // blur 시 Streamlit commit
+                        console.log('[A11y] 메모 입력:', text.substring(0, 30));
+                        return true;
+                    } catch(e) { console.error('[A11y] fillTextarea err', e); return false; }
+                };
+                const _voiceClickButton = function(textKeyword) {
+                    try {
+                        const tdoc = (w.top || w).document;
+                        const btns = tdoc.querySelectorAll('button');
+                        for (const b of btns) {
+                            if ((b.innerText || '').trim().indexOf(textKeyword) >= 0 && b.offsetParent) {
+                                b.click(); console.log('[A11y] 버튼 클릭:', textKeyword); return true;
+                            }
+                        }
+                        console.warn('[A11y] 버튼 못찾음:', textKeyword);
+                        return false;
+                    } catch(e) { console.error('[A11y] clickButton err', e); return false; }
+                };
+
                 // ── 심각도 안내 (목록 음성) ──
                 if (n === '심각도안내' || n === '심각도' || n.indexOf('심각도안내') >= 0 ||
                     (n.indexOf('심각도') >= 0 && n.indexOf('알려') >= 0)) {
@@ -2365,31 +2426,31 @@ def _a11y_render_floating_mic():
                 if (n === '심각도1' || n === '심각도1번' || n === '안전' || n === '1번' ||
                     (n.indexOf('심각도') >= 0 && (n.indexOf('1') >= 0 || n.indexOf('안전') >= 0))) {
                     if (w._dragoneyesSpeak) w._dragoneyesSpeak("심각도 1번 안전을 선택합니다.");
-                    setTimeout(function() { _voiceUrlSet('voice_sev', '1'); }, 600);
+                    setTimeout(function() { _voiceSelectOption('심각도', function(t,i){ return i === 0; }); }, 600);
                     return true;
                 }
                 if (n === '심각도2' || n === '낮은위험' || n === '2번' || n === '낮음' ||
                     (n.indexOf('심각도') >= 0 && (n.indexOf('2') >= 0 || n.indexOf('낮은') >= 0))) {
                     if (w._dragoneyesSpeak) w._dragoneyesSpeak("심각도 2번 낮은 위험을 선택합니다.");
-                    setTimeout(function() { _voiceUrlSet('voice_sev', '2'); }, 600);
+                    setTimeout(function() { _voiceSelectOption('심각도', function(t,i){ return i === 1; }); }, 600);
                     return true;
                 }
                 if (n === '심각도3' || n === '중간위험' || n === '3번' || n === '중간' ||
                     (n.indexOf('심각도') >= 0 && (n.indexOf('3') >= 0 || n.indexOf('중간') >= 0))) {
                     if (w._dragoneyesSpeak) w._dragoneyesSpeak("심각도 3번 중간 위험을 선택합니다.");
-                    setTimeout(function() { _voiceUrlSet('voice_sev', '3'); }, 600);
+                    setTimeout(function() { _voiceSelectOption('심각도', function(t,i){ return i === 2; }); }, 600);
                     return true;
                 }
                 if (n === '심각도4' || n === '높은위험' || n === '4번' || n === '높음' ||
                     (n.indexOf('심각도') >= 0 && (n.indexOf('4') >= 0 || n.indexOf('높은') >= 0))) {
                     if (w._dragoneyesSpeak) w._dragoneyesSpeak("심각도 4번 높은 위험을 선택합니다.");
-                    setTimeout(function() { _voiceUrlSet('voice_sev', '4'); }, 600);
+                    setTimeout(function() { _voiceSelectOption('심각도', function(t,i){ return i === 3; }); }, 600);
                     return true;
                 }
                 if (n === '심각도5' || n === '매우위험' || n === '5번' ||
                     (n.indexOf('심각도') >= 0 && (n.indexOf('5') >= 0 || n.indexOf('매우') >= 0))) {
                     if (w._dragoneyesSpeak) w._dragoneyesSpeak("심각도 5번 매우 위험을 선택합니다.");
-                    setTimeout(function() { _voiceUrlSet('voice_sev', '5'); }, 600);
+                    setTimeout(function() { _voiceSelectOption('심각도', function(t,i){ return i === 4; }); }, 600);
                     return true;
                 }
 
@@ -2407,22 +2468,22 @@ def _a11y_render_floating_mic():
                 // ── 분류 직접 선택 ──
                 if (n === '스팸' || n === 'spam') {
                     if (w._dragoneyesSpeak) w._dragoneyesSpeak("분류 스팸을 선택합니다.");
-                    setTimeout(function() { _voiceUrlSet('voice_cat', '스팸'); }, 600);
+                    setTimeout(function() { _voiceSelectOption('분류', function(t,i){ return t.indexOf('스팸') >= 0; }); }, 600);
                     return true;
                 }
                 if (n === '부적절' || n === 'bad') {
                     if (w._dragoneyesSpeak) w._dragoneyesSpeak("분류 부적절을 선택합니다.");
-                    setTimeout(function() { _voiceUrlSet('voice_cat', '부적절'); }, 600);
+                    setTimeout(function() { _voiceSelectOption('분류', function(t,i){ return t.indexOf('부적절') >= 0; }); }, 600);
                     return true;
                 }
                 if (n === '성인' || n === 'adult') {
                     if (w._dragoneyesSpeak) w._dragoneyesSpeak("분류 성인을 선택합니다.");
-                    setTimeout(function() { _voiceUrlSet('voice_cat', '성인'); }, 600);
+                    setTimeout(function() { _voiceSelectOption('분류', function(t,i){ return t.indexOf('성인') >= 0; }); }, 600);
                     return true;
                 }
                 if (n === '그루밍' || n === 'groom' || n === 'grooming') {
                     if (w._dragoneyesSpeak) w._dragoneyesSpeak("분류 그루밍을 선택합니다.");
-                    setTimeout(function() { _voiceUrlSet('voice_cat', '그루밍'); }, 600);
+                    setTimeout(function() { _voiceSelectOption('분류', function(t,i){ return t.indexOf('그루밍') >= 0; }); }, 600);
                     return true;
                 }
                 // 단독 "안전"은 심각도 1과 분류 안전 둘 다일 수 있음 — 우선 심각도 1로 처리됨 (위에서)
@@ -2457,7 +2518,7 @@ def _a11y_render_floating_mic():
                             "보고서를 제출하시겠습니까? 보고서 제출이라고 말씀해주세요."
                         );
                     }
-                    setTimeout(function() { _voiceUrlSet('voice_memo', rawTranscript); }, 1500);
+                    setTimeout(function() { _voiceFillTextarea('메모', rawTranscript); }, 1500);
                     return true;
                 }
 
@@ -2468,7 +2529,7 @@ def _a11y_render_floating_mic():
                         w._dragoneyesSpeak("보고서를 제출합니다.");
                     }
                     showDiag('<b>✅ 보고서 제출 중…</b><br>완료 후 탐색 히스토리로 자동 복귀', 8000);
-                    setTimeout(function() { _voiceUrlSet('voice_submit', '1'); }, 1000);
+                    setTimeout(function() { _voiceClickButton('보고서 제출'); }, 1000);
                     return true;
                 }
 
