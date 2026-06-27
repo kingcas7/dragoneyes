@@ -164,6 +164,8 @@ def _a11y_main_install_once():
                         let __a11yTtsLastText = '';
                         window.__a11ySpeak = function(text) {
                             if (!text || !('speechSynthesis' in window)) return false;
+                            // ⭐ 마이크가 듣는 동안엔 안내 발화 금지 — 마이크가 자기 음성을 명령으로 오인 방지
+                            try { if ((window.top||window).__a11yMicListening) return false; } catch(_){}
                             // ⭐ 같은 텍스트 즉시 재요청 무시 (focusin이 빠르게 반복될 때)
                             if (text === __a11yTtsLastText) return false;
                             __a11yTtsLastText = text;
@@ -566,6 +568,8 @@ def _a11y_inject_shortcuts():
                 w._dragoneyesSpeak = function(text, lang, rate, interrupt) {{
                     try {{
                         if (!('speechSynthesis' in w)) return;
+                        // ⭐ 마이크가 듣는 동안엔 안내 발화 금지 (피드백 루프 차단)
+                        try {{ if ((w.top||w).__a11yMicListening) return; }} catch(_){{}}
                         if (interrupt !== false) {{ w.speechSynthesis.cancel(); }}
                         const u = new w.SpeechSynthesisUtterance(text);
                         u.lang = lang || w.__a11yLang || 'ko-KR';
@@ -2815,6 +2819,7 @@ def _a11y_render_floating_mic():
                 } catch(_) {}
                 w._dragoneyesRecogInstance = null;
                 w._dragoneyesIsListening = false;
+                try { (w.top||w).__a11yMicListening = false; } catch(_){}
                 w._dragoneyesContinuousMode = false;  // 연속모드도 함께 종료
                 const tBtn = w.document.getElementById('a11y-mic-toggle');
                 if (tBtn) { tBtn.style.background = '#6b7280'; tBtn.innerHTML = '🔁 OFF'; }
@@ -2854,6 +2859,8 @@ def _a11y_render_floating_mic():
                         console.log('[DragonEyes Voice] started');
                         w._dragoneyesRecogInstance = recog;
                         w._dragoneyesIsListening = true;
+                        // ⭐ 듣는 동안 모든 안내 TTS 침묵 — 마이크가 자기(시스템) 음성을 듣지 않도록
+                        try { (w.top||w).__a11yMicListening = true; } catch(_){}
                         showDiag('<b style="color:#16a34a;">🎤 듣고 있어요...</b><br>중지: 백틱 키(`) 또는 "중지" 발화<br>• "통계" / "홈" / "모니터링"<br>• "업무" / "파트너" / "관리자"<br>• "현재 페이지 설명"<br>• "메뉴 읽어줘"');
                         // ⭐ 듣는 중에는 발화하지 않음 — 프롬프트는 recog.start() 전에 미리 말함(아래)
                         //    (마이크가 자기 프롬프트를 명령으로 오인해 인식 기회를 소진하던 문제 해결)
@@ -2866,11 +2873,6 @@ def _a11y_render_floating_mic():
 
                     let _interim = '';
                     recog.onresult = function(event) {
-                        // ⭐ 피드백 루프 차단 — TTS 발화 중 들어온 인식은 스피커(자기 목소리)이므로 무시
-                        if (w._dragoneyesTtsSpeaking) {
-                            console.log('[DragonEyes Voice] (무시 — TTS 발화 중)');
-                            return;
-                        }
                         // 모든 결과 후보 추출
                         const results = event.results[event.resultIndex];
                         const isFinal = results.isFinal;
@@ -2883,7 +2885,8 @@ def _a11y_render_floating_mic():
                             return;
                         }
 
-                        // 최종 결과
+                        // 최종 결과 — 인식 끝났으니 안내 발화 재개(확인 음성·이동 안내가 들리도록)
+                        try { (w.top||w).__a11yMicListening = false; } catch(_){}
                         showDiag('<b style="color:#0284c7;">✅ 인식 완료</b><br>명령: <code>"' + cmd + '"</code><br>매칭 시도 중...');
                         if (w._dragoneyesSpeak) w._dragoneyesSpeak("인식된 명령: " + cmd);
 
@@ -2913,6 +2916,7 @@ def _a11y_render_floating_mic():
 
                     recog.onerror = function(e) {
                         console.error('[DragonEyes Voice error]', e.error);
+                        try { (w.top||w).__a11yMicListening = false; } catch(_){}
                         const b = w.document.getElementById('a11y-mic-floating');
                         if (b) { b.style.background = '#dc2626'; b.style.animation = ''; }
 
@@ -2933,6 +2937,7 @@ def _a11y_render_floating_mic():
                         console.log('[DragonEyes Voice] ended');
                         w._dragoneyesRecogInstance = null;
                         w._dragoneyesIsListening = false;
+                        try { (w.top||w).__a11yMicListening = false; } catch(_){}
                         const b = w.document.getElementById('a11y-mic-floating');
                         if (b) { b.style.background = '#dc2626'; b.style.animation = ''; }
 
