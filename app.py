@@ -29765,6 +29765,78 @@ else:
                 else: st.warning("📌 꾸준히 해봐요!")
                 monthly = df.groupby("month").size().reset_index(name="건수")
                 st.bar_chart(monthly.set_index("month"))
+
+                # ── 📅 주간 근무표 (시스템 활동 시간 · 출퇴근 형식) ──
+                st.divider()
+                _wk_off = int(st.session_state.get("_perf_week_off", 0))
+                _wh1, _wh2, _wh3 = st.columns([1, 2, 1])
+                with _wh1:
+                    if st.button("◀ 이전 주", key="perf_week_prev", use_container_width=True):
+                        st.session_state["_perf_week_off"] = _wk_off - 1; st.rerun()
+                with _wh3:
+                    if st.button("다음 주 ▶", key="perf_week_next", use_container_width=True,
+                                 disabled=(_wk_off >= 0)):
+                        st.session_state["_perf_week_off"] = min(0, _wk_off + 1); st.rerun()
+                try:
+                    # created_at → KST 변환 (Supabase는 UTC 저장)
+                    _ca_kst = pd.to_datetime(df["created_at"], utc=True).dt.tz_convert("Asia/Seoul")
+                    df["_kdate"] = _ca_kst.dt.normalize()
+                    df["_kdt"] = _ca_kst
+                    _today_kst = pd.Timestamp.now(tz="Asia/Seoul").normalize()
+                    _monday = _today_kst - pd.Timedelta(days=_today_kst.weekday()) + pd.Timedelta(weeks=_wk_off)
+                    _week_days = [_monday + pd.Timedelta(days=i) for i in range(7)]
+                    _wnames = ["월", "화", "수", "목", "금", "토", "일"]
+                    with _wh2:
+                        st.markdown(
+                            f"<div style='text-align:center;font-weight:700;font-size:1.02rem;padding-top:4px;'>"
+                            f"📅 {_monday.strftime('%Y.%m.%d')} ~ {_week_days[6].strftime('%m.%d')} 주간 근무표</div>",
+                            unsafe_allow_html=True)
+                    _AVG_WORK_MIN, _AVG_WATCH_MIN = 7, 5  # 건당 평균(작업=시청+보고, 시청)
+                    _rows_html = ""
+                    _wk_cnt = _wk_work = 0
+                    for _d, _wn in zip(_week_days, _wnames):
+                        _day_df = df[df["_kdate"] == _d]
+                        _cnt = len(_day_df)
+                        _wk_cnt += _cnt
+                        if _cnt > 0:
+                            _span = f"{_day_df['_kdt'].min().strftime('%H:%M')} ~ {_day_df['_kdt'].max().strftime('%H:%M')}"
+                            _wm = _cnt * _AVG_WORK_MIN
+                            _wk_work += _wm
+                            _work_str = (f"{_wm//60}시간 {_wm%60}분" if _wm >= 60 else f"{_wm}분")
+                        else:
+                            _span, _work_str = "—", "—"
+                        _is_today = (_d == _today_kst)
+                        _bg = "#eef6ff" if _is_today else ("#ffffff" if _d.weekday() < 5 else "#fff6f6")
+                        _daycol = "#dc2626" if _d.weekday() == 6 else ("#2563eb" if _d.weekday() == 5 else "#111")
+                        _rows_html += (
+                            f"<tr style='background:{_bg};border-bottom:1px solid #eee;'>"
+                            f"<td style='padding:7px 10px;font-weight:700;color:{_daycol};'>{_wn}"
+                            f"<span style='color:#999;font-weight:400;font-size:0.82em;'> {_d.strftime('%m/%d')}</span>"
+                            f"{' 🔵' if _is_today else ''}</td>"
+                            f"<td style='padding:7px 10px;text-align:center;font-weight:600;'>{_cnt if _cnt else '—'}</td>"
+                            f"<td style='padding:7px 10px;text-align:center;color:#555;font-variant-numeric:tabular-nums;'>{_span}</td>"
+                            f"<td style='padding:7px 10px;text-align:center;'>{_work_str}</td></tr>"
+                        )
+                    st.markdown(
+                        "<table style='width:100%;border-collapse:collapse;font-size:0.9rem;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;'>"
+                        "<thead><tr style='background:#1e293b;color:#fff;'>"
+                        "<th style='padding:7px 10px;text-align:left;'>요일</th>"
+                        "<th style='padding:7px 10px;'>모니터링</th>"
+                        "<th style='padding:7px 10px;'>활동 시간대(출·퇴근)</th>"
+                        "<th style='padding:7px 10px;'>작업시간(추정)</th>"
+                        f"</tr></thead><tbody>{_rows_html}</tbody></table>",
+                        unsafe_allow_html=True)
+                    _wkw = f"{_wk_work//60}시간 {_wk_work%60}분" if _wk_work >= 60 else f"{_wk_work}분"
+                    _wkv = _wk_cnt * _AVG_WATCH_MIN
+                    _wkv_str = f"{_wkv//60}시간 {_wkv%60}분" if _wkv >= 60 else f"{_wkv}분"
+                    _m1, _m2, _m3 = st.columns(3)
+                    _m1.metric("주간 모니터링", f"{_wk_cnt}건")
+                    _m2.metric("주간 작업시간(추정)", _wkw)
+                    _m3.metric("주간 예상 시청시간", _wkv_str)
+                    st.caption("⏱️ 활동 시간대는 실제 보고 시각(첫~마지막) 기준입니다. 작업·시청 시간은 건당 평균(작업 7분·시청 5분)으로 추정한 값으로, 정확한 영상 재생시간 집계가 필요하면 영상 길이 저장 기능을 추가하겠습니다.")
+                except Exception as _e_wk:
+                    st.caption(f"주간 근무표 표시 오류: {str(_e_wk)[:80]}")
+
                 cmts = supabase.table("comments").select("*").eq("user_id", user["id"]).order("created_at", desc=True).limit(3).execute()
                 if cmts.data:
                     st.subheader("💬 관리자 코멘트")
