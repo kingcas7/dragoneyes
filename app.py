@@ -2533,6 +2533,25 @@ def _a11y_render_floating_mic():
                     return true;
                 }
 
+                // ── 🦮 보고대상 아님 → 자동 '안전' 완료 ──
+                if (n === '보고대상아님' || n === '대상아님' || n === '보고대상아닙니다' ||
+                    (n.indexOf('보고대상') >= 0 && n.indexOf('아') >= 0) ||
+                    (n.indexOf('대상') >= 0 && n.indexOf('아님') >= 0)) {
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak("보고대상 아님으로 안전 등급 완료 처리합니다. 다음 영상으로 이동합니다.");
+                    showDiag('<b>🚫 보고대상 아님 — 안전 완료</b><br>다음 영상으로 이동합니다.', 6000);
+                    setTimeout(function() { _voiceClickButton('보고대상 아님'); }, 800);
+                    return true;
+                }
+
+                // ── 🦮 매니저에 보고 → 검토 대기로 전달 ──
+                if (n === '매니저에보고' || n === '매니저보고' || n === '매니저에게보고' ||
+                    (n.indexOf('매니저') >= 0 && n.indexOf('보고') >= 0)) {
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak("매니저 검토 대기로 전달합니다. 매니저가 시청 후 보고서를 작성합니다. 다음 영상으로 이동합니다.");
+                    showDiag('<b>👔 매니저에 보고</b><br>검토 대기로 전달, 다음 영상으로 이동합니다.', 6000);
+                    setTimeout(function() { _voiceClickButton('매니저에 보고'); }, 800);
+                    return true;
+                }
+
                 // 기존 보고서 워크플로우 (탐색 히스토리에서 보고서 작성 진입 등) ════════
                 if (n.indexOf('보고서제출') >= 0 || n.indexOf('제출') >= 0) {
                     return _submitReportWithNextHint();
@@ -9341,6 +9360,83 @@ def delete_report(report_id):
         return True
     except Exception as e:
         st.error(t("delete_error_msg").format(str(e)))
+        return False
+
+# ════════ 🦮 시각장애인 접근성 — 간편 보고 2종 ════════
+def _get_submitter_org(user):
+    """사용자 소속명 추출 — preferences.org 우선, 파트너/대리점명 폴백."""
+    try:
+        prefs = (user or {}).get("preferences") or {}
+        if isinstance(prefs, str):
+            import json as _j
+            prefs = _j.loads(prefs)
+        if isinstance(prefs, dict) and prefs.get("org"):
+            return str(prefs["org"]).strip()
+    except Exception:
+        pass
+    pid = (user or {}).get("partner_id") or (user or {}).get("agency_id")
+    if pid:
+        try:
+            p = supabase.table("partners").select("name").eq("id", pid).execute()
+            if p.data and p.data[0].get("name"):
+                return str(p.data[0]["name"])
+        except Exception:
+            pass
+    return "소속 미지정"
+
+def complete_as_not_target(au_id, url, title=""):
+    """🦮 '보고대상 아님' — 자동 '안전' 등급 보고서로 완료 처리.
+    복잡한 보고 경로를 스킵하고 시각장애인이 청각 기준 1차 분류한 '안전' 영상을 즉시 완료."""
+    try:
+        user = st.session_state.user
+        name = user.get("name") or user.get("email", "")
+        org = _get_submitter_org(user)
+        _result = (
+            f"🦮 보고대상 아님 (자동 '안전' 완료) — 시각장애인 청각 기준 1차 분류\n"
+            f"작성자: {name} | 소속: {org} | 영상: {title}"
+        )
+        res = supabase.table("reports").insert({
+            "user_id": user["id"], "content": url, "result": _result,
+            "severity": 1, "category": "안전", "platform": "voice_safe",
+        }).execute()
+        report_id = res.data[0]["id"] if res.data else None
+        if au_id:
+            supabase.table("analyzed_urls").update({
+                "reported": True, "report_id": report_id,
+            }).eq("id", au_id).execute()
+        st.session_state.report_count = get_month_count(user["id"])
+        return True
+    except Exception as e:
+        st.error(f"보고대상 아님 처리 실패: {e}")
+        return False
+
+def forward_to_manager_review(au_id, url, title=""):
+    """🦮 '매니저에 보고' — 검토 대기 stub 생성 + 영상 완료처리.
+    매니저/관리자/드래곤아이즈 담당자가 '매니저 검토 대기' 화면에서 소속·작성자·보고시간과
+    함께 확인 후 시청·보고서 작성. (이메일 대신 공유 스토리지 = reports 재사용)"""
+    try:
+        user = st.session_state.user
+        name = user.get("name") or user.get("email", "")
+        org = _get_submitter_org(user)
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+        _result = (
+            f"🦮 시각장애인 1차 분류 — 매니저 검토/보고서 작성 대기\n"
+            f"작성자: {name}\n소속: {org}\n보고시간: {now_str}\n영상: {title}\n"
+            f"※ 청각 정보 기준 1차 검토 완료. 매니저가 시청 후 보고서를 작성하세요."
+        )
+        res = supabase.table("reports").insert({
+            "user_id": user["id"], "content": url, "result": _result,
+            "severity": 0, "category": "🦮 매니저검토", "platform": "manager_review",
+        }).execute()
+        report_id = res.data[0]["id"] if res.data else None
+        if au_id:
+            supabase.table("analyzed_urls").update({
+                "reported": True, "report_id": report_id,
+            }).eq("id", au_id).execute()
+        st.session_state.report_count = get_month_count(user["id"])
+        return True
+    except Exception as e:
+        st.error(f"매니저 보고 실패: {e}")
         return False
 
 @st.cache_data(ttl=30, show_spinner=False)
@@ -29340,6 +29436,29 @@ else:
                             if st.button(t("popup_write"), type="secondary", use_container_width=True, key="hist_popup_write"):
                                 st.session_state.hist_popup_id = None
                                 open_report_form(hurl,"",1,t("write_report_safe"),"YouTube",from_tab=4); st.rerun()
+
+                        # ── 🦮 시각장애인 접근성: 간편 보고 2종 (복잡한 보고 경로 스킵) ──
+                        if not hist_popup_d.get("reported"):
+                            st.caption("🦮 시각장애인 간편 보고 — 음성: \"보고대상 아님\" / \"매니저에 보고\"")
+                            _ab1, _ab2 = st.columns([1, 1])
+                            with _ab1:
+                                if st.button("🚫 보고대상 아님 (안전 완료)", use_container_width=True,
+                                             key="hist_popup_not_target",
+                                             help="자동 '안전' 등급으로 완료 처리하고 다음 영상으로"):
+                                    if complete_as_not_target(hist_popup_d.get("id"), hurl, hist_popup_d.get("title","")):
+                                        st.session_state.hist_popup_id = None
+                                        st.session_state.active_tab = 5
+                                        st.toast("🚫 보고대상 아님 — 안전 완료 처리됨", icon="✅")
+                                        st.rerun()
+                            with _ab2:
+                                if st.button("👔 매니저에 보고", use_container_width=True,
+                                             key="hist_popup_to_manager",
+                                             help="매니저/담당자가 시청 후 보고서 작성하도록 검토 대기로 전달"):
+                                    if forward_to_manager_review(hist_popup_d.get("id"), hurl, hist_popup_d.get("title","")):
+                                        st.session_state.hist_popup_id = None
+                                        st.session_state.active_tab = 5
+                                        st.toast("👔 매니저 검토 대기로 전달됨", icon="✅")
+                                        st.rerun()
 
             for d in data:
                 stype = search_type_label(d.get("search_type",""))
