@@ -1404,6 +1404,7 @@ def _a11y_render_keyboard_mic():
                     // 음성 명령 버튼 찾기 — 텍스트 'Enter' 또는 '🎤'·'음성 명령' 포함
                     const findMicBtn = function() {
                         const targets = [w, top].filter((x, i, arr) => x && arr.indexOf(x) === i);
+                        // 1) 팝오버 안 '음성 명령 (Enter)' 버튼 (팝오버 열려 있을 때)
                         for (const wx of targets) {
                             try {
                                 const btns = wx.document.querySelectorAll('button');
@@ -1415,6 +1416,13 @@ def _a11y_render_keyboard_mic():
                                         return b;
                                     }
                                 }
+                            } catch(_){}
+                        }
+                        // 2) 폴백 — 항상 떠 있는 플로팅 마이크 버튼 (페이지 바뀌어도 유지, Enter 바인딩됨)
+                        for (const wx of targets) {
+                            try {
+                                const fb = wx.document.getElementById('a11y-mic-floating');
+                                if (fb) return fb;
                             } catch(_){}
                         }
                         return null;
@@ -2906,6 +2914,13 @@ def _a11y_render_floating_mic():
                                                 if ((t.indexOf('음성 명령') >= 0 || t.indexOf('음성명령') >= 0) &&
                                                     t.indexOf('Enter') >= 0 && bx.offsetParent) return bx;
                                             }
+                                        } catch(_){}
+                                    }
+                                    // 폴백 — 항상 떠 있는 플로팅 마이크 버튼
+                                    for (const wx of targets) {
+                                        try {
+                                            const fb = wx.document.getElementById('a11y-mic-floating');
+                                            if (fb) return fb;
                                         } catch(_){}
                                     }
                                     return null;
