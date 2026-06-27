@@ -4131,7 +4131,7 @@ MONTHLY_DRAGON_LIMIT = 20
 # 대화형 AI 제한
 CHAT_DAILY_LIMIT = 40
 CHAT_WEEKLY_LIMIT = 100
-CHAT_MONTHLY_LIMIT = 400
+CHAT_MONTHLY_LIMIT = 200
 
 # ════════════════════════════════════════════════════════════════
 # 드래곤아이즈(주) 회사 정보 (5/14 추가, 사업자등록증 기준)
