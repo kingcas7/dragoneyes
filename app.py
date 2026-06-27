@@ -9364,7 +9364,8 @@ def delete_report(report_id):
 
 # ════════ 🦮 시각장애인 접근성 — 간편 보고 2종 ════════
 def _get_submitter_org(user):
-    """사용자 소속명 추출 — preferences.org 우선, 파트너/대리점명 폴백."""
+    """사용자 소속(회사/단체)명 추출 — preferences.org → 소속 회사(tenant) → 파트너/대리점명 순."""
+    # 1) preferences.org (명시적 입력, 예: 베타테스터 등록 시)
     try:
         prefs = (user or {}).get("preferences") or {}
         if isinstance(prefs, str):
@@ -9374,6 +9375,16 @@ def _get_submitter_org(user):
             return str(prefs["org"]).strip()
     except Exception:
         pass
+    # 2) 소속 회사(tenant) 이름 — 가장 정확한 회사/단체 표기
+    tid = (user or {}).get("tenant_id")
+    if tid:
+        try:
+            tn = supabase.table("tenants").select("name").eq("id", tid).execute()
+            if tn.data and tn.data[0].get("name"):
+                return str(tn.data[0]["name"])
+        except Exception:
+            pass
+    # 3) 파트너/대리점명 폴백
     pid = (user or {}).get("partner_id") or (user or {}).get("agency_id")
     if pid:
         try:
@@ -29743,7 +29754,9 @@ else:
 
         # ── 내 성과 ──
         with tab7:
+            _my_org = _get_submitter_org(user)
             st.subheader(f"📈 {user['name']}님의 성과 현황")
+            st.caption(f"🏢 소속: **{_my_org}** · 👤 {user['name']} ({user.get('email','')})")
             all_my = supabase.table("reports").select("*").eq("user_id", user["id"]).execute()
             if all_my.data:
                 df = pd.DataFrame(all_my.data)
@@ -29788,8 +29801,10 @@ else:
                     _wnames = ["월", "화", "수", "목", "금", "토", "일"]
                     with _wh2:
                         st.markdown(
-                            f"<div style='text-align:center;font-weight:700;font-size:1.02rem;padding-top:4px;'>"
-                            f"📅 {_monday.strftime('%Y.%m.%d')} ~ {_week_days[6].strftime('%m.%d')} 주간 근무표</div>",
+                            f"<div style='text-align:center;padding-top:2px;'>"
+                            f"<div style='font-weight:700;font-size:1.02rem;'>📅 {_monday.strftime('%Y.%m.%d')} ~ {_week_days[6].strftime('%m.%d')} 주간 근무표</div>"
+                            f"<div style='font-size:0.85rem;color:#475569;margin-top:2px;'>🏢 {_my_org} · 👤 {user['name']}</div>"
+                            f"</div>",
                             unsafe_allow_html=True)
                     _AVG_WORK_MIN, _AVG_WATCH_MIN = 7, 5  # 건당 평균(작업=시청+보고, 시청)
                     _rows_html = ""
