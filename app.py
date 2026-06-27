@@ -9633,6 +9633,80 @@ def get_today_dragon_count(user_id):
     res = supabase.table("analyzed_urls").select("id").eq("assigned_to", user_id).gte("analyzed_at", today).in_("search_type", ["dragon_general","dragon_roblox","dragon_minecraft"]).execute()
     return len(res.data)
 
+# ════════ 모니터링 자동화 설정 ════════
+MONITORING_BACKLOG_LIMIT = 100   # 미처리(미작성)가 이 수 이상이면 추천 생성/주간 배정 자동 중단
+WEEKLY_ASSIGN_COUNT = 50         # 매주 월요일 새벽 3시 자동 배정 건수
+MONTHLY_MONITOR_LIMIT = 200      # 1인 월 모니터링 상한 (주 50건 × 4주)
+
+def get_user_pending_count(user_id):
+    """사용자의 미처리(미작성) 배정 모니터링 건수 — 백로그 자동중단 판정용."""
+    try:
+        r = supabase.table("analyzed_urls").select("id", count="exact") \
+            .eq("assigned_to", user_id).eq("reported", False).execute()
+        c = getattr(r, "count", None)
+        return c if c is not None else len(r.data or [])
+    except Exception:
+        return 0
+
+def get_user_month_assigned_count(user_id):
+    """이번 달 배정된 모니터링 건수 — 월 200건 상한 판정용."""
+    try:
+        _m0 = date.today().strftime("%Y-%m-01")
+        r = supabase.table("analyzed_urls").select("id", count="exact") \
+            .eq("assigned_to", user_id).gte("assigned_at", _m0).execute()
+        c = getattr(r, "count", None)
+        return c if c is not None else len(r.data or [])
+    except Exception:
+        return 0
+
+def run_weekly_assignment_all_users(limit_users=None):
+    """📅 매주 월요일 자동 배정 배치 — 모니터링 사용자별 WEEKLY_ASSIGN_COUNT(50)건 배정.
+    백로그≥100 또는 월배정≥200인 사용자는 건너뜀. (외부 cron 또는 관리자 수동 실행)
+    반환: 실행 요약 dict."""
+    summary = {"assigned_users": 0, "skipped_backlog": 0, "skipped_monthly": 0,
+               "total_videos": 0, "errors": 0, "candidates": 0}
+    try:
+        uq = supabase.table("users").select("id,name,email,role,is_campaign_only,status").execute()
+        users = [u for u in (uq.data or [])
+                 if (u.get("status") or "active") == "active" and not u.get("is_campaign_only")]
+        if limit_users:
+            users = users[:limit_users]
+        summary["candidates"] = len(users)
+        for u in users:
+            uid = u["id"]
+            try:
+                if get_user_pending_count(uid) >= MONITORING_BACKLOG_LIMIT:
+                    summary["skipped_backlog"] += 1
+                    continue
+                if get_user_month_assigned_count(uid) >= MONTHLY_MONITOR_LIMIT:
+                    summary["skipped_monthly"] += 1
+                    continue
+                assigned_urls = get_analyzed_urls()
+                new_cnt = 0
+                for plat in ["general", "roblox", "minecraft", "gambling"]:
+                    if new_cnt >= WEEKLY_ASSIGN_COUNT:
+                        break
+                    for kw in generate_recommend_keywords(plat):
+                        if new_cnt >= WEEKLY_ASSIGN_COUNT:
+                            break
+                        try:
+                            res = search_and_analyze(
+                                kw, max_results=3, analyzed_urls=assigned_urls,
+                                search_type=f"dragon_{plat}", assigned_to=uid)
+                            for rr in res:
+                                assigned_urls.add(rr["url"])
+                            new_cnt += len(res)
+                        except Exception:
+                            summary["errors"] += 1
+                if new_cnt > 0:
+                    summary["assigned_users"] += 1
+                    summary["total_videos"] += new_cnt
+            except Exception:
+                summary["errors"] += 1
+    except Exception:
+        pass
+    return summary
+
 def use_dragon_token(user_id):
     ym = date.today().strftime("%Y-%m")
     info = get_token_info(user_id)
@@ -10085,6 +10159,19 @@ def render_password_reset_recovery_page(user):
 # 🔑 커스텀 비밀번호 재설정 (토큰 링크) — 로그인 여부와 무관하게 최우선 처리
 if st.session_state.get("current_page") == "pwreset_custom" or "pwreset_token" in params:
     render_custom_pwreset_page()
+    st.stop()
+
+# 📅 주간 자동 배정 cron 트리거 — 외부 스케줄러가 매주 월 03:00 KST에 호출
+#    예: https://<앱주소>/?cron=weekly_assign&key=<CRON_SECRET>
+if params.get("cron") == "weekly_assign":
+    _ck = params.get("key", "")
+    _secret = os.getenv("CRON_SECRET", "")
+    if _secret and _ck == _secret:
+        with st.spinner("📅 주간 자동 배정 실행 중..."):
+            _wsum = run_weekly_assignment_all_users()
+        st.success(f"주간 자동 배정 완료: {_wsum}")
+    else:
+        st.error("unauthorized (CRON_SECRET 불일치)")
     st.stop()
 
 # ══════════════════════════════
@@ -28924,6 +29011,15 @@ else:
             elif run_gambling:
                 selected_platform = "gambling"; selected_label = "🎰 도박"; selected_type = "dragon_gambling"
 
+            # ⛔ 미처리 백로그 자동 중단 — 100건 이상 누적 시 추천 생성 차단
+            if selected_platform and token_info["ok"]:
+                _pending_now = get_user_pending_count(user["id"])
+                if _pending_now >= MONITORING_BACKLOG_LIMIT:
+                    selected_platform = None
+                    st.error(
+                        f"⛔ 미처리 모니터링이 {_pending_now}건 누적되어 추천 리스트 생성을 자동 중단했습니다 "
+                        f"(한도 {MONITORING_BACKLOG_LIMIT}건). 먼저 보고서를 작성해 미처리를 줄여주세요."
+                    )
             if selected_platform and token_info["ok"]:
                 try:
                     with st.spinner(f"{selected_label} 위험 키워드 생성 중..."):
