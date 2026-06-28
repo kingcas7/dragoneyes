@@ -1,6 +1,7 @@
 import streamlit as st
 import anthropic
 import os
+import secrets as _secrets
 import html as _html
 
 def _esc(s):
@@ -3628,6 +3629,57 @@ client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 youtube = build("youtube", "v3", developerKey=os.getenv("YOUTUBE_API_KEY"))
 supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
+# ════════ 🔐 불투명 세션ID — URL에 실제 refresh_token 대신 폐기·만료 가능한 랜덤ID ════════
+#  방어적 설계: app_sessions 테이블이 없거나 실패하면 기존(raw 토큰) 동작으로 자동 폴백.
+_APP_SESSION_TTL_DAYS = 7
+def _create_app_session(refresh_token, email):
+    """불투명 세션ID 생성 → app_sessions 저장, ID 반환. 실패 시 None(폴백 유도)."""
+    try:
+        _sid = _secrets.token_urlsafe(32)
+        _exp = (datetime.now() + timedelta(days=_APP_SESSION_TTL_DAYS)).isoformat()
+        supabase.table("app_sessions").insert({
+            "id": _sid, "refresh_token": refresh_token,
+            "user_email": email or "", "expires_at": _exp,
+        }).execute()
+        return _sid
+    except Exception:
+        return None
+
+def _lookup_app_session(sid):
+    """불투명ID → refresh_token 조회(만료 확인). 없으면 None(raw 폴백 유도)."""
+    if not sid:
+        return None
+    try:
+        r = supabase.table("app_sessions").select("refresh_token,expires_at").eq("id", sid).limit(1).execute()
+        if r.data:
+            _row = r.data[0]
+            _exp = _row.get("expires_at")
+            if _exp and str(_exp) < datetime.now().isoformat():
+                _delete_app_session(sid)
+                return None
+            return _row.get("refresh_token")
+    except Exception:
+        pass
+    return None
+
+def _delete_app_session(sid):
+    if not sid:
+        return
+    try:
+        supabase.table("app_sessions").delete().eq("id", sid).execute()
+    except Exception:
+        pass
+
+def _set_session_param(refresh_token, email, old_sid=None):
+    """세션 URL 파라미터 설정 — 불투명ID 우선, 실패 시 raw 토큰 폴백. old_sid는 회전(폐기)."""
+    _opaque = _create_app_session(refresh_token, email)
+    if _opaque:
+        st.query_params["sid"] = _opaque
+        if old_sid and old_sid != _opaque:
+            _delete_app_session(old_sid)
+    else:
+        st.query_params["sid"] = refresh_token  # 폴백: app_sessions 미생성 시 기존 동작 유지
+
 # ─── 관리자 전용(service_role) 클라이언트 ─────────────────────────
 #  SUPABASE_KEY는 일반적으로 anon 키 — auth.admin.* 등 일부 엔드포인트는
 #  service_role 키가 필요하다. SUPABASE_SERVICE_ROLE_KEY가 .env에 있으면
@@ -5195,6 +5247,8 @@ if "token" in params and st.session_state.user is None and "logged_out" not in p
 # ⭐ URL에 ?logged_out=1로 직접 진입한 경우 (캠페인 헤더 logout button JS reload 경로 등)
 if "logged_out" in params:
     # supabase + session_state + query_params 모두 정리
+    try: _delete_app_session(params.get("sid"))  # 🔐 서버 세션 폐기(불투명ID 재사용 차단)
+    except Exception: pass
     try: supabase.auth.sign_out()
     except Exception: pass
     try:
@@ -5210,8 +5264,9 @@ if "logged_out" in params:
 
 if "sid" in params and st.session_state.user is None and "logged_out" not in params:
     try:
-        rt = params["sid"]
-        # Supabase에 refresh_token으로 세션 갱신
+        _sid_raw = params["sid"]
+        # 불투명ID → refresh_token 조회 (app_sessions에 없으면 raw 토큰으로 간주 = 기존/레거시 폴백)
+        rt = _lookup_app_session(_sid_raw) or _sid_raw
         result = supabase.auth.refresh_session(rt)
         if result and result.session and result.user:
             ud = supabase.table("users").select("*").eq("email", result.user.email).execute()
@@ -5238,8 +5293,8 @@ if "sid" in params and st.session_state.user is None and "logged_out" not in par
                     st.session_state.user = _u
                     st.session_state.access_token = result.session.access_token
                     st.session_state.refresh_token = result.session.refresh_token
-                    # sid 갱신 (새 refresh_token으로)
-                    st.query_params["sid"] = result.session.refresh_token
+                    # 🔐 sid 회전 — 새 불투명ID 발급(기존 ID 폐기). 캡처된 옛 ID 무효화
+                    _set_session_param(result.session.refresh_token, result.user.email, old_sid=_sid_raw)
                     this_month = date.today().strftime("%Y-%m")
                     res = supabase.table("reports").select("id").eq("user_id", _u["id"]).gte("created_at", f"{this_month}-01").execute()
                     st.session_state.report_count = len(res.data)
@@ -8112,9 +8167,8 @@ def login(email, password):
                 st.session_state.report_count = get_month_count(_u["id"])
                 # 접근성: users.preferences → session_state (음성 안내 등 사용자 선호)
                 accessibility.load_from_user(_u)
-                # 🔐 sid (refresh_token) 을 URL에 저장 → 새로고침 시 세션 복원
-                # refresh_token은 access_token과 달리 권한이 제한적이라 URL 노출이 비교적 안전
-                st.query_params["sid"] = result.session.refresh_token
+                # 🔐 세션 복원용 — URL엔 불투명 세션ID만(실제 refresh_token은 서버 app_sessions 보관)
+                _set_session_param(result.session.refresh_token, email)
                 # ✅ 로그인 직후 라우팅: 파트너 admin은 agency_dashboard
                 _is_partner_admin = (
                     _u.get("partner_role") == "partner_admin"
@@ -11925,6 +11979,8 @@ else:
             with _hb_logout:
                 if st.button("🚪 로그아웃", key="cmp_hdr_logout", use_container_width=True):
                     # ⭐ 단순화: JS reload 없이 streamlit 내부 처리만으로 완전 로그아웃
+                    try: _delete_app_session(st.query_params.get("sid"))  # 🔐 서버 세션 폐기
+                    except Exception: pass
                     # 1. supabase 클라이언트 메모리 token 정리
                     try: supabase.auth.sign_out()
                     except Exception: pass
@@ -12308,6 +12364,8 @@ else:
                 go_to("user_profile"); st.rerun()
         with bc_logout:
             if st.button("🚪", use_container_width=True, help=t("logout_help")):
+                try: _delete_app_session(st.query_params.get("sid"))  # 🔐 서버 세션 폐기
+                except Exception: pass
                 st.query_params.clear()
                 for k in list(st.session_state.keys()):
                     del st.session_state[k]
