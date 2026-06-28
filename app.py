@@ -12,6 +12,14 @@ from dotenv import load_dotenv
 from googleapiclient.discovery import build
 from supabase import create_client
 from datetime import date, datetime, timedelta
+
+# 📅 주말 접속 정책 한시 해제 — 이 날짜까지(포함)는 모든 사용자가 주말에도 자유 접속.
+# (베타테스터/일반 사용자 운영 편의. 이후 자동으로 기존 주말 차단 정책 복귀.)
+WEEKEND_POLICY_SUSPENDED_UNTIL = date(2026, 8, 31)
+def _weekend_block_active():
+    """주말 차단을 실제로 적용할지 여부 (해제 기간엔 False)."""
+    return date.today() > WEEKEND_POLICY_SUSPENDED_UNTIL
+
 import pandas as pd
 import requests
 try:
@@ -5304,7 +5312,7 @@ if "sid" in params and st.session_state.user is None and "logged_out" not in par
                     or _u.get("distributor_id")
                     or _u.get("is_tenant_admin")
                 )
-                if _role == "user" and _is_weekend and not _is_admin_role:
+                if _role == "user" and _is_weekend and not _is_admin_role and _weekend_block_active():
                     st.session_state.user = None
                     st.warning("📅 주말 보안 정책에 따라 일반 사용자는 토요일/일요일에 접속할 수 없습니다.")
                     if "sid" in st.query_params:
@@ -8219,7 +8227,7 @@ def login(email, password):
                     or _u.get("distributor_id")
                     or _u.get("is_tenant_admin")
                 )
-                if _role == "user" and _is_weekend and not _is_admin_role:
+                if _role == "user" and _is_weekend and not _is_admin_role and _weekend_block_active():
                     return False, "📅 주말 보안 정책에 따라 일반 사용자는 토요일/일요일에 접속할 수 없습니다. 평일에 다시 시도해주세요."
 
                 # ─── 🔐 관리자 MFA (이메일 OTP) — 관리자 계정만, 일반 사용자는 불편 없게 제외 ───
