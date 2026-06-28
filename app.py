@@ -3629,6 +3629,23 @@ client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 youtube = build("youtube", "v3", developerKey=os.getenv("YOUTUBE_API_KEY"))
 supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
+# 🔍 부팅 시 1회 — 실제 배포 프로세스가 보는 키 환경변수 (Railway 로그로 ground truth 확인)
+try:
+    _BOOT_ENV_LOGGED
+except NameError:
+    _BOOT_ENV_LOGGED = True
+    try:
+        print(
+            f"[BOOT-ENV] DRAGON_SR_KEY={bool(os.getenv('DRAGON_SR_KEY'))} "
+            f"SUPABASE_SERVICE_ROLE_KEY={bool(os.getenv('SUPABASE_SERVICE_ROLE_KEY'))} "
+            f"RESEND_API_KEY={bool(os.getenv('RESEND_API_KEY'))} "
+            f"SUPABASE_URL={bool(os.getenv('SUPABASE_URL'))} "
+            f"NEIS_API_KEY={bool(os.getenv('NEIS_API_KEY'))}",
+            flush=True,
+        )
+    except Exception:
+        pass
+
 # ════════ 🔐 불투명 세션ID — URL에 실제 refresh_token 대신 폐기·만료 가능한 랜덤ID ════════
 #  방어적 설계: app_sessions 테이블이 없거나 실패하면 기존(raw 토큰) 동작으로 자동 폴백.
 _APP_SESSION_TTL_DAYS = 7
