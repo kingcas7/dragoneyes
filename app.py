@@ -8677,10 +8677,10 @@ def _render_customer_list(user):
             st.session_state["detail_customer_id"] = _rid
             st.session_state["customer_back_page"] = "customer_management"
             go_to("customer_detail"); st.rerun()
-        _cols[_off+1].markdown(f"<div style='font-size:0.72rem;'>{_CUST_STAT_LABEL.get(_r.get('customer_status'), _r.get('customer_status') or '-')}</div>", unsafe_allow_html=True)
-        _cols[_off+2].markdown(f"<div style='font-size:0.72rem;'>{_r.get('representative_name') or '-'}</div>", unsafe_allow_html=True)
-        _cols[_off+3].markdown(f"<div style='font-size:0.72rem;'>{_r.get('phone') or '-'}</div>", unsafe_allow_html=True)
-        _cols[_off+4].markdown(f"<div style='font-size:0.72rem;'>{_r.get('contact_person_name') or '-'}</div>", unsafe_allow_html=True)
+        _cols[_off+1].markdown(f"<div style='font-size:0.72rem;'>{_esc(_CUST_STAT_LABEL.get(_r.get('customer_status'), _r.get('customer_status') or '-'))}</div>", unsafe_allow_html=True)
+        _cols[_off+2].markdown(f"<div style='font-size:0.72rem;'>{_esc(_r.get('representative_name') or '-')}</div>", unsafe_allow_html=True)
+        _cols[_off+3].markdown(f"<div style='font-size:0.72rem;'>{_esc(_r.get('phone') or '-')}</div>", unsafe_allow_html=True)
+        _cols[_off+4].markdown(f"<div style='font-size:0.72rem;'>{_esc(_r.get('contact_person_name') or '-')}</div>", unsafe_allow_html=True)
 
 
 def _render_customer_edit_form(row, user, *, key_ns="cd", back_page="customer_management"):
@@ -15646,12 +15646,12 @@ else:
                         st.session_state["detail_customer_id"] = _cid
                         st.session_state["customer_back_page"] = "partner_sales"
                         go_to("customer_detail"); st.rerun()
-                    _rw[1].markdown(f"<div style='font-size:0.72rem;'>{_c.get('customer_no') or '-'}</div>", unsafe_allow_html=True)
-                    _rw[2].markdown(f"<div style='font-size:0.72rem;'>{_c.get('industry') or '-'}</div>", unsafe_allow_html=True)
-                    _rw[3].markdown(f"<div style='font-size:0.72rem;'>{_c.get('address') or '-'}</div>", unsafe_allow_html=True)
-                    _rw[4].markdown(f"<div style='font-size:0.72rem;'>{_c.get('representative_name') or '-'}</div>", unsafe_allow_html=True)
-                    _rw[5].markdown(f"<div style='font-size:0.72rem;'>{_c.get('phone') or '-'}</div>", unsafe_allow_html=True)
-                    _rw[6].markdown(f"<div style='font-size:0.72rem;'>{_c.get('contact_person_name') or '-'}</div>", unsafe_allow_html=True)
+                    _rw[1].markdown(f"<div style='font-size:0.72rem;'>{_esc(_c.get('customer_no') or '-')}</div>", unsafe_allow_html=True)
+                    _rw[2].markdown(f"<div style='font-size:0.72rem;'>{_esc(_c.get('industry') or '-')}</div>", unsafe_allow_html=True)
+                    _rw[3].markdown(f"<div style='font-size:0.72rem;'>{_esc(_c.get('address') or '-')}</div>", unsafe_allow_html=True)
+                    _rw[4].markdown(f"<div style='font-size:0.72rem;'>{_esc(_c.get('representative_name') or '-')}</div>", unsafe_allow_html=True)
+                    _rw[5].markdown(f"<div style='font-size:0.72rem;'>{_esc(_c.get('phone') or '-')}</div>", unsafe_allow_html=True)
+                    _rw[6].markdown(f"<div style='font-size:0.72rem;'>{_esc(_c.get('contact_person_name') or '-')}</div>", unsafe_allow_html=True)
             st.caption("💡 예상 = 영업 기회 · 발주 = 계약 연동. 수정은 고객사명 클릭 → 등록 고객 상세에서 가능합니다.")
 
     # ══════════════════════════════════════════════════════════════
@@ -18228,7 +18228,7 @@ else:
                 # 상단: 배지 + 고객사명 + SLA
                 col_h1, col_h2 = st.columns([3, 1])
                 with col_h1:
-                    st.markdown(f'<span style="background:{color};color:white;padding:3px 10px;border-radius:6px;font-size:0.78rem;font-weight:600;">{icon} {label}</span> &nbsp; <strong style="font-size:1.05rem;">{opp.get("customer_name", "-")}</strong>', unsafe_allow_html=True)
+                    st.markdown(f'<span style="background:{color};color:white;padding:3px 10px;border-radius:6px;font-size:0.78rem;font-weight:600;">{icon} {label}</span> &nbsp; <strong style="font-size:1.05rem;">{_esc(opp.get("customer_name", "-"))}</strong>', unsafe_allow_html=True)
                 with col_h2:
                     st.markdown(f'<div style="text-align:right;color:{sla_color};font-size:0.85rem;font-weight:600;">{sla_label}</div>', unsafe_allow_html=True)
                 
