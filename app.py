@@ -3636,11 +3636,10 @@ except NameError:
     _BOOT_ENV_LOGGED = True
     try:
         print(
-            f"[BOOT-ENV] DRAGON_SR_KEY={bool(os.getenv('DRAGON_SR_KEY'))} "
-            f"SUPABASE_SERVICE_ROLE_KEY={bool(os.getenv('SUPABASE_SERVICE_ROLE_KEY'))} "
-            f"RESEND_API_KEY={bool(os.getenv('RESEND_API_KEY'))} "
-            f"SUPABASE_URL={bool(os.getenv('SUPABASE_URL'))} "
-            f"NEIS_API_KEY={bool(os.getenv('NEIS_API_KEY'))}",
+            f"[BOOT-ENV] DRAGON_SR_KEY_len={len(os.getenv('DRAGON_SR_KEY') or '')} "
+            f"SUPABASE_SERVICE_ROLE_KEY_len={len(os.getenv('SUPABASE_SERVICE_ROLE_KEY') or '')} "
+            f"RESEND_len={len(os.getenv('RESEND_API_KEY') or '')} "
+            f"URL_len={len(os.getenv('SUPABASE_URL') or '')}",
             flush=True,
         )
     except Exception:
