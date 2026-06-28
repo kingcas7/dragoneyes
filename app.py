@@ -181,14 +181,14 @@ def _a11y_main_install_once():
                                     window.speechSynthesis.cancel();
                                     const u = new SpeechSynthesisUtterance(text);
                                     u.lang = 'ko-KR'; u.rate = 1.0; u.pitch = 1.0; u.volume = 1.0;
-                                    u.onstart = function() { console.log('[A11y main TTS started]', text.substring(0, 40)); };
+                                    u.onstart = function() { console.log('[A11y main TTS started]', '(' + text.length + '자)'); };
                                     u.onerror = function(e) {
                                         // 'canceled'는 새 발화로 인한 정상 cancel — 경고 안 함
                                         if (e.error && e.error !== 'canceled' && e.error !== 'interrupted') {
                                             console.warn('[A11y main TTS error]', e.error);
                                         }
                                     };
-                                    u.onend = function() { console.log('[A11y main TTS ended]', text.substring(0, 30)); };
+                                    u.onend = function() { console.log('[A11y main TTS ended]', '(' + text.length + '자)'); };
                                     window.speechSynthesis.speak(u);
                                 } catch(e) {
                                     console.error('[A11y main TTS speak]', e);
@@ -231,7 +231,7 @@ def _a11y_main_install_once():
                         document.addEventListener('focusin', function(e) {
                             const el = e.target;
                             const text = _extractText(el);
-                            console.log('[A11y main focusin]', el.tagName, el.type || '', el.role || el.getAttribute('role') || '', '→', text || '(empty)', 'isTrusted=', e.isTrusted);
+                            console.log('[A11y main focusin]', el.tagName, el.type || '', el.role || el.getAttribute('role') || '', '→', (text ? '(' + text.length + '자)' : '(empty)'), 'isTrusted=', e.isTrusted);
 
                             // ⭐ mic 관련 버튼이면 keydown listener 직접 등록 (Streamlit 가로채기 우회)
                             //   element 자체에 등록한 listener는 어느 단계에서도 잡힘
@@ -466,7 +466,7 @@ def _a11y_force_announce(text, *, lang=None, once_key=None, speed=1.0):
             try {{
                 const w = window.parent || window;
                 const tag = {js_once};
-                console.log('[DragonEyes A11y] force_announce attempt: ' + tag, {js_text}.substring(0, 60));
+                console.log('[DragonEyes A11y] force_announce attempt: ' + tag, {js_text}.length + '자');
                 if (!('speechSynthesis' in w)) {{
                     console.warn('[DragonEyes A11y] speechSynthesis not available');
                     return;
@@ -672,7 +672,7 @@ def _a11y_inject_shortcuts():
                 //   다중 window 등록 (iframe sandbox 우회)
                 const _a11yFocusHandler = (e) => {{
                     const text = _extractText(e.target);
-                    console.log('[A11y focusin]', e.target?.tagName, e.target?.type || '', '→ text:', text || '(empty)', 'isTrusted=', e.isTrusted);
+                    console.log('[A11y focusin]', e.target?.tagName, e.target?.type || '', '→ text:', (text ? '(' + text.length + '자)' : '(empty)'), 'isTrusted=', e.isTrusted);
                     if (!text) return;
                     // ⭐ 접근성 음성 스위치 OFF면 발화 안 함 (단 '접근성/♿' 컨트롤은 예외)
                     try {{
@@ -740,7 +740,7 @@ def _a11y_inject_shortcuts():
                                 u.rate = w.__a11yEnabled ? (w.__a11ySpeed || 1.0) : 1.0;
                                 u.pitch = 1.0;
                                 u.volume = 1.0;
-                                u.onstart = () => console.log('[A11y focus TTS started]', text.substring(0, 30));
+                                u.onstart = () => console.log('[A11y focus TTS started]', '(' + text.length + '자)');
                                 u.onerror = (err) => console.warn('[A11y focus TTS error]', err.error || err);
                                 wx.speechSynthesis.speak(u);
                                 _spoken = true;
@@ -1201,7 +1201,7 @@ def _a11y_inject_shortcuts():
                         }};
                         recog.onresult = (event) => {{
                             const cmd = (event.results[0][0].transcript || '').toLowerCase().trim();
-                            console.log('[DragonEyes Voice CMD]', cmd);
+                            console.log('[DragonEyes Voice CMD]', '(' + (cmd ? cmd.length : 0) + '자)');
                             if (w._dragoneyesSpeak) w._dragoneyesSpeak("인식된 명령: " + cmd);
 
                             // 명령 매핑 — 페이지 내 보이는 버튼 텍스트와 매칭
@@ -2037,7 +2037,7 @@ def _a11y_render_floating_mic():
             const tryMatchCommand = function(cmd) {
                 const n = cmd.replace(/\\s+/g, '').toLowerCase();
                 const rawTranscript = (cmd || '').trim();  // 메모 받아쓰기용 원본 텍스트 (공백 보존)
-                console.log('[DragonEyes Voice] normalized:', n);
+                console.log('[DragonEyes Voice] normalized:', '(' + (n ? n.length : 0) + '자)');
 
                 // ════════ 현재 페이지 설명 ════════
                 if (n.indexOf('현재페이지설명') >= 0 || n.indexOf('페이지설명') >= 0 ||
@@ -2391,7 +2391,7 @@ def _a11y_render_floating_mic():
                         setter.call(ta, text);
                         ta.dispatchEvent(new Event('input', { bubbles: true }));
                         setTimeout(function() { try { ta.blur(); } catch(_){} }, 100);  // blur 시 Streamlit commit
-                        console.log('[A11y] 메모 입력:', text.substring(0, 30));
+                        console.log('[A11y] 메모 입력:', '(' + text.length + '자)');
                         return true;
                     } catch(e) { console.error('[A11y] fillTextarea err', e); return false; }
                 };
@@ -2965,7 +2965,7 @@ def _a11y_render_floating_mic():
                         const results = event.results[event.resultIndex];
                         const isFinal = results.isFinal;
                         const cmd = (results[0].transcript || '').toLowerCase().trim();
-                        console.log('[DragonEyes Voice] ' + (isFinal ? 'FINAL' : 'interim') + ':', cmd);
+                        console.log('[DragonEyes Voice] ' + (isFinal ? 'FINAL' : 'interim') + ':', '(' + (cmd ? cmd.length : 0) + '자)');
 
                         if (!isFinal) {
                             // 중간 결과 — 실시간 표시
@@ -2980,7 +2980,7 @@ def _a11y_render_floating_mic():
 
                         // 후보 여러 개 시도
                         const alternatives = Array.from(results).map(function(r) { return r.transcript; });
-                        console.log('[DragonEyes Voice] alternatives:', alternatives);
+                        console.log('[DragonEyes Voice] alternatives:', alternatives.length + '개');
 
                         let matched = false;
                         for (const alt of alternatives) {
