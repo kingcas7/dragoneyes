@@ -26045,23 +26045,25 @@ else:
             ) if _locked else ""
             _vc_n = m.get('view_count') or 0
 
-            # compact 모드: 50% 크기 (높이·폰트·이모지 축소)
+            # compact 모드: 축소형 (높이·폰트·이모지·패딩 ~20% 추가 축소 → 여백감)
             if compact:
-                _mh = "90px"; _emoji_sz = "1.4rem"; _title_sz = "0.85rem"
-                _summary_sz = "0.65rem"; _meta_sz = "0.6rem"
-                _padding = "8px 10px"; _summary_lines = 2
+                _mh = "72px"; _emoji_sz = "1.15rem"; _title_sz = "0.76rem"
+                _summary_sz = "0.6rem"; _meta_sz = "0.55rem"
+                _padding = "6px 8px"; _summary_lines = 2
+                _bw = "1.5px"; _br = "9px"
             else:
                 _mh = "180px"; _emoji_sz = "2.4rem"; _title_sz = "1rem"
                 _summary_sz = "0.78rem"; _meta_sz = "0.7rem"
                 _padding = "14px"; _summary_lines = 3
+                _bw = "2px"; _br = "12px"
 
             _summary_short = _summary if not compact else (
                 _summary[:60] + "…" if len(_summary) > 60 else _summary
             )
 
             st.markdown(
-                f"<div style='background:{_bg};border:2px solid {_border};"
-                f"border-radius:10px;padding:{_padding};min-height:{_mh};"
+                f"<div style='background:{_bg};border:{_bw} solid {_border};"
+                f"border-radius:{_br};padding:{_padding};min-height:{_mh};"
                 f"position:relative;'>"
                 f"<div style='font-size:{_emoji_sz};text-align:center;line-height:1;'>{_emoji}</div>"
                 f"<div style='font-size:{_meta_sz};color:#64748b;text-align:center;margin-top:2px;'>"
@@ -26113,13 +26115,27 @@ else:
                     with _cols[1 + idx*2]:
                         _render_mat_card(m, compact=True)
             else:
-                # 4개 이상이면 자동 그리드
+                # 4개 이상 — 한 줄 그리드. 카드 사이 gap 컬럼으로 여백 확보(공간감),
+                # 부분 행은 좌우 spacer로 중앙 정렬해 배열 안정감 유지.
                 _per_row_free = 6
+                _gap = 0.22
                 for i in range(0, _n, _per_row_free):
                     _row = _free_mats[i:i+_per_row_free]
-                    _cols = st.columns(_per_row_free)
-                    for j, m in enumerate(_row):
-                        with _cols[j]:
+                    _k = len(_row)
+                    _ratios = []
+                    for _j in range(_k):
+                        _ratios.append(1.0)
+                        if _j < _k - 1:
+                            _ratios.append(_gap)
+                    _missing = _per_row_free - _k
+                    _base = 0
+                    if _missing > 0:
+                        _pad = _missing * (1.0 + _gap) / 2.0
+                        _ratios = [_pad] + _ratios + [_pad]
+                        _base = 1
+                    _cols = st.columns(_ratios)
+                    for _j, m in enumerate(_row):
+                        with _cols[_base + _j * 2]:
                             _render_mat_card(m, compact=True)
                     st.markdown("")
 
