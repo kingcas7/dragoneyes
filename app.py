@@ -1,6 +1,12 @@
 import streamlit as st
 import anthropic
 import os
+import html as _html
+
+def _esc(s):
+    """XSS 방지 — 사용자/외부 입력(이름·영상제목·공지 등)을 raw HTML에 넣기 전 이스케이프.
+    줄바꿈은 <br>로 보존."""
+    return _html.escape(str(s if s is not None else "")).replace("\n", "<br>")
 from dotenv import load_dotenv
 from googleapiclient.discovery import build
 from supabase import create_client
@@ -11589,7 +11595,7 @@ else:
         a3 = st.checkbox("**[필수]** 모니터링 결과 보고서에 대한 권리가 드래곤아이즈 시스템 관리자에게 귀속됨에 동의합니다.", key="ta3")
         a4 = st.checkbox("**[필수]** 사용자 정보가 라이선스 마케팅 목적으로 활용될 수 있음에 동의합니다.", key="ta4")
         all_agreed = a1 and a2 and a3 and a4
-        st.markdown(f"<p style='color:#64748b;font-size:0.8rem;'>동의자: {user.get('name','')} ({user.get('email','')}) | 버전: {TERMS_VERSION} | 일시: {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='color:#64748b;font-size:0.8rem;'>동의자: {_esc(user.get('name',''))} ({_esc(user.get('email',''))}) | 버전: {TERMS_VERSION} | 일시: {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>", unsafe_allow_html=True)
         tc1, tc2 = st.columns(2)
         with tc1:
             if st.button("✅ 모든 항목 동의 후 시작", type="primary", use_container_width=True, disabled=not all_agreed, key="terms_submit"):
@@ -11750,7 +11756,7 @@ else:
             with st.container(border=True):
                 st.markdown(f"### {type_color} {type_label} ({_ann_idx + 1}/{_unread_total})")
                 st.markdown(f"**{ann['title']}**")
-                st.markdown(f'<div style="color:#1e293b;">{ann["content"]}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="color:#1e293b;">{_esc(ann["content"])}</div>', unsafe_allow_html=True)
                 st.caption(f"{t('ann_date')} {str(ann.get('created_at',''))[:10]}")
 
                 # 🎤 음성 명령 가이드 (시각장애인 친화)
@@ -15093,7 +15099,7 @@ else:
                 for d in paged:
                     dc1, dc2, dc3 = st.columns([5, 1, 1])
                     with dc1:
-                        st.markdown(f"<div style='font-size:0.85rem;font-weight:600;color:#0f172a;margin:0;line-height:1.2;'>{d.get('title','(제목없음)')[:60]}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='font-size:0.85rem;font-weight:600;color:#0f172a;margin:0;line-height:1.2;'>{_esc((d.get('title') or '(제목없음)')[:60])}</div>", unsafe_allow_html=True)
                         st.markdown(f"<div style='font-size:0.7rem;color:#475569;margin:0;'>{search_type_label(d.get('search_type',''))} | {str(d.get('analyzed_at',''))[:10]}</div>", unsafe_allow_html=True)
                     with dc2:
                         if st.button("🔍", key=f"work_view_{d['id']}", help=t("work_preview")):
@@ -30393,7 +30399,7 @@ else:
                         with st.expander(f"{icon} **{ann['title']}**  |  {ann_date}  |  {read_badge}"):
                             st.markdown(f"**유형:** {type_label_map.get(ann['type'],'공지')} | **발송:** {sender_name} | **수신:** {target_str}")
                             st.divider()
-                            st.markdown(f'<div style="color:#1e293b; background:#f8fafc; border-radius:6px; padding:10px 14px; margin:4px 0; font-size:0.95rem; line-height:1.7;">{ann["content"]}</div>', unsafe_allow_html=True)
+                            st.markdown(f'<div style="color:#1e293b; background:#f8fafc; border-radius:6px; padding:10px 14px; margin:4px 0; font-size:0.95rem; line-height:1.7;">{_esc(ann["content"])}</div>', unsafe_allow_html=True)
 
                             if not is_read:
                                 if st.button(t("ann_read_btn"), key=f"read_ann_{ann['id']}"):
