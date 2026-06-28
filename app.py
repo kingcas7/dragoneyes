@@ -3685,6 +3685,10 @@ def _set_session_param(refresh_token, email, old_sid=None):
 #  service_role 키가 필요하다. SUPABASE_SERVICE_ROLE_KEY가 .env에 있으면
 #  별도 클라이언트로 캐싱하고, 없으면 일반 supabase 폴백(실패 가능).
 _sb_admin_cached = None
+def _service_role_key():
+    """service_role 키 읽기 — 새 이름 DRAGON_SR_KEY 우선, 구 SUPABASE_SERVICE_ROLE_KEY 폴백.
+    ※ Railway의 Supabase 연동이 SUPABASE_* 네임스페이스를 관리/덮어쓸 수 있어 접두사 없는 새 이름 사용."""
+    return (os.getenv("DRAGON_SR_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "").strip()
 def sb_admin():
     """관리자 작업 전용 Supabase 클라이언트 (auth.admin.create_user 등).
 
@@ -3695,7 +3699,7 @@ def sb_admin():
     global _sb_admin_cached
     if _sb_admin_cached is not None:
         return _sb_admin_cached
-    _srk = (os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "").strip()  # 끝 공백/줄바꿈 제거(Bearer 깨짐 방지)
+    _srk = _service_role_key()
     if _srk:
         try:
             _sb_admin_cached = create_client((os.getenv("SUPABASE_URL") or "").strip(), _srk)
@@ -13000,7 +13004,7 @@ else:
                         # 🔍 진단: 키 상태를 정확히 표시 (원인 즉시 판별)
                         try:
                             import base64 as _b64d, json as _jsd
-                            _k_raw = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or ""
+                            _k_raw = os.getenv("DRAGON_SR_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY") or ""
                             _k_str = _k_raw.strip()
                             _role_dbg = "?"
                             try:
@@ -30873,8 +30877,8 @@ else:
                             st.markdown("#### 🔑 사용자 비밀번호 재설정 (관리자)")
                             with st.container(border=True):
                                 st.caption("선택한 사용자의 비밀번호를 임시 비번으로 즉시 재설정합니다. (이메일 링크 불필요)")
-                                if not os.getenv("SUPABASE_SERVICE_ROLE_KEY"):
-                                    st.warning("⚠️ 서버에 SUPABASE_SERVICE_ROLE_KEY가 설정돼 있어야 동작합니다. "
+                                if not _service_role_key():
+                                    st.warning("⚠️ 서버에 DRAGON_SR_KEY(service_role)가 설정돼 있어야 동작합니다. "
                                                "Railway 환경변수에 추가 후 재배포가 필요합니다.")
                                 _pw_opts = {f'{u["name"]} ({u.get("email","")})': u
                                             for u in (all_users_data.data or [])}
