@@ -11008,7 +11008,20 @@ if st.session_state.user is None:
                     elif (_otp_in or "").strip() == _mfa["otp"]:
                         _finalize_login(_mfa["user"], _mfa["access_token"], _mfa["refresh_token"], _mfa["email"])
                         st.session_state.pop("_mfa_pending", None)
-                        accessibility.announce("인증 성공. 로그인되었습니다.")
+                        # ⭐ MFA 통과 후에도 로그인 모드별 라우팅 적용 (일반 로그인 경로와 동일).
+                        #    이게 없으면 관리자가 캠페인으로 로그인해도 모니터링으로 빠짐.
+                        _u_mfa = st.session_state.get("user") or {}
+                        _role_v2_mfa = (_u_mfa.get("role_v2") or "").lower()
+                        _is_student_mfa = (_role_v2_mfa == "student") or bool(_u_mfa.get("is_campaign_only"))
+                        if _login_mode == "monitoring" and _is_student_mfa:
+                            st.session_state["login_mode"] = "campaign"
+                            st.session_state["current_page"] = "campaign_landing"
+                            accessibility.announce("인증 성공. 캠페인 페이지로 이동합니다.")
+                        elif _login_mode == "campaign":
+                            st.session_state["current_page"] = "campaign_landing"
+                            accessibility.announce("인증 성공. 캠페인 페이지로 이동합니다.")
+                        else:
+                            accessibility.announce("인증 성공. 로그인되었습니다.")
                         st.rerun()
                     else:
                         _mfa["attempts"] = _mfa.get("attempts", 0) + 1
