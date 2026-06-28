@@ -26053,10 +26053,11 @@ else:
                 _padding = "6px 8px"; _summary_lines = 2
                 _bw = "1.5px"; _br = "9px"
             else:
-                _mh = "180px"; _emoji_sz = "2.4rem"; _title_sz = "1rem"
-                _summary_sz = "0.78rem"; _meta_sz = "0.7rem"
-                _padding = "14px"; _summary_lines = 3
-                _bw = "2px"; _br = "12px"
+                # 프리미엄 카드 — 기존 대비 약 35% 축소 (높이·이모지·패딩·폰트)
+                _mh = "117px"; _emoji_sz = "1.55rem"; _title_sz = "0.88rem"
+                _summary_sz = "0.68rem"; _meta_sz = "0.62rem"
+                _padding = "10px"; _summary_lines = 3
+                _bw = "1.5px"; _br = "10px"
 
             _summary_short = _summary if not compact else (
                 _summary[:60] + "…" if len(_summary) > 60 else _summary
@@ -26162,13 +26163,26 @@ else:
                 unsafe_allow_html=True,
             )
         else:
-            # 3열 그리드 (큰 카드)
+            # 3열 그리드 — 카드 사이 gap + 부분 행 중앙정렬 (넓게 퍼짐 방지·여백 확보)
             _per_row_prm = 3
+            _gap_p = 0.25
             for i in range(0, len(_premium_mats), _per_row_prm):
                 _row = _premium_mats[i:i+_per_row_prm]
-                _cols = st.columns(_per_row_prm)
-                for j, m in enumerate(_row):
-                    with _cols[j]:
+                _k = len(_row)
+                _ratios = []
+                for _j in range(_k):
+                    _ratios.append(1.0)
+                    if _j < _k - 1:
+                        _ratios.append(_gap_p)
+                _missing = _per_row_prm - _k
+                _base = 0
+                if _missing > 0:
+                    _pad = _missing * (1.0 + _gap_p) / 2.0
+                    _ratios = [_pad] + _ratios + [_pad]
+                    _base = 1
+                _cols = st.columns(_ratios)
+                for _j, m in enumerate(_row):
+                    with _cols[_base + _j * 2]:
                         _render_mat_card(m, compact=False)
                 st.markdown("")
 
