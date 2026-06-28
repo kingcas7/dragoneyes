@@ -8138,6 +8138,48 @@ def _render_signup_student():
 # (기존) login 함수
 # ══════════════════════════════════════════════════════════════════
 
+def _send_admin_otp(email, otp):
+    """관리자 MFA 인증코드 이메일 발송 (Resend). 성공 시 True, 실패 시 False(→잠금방지 폴백)."""
+    try:
+        if not RESEND_AVAILABLE:
+            return False
+        _key = os.getenv("RESEND_API_KEY")
+        if not _key:
+            return False
+        resend.api_key = _key
+        resend.Emails.send({
+            "from": "AI agent_dragoneyes <dragoneyes@dragoneyes.co.kr>",
+            "to": [email],
+            "subject": "[드래곤아이즈] 관리자 로그인 인증코드",
+            "html": (
+                "<div style='font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:20px;'>"
+                "<h2 style='color:#0f3460;'>🐉 관리자 로그인 인증</h2>"
+                "<p>아래 6자리 인증코드를 입력하세요. (5분간 유효)</p>"
+                f"<p style='font-size:30px;font-weight:bold;letter-spacing:6px;color:#1d4ed8;'>{otp}</p>"
+                "<p style='color:#64748b;font-size:13px;'>본인이 요청하지 않았다면 이 메일을 무시하세요.</p>"
+                "</div>"
+            ),
+        })
+        return True
+    except Exception as e:
+        print(f"[MFA OTP] send failed: {e}")
+        return False
+
+def _finalize_login(_u, access_token, refresh_token, email):
+    """로그인 최종 확정 — session_state·세션ID·라우팅. (일반/관리자 MFA 통과 후 공용)"""
+    st.session_state.user = _u
+    st.session_state.access_token = access_token
+    st.session_state.refresh_token = refresh_token
+    st.session_state.report_count = get_month_count(_u["id"])
+    accessibility.load_from_user(_u)
+    _set_session_param(refresh_token, email)
+    _is_partner_admin = (
+        _u.get("partner_role") == "partner_admin"
+        or _u.get("is_tenant_admin")
+        or (_u.get("role") == "admin" and _u.get("partner_id"))
+    )
+    st.session_state.current_page = "agency_dashboard" if _is_partner_admin else "home_landing"
+
 def login(email, password):
     try:
         result = supabase.auth.sign_in_with_password({"email": email, "password": password})
@@ -8160,25 +8202,28 @@ def login(email, password):
                 if _role == "user" and _is_weekend and not _is_admin_role:
                     return False, "📅 주말 보안 정책에 따라 일반 사용자는 토요일/일요일에 접속할 수 없습니다. 평일에 다시 시도해주세요."
 
-                # ─── 정상 로그인 ───
-                st.session_state.user = _u
-                st.session_state.access_token = result.session.access_token
-                st.session_state.refresh_token = result.session.refresh_token
-                st.session_state.report_count = get_month_count(_u["id"])
-                # 접근성: users.preferences → session_state (음성 안내 등 사용자 선호)
-                accessibility.load_from_user(_u)
-                # 🔐 세션 복원용 — URL엔 불투명 세션ID만(실제 refresh_token은 서버 app_sessions 보관)
-                _set_session_param(result.session.refresh_token, email)
-                # ✅ 로그인 직후 라우팅: 파트너 admin은 agency_dashboard
-                _is_partner_admin = (
-                    _u.get("partner_role") == "partner_admin"
+                # ─── 🔐 관리자 MFA (이메일 OTP) — 관리자 계정만, 일반 사용자는 불편 없게 제외 ───
+                _needs_mfa = (
+                    _u.get("role") in ("admin", "superadmin")
+                    or _u.get("partner_role") == "partner_admin"
                     or _u.get("is_tenant_admin")
-                    or (_u.get("role") == "admin" and _u.get("partner_id"))
+                    or _u.get("hq_position")
                 )
-                if _is_partner_admin:
-                    st.session_state.current_page = "agency_dashboard"
-                else:
-                    st.session_state.current_page = "home_landing"
+                if _needs_mfa:
+                    _otp = f"{_secrets.randbelow(900000) + 100000}"
+                    if _send_admin_otp(email, _otp):
+                        st.session_state["_mfa_pending"] = {
+                            "user": _u,
+                            "access_token": result.session.access_token,
+                            "refresh_token": result.session.refresh_token,
+                            "email": email, "otp": _otp,
+                            "expires": (datetime.now() + timedelta(minutes=5)).isoformat(),
+                            "attempts": 0,
+                        }
+                        return None, "MFA_SENT"
+                    # 이메일 발송 실패 → 잠금 방지: MFA 건너뛰고 정상 로그인 (운영자 락아웃 방지)
+                # ─── 정상 로그인 ───
+                _finalize_login(_u, result.session.access_token, result.session.refresh_token, email)
                 return True, "로그인 성공"
             return False, "사용자 정보를 찾을 수 없습니다."
     except Exception as e:
@@ -10921,6 +10966,35 @@ if st.session_state.user is None:
             </div>
         """, unsafe_allow_html=True)
 
+        # ─── 🔐 관리자 MFA: 이메일 OTP 입력 단계 (대기 중이면 이 폼만 표시) ───
+        _mfa = st.session_state.get("_mfa_pending")
+        if _mfa:
+            st.info(f"📧 **{_mfa['email']}** 로 6자리 인증코드를 보냈습니다. 5분 내 입력하세요.")
+            _otp_in = st.text_input("인증코드 6자리", max_chars=6, key="mfa_otp_input", placeholder="000000")
+            _vc1, _vc2 = st.columns(2)
+            with _vc1:
+                if st.button("✅ 인증 확인", type="primary", use_container_width=True, key="mfa_verify_btn"):
+                    if datetime.now().isoformat() > _mfa.get("expires", ""):
+                        st.session_state.pop("_mfa_pending", None)
+                        st.error("⏱️ 인증코드가 만료되었습니다. 다시 로그인해주세요.")
+                    elif (_otp_in or "").strip() == _mfa["otp"]:
+                        _finalize_login(_mfa["user"], _mfa["access_token"], _mfa["refresh_token"], _mfa["email"])
+                        st.session_state.pop("_mfa_pending", None)
+                        accessibility.announce("인증 성공. 로그인되었습니다.")
+                        st.rerun()
+                    else:
+                        _mfa["attempts"] = _mfa.get("attempts", 0) + 1
+                        if _mfa["attempts"] >= 5:
+                            st.session_state.pop("_mfa_pending", None)
+                            st.error("❌ 인증 5회 실패. 다시 로그인해주세요.")
+                        else:
+                            st.error(f"❌ 코드가 일치하지 않습니다. ({_mfa['attempts']}/5)")
+            with _vc2:
+                if st.button("취소", use_container_width=True, key="mfa_cancel_btn"):
+                    st.session_state.pop("_mfa_pending", None)
+                    st.rerun()
+            st.stop()  # OTP 단계에선 아래 일반 로그인 폼 숨김
+
         email = st.text_input(t("email"), placeholder="email@example.com", label_visibility="visible")
         password = st.text_input(t("password"), type="password", placeholder="••••••••", label_visibility="visible")
 
@@ -10928,7 +11002,10 @@ if st.session_state.user is None:
             if email and password:
                 with st.spinner(t("analyzing")):
                     ok, msg = login(email, password)
-                if ok:
+                if msg == "MFA_SENT":
+                    accessibility.announce("관리자 인증코드를 이메일로 보냈습니다. 코드를 입력하세요.")
+                    st.rerun()
+                elif ok:
                     # ⭐ Phase 2 (v17): 학생 차단 가드 + 모드별 라우팅
                     _u = st.session_state.get("user") or {}
                     _role_v2  = (_u.get("role_v2") or "").lower()
