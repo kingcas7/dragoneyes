@@ -26014,14 +26014,15 @@ else:
             _kc2.metric("🆓 기본(무료)",
                          f"{sum(1 for m in _mats if m.get('tier')=='free')}건")
             _kc3.metric("⭐ 프리미엄",
-                         f"{sum(1 for m in _mats if m.get('tier')=='premium')}건"
+                         f"{sum(1 for m in _mats_all if m.get('tier')=='premium')}건"
                          + (" · ✅" if _has_premium else " · 🔒"))
 
         st.markdown("")
 
         # ── 자료 분리 (기본 / 프리미엄) ───────────────────────
         _free_mats    = [m for m in _mats if m.get("tier") == "free"]
-        _premium_mats = [m for m in _mats if m.get("tier") == "premium"]
+        # 프리미엄은 '공통'(학년대 무관) — 학부모용/교사용 포함, 학년대 필터와 무관하게 항상 표시
+        _premium_mats = [m for m in _mats_all if m.get("tier") == "premium"]
 
         # 카드 렌더링 헬퍼 (compact=True 면 50% 크기)
         def _render_mat_card(m, compact=False):
@@ -26033,8 +26034,8 @@ else:
             _read = m.get("reading_time_min") or 0
             _locked = bool(m.get("is_locked"))
             _chap = m.get("chapter_no") or 0
-            _band_lbl = {"elementary":"🎒 초등","middle":"📚 중학",
-                          "high":"🎓 고등","all":"🌐 전체"}.get(_band, _band)
+            _band_lbl = {"elementary":"🎒 초등","middle":"📚 중학","high":"🎓 고등",
+                          "all":"🌐 전체","parent":"👪 학부모용","teacher":"🍎 교사용"}.get(_band, _band)
             _tier_lbl = "🆓 무료" if _tier=="free" else "⭐ 프리미엄"
             _border = "#a78bfa" if _tier=="premium" else "#c7d2fe"
             _bg = "linear-gradient(135deg,#ede9fe,#ddd6fe)" if _tier=="premium" \
@@ -26618,13 +26619,15 @@ else:
                     _nn_title = st.text_input("제목 *", key="mm_nn_title",
                                                 placeholder="예: 디지털 그루밍 — 6단계 완전 분석")
                     _nn_band = st.selectbox(
-                        "학년대 *",
-                        ["elementary","middle","high","all"],
+                        "학년대 / 대상 *",
+                        ["elementary","middle","high","all","parent","teacher"],
                         format_func=lambda x: {
                             "elementary":"🎒 초등학생용",
                             "middle":"📚 중학생용",
                             "high":"🎓 고등학생용",
                             "all":"🌐 전체 (모든 학년대)",
+                            "parent":"👪 학부모용 (프리미엄)",
+                            "teacher":"🍎 교사용 (프리미엄)",
                         }.get(x, x),
                         key="mm_nn_band",
                     )
@@ -26770,11 +26773,17 @@ else:
                             _et = st.text_input("제목",
                                                   value=_em.get("title") or "",
                                                   key="mm_e_title")
+                            _eband_opts = ["elementary","middle","high","all","parent","teacher"]
                             _eband = st.selectbox(
-                                "학년대",
-                                ["elementary","middle","high","all"],
-                                index=["elementary","middle","high","all"].index(
-                                    _em.get("target_band") or "all"),
+                                "학년대 / 대상",
+                                _eband_opts,
+                                format_func=lambda x: {
+                                    "elementary":"🎒 초등학생용","middle":"📚 중학생용",
+                                    "high":"🎓 고등학생용","all":"🌐 전체",
+                                    "parent":"👪 학부모용","teacher":"🍎 교사용",
+                                }.get(x, x),
+                                index=(_eband_opts.index(_em.get("target_band"))
+                                       if (_em.get("target_band") in _eband_opts) else 3),
                                 key="mm_e_band",
                             )
                             _etier = st.selectbox(
