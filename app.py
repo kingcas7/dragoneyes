@@ -13013,15 +13013,18 @@ else:
                                 _role_dbg = _jsd.loads(_b64d.urlsafe_b64decode(_seg)).get("role", "?")
                             except Exception:
                                 _role_dbg = "디코드실패"
+                            _len_dragon = len(os.getenv("DRAGON_SR_KEY") or "")
+                            _len_old = len(os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "")
+                            _len_resend = len(os.getenv("RESEND_API_KEY") or "")
+                            _env_names = sorted([k for k in os.environ.keys()
+                                                 if any(s in k for s in ("DRAGON", "SUPA", "SERVICE", "ROLE", "RESEND"))])
                             st.caption(
-                                f"🔍 진단 — 키설정: {bool(_k_raw)} · 원본길이: {len(_k_raw)} · "
-                                f"공백제거후: {len(_k_str)} · 끝공백여부: {len(_k_raw) != len(_k_str)} · "
-                                f"role: **{_role_dbg}** · URL설정: {bool(os.getenv('SUPABASE_URL'))}"
+                                f"🔍 진단 — DRAGON_SR_KEY길이: {_len_dragon} · 구키길이: {_len_old} · "
+                                f"RESEND길이(대조군): {_len_resend} · role: **{_role_dbg}**"
                             )
+                            st.caption(f"🔍 앱이 보는 env 이름: {', '.join(_env_names) or '(없음)'}")
                             if _role_dbg == "anon":
-                                st.caption("→ ⚠️ anon 키가 들어있습니다. Legacy 탭의 service_role(secret)로 교체하세요.")
-                            elif _role_dbg == "service_role":
-                                st.caption("→ 키는 service_role 정상. 재배포 미완료(빌드 중 테스트) 또는 이메일 중복일 수 있습니다.")
+                                st.caption("→ ⚠️ anon 키입니다. service_role(secret) 값으로 교체하세요.")
                         except Exception:
                             pass
         st.markdown("---")
