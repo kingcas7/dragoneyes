@@ -12994,76 +12994,47 @@ else:
                     st.error("이메일(올바른 형식)과 이름은 필수입니다.")
                 else:
                     try:
-                        import secrets as _scb, string as _stcb
+                        import secrets as _scb, string as _stcb, json as _jsbt
                         _bt_pwd = ((_bt_pw or "").strip()
-                                   or "".join(_scb.choice(_stcb.ascii_letters + _stcb.digits + "!@#$") for _ in range(14)))
-                        _bt_ar = sb_admin().auth.admin.create_user({
-                            "email": _bt_email.strip(),
-                            "password": _bt_pwd,
-                            "email_confirm": True,
-                            "user_metadata": {"name": _bt_name.strip()},
-                        })
-                        _bt_uid = _bt_ar.user.id if getattr(_bt_ar, "user", None) else None
-                        if not _bt_uid:
-                            st.error("❌ Auth 응답에 사용자 ID가 없습니다.")
+                                   or "".join(_scb.choice(_stcb.ascii_letters + _stcb.digits) for _ in range(14)))
+                        # service_role 키 미주입(Railway) 우회: SECURITY DEFINER DB 함수를 anon 키로 호출
+                        _bt_res = supabase.rpc("create_beta_tester", {
+                            "p_email": _bt_email.strip().lower(),
+                            "p_name": _bt_name.strip(),
+                            "p_org": (_bt_org or "").strip(),
+                            "p_password": _bt_pwd,
+                        }).execute()
+                        _bt_data = _bt_res.data
+                        if isinstance(_bt_data, str):
+                            try: _bt_data = _jsbt.loads(_bt_data)
+                            except Exception: _bt_data = {}
+                        if not _bt_data or not _bt_data.get("ok"):
+                            _err = (_bt_data or {}).get("error", "unknown")
+                            st.error("이미 등록된 이메일입니다." if _err == "already_exists"
+                                     else f"❌ 등록 실패: {_err}")
                         else:
-                            # 명함 이미지(선택) 업로드
-                            _bt_card_path = None
-                            if _bt_card is not None:
+                            _bt_uid = _bt_data.get("id")
+                            # 명함 이미지(선택) 업로드 — best-effort
+                            if _bt_card is not None and _bt_uid:
                                 try:
                                     _bt_ext = _bt_card.name.split(".")[-1].lower()
                                     _bt_card_path = f"beta-testers/{_bt_uid}/card.{_bt_ext}"
                                     supabase.storage.from_("license-documents").upload(
                                         _bt_card_path, _bt_card.getvalue(),
                                         file_options={"content-type": _bt_card.type or "application/octet-stream"})
+                                    supabase.table("users").update({"preferences": {
+                                        "beta_tester": True, "org": (_bt_org or "").strip(),
+                                        "business_card": _bt_card_path,
+                                    }}).eq("id", _bt_uid).execute()
                                 except Exception:
-                                    _bt_card_path = None
-                            # 일반 사용자(role=user) — 모니터링+캠페인 접근, 관리자/파트너 미노출. 파트너/소속 미지정.
-                            supabase.table("users").insert({
-                                "id": _bt_uid,
-                                "email": _bt_email.strip(),
-                                "name": _bt_name.strip(),
-                                "role": "user",
-                                "is_campaign_only": False,
-                                "status": "active",
-                                "preferences": {
-                                    "beta_tester": True,
-                                    "org": (_bt_org or "").strip(),
-                                    "business_card": _bt_card_path,
-                                },
-                            }).execute()
+                                    pass
                             st.success(f"✅ {_bt_name.strip()} ({_bt_email.strip()}) 베타테스터 등록 완료"
                                        + (f" · 소속: {_bt_org.strip()}" if (_bt_org or '').strip() else ""))
                             st.info(f"🔑 임시 비밀번호: `{_bt_pwd}` — **안전한 채널**로 전달하고 첫 로그인 후 변경 안내. "
                                     f"로그인 화면에서 **모니터링 / 캠페인 모드 모두** 사용 가능합니다.")
                     except Exception as _bt_e:
                         st.error(f"❌ 등록 실패: {str(_bt_e)[:250]}")
-                        # 🔍 진단: 키 상태를 정확히 표시 (원인 즉시 판별)
-                        try:
-                            import base64 as _b64d, json as _jsd
-                            _k_raw = os.getenv("DRAGON_SR_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY") or ""
-                            _k_str = _k_raw.strip()
-                            _role_dbg = "?"
-                            try:
-                                _seg = _k_str.split(".")[1]
-                                _seg += "=" * (-len(_seg) % 4)
-                                _role_dbg = _jsd.loads(_b64d.urlsafe_b64decode(_seg)).get("role", "?")
-                            except Exception:
-                                _role_dbg = "디코드실패"
-                            _len_dragon = len(os.getenv("DRAGON_SR_KEY") or "")
-                            _len_old = len(os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "")
-                            _len_resend = len(os.getenv("RESEND_API_KEY") or "")
-                            _env_names = sorted([k for k in os.environ.keys()
-                                                 if any(s in k for s in ("DRAGON", "SUPA", "SERVICE", "ROLE", "RESEND"))])
-                            st.caption(
-                                f"🔍 진단 — DRAGON_SR_KEY길이: {_len_dragon} · 구키길이: {_len_old} · "
-                                f"RESEND길이(대조군): {_len_resend} · role: **{_role_dbg}**"
-                            )
-                            st.caption(f"🔍 앱이 보는 env 이름: {', '.join(_env_names) or '(없음)'}")
-                            if _role_dbg == "anon":
-                                st.caption("→ ⚠️ anon 키입니다. service_role(secret) 값으로 교체하세요.")
-                        except Exception:
-                            pass
+                        st.caption("※ Supabase에 create_beta_tester 함수가 생성되어 있어야 합니다(SQL 1회 실행).")
         st.markdown("---")
 
         # Phase 4: 파트너 정보 조회 (user.partner_id 직접 사용)
