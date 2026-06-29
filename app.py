@@ -12988,6 +12988,12 @@ else:
                 _bt_org = st.text_input("소속 (선택, 자유 입력)", key="bt_org",
                                         placeholder="소속이 달라도 자유롭게 — 예: ○○복지관, 무소속")
                 _bt_pw = st.text_input("임시 비밀번호 (비우면 14자 자동 생성)", type="password", key="bt_pw")
+            _bt_kind_lbl = st.selectbox("분류 (테스터 유형)",
+                ["시스템 사용자 (모니터링/캠페인)", "총판 (파트너 대시보드)", "리셀러 (파트너 대시보드)", "본부 관리자"],
+                key="bt_kind",
+                help="총판/리셀러는 테스트용 파트너가 함께 생성되어 파트너 대시보드가 노출됩니다.")
+            _bt_kind = {"시스템 사용자 (모니터링/캠페인)": "user", "총판 (파트너 대시보드)": "distributor",
+                        "리셀러 (파트너 대시보드)": "reseller", "본부 관리자": "admin"}.get(_bt_kind_lbl, "user")
             _bt_card = st.file_uploader("명함 이미지 (선택)", type=["jpg", "jpeg", "png", "pdf"], key="bt_card")
             if st.button("✅ 베타테스터 등록", type="primary", key="bt_create", use_container_width=True):
                 if not (_bt_email and "@" in _bt_email and _bt_name):
@@ -13003,6 +13009,7 @@ else:
                             "p_name": _bt_name.strip(),
                             "p_org": (_bt_org or "").strip(),
                             "p_password": _bt_pwd,
+                            "p_kind": _bt_kind,
                         }).execute()
                         _bt_data = _bt_res.data
                         if isinstance(_bt_data, str):
@@ -13028,7 +13035,7 @@ else:
                                     }}).eq("id", _bt_uid).execute()
                                 except Exception:
                                     pass
-                            st.success(f"✅ {_bt_name.strip()} ({_bt_email.strip()}) 베타테스터 등록 완료"
+                            st.success(f"✅ {_bt_name.strip()} ({_bt_email.strip()}) 등록 완료 · 분류: {_bt_kind_lbl}"
                                        + (f" · 소속: {_bt_org.strip()}" if (_bt_org or '').strip() else ""))
                             st.info(f"🔑 임시 비밀번호: `{_bt_pwd}` — **안전한 채널**로 전달하고 첫 로그인 후 변경 안내. "
                                     f"로그인 화면에서 **모니터링 / 캠페인 모드 모두** 사용 가능합니다.")
