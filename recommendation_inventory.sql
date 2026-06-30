@@ -73,7 +73,7 @@ begin
   on conflict (url) do nothing;
 end;
 $$;
-grant execute on function public.add_to_inventory(text,text,text,int,text,text,text) to anon, authenticated;
+grant execute on function public.add_to_inventory(text,text,text,text,int,text,text) to anon, authenticated;
 
 -- 4) 미배정(재고) 개수 — 앱 top-up 판정용
 create or replace function public.inventory_unclaimed_count(p_search_type text default null)
