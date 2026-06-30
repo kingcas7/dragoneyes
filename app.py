@@ -9767,9 +9767,10 @@ def get_today_dragon_count(user_id):
     return len(res.data)
 
 # ════════ 모니터링 자동화 설정 ════════
-MONITORING_BACKLOG_LIMIT = 100   # 미처리(미작성)가 이 수 이상이면 추천 생성/주간 배정 자동 중단
-WEEKLY_ASSIGN_COUNT = 50         # 매주 월요일 새벽 3시 자동 배정 건수
-MONTHLY_MONITOR_LIMIT = 200      # 1인 월 모니터링 상한 (주 50건 × 4주)
+PER_USER_WEEKLY_TARGET = 100     # ★통합 상수: 사용자 1인 주간 인벤토리 목표. 매주 이 수로 '채워서 유지'(보충). 풀 재고=모니터링사용자수×이값.
+MONITORING_BACKLOG_LIMIT = PER_USER_WEEKLY_TARGET   # 미처리가 목표 이상이면 보충 0 (=백로그 자동중단, 목표와 동일)
+WEEKLY_ASSIGN_COUNT = PER_USER_WEEKLY_TARGET        # (호환 보존) 실제 배정은 동적: max(0, 목표 − 미처리)
+MONTHLY_MONITOR_LIMIT = 300      # 1인 월 모니터링 상한
 
 def get_user_pending_count(user_id):
     """사용자의 미처리(미작성) 배정 모니터링 건수 — 백로그 자동중단 판정용."""
@@ -9793,9 +9794,9 @@ def get_user_month_assigned_count(user_id):
         return 0
 
 def run_weekly_assignment_all_users(limit_users=None):
-    """📅 매주 월요일 자동 배정 배치 — 모니터링 사용자별 WEEKLY_ASSIGN_COUNT(50)건 배정.
-    백로그≥100 또는 월배정≥200인 사용자는 건너뜀. (외부 cron 또는 관리자 수동 실행)
-    반환: 실행 요약 dict."""
+    """📅 매주 월요일 자동 배정 배치 — 사용자 인벤토리를 PER_USER_WEEKLY_TARGET(100)으로 '채워서 유지'(보충).
+    실제 보충량 = max(0, 목표 − 미처리), 월 상한(300) 잔여분으로 제한. (외부 cron 또는 관리자 수동 실행)
+    예: 50개 남은 사용자 → 50개만 추가 → 인벤토리 100 유지. 반환: 실행 요약 dict."""
     summary = {"assigned_users": 0, "skipped_backlog": 0, "skipped_monthly": 0,
                "total_videos": 0, "errors": 0, "candidates": 0}
     try:
@@ -9808,19 +9809,25 @@ def run_weekly_assignment_all_users(limit_users=None):
         for u in users:
             uid = u["id"]
             try:
-                if get_user_pending_count(uid) >= MONITORING_BACKLOG_LIMIT:
+                _pending = get_user_pending_count(uid)
+                # 채워서 유지: 목표(100)에서 미처리분을 뺀 부족분만 보충
+                _topup = max(0, PER_USER_WEEKLY_TARGET - _pending)
+                if _topup <= 0:
                     summary["skipped_backlog"] += 1
                     continue
-                if get_user_month_assigned_count(uid) >= MONTHLY_MONITOR_LIMIT:
+                # 월 상한(300) 잔여분으로 보충량 제한
+                _month_room = max(0, MONTHLY_MONITOR_LIMIT - get_user_month_assigned_count(uid))
+                if _month_room <= 0:
                     summary["skipped_monthly"] += 1
                     continue
+                _assign_n = min(_topup, _month_room)
                 assigned_urls = get_analyzed_urls()
                 new_cnt = 0
                 for plat in ["general", "roblox", "minecraft", "gambling"]:
-                    if new_cnt >= WEEKLY_ASSIGN_COUNT:
+                    if new_cnt >= _assign_n:
                         break
                     for kw in generate_recommend_keywords(plat):
-                        if new_cnt >= WEEKLY_ASSIGN_COUNT:
+                        if new_cnt >= _assign_n:
                             break
                         try:
                             res = search_and_analyze(
