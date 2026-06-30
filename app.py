@@ -29527,12 +29527,15 @@ else:
                     pass
 
             fc1, fc2, fc3 = st.columns(3)
+            # 언어 무관: history_types(0=전체/All/すべて, 1~4=일반/Roblox/Minecraft/키워드)를 인덱스로 처리
+            _htypes = LANG.get(st.session_state.get("lang","ko"), LANG["ko"]).get(
+                "history_types", ["전체","🐉 일반추천","🎮 Roblox추천","⛏️ Minecraft추천","🔍 키워드탐색"])
             with fc1:
-                ftype = st.selectbox(t("filter_type"), LANG.get(st.session_state.get("lang","ko"),LANG["ko"]).get("history_types",["전체","🐉 일반추천","🎮 Roblox추천","⛏️ Minecraft추천","🔍 키워드탐색"]))
+                ftype = st.selectbox(t("filter_type"), _htypes)
             with fc2:
                 # ⭐ 기본값을 '미작성'으로 — 보고 완료분은 자동으로 빠지고(보고서 목록에서 확인),
                 #    모니터링 사이클이 다음 미작성 영상을 서빙. 필요 시 '전체'로 전환.
-                freported = st.selectbox(t("filter_reported"), ["전체", t("reported"), t("not_reported")], index=2)
+                freported = st.selectbox(t("filter_reported"), [_htypes[0], t("reported"), t("not_reported")], index=2)
             with fc3:
                 fdate = st.date_input(t("after_date"), value=None, key="hist_date")
 
@@ -29543,10 +29546,11 @@ else:
 
             data = hist.data if hist.data else []
 
-            type_map = {"🐉 일반추천":"dragon_general","🎮 Roblox추천":"dragon_roblox",
-                        "⛏️ Minecraft추천":"dragon_minecraft","🔍 키워드탐색":"keyword"}
-            if ftype != "전체":
-                data = [d for d in data if d.get("search_type") == type_map.get(ftype)]
+            # 라벨 문자열이 아니라 인덱스로 search_type 매핑 (언어 무관)
+            _type_by_idx = {1:"dragon_general", 2:"dragon_roblox", 3:"dragon_minecraft", 4:"keyword"}
+            _ftype_idx = _htypes.index(ftype) if ftype in _htypes else 0
+            if _ftype_idx != 0:
+                data = [d for d in data if d.get("search_type") == _type_by_idx.get(_ftype_idx)]
             if freported == t("reported"):
                 data = [d for d in data if d.get("reported")]
             elif freported == t("not_reported"):
@@ -29941,18 +29945,23 @@ else:
 
             if all_reps_data.data:
                 fc1, fc2, fc3 = st.columns(3)
+                _rcats_ko = ["전체","안전","스팸","부적절","성인","그루밍","미분류"]  # DB 저장 카테고리(한글)
+                _rcats = LANG.get(st.session_state.get("lang","ko"), LANG["ko"]).get("report_cats", _rcats_ko)
                 with fc1:
                     fsev = st.selectbox(t("filter_sev"), ["전체","1","2","3","4","5"])
                 with fc2:
-                    fcat = st.selectbox(t("filter_cat"), LANG.get(st.session_state.get("lang","ko"),LANG["ko"]).get("report_cats",["전체","안전","스팸","부적절","성인","그루밍","미분류"]))
+                    fcat = st.selectbox(t("filter_cat"), _rcats)
                 with fc3:
                     fwriter = st.selectbox(t("filter_writer"), ["전체"] + list(set(umap_r.values())))
 
                 filtered = all_reps_data.data
                 if fsev != "전체":
                     filtered = [r for r in filtered if r.get("severity") == int(fsev)]
-                if fcat != "전체":
-                    filtered = [r for r in filtered if r.get("category") == fcat]
+                # 언어 무관: 인덱스로 한글 카테고리(DB값) 매핑
+                _fcat_idx = _rcats.index(fcat) if fcat in _rcats else 0
+                if _fcat_idx != 0:
+                    _cat_ko = _rcats_ko[_fcat_idx] if _fcat_idx < len(_rcats_ko) else fcat
+                    filtered = [r for r in filtered if r.get("category") == _cat_ko]
                 if fwriter != "전체":
                     writer_id = next((uid for uid, name in umap_r.items() if name == fwriter), None)
                     if writer_id:
