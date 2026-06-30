@@ -29213,8 +29213,8 @@ else:
             elif run_gambling:
                 selected_platform = "gambling"; selected_label = "🎰 도박"; selected_type = "dragon_gambling"
 
-            # ⛔ 미처리 백로그 자동 중단 — 100건 이상 누적 시 추천 생성 차단
-            if selected_platform and token_info["ok"]:
+            # ⛔ 미처리 백로그 자동 중단 — 100건 이상 누적 시 추천 생성 차단 (드래곤아이즈 관리자는 예외)
+            if selected_platform and token_info["ok"] and not (is_admin or is_super):
                 _pending_now = get_user_pending_count(user["id"])
                 if _pending_now >= MONITORING_BACKLOG_LIMIT:
                     selected_platform = None
@@ -29559,6 +29559,27 @@ else:
                 data = [d for d in data if str(d.get("analyzed_at",""))[:10] >= str(fdate)]
 
             st.caption(t("total_count").format(len(data)))
+
+            # 🗑️ 관리자 전용: 내 미작성(미처리) 추천 일괄 삭제 (백로그 정리)
+            if is_admin or is_super:
+                try:
+                    _mp = supabase.table("analyzed_urls").select("id").eq("assigned_to", user["id"]).eq("reported", False).limit(2000).execute()
+                    _mp_ids = [r["id"] for r in (_mp.data or [])]
+                except Exception:
+                    _mp_ids = []
+                if _mp_ids:
+                    if st.session_state.get("_hist_bulk_confirm"):
+                        _bd1, _bd2 = st.columns(2)
+                        if _bd1.button(f"⚠️ 내 미작성 {len(_mp_ids)}건 삭제 확정", key="hist_bulk_del2", type="primary", use_container_width=True):
+                            for _i in range(0, len(_mp_ids), 100):
+                                supabase.table("analyzed_urls").delete().in_("id", _mp_ids[_i:_i+100]).execute()
+                            st.session_state.pop("_hist_bulk_confirm", None)
+                            st.success(f"✅ 미작성 추천 {len(_mp_ids)}건 삭제 완료"); st.rerun()
+                        if _bd2.button("취소", key="hist_bulk_cancel", use_container_width=True):
+                            st.session_state.pop("_hist_bulk_confirm", None); st.rerun()
+                    else:
+                        if st.button(f"🗑️ 내 미작성 추천 {len(_mp_ids)}건 일괄 삭제 (관리자)", key="hist_bulk_del1"):
+                            st.session_state["_hist_bulk_confirm"] = True; st.rerun()
 
             all_users_res = supabase.table("users").select("id,name").execute()
             user_map = {u["id"]: u["name"] for u in (all_users_res.data or [])}
