@@ -9967,6 +9967,8 @@ def parse_keywords(text):
             keywords.append(line)
     return keywords[:10]
 
+RECOMMEND_KEYWORDS_PER_RUN = 20  # 한 번 생성 시 풀에서 뽑는 키워드 수 (다양성↑·분석비용↑ 트레이드오프)
+
 def generate_recommend_keywords(platform="general"):
     import random
     keyword_pools = {
@@ -10029,7 +10031,7 @@ def generate_recommend_keywords(platform="general"):
     learned = get_learned_keywords(limit=10)
     if learned:
         pool = pool + learned
-    return random.sample(pool, min(10, len(pool)))
+    return random.sample(pool, min(RECOMMEND_KEYWORDS_PER_RUN, len(pool)))
 
 def get_video_comments(video_id, max_comments=30):
     """유튜브 영상 댓글 수집 — 위험 패턴 탐지용"""
