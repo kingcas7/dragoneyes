@@ -29517,41 +29517,19 @@ else:
         if is_admin or is_super:
             tab_defs.append(("admin", t("tab_admin")))
 
-        if active_tab_idx == 99:
-            admin_keys = [i for i, d in enumerate(tab_defs) if d[0] == "admin"]
-            if admin_keys:
-                admin_item = tab_defs.pop(admin_keys[0])
-                tab_defs.insert(0, admin_item)
+        # 🔀 특수 내비게이션(관리자 99·공지 98·추천 3·히스토리 5·보고서 6) → 해당 탭 맨 앞 '고정(pin)'
+        #   ⚠️ 과거엔 1회용 재정렬(다음 rerun에 순서 원복)이라 탭 안에서 위젯만 바꿔도
+        #      라벨 순서가 바뀌며 st.tabs가 재생성 → 첫 탭으로 튕김(관리자 비밀번호 재설정 등).
+        #      pin은 rerun에도 순서를 유지해 탭 재생성이 없음 → 선택 자연 유지.
+        _PIN_MAP = {99: "admin", 98: "notice", 3: "dragon", 5: "history", 6: "reports"}
+        if active_tab_idx in _PIN_MAP:
+            st.session_state["_home_tab_pin"] = _PIN_MAP[active_tab_idx]
             st.session_state.active_tab = 0
-
-        if active_tab_idx == 98:
-            notice_keys = [i for i, d in enumerate(tab_defs) if d[0] == "notice"]
-            if notice_keys:
-                notice_item = tab_defs.pop(notice_keys[0])
-                tab_defs.insert(0, notice_item)
-            st.session_state.active_tab = 0
-
-        if active_tab_idx == 3:
-            dragon_keys = [i for i, d in enumerate(tab_defs) if d[0] == "dragon"]
-            if dragon_keys:
-                tab_defs.insert(0, tab_defs.pop(dragon_keys[0]))
-            st.session_state.active_tab = 0
-
-        # 🎤 접근성: 음성 명령 "동영상 열기" → history 탭 강제 활성화
-        if active_tab_idx == 5:
-            history_keys = [i for i, d in enumerate(tab_defs) if d[0] == "history"]
-            if history_keys:
-                history_item = tab_defs.pop(history_keys[0])
-                tab_defs.insert(0, history_item)
-            st.session_state.active_tab = 0
-
-        # 🎤 접근성: 음성 명령 "보고서 영상" → reports 탭 강제 활성화
-        if active_tab_idx == 6:
-            reports_keys = [i for i, d in enumerate(tab_defs) if d[0] == "reports"]
-            if reports_keys:
-                reports_item = tab_defs.pop(reports_keys[0])
-                tab_defs.insert(0, reports_item)
-            st.session_state.active_tab = 0
+        _tab_pin = st.session_state.get("_home_tab_pin")
+        if _tab_pin:
+            _pin_keys = [i for i, d in enumerate(tab_defs) if d[0] == _tab_pin]
+            if _pin_keys:
+                tab_defs.insert(0, tab_defs.pop(_pin_keys[0]))
 
         tab_keys   = [d[0] for d in tab_defs]
         tab_labels = [d[1] for d in tab_defs]
