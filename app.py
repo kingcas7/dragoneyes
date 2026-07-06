@@ -6405,9 +6405,14 @@ def _create_contract_from_opportunity(opp, user, tier_code, seat_count,
                 customer_id = existing[0]["id"]
                 customer_no = existing[0]["customer_no"]
 
+        # 담당 영업 조직 체인 (신규 고객 등록 시 귀속 저장 + 매출 배분 공용)
+        _rs_c, _ds_c = _resolve_partner_share_ids(opp.get("assigned_partner_id"))
+
         if not customer_id:
             new_customer = {
                 "name": opp.get("customer_name", "(이름 없음)"),
+                "sales_reseller_id": _rs_c,
+                "sales_distributor_id": _ds_c,
                 "business_number": biz_no,
                 "representative_name": opp.get("customer_ceo_name"),
                 "address": opp.get("customer_address"),
@@ -6450,9 +6455,14 @@ def _create_contract_from_opportunity(opp, user, tier_code, seat_count,
         contract_no = contract_resp.data[0].get("contract_no")
 
         # 💰 발주(계약) → 매출 배분 원장 자동 기록 — 모니터링 라이선스 (2026-07-06)
-        #    귀속: 영업기회의 담당 파트너 → 리셀러/총판 체인 자동 산출 (80/5/15)
+        #    귀속: 영업기회 담당 파트너 체인 → 없으면 고객사의 담당 영업 조직 폴백
         try:
-            _rs_c, _ds_c = _resolve_partner_share_ids(opp.get("assigned_partner_id"))
+            if not _rs_c and not _ds_c and customer_id:
+                _cr = supabase.table("customers").select("sales_reseller_id,sales_distributor_id")\
+                    .eq("id", customer_id).limit(1).execute().data or []
+                if _cr:
+                    _rs_c = _cr[0].get("sales_reseller_id")
+                    _ds_c = _cr[0].get("sales_distributor_id")
             record_revenue_share(
                 "monitoring_license", total_amount,
                 reseller_id=_rs_c, distributor_id=_ds_c,
@@ -9353,11 +9363,7 @@ def _render_customer_sales_edit(customer, user):
                     # 🧑‍🏫 교육 신청 체크 시 → 출장강연 일정에 '신청됨' 자동 등록
                     if _n_edu:
                         try:
-                            _opp_pid = user.get("partner_id")
-                            _opp_is_dist = False
-                            if _opp_pid:
-                                _pr = supabase.table("partners").select("is_distributor").eq("id", _opp_pid).limit(1).execute().data or []
-                                _opp_is_dist = bool(_pr and _pr[0].get("is_distributor"))
+                            _opp_rs, _opp_ds = _resolve_partner_share_ids(user.get("partner_id"))
                             supabase.table("lecture_events").insert({
                                 "school_name": customer.get("name") or "미상",
                                 "contact_name": customer.get("representative_name") or None,
@@ -9365,8 +9371,8 @@ def _render_customer_sales_edit(customer, user):
                                 "amount": int(_n_edu_amt),
                                 "status": "requested",
                                 "requested_by": user.get("id"),
-                                "reseller_partner_id": _opp_pid if (_opp_pid and not _opp_is_dist) else None,
-                                "distributor_partner_id": _opp_pid if _opp_is_dist else None,
+                                "reseller_partner_id": _opp_rs,
+                                "distributor_partner_id": _opp_ds,
                                 "source": "sales_report",
                                 "note": "영업 기회 등록 시 교육 신청",
                             }).execute()
@@ -9412,6 +9418,42 @@ def _render_customer_sales_edit(customer, user):
                 else:
                     st.error(f"수정 실패: {_le}")
 
+    # ── 🤝 담당 영업 조직 (매출 귀속 기준) — 신규 고객 등록 연동 (2026-07-06) ──
+    _cust_rs = customer.get("sales_reseller_id")
+    _cust_ds = customer.get("sales_distributor_id")
+    try:
+        _pts_attr = supabase.table("partners").select("id,name,is_distributor,is_reseller").execute().data or []
+    except Exception:
+        _pts_attr = []
+    _pt_name = {p["id"]: p.get("name", "") for p in _pts_attr}
+    _attr_txt = []
+    if _cust_ds:
+        _attr_txt.append(f"총판: {_pt_name.get(_cust_ds, '-')}")
+    if _cust_rs:
+        _attr_txt.append(f"리셀러: {_pt_name.get(_cust_rs, '-')}")
+    st.caption("🤝 담당 영업 조직 — " + (" · ".join(_attr_txt) if _attr_txt else "미지정 (발주 시 등록자 소속으로 귀속)"))
+    if not user.get("partner_id"):  # 본부만 귀속 변경 가능
+        with st.expander("🤝 담당 영업 조직 지정·변경 (본부)"):
+            _dist_opts = {"(없음)": None} | {p["name"]: p["id"] for p in _pts_attr if p.get("is_distributor")}
+            _res_opts = {"(없음)": None} | {p["name"]: p["id"] for p in _pts_attr if p.get("is_reseller")}
+            _a1, _a2 = st.columns(2)
+            _sel_ds = _a1.selectbox("총판", list(_dist_opts.keys()),
+                                    index=(list(_dist_opts.values()).index(_cust_ds) if _cust_ds in _dist_opts.values() else 0),
+                                    key="cust_attr_ds")
+            _sel_rs = _a2.selectbox("리셀러", list(_res_opts.keys()),
+                                    index=(list(_res_opts.values()).index(_cust_rs) if _cust_rs in _res_opts.values() else 0),
+                                    key="cust_attr_rs")
+            if st.button("💾 귀속 저장", key="cust_attr_save"):
+                try:
+                    supabase.table("customers").update({
+                        "sales_distributor_id": _dist_opts[_sel_ds],
+                        "sales_reseller_id": _res_opts[_sel_rs],
+                    }).eq("id", customer.get("id")).execute()
+                    st.success("담당 영업 조직이 저장되었습니다. 이후 발주·매출이 이 귀속으로 배분됩니다.")
+                    st.rerun()
+                except Exception as _e:
+                    st.error(f"저장 실패: {_e}")
+
     # ── ➕ 발주 명세 등록 — 라이선스 외 항목 포함, 매출 원장 자동 연동 (2026-07-06) ──
     _PO_TYPES = {
         "monitoring_license": ("🖥️ 모니터링 라이선스", "석", None),
@@ -9430,6 +9472,12 @@ def _render_customer_sales_edit(customer, user):
         _po_price = _pq2.number_input("단가(원)", min_value=0, value=int(_po_defprice), step=10000, key="po_new_price")
         _po_total = int(_po_qty) * int(_po_price)
         _pq3.metric("발주 금액", _won(_po_total))
+        # 🏫 대상 학교 연결 (교육 항목) — 권역별 검색, 캠페인 기관정보 연동
+        _po_school = None
+        if _po_t != "monitoring_license":
+            _po_school = render_school_picker("po_pick", label="대상 학교 (선택)")
+            if _po_school:
+                st.caption(f"🏫 연결됨: {_po_school['name']} ({_po_school.get('region') or ''})")
         _po_note = st.text_input("메모", key="po_new_note", placeholder="예: 2026-2학기 OO교육청 일괄 계약")
         if _po_t == "visit_lecture_individual" and _po_price > 400000:
             st.warning("⚠️ 학교 개별 출장 강의는 1회당 400,000원 이하 협의가 원칙입니다.")
@@ -9439,12 +9487,20 @@ def _render_customer_sales_edit(customer, user):
             elif _po_t == "visit_lecture_individual" and _po_price > 400000:
                 st.error("학교 개별 출장 강의 단가는 400,000원을 초과할 수 없습니다.")
             else:
-                _rs_id, _ds_id = _resolve_partner_share_ids(user.get("partner_id"))
+                # 귀속 우선순위: ① 고객사 담당 영업 조직 → ② 등록자 소속 파트너 체인
+                if _cust_rs or _cust_ds:
+                    _rs_id, _ds_id = _cust_rs, _cust_ds
+                    if _rs_id and not _ds_id:
+                        _, _ds_id = _resolve_partner_share_ids(_rs_id)
+                else:
+                    _rs_id, _ds_id = _resolve_partner_share_ids(user.get("partner_id"))
                 try:
                     supabase.table("po_items").insert({
                         "customer_id": customer.get("id"),
                         "item_type": _po_t, "qty": int(_po_qty), "unit": _po_unit,
                         "unit_price": int(_po_price), "total_amount": _po_total,
+                        "institution_id": _po_school.get("institution_id") if _po_school else None,
+                        "school_name": _po_school.get("name") if _po_school else None,
                         "note": (_po_note or "").strip() or None,
                         "reseller_partner_id": _rs_id, "distributor_partner_id": _ds_id,
                         "created_by": user.get("id"),
@@ -9469,6 +9525,7 @@ def _render_customer_sales_edit(customer, user):
         st.dataframe(pd.DataFrame([{
             "일자": str(_p.get("created_at", ""))[:10],
             "항목": _PO_TYPES.get(_p.get("item_type"), (_p.get("item_type"), "", None))[0],
+            "학교": _p.get("school_name") or "-",
             "수량": f"{_p.get('qty', 0)}{_p.get('unit', '')}",
             "단가": _won(_p.get("unit_price", 0)),
             "금액": _won(_p.get("total_amount", 0)),
@@ -10867,6 +10924,61 @@ def render_subscription_dashboard(view="admin", partner_id=None, is_distributor=
                 except Exception as _e:
                     st.error(f"저장 실패: {_e}")
 
+# ═══ 🏫 공용 학교 선택 위젯 — 캠페인 참여 학교 + NEIS 전국 검색 (권역별) ═══
+#   발주서·출장강연 캘린더 등에서 학교 기본정보를 캠페인 기관정보(institutions)와 연동.
+#   NEIS 선택 시 neis_upsert_institution으로 동일 ID 체계에 편입 → 캠페인과 자동 연결.
+def render_school_picker(key_prefix, label="학교 선택 방식"):
+    """반환: {"institution_id","name","region","district","phone"} 또는 None(직접 입력)."""
+    _src = st.radio(label, ["직접 입력", "🏫 캠페인 참여 학교", "🔍 전국 학교 검색(NEIS)"],
+                    horizontal=True, key=f"{key_prefix}_src")
+    if _src == "직접 입력":
+        return None
+    if _src == "🏫 캠페인 참여 학교":
+        try:
+            _inst = supabase.table("institutions").select("id,name,region,district,phone,type")\
+                .is_("deleted_at", "null").order("name").limit(1000).execute().data or []
+        except Exception:
+            _inst = []
+        if not _inst:
+            st.info("캠페인 참여 학교가 아직 없습니다. 전국 검색(NEIS)을 이용하세요.")
+            return None
+        _regions = ["전체"] + sorted({i.get("region") for i in _inst if i.get("region")})
+        _rg = st.selectbox("권역(시·도)", _regions, key=f"{key_prefix}_inst_rg")
+        _flt = [i for i in _inst if _rg == "전체" or i.get("region") == _rg]
+        if not _flt:
+            st.info("해당 권역에 캠페인 참여 학교가 없습니다.")
+            return None
+        _names = [f"{i['name']} ({i.get('district') or i.get('region') or '-'})" for i in _flt]
+        _sel = st.selectbox(f"학교 ({len(_flt)}곳)", _names, key=f"{key_prefix}_inst_sel")
+        _s = _flt[_names.index(_sel)]
+        return {"institution_id": _s["id"], "name": _s["name"], "region": _s.get("region"),
+                "district": _s.get("district"), "phone": _s.get("phone")}
+    # 🔍 NEIS 전국 검색
+    _c1, _c2 = st.columns(2)
+    _rg = _c1.selectbox("권역(시·도)", ["전체"] + list(NEIS_REGION_CODES.keys()), key=f"{key_prefix}_neis_rg")
+    _q = _c2.text_input("학교명 검색 (2자 이상)", key=f"{key_prefix}_neis_q")
+    _rgc = NEIS_REGION_CODES.get(_rg) if _rg != "전체" else None
+    if not (_q and len(_q.strip()) >= 2) and not _rgc:
+        st.caption("권역을 고르거나 학교명을 입력하세요.")
+        return None
+    try:
+        _res = neis_search_schools(query=(_q or "").strip() or None, region_code=_rgc, limit=100)
+    except Exception:
+        _res = []
+    if not _res:
+        st.info("검색 결과가 없습니다.")
+        return None
+    _names = [f"{s['name']} ({s.get('district') or s.get('region') or '-'})" for s in _res]
+    _sel = st.selectbox(f"검색 결과 {len(_res)}건", _names, key=f"{key_prefix}_neis_sel")
+    _s = _res[_names.index(_sel)]
+    _iid = None
+    try:
+        _iid = neis_upsert_institution(_s)  # 캠페인 기관정보와 동일 ID 체계로 연동
+    except Exception:
+        pass
+    return {"institution_id": _iid, "name": _s["name"], "region": _s.get("region"),
+            "district": _s.get("district"), "phone": _s.get("phone")}
+
 # ═══ 🧑‍🏫 고객 교육(출장강연) 일정 — 신청→수락→강사배정→확정→완료 ═══
 #   리셀러/총판이 신청 → 총판·드래곤아이즈(또는 강사업체)가 수락·강사 배정 → 캘린더 공유
 #   교육청 일괄 수주는 엑셀 업로드. 선호일 없는 학교는 수주자가 연락·확정 책임.
@@ -10968,10 +11080,21 @@ def render_lecture_schedule_page(user):
     # ══ ② 신청·배정 관리 ══
     with _t_manage:
         with st.expander("➕ 출장강연 신청 (단건)", expanded=not _events):
+            # 🏫 권역별 학교 선택 — 캠페인 참여 학교·NEIS 전국 검색 연동
+            _pick = render_school_picker("lec_pick")
+            if _pick:
+                st.success(f"선택된 학교: **{_pick['name']}** ({_pick.get('region') or ''} {_pick.get('district') or ''})"
+                           + (f" · ☎ {_pick['phone']}" if _pick.get("phone") else ""))
             _f1, _f2, _f3 = st.columns(3)
-            _sch = _f1.text_input("학교·기관명 *", key="lec_new_school")
+            if _pick:
+                _sch = _pick["name"]
+                _f1.text_input("학교·기관명 *", value=_pick["name"], disabled=True, key="lec_new_school_ro")
+            else:
+                _sch = _f1.text_input("학교·기관명 *", key="lec_new_school")
             _cnm = _f2.text_input("학교 담당자", key="lec_new_contact")
-            _cph = _f3.text_input("담당자 연락처", key="lec_new_phone")
+            _cph = _f3.text_input("담당자 연락처",
+                                  placeholder=(_pick.get("phone") or "") if _pick else "",
+                                  key="lec_new_phone")
             _f4, _f5, _f6 = st.columns(3)
             _has_pref = _f4.checkbox("선호 일자 있음", value=True, key="lec_new_haspref")
             _pref = _f4.date_input("선호 일자", value=date.today() + timedelta(days=14),
@@ -10986,17 +11109,20 @@ def render_lecture_schedule_page(user):
                 if not (_sch or "").strip():
                     st.warning("학교·기관명을 입력해주세요.")
                 else:
+                    _ev_rs, _ev_ds = _resolve_partner_share_ids(_my_pid)
                     try:
                         supabase.table("lecture_events").insert({
                             "school_name": _sch.strip(),
+                            "institution_id": _pick.get("institution_id") if _pick else None,
+                            "region": _pick.get("region") if _pick else None,
                             "contact_name": (_cnm or "").strip() or None,
-                            "contact_phone": (_cph or "").strip() or None,
+                            "contact_phone": (_cph or "").strip() or ((_pick.get("phone") or None) if _pick else None),
                             "preferred_date": _pref.isoformat() if _pref else None,
                             "amount": int(_amt),
                             "status": "requested",
                             "requested_by": user.get("id"),
-                            "reseller_partner_id": _my_pid if (_my_pid and not _my_is_dist) else None,
-                            "distributor_partner_id": _my_pid if _my_is_dist else None,
+                            "reseller_partner_id": _ev_rs,
+                            "distributor_partner_id": _ev_ds,
                             "source": "manual",
                             "note": (_note or "").strip() or None,
                         }).execute()
@@ -11051,22 +11177,13 @@ def render_lecture_schedule_page(user):
                     if _can_manage and e.get("status") == "scheduled":
                         if st.button("✅ 강연 완료 → 매출 기록", key=f"lec_done_{e['id']}", use_container_width=True):
                             supabase.table("lecture_events").update({"status": "done"}).eq("id", e["id"]).execute()
-                            _g = int(e.get("amount") or 0)
-                            _ad = int(_g * 0.05) if e.get("distributor_partner_id") else 0
-                            _ar = int(_g * 0.15) if e.get("reseller_partner_id") else 0
-                            try:
-                                supabase.table("revenue_shares").insert({
-                                    "product": "instructor_visit", "gross_amount": _g,
-                                    "dragoneyes_amount": _g - _ad - _ar,
-                                    "distributor_partner_id": e.get("distributor_partner_id"),
-                                    "distributor_amount": _ad,
-                                    "reseller_partner_id": e.get("reseller_partner_id"),
-                                    "reseller_amount": _ar,
-                                    "paid_at": datetime.now().isoformat(),
-                                    "note": f"출장강연: {e.get('school_name')}",
-                                }).execute()
-                            except Exception:
-                                pass
+                            _ev_rs2 = e.get("reseller_partner_id")
+                            _ev_ds2 = e.get("distributor_partner_id")
+                            if _ev_rs2 and not _ev_ds2:
+                                _, _ev_ds2 = _resolve_partner_share_ids(_ev_rs2)
+                            record_revenue_share("instructor_visit", e.get("amount") or 0,
+                                                 reseller_id=_ev_rs2, distributor_id=_ev_ds2,
+                                                 note=f"출장강연: {e.get('school_name')}")
                             st.rerun()
                     if e.get("status") in ("requested", "accepted", "scheduled"):
                         if st.button("⛔ 취소", key=f"lec_cxl_{e['id']}", use_container_width=True):
@@ -11102,6 +11219,7 @@ def render_lecture_schedule_page(user):
                         _bid = f"batch_{int(_tm2.time())}"
                         _n_ok = 0
                         _price_now = get_service_price("instructor_visit", 300000)
+                        _blk_rs, _blk_ds = _resolve_partner_share_ids(_my_pid)
                         for _, _row in _df_up.iterrows():
                             _snm = str(_row.get("school_name") or "").strip()
                             if not _snm or _snm.lower() == "nan":
@@ -11123,8 +11241,8 @@ def render_lecture_schedule_page(user):
                                     "amount": _price_now,
                                     "status": "requested",
                                     "requested_by": user.get("id"),
-                                    "reseller_partner_id": _my_pid if (_my_pid and not _my_is_dist) else None,
-                                    "distributor_partner_id": _my_pid if _my_is_dist else None,
+                                    "reseller_partner_id": _blk_rs,
+                                    "distributor_partner_id": _blk_ds,
                                     "source": "excel", "batch_id": _bid,
                                     "note": (str(_row.get("note") or "").strip() or None) if str(_row.get("note") or "").lower() != "nan" else None,
                                 }).execute()
@@ -21208,6 +21326,9 @@ else:
                                     if _inst2:
                                         _attr_dist = _inst2[0].get("sales_distributor_id")
                                         _attr_res = _inst2[0].get("sales_reseller_id")
+                                        # 리셀러만 지정된 경우 상위 총판 체인 자동 해석
+                                        if _attr_res and not _attr_dist:
+                                            _, _attr_dist = _resolve_partner_share_ids(_attr_res)
                         except Exception:
                             pass
                         _gross = 17000
