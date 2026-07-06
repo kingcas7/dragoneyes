@@ -10382,9 +10382,12 @@ def search_type_label(st_val):
         "keyword":        "🔍 키워드탐색",
     }.get(st_val, st_val)
 
-# ═══ 💳 구독·매출 통합 현황 (가족안심 알람 월11,000 + 학사모 캠페인 학부모 연17,000) ═══
+# ═══ 💳 구독·매출 통합 현황 (가족안심 알람 + 학사모 캠페인 학부모 연17,000) ═══
+#   가족안심 월 구독료: 전용사용자(노드락) 11,000원 / 공동사용자(컨커런트) 9,000원 — 자동결제
 #   수익 배분: 드래곤아이즈 80% + 총판 5% + 리셀러 15% (미귀속분은 드래곤아이즈로)
 #   view='admin'(전체) / view='partner'(자기 귀속분 — 총판 5% 또는 리셀러 15%)
+FAMILY_ALARM_PRICE = {"nodelock": 11000, "concurrent": 9000}
+FAMILY_ALARM_LICENSE_LABEL = {"nodelock": "전용(노드락)", "concurrent": "공동(컨커런트)"}
 def _won(n):
     try:
         return f"{int(n):,}원"
@@ -10438,7 +10441,7 @@ def render_subscription_dashboard(view="admin", partner_id=None, is_distributor=
     _par_active = [s for s in _par_subs if s.get("status") == "active" and str(s.get("end_date") or "9999") >= _today]
     _m_shares = [s for s in _shares if str(s.get("paid_at", ""))[:7] == _month]
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("🏡 가족안심 활성", f"{len(_fam_active)}건", help="월 11,000원 정기구독")
+    c1.metric("🏡 가족안심 활성", f"{len(_fam_active)}건", help="전용(노드락) 월 11,000원 / 공동(컨커런트) 월 9,000원 — 자동결제")
     c2.metric("🎓 학부모 구독 활성", f"{len(_par_active)}건", help="연 17,000원 · 수동 갱신")
     c3.metric("이번달 결제액", _won(sum(s.get("gross_amount", 0) for s in _m_shares)))
     c4.metric("이번달 드래곤아이즈분", _won(sum(s.get("dragoneyes_amount", 0) for s in _m_shares)))
@@ -10466,8 +10469,8 @@ def render_subscription_dashboard(view="admin", partner_id=None, is_distributor=
             _wmap = {}
             try:
                 if _w_ids:
-                    for _w in (supabase.table("users").select("id,name").in_("id", _w_ids).execute().data or []):
-                        _wmap[_w["id"]] = _w.get("name", "")
+                    for _w in (supabase.table("users").select("id,name,license_type").in_("id", _w_ids).execute().data or []):
+                        _wmap[_w["id"]] = _w
             except Exception:
                 pass
             _week_ago = (date.today() - timedelta(days=7)).isoformat()
@@ -10485,9 +10488,13 @@ def render_subscription_dashboard(view="admin", partner_id=None, is_distributor=
             for s in _fam_subs:
                 _g = _gmap.get(s.get("guardian_id"), {})
                 _dv = _delivered.get(s.get("guardian_id"))
+                _w = _wmap.get(s.get("worker_user_id"), {})
+                _lt = s.get("worker_license_type") or _w.get("license_type") or "nodelock"
                 _rows.append({
                     "보호자": _g.get("name", "-"),
-                    "요원(대상)": _wmap.get(s.get("worker_user_id"), "-"),
+                    "요원(대상)": _w.get("name", "-"),
+                    "라이선스": FAMILY_ALARM_LICENSE_LABEL.get(_lt, _lt),
+                    "월 구독료": _won(s.get("amount") or FAMILY_ALARM_PRICE.get(_lt, 11000)),
                     "상태": {"active": "🟢 활성", "cancelled": "⚪ 해지", "ended": "🔚 업무종료", "expired": "⏰ 만료"}.get(s.get("status"), s.get("status")),
                     "구독 시작": str(s.get("started_at", ""))[:10],
                     "다음 결제": str(s.get("current_period_end") or "-"),
