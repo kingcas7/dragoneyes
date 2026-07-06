@@ -11607,6 +11607,27 @@ if st.session_state.user is None:
                 else:
                     st.warning(_pw["bad"])
 
+        # 카카오 로그인 버튼 — 키 설정 시 실동작(OAuth), 미설정 시 Coming Soon 유지
+        #   위치: 비밀번호 찾기 아래·회원가입 위 (간편 로그인 접근성)
+        if _kakao_login_enabled():
+            _kakao_btn_html = f"""
+        <a href="{kakao_authorize_url()}" target="_self" style="
+            display:block; text-align:center; background:#FEE500; color:#191919;
+            font-weight:700; padding:11px 0; border-radius:8px; text-decoration:none;
+            margin-top:4px; font-size:0.95rem;">💬 {t("login_kakao_btn").replace("💬 ","")}</a>
+        <p style="text-align:center; font-size:0.72rem; color:#94a3b8; margin:6px 0 0 0;">
+            본인인증으로 가입한 계정의 이메일과 동일한 카카오계정만 로그인됩니다</p>"""
+        else:
+            _kakao_btn_html = f"""
+        <div class="login-kakao-btn">
+            <span class="login-kakao-soon">{t("login_kakao_soon")}</span>
+            {t("login_kakao_btn")}
+        </div>"""
+        st.markdown(f"""
+        <div class="login-divider">OR</div>
+        {_kakao_btn_html}
+        """, unsafe_allow_html=True)
+
         # ⭐ 캠페인 모드 — 회원가입 진입 버튼 (Phase 3)
         if _login_mode == "campaign":
             st.markdown("---")
@@ -11638,24 +11659,7 @@ if st.session_state.user is None:
                         st.session_state["current_page"] = "campaign_signup_parent"
                         st.rerun()
 
-        # 카카오 로그인 버튼 — 키 설정 시 실동작(OAuth), 미설정 시 Coming Soon 유지
-        if _kakao_login_enabled():
-            _kakao_btn_html = f"""
-        <a href="{kakao_authorize_url()}" target="_self" style="
-            display:block; text-align:center; background:#FEE500; color:#191919;
-            font-weight:700; padding:11px 0; border-radius:8px; text-decoration:none;
-            margin-top:4px; font-size:0.95rem;">💬 {t("login_kakao_btn").replace("💬 ","")}</a>
-        <p style="text-align:center; font-size:0.72rem; color:#94a3b8; margin:6px 0 0 0;">
-            본인인증으로 가입한 계정의 이메일과 동일한 카카오계정만 로그인됩니다</p>"""
-        else:
-            _kakao_btn_html = f"""
-        <div class="login-kakao-btn">
-            <span class="login-kakao-soon">{t("login_kakao_soon")}</span>
-            {t("login_kakao_btn")}
-        </div>"""
         st.markdown(f"""
-        <div class="login-divider">OR</div>
-        {_kakao_btn_html}
         <div class="login-help">
             {t("login_help_link")}
         </div>
