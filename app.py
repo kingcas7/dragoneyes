@@ -10877,16 +10877,19 @@ if st.session_state.user is None:
             # 헤더 자리 확보용 큰 padding-top을 가진 stMain 첫 자식 제거 (←진짜 여백 원인)
             "div[data-testid='stMain'] > div:first-child { padding-top: 0 !important; margin-top: 0 !important; }"
             ".main .block-container > div:first-child { margin-top: 0 !important; padding-top: 0 !important; }"
-            # 모드 토글 버튼 작게 (70px → 48px)
-            ".login-mode-toggle .stButton > button { height: 48px !important; font-size: 13px !important; padding: 4px 12px !important; }"
+            # 모드 토글 버튼 작게 (70px → 42px)
+            ".login-mode-toggle .stButton > button { height: 42px !important; font-size: 13px !important; padding: 4px 12px !important; }"
             # 로그인 박스 내부 padding 축소
-            ".login-right-card { padding: 18px 24px !important; }"
+            ".login-right-card { padding: 14px 22px !important; }"
             # 폼 헤더 마진 축소
-            ".login-form-header { margin-bottom: 8px !important; }"
+            ".login-form-header { margin-bottom: 6px !important; }"
             # st.text_input 사이 간격 축소
             ".stTextInput { margin-bottom: 4px !important; }"
             # 기본 element 간 vertical gap 압축
-            ".main .block-container [data-testid='stVerticalBlock'] { gap: 0.35rem !important; }"
+            #   ⚠️ 최신 Streamlit: .main .block-container 체인 없음 → stMainBlockContainer 기준으로도 매칭
+            #   (style/script 전용 h=0 블록 9개가 각각 gap 16px 유발 → 상단 ~140px 빈 공간의 원인)
+            ".main .block-container [data-testid='stVerticalBlock'],"
+            "[data-testid='stMainBlockContainer'] [data-testid='stVerticalBlock'] { gap: 0.25rem !important; }"
             # 접근성 expander 위/아래 여백 축소
             "[data-testid='stExpander'] { margin-top: 0.2rem !important; margin-bottom: 0.2rem !important; }"
             # 보이지 않는 스크립트 컴포넌트(srcdoc iframe) 접기 — 빈 여백 제거(실제 영상 embed[src]는 보존)
@@ -10899,8 +10902,8 @@ if st.session_state.user is None:
     st.markdown("""
     <style>
     /* 메인 컨테이너 패딩 줄이기 — 상단 빈 공간 최소화 (토글 박스 위로) */
-    .block-container {
-        padding-top: 0.6rem !important;
+    .block-container, [data-testid="stMainBlockContainer"] {
+        padding-top: 0.4rem !important;
         padding-bottom: 1rem !important;
         max-width: 1280px !important;
     }
