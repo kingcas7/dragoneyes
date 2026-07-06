@@ -10382,6 +10382,195 @@ def search_type_label(st_val):
         "keyword":        "🔍 키워드탐색",
     }.get(st_val, st_val)
 
+# ═══ 💳 구독·매출 통합 현황 (가족안심 알람 월11,000 + 학사모 캠페인 학부모 연17,000) ═══
+#   수익 배분: 드래곤아이즈 80% + 총판 5% + 리셀러 15% (미귀속분은 드래곤아이즈로)
+#   view='admin'(전체) / view='partner'(자기 귀속분 — 총판 5% 또는 리셀러 15%)
+def _won(n):
+    try:
+        return f"{int(n):,}원"
+    except Exception:
+        return "0원"
+
+def render_subscription_dashboard(view="admin", partner_id=None, is_distributor=False):
+    _month = date.today().strftime("%Y-%m")
+    _today = date.today().isoformat()
+
+    try:
+        _fam_subs = supabase.table("subscriptions").select("*").eq("product", "family_alarm").execute().data or []
+    except Exception:
+        _fam_subs = []
+    try:
+        _par_subs = supabase.table("parent_subscriptions").select("*").execute().data or []
+    except Exception:
+        _par_subs = []
+    try:
+        _shares = supabase.table("revenue_shares").select("*").execute().data or []
+    except Exception:
+        _shares = []
+
+    if view == "partner" and partner_id:
+        # ── 파트너(총판/리셀러) 뷰 — 자기 귀속 배분만 ──
+        _key = "distributor_partner_id" if is_distributor else "reseller_partner_id"
+        _amt_key = "distributor_amount" if is_distributor else "reseller_amount"
+        _mine = [s for s in _shares if s.get(_key) == partner_id]
+        _m_month = [s for s in _mine if str(s.get("paid_at", ""))[:7] == _month]
+        _role_lbl = "총판 (5%)" if is_distributor else "리셀러 (15%)"
+        st.caption(f"내 귀속 매출 현황 — {_role_lbl} 배분 기준")
+        c1, c2, c3 = st.columns(3)
+        c1.metric("이번달 내 배분액", _won(sum(s.get(_amt_key, 0) for s in _m_month)))
+        c2.metric("누적 배분액", _won(sum(s.get(_amt_key, 0) for s in _mine)))
+        c3.metric("귀속 결제 건수", f"{len(_mine)}건")
+        if _mine:
+            _rows = [{
+                "일시": str(s.get("paid_at", ""))[:16].replace("T", " "),
+                "상품": "가족안심(월)" if s.get("product") == "family_alarm" else "학사모 캠페인(연)",
+                "결제액": _won(s.get("gross_amount", 0)),
+                "내 배분": _won(s.get(_amt_key, 0)),
+                "정산": "✅ 완료" if s.get("settled") else "⏳ 대기",
+            } for s in sorted(_mine, key=lambda x: str(x.get("paid_at", "")), reverse=True)[:200]]
+            st.dataframe(pd.DataFrame(_rows), use_container_width=True, hide_index=True)
+        else:
+            st.info("아직 귀속된 결제가 없습니다. 학교·지역 영업 성과가 결제로 이어지면 여기에 실시간 반영됩니다.")
+        return
+
+    # ── 관리자(전체) 뷰 ──
+    _fam_active = [s for s in _fam_subs if s.get("status") == "active"]
+    _par_active = [s for s in _par_subs if s.get("status") == "active" and str(s.get("end_date") or "9999") >= _today]
+    _m_shares = [s for s in _shares if str(s.get("paid_at", ""))[:7] == _month]
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("🏡 가족안심 활성", f"{len(_fam_active)}건", help="월 11,000원 정기구독")
+    c2.metric("🎓 학부모 구독 활성", f"{len(_par_active)}건", help="연 17,000원 · 수동 갱신")
+    c3.metric("이번달 결제액", _won(sum(s.get("gross_amount", 0) for s in _m_shares)))
+    c4.metric("이번달 드래곤아이즈분", _won(sum(s.get("dragoneyes_amount", 0) for s in _m_shares)))
+    _c5, _c6, _c7 = st.columns(3)
+    _c5.metric("누적 총판 배분(5%)", _won(sum(s.get("distributor_amount", 0) for s in _shares)))
+    _c6.metric("누적 리셀러 배분(15%)", _won(sum(s.get("reseller_amount", 0) for s in _shares)))
+    _c7.metric("누적 결제 건수", f"{len(_shares)}건")
+
+    _tab_fam, _tab_par, _tab_share = st.tabs(["🏡 가족안심 구독", "🎓 학부모 구독", "💰 배분 원장"])
+
+    with _tab_fam:
+        if not _fam_subs:
+            st.info("가족안심 알람 구독이 아직 없습니다. (상품 출시 전 — 테이블·대시보드 준비 완료 상태)")
+        else:
+            # 보호자·요원 이름, 최근 7일 알림 수신 여부
+            _g_ids = list({s.get("guardian_id") for s in _fam_subs if s.get("guardian_id")})
+            _gmap = {}
+            try:
+                if _g_ids:
+                    for _g in (supabase.table("care_guardians").select("id,name,guardian_type").in_("id", _g_ids).execute().data or []):
+                        _gmap[_g["id"]] = _g
+            except Exception:
+                pass
+            _w_ids = list({s.get("worker_user_id") for s in _fam_subs if s.get("worker_user_id")})
+            _wmap = {}
+            try:
+                if _w_ids:
+                    for _w in (supabase.table("users").select("id,name").in_("id", _w_ids).execute().data or []):
+                        _wmap[_w["id"]] = _w.get("name", "")
+            except Exception:
+                pass
+            _week_ago = (date.today() - timedelta(days=7)).isoformat()
+            _delivered = {}
+            try:
+                for _n in (supabase.table("care_notifications").select("guardian_id,delivered")
+                           .gte("notify_date", _week_ago).execute().data or []):
+                    _d = _delivered.setdefault(_n.get("guardian_id"), [0, 0])
+                    _d[0] += 1
+                    if _n.get("delivered"):
+                        _d[1] += 1
+            except Exception:
+                pass
+            _rows = []
+            for s in _fam_subs:
+                _g = _gmap.get(s.get("guardian_id"), {})
+                _dv = _delivered.get(s.get("guardian_id"))
+                _rows.append({
+                    "보호자": _g.get("name", "-"),
+                    "요원(대상)": _wmap.get(s.get("worker_user_id"), "-"),
+                    "상태": {"active": "🟢 활성", "cancelled": "⚪ 해지", "ended": "🔚 업무종료", "expired": "⏰ 만료"}.get(s.get("status"), s.get("status")),
+                    "구독 시작": str(s.get("started_at", ""))[:10],
+                    "다음 결제": str(s.get("current_period_end") or "-"),
+                    "최근7일 수신": f"{_dv[1]}/{_dv[0]}건" if _dv else "-",
+                })
+            st.dataframe(pd.DataFrame(_rows), use_container_width=True, hide_index=True)
+            # 요원 업무 종료 → 구독 자동 종료 처리 (수동 실행 버튼, 추후 cron화)
+            if st.button("🔚 업무 종료자 구독 정리 실행", key="sub_end_sweep",
+                         help="비활성/삭제된 요원의 가족안심 구독을 자동 종료하고 종료 알림을 기록합니다"):
+                _n_end = 0
+                try:
+                    _act = [s for s in _fam_subs if s.get("status") == "active" and s.get("worker_user_id")]
+                    _uids = list({s["worker_user_id"] for s in _act})
+                    _urows = supabase.table("users").select("id,status,deleted_at").in_("id", _uids).execute().data or []
+                    _inactive = {u["id"] for u in _urows if (u.get("status") or "active") != "active" or u.get("deleted_at")}
+                    for s in _act:
+                        if s["worker_user_id"] in _inactive:
+                            supabase.table("subscriptions").update({
+                                "status": "ended", "end_reason": "worker_ended",
+                                "cancelled_at": datetime.now().isoformat(), "auto_renew": False,
+                            }).eq("id", s["id"]).execute()
+                            try:
+                                supabase.table("care_notifications").insert({
+                                    "worker_user_id": s["worker_user_id"],
+                                    "guardian_id": s.get("guardian_id"),
+                                    "notify_date": _today, "kind": "end_notice",
+                                    "activity": None, "delivered": True,
+                                }).execute()
+                            except Exception:
+                                pass
+                            _n_end += 1
+                    st.success(f"종료 처리 {_n_end}건 — 알림 문구: 'OOO님의 모니터링 업무가 종료되어 알람서비스가 자동으로 종료됩니다.' (자동결제 중단)")
+                except Exception as _e:
+                    st.error(f"정리 실패: {_e}")
+
+    with _tab_par:
+        if not _par_subs:
+            st.info("학부모 구독이 아직 없습니다.")
+        else:
+            _p_ids = list({s.get("parent_id") for s in _par_subs if s.get("parent_id")})
+            _pmap = {}
+            try:
+                if _p_ids:
+                    for _p in (supabase.table("users").select("id,name,email").in_("id", _p_ids).execute().data or []):
+                        _pmap[_p["id"]] = _p
+            except Exception:
+                pass
+            _rows = [{
+                "학부모": _pmap.get(s.get("parent_id"), {}).get("name", "-"),
+                "이메일": _pmap.get(s.get("parent_id"), {}).get("email", "-"),
+                "연도": s.get("year"),
+                "금액": _won(s.get("amount", 17000)),
+                "상태": "🟢 활성" if s.get("status") == "active" else s.get("status"),
+                "만료일": str(s.get("end_date") or "-"),
+                "갱신": "수동 (매년 재결제)",
+            } for s in sorted(_par_subs, key=lambda x: str(x.get("start_date", "")), reverse=True)[:300]]
+            st.dataframe(pd.DataFrame(_rows), use_container_width=True, hide_index=True)
+
+    with _tab_share:
+        st.caption("배분 규칙: 드래곤아이즈 80% + 총판 5% + 리셀러 15% (귀속 없는 몫은 드래곤아이즈)")
+        if not _shares:
+            st.info("배분 기록이 아직 없습니다. 결제 완료 시 자동 기록됩니다.")
+        else:
+            _pt_ids = list({s.get("distributor_partner_id") for s in _shares} | {s.get("reseller_partner_id") for s in _shares})
+            _pt_ids = [p for p in _pt_ids if p]
+            _ptmap = {}
+            try:
+                if _pt_ids:
+                    for _p in (supabase.table("partners").select("id,name").in_("id", _pt_ids).execute().data or []):
+                        _ptmap[_p["id"]] = _p.get("name", "")
+            except Exception:
+                pass
+            _rows = [{
+                "일시": str(s.get("paid_at", ""))[:16].replace("T", " "),
+                "상품": "가족안심(월)" if s.get("product") == "family_alarm" else "학사모 캠페인(연)",
+                "결제액": _won(s.get("gross_amount", 0)),
+                "드래곤아이즈": _won(s.get("dragoneyes_amount", 0)),
+                "총판": f"{_ptmap.get(s.get('distributor_partner_id'), '-')} {_won(s.get('distributor_amount', 0))}" if s.get("distributor_partner_id") else "-",
+                "리셀러": f"{_ptmap.get(s.get('reseller_partner_id'), '-')} {_won(s.get('reseller_amount', 0))}" if s.get("reseller_partner_id") else "-",
+                "정산": "✅" if s.get("settled") else "⏳",
+            } for s in sorted(_shares, key=lambda x: str(x.get("paid_at", "")), reverse=True)[:300]]
+            st.dataframe(pd.DataFrame(_rows), use_container_width=True, hide_index=True)
+
 def go_to(page, from_tab=None):
     st.session_state.prev_page = st.session_state.current_page
     st.session_state.prev_tab = st.session_state.get("active_tab", 0)
@@ -14368,6 +14557,18 @@ else:
                 go_home(); st.rerun()
         with col_title:
             st.subheader("🤝 파트너관리자 모니터링 대시보드")
+
+        # ── 💳 내 매출 현황 (총판 5% / 리셀러 15%) — 파트너 소속 사용자에게만 ──
+        _my_pid = get_partner_id_for_user(user)
+        if _my_pid:
+            _my_is_dist = False
+            try:
+                _pt_row = supabase.table("partners").select("is_distributor").eq("id", _my_pid).limit(1).execute().data or []
+                _my_is_dist = bool(_pt_row and _pt_row[0].get("is_distributor"))
+            except Exception:
+                pass
+            with st.expander("💳 내 매출 현황 — 가족안심 알람·학사모 캠페인 배분", expanded=False):
+                render_subscription_dashboard(view="partner", partner_id=_my_pid, is_distributor=_my_is_dist)
 
         # ══════════════════════════════════════════════════════════════
         # 🏢 본부 전용 — 총판·다이렉트 파트너 관제 타워
@@ -20362,6 +20563,45 @@ else:
                             "note": f"결제 완료 (orderId={_toss_oid})",
                         }).execute()
                     except Exception: pass
+
+                    # 💰 수익 배분 원장 기록 — 드래곤아이즈 80% + 총판 5% + 리셀러 15% (2026-07-06)
+                    #    귀속: 학부모 첫 자녀의 학교 → institutions.sales_distributor_id / sales_reseller_id
+                    #    미귀속 몫(직판)은 드래곤아이즈로 귀속
+                    try:
+                        _attr_dist = None
+                        _attr_res = None
+                        try:
+                            _lnk = supabase.table("parent_student_links").select("student_id")\
+                                .eq("parent_id", _parent_id).limit(1).execute().data or []
+                            if _lnk:
+                                _stu = supabase.table("users").select("institution_id")\
+                                    .eq("id", _lnk[0]["student_id"]).limit(1).execute().data or []
+                                _inst_id2 = _stu[0].get("institution_id") if _stu else None
+                                if _inst_id2:
+                                    _inst2 = supabase.table("institutions")\
+                                        .select("sales_distributor_id,sales_reseller_id")\
+                                        .eq("id", _inst_id2).limit(1).execute().data or []
+                                    if _inst2:
+                                        _attr_dist = _inst2[0].get("sales_distributor_id")
+                                        _attr_res = _inst2[0].get("sales_reseller_id")
+                        except Exception:
+                            pass
+                        _gross = 17000
+                        _amt_dist = int(_gross * 0.05) if _attr_dist else 0
+                        _amt_res = int(_gross * 0.15) if _attr_res else 0
+                        supabase.table("revenue_shares").insert({
+                            "payment_id": (_pay_row or {}).get("id"),
+                            "product": "campaign_parent",
+                            "gross_amount": _gross,
+                            "dragoneyes_amount": _gross - _amt_dist - _amt_res,
+                            "distributor_partner_id": _attr_dist,
+                            "distributor_amount": _amt_dist,
+                            "reseller_partner_id": _attr_res,
+                            "reseller_amount": _amt_res,
+                            "paid_at": datetime.now().isoformat(),
+                        }).execute()
+                    except Exception:
+                        pass
             except Exception as _e:
                 st.warning(f"구독 활성화 실패 (결제는 완료): {_e}")
 
@@ -31527,10 +31767,15 @@ else:
         if (is_admin or is_super) and tab8:
             with tab8:
                 st.subheader(t("admin_title"))
-                admin_tab1, admin_tab2, admin_tab3, admin_tab4, admin_tab5, admin_tab6, admin_tab7, admin_tab8, admin_tab9, admin_tab10, admin_tab11, admin_tab12, admin_tab13, admin_tab14 = st.tabs([
+                admin_tab1, admin_tab2, admin_tab3, admin_tab4, admin_tab5, admin_tab6, admin_tab7, admin_tab8, admin_tab9, admin_tab10, admin_tab11, admin_tab12, admin_tab13, admin_tab14, admin_tab15 = st.tabs([
                     t("admin_team"), t("admin_assign"), t("admin_token"), t("admin_email"), t("admin_log"), "💬 채팅 토큰", "📡 채널 모니터링", "🧠 키워드 학습",
-                    "🏢 업체(Tenant) 관리", "🤝 파트너관리자 관리", "📣 알림 발송 센터", "📋 라이선스 신청 관리", "🗂️ 동의서 보관함", "🛡️ 다운로드 감사 로그"
+                    "🏢 업체(Tenant) 관리", "🤝 파트너관리자 관리", "📣 알림 발송 센터", "📋 라이선스 신청 관리", "🗂️ 동의서 보관함", "🛡️ 다운로드 감사 로그",
+                    "💳 구독·매출"
                 ])
+
+                # 💳 구독·매출 통합 현황 (가족안심 + 학사모 캠페인, 배분 원장)
+                with admin_tab15:
+                    render_subscription_dashboard(view="admin")
 
                 # 팀 현황
                 with admin_tab1:
