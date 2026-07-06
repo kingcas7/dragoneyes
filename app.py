@@ -10388,6 +10388,23 @@ def search_type_label(st_val):
 #   view='admin'(전체) / view='partner'(자기 귀속분 — 총판 5% 또는 리셀러 15%)
 FAMILY_ALARM_PRICE = {"nodelock": 11000, "concurrent": 9000}
 FAMILY_ALARM_LICENSE_LABEL = {"nodelock": "전용(노드락)", "concurrent": "공동(컨커런트)"}
+
+# 매출 분류 — 모니터링 라이선스 / 캠페인(기관·학부모) / 가족안심(부가) / 출장 강사
+REV_PRODUCT_LABEL = {
+    "monitoring_license": "🖥️ 모니터링 라이선스",
+    "campaign_institution": "🏫 캠페인(교육기관)",
+    "campaign_parent": "🎓 캠페인(학부모 연구독)",
+    "family_alarm": "🏡 가족안심 알람(부가)",
+    "instructor_visit": "🧑‍🏫 출장 강사",
+}
+
+def get_service_price(code, default):
+    """service_prices 단가 조회 (관리자 화면에서 수정 가능) — 실패 시 기본값 폴백."""
+    try:
+        _r = supabase.table("service_prices").select("price").eq("code", code).limit(1).execute().data or []
+        return int(_r[0]["price"]) if _r else default
+    except Exception:
+        return default
 def _won(n):
     try:
         return f"{int(n):,}원"
@@ -10423,12 +10440,33 @@ def render_subscription_dashboard(view="admin", partner_id=None, is_distributor=
         c1.metric("이번달 내 배분액", _won(sum(s.get(_amt_key, 0) for s in _m_month)))
         c2.metric("누적 배분액", _won(sum(s.get(_amt_key, 0) for s in _mine)))
         c3.metric("귀속 결제 건수", f"{len(_mine)}건")
+        # ── 분류별 배분 (모니터링 라이선스 / 캠페인 기관·학부모 / 가족안심 / 출장 강사) ──
+        st.markdown("**분류별 배분**")
+        _cat = {}
+        for s in _mine:
+            _c = _cat.setdefault(s.get("product") or "-", [0, 0, 0])
+            _a = s.get(_amt_key, 0)
+            _c[1] += _a
+            _c[2] += 1
+            if str(s.get("paid_at", ""))[:7] == _month:
+                _c[0] += _a
+        _cat_rows = [{
+            "분류": REV_PRODUCT_LABEL.get(_k, _k),
+            "이번달 배분": _won(_v[0]),
+            "누적 배분": _won(_v[1]),
+            "건수": f"{_v[2]}건",
+        } for _k, _v in _cat.items()]
+        if not _cat_rows:
+            _cat_rows = [{"분류": REV_PRODUCT_LABEL[_k], "이번달 배분": "0원", "누적 배분": "0원", "건수": "0건"}
+                         for _k in REV_PRODUCT_LABEL]
+        st.dataframe(pd.DataFrame(_cat_rows), use_container_width=True, hide_index=True)
         if _mine:
             _rows = [{
                 "일시": str(s.get("paid_at", ""))[:16].replace("T", " "),
-                "상품": "가족안심(월)" if s.get("product") == "family_alarm" else "학사모 캠페인(연)",
+                "분류": REV_PRODUCT_LABEL.get(s.get("product"), s.get("product")),
                 "결제액": _won(s.get("gross_amount", 0)),
                 "내 배분": _won(s.get(_amt_key, 0)),
+                "메모": (s.get("note") or "")[:40],
                 "정산": "✅ 완료" if s.get("settled") else "⏳ 대기",
             } for s in sorted(_mine, key=lambda x: str(x.get("paid_at", "")), reverse=True)[:200]]
             st.dataframe(pd.DataFrame(_rows), use_container_width=True, hide_index=True)
@@ -10450,7 +10488,31 @@ def render_subscription_dashboard(view="admin", partner_id=None, is_distributor=
     _c6.metric("누적 리셀러 배분(15%)", _won(sum(s.get("reseller_amount", 0) for s in _shares)))
     _c7.metric("누적 결제 건수", f"{len(_shares)}건")
 
-    _tab_fam, _tab_par, _tab_share = st.tabs(["🏡 가족안심 구독", "🎓 학부모 구독", "💰 배분 원장"])
+    # ── 분류별 매출 요약 (모니터링 라이선스 / 캠페인 기관·학부모 / 가족안심 / 출장 강사) ──
+    _cat_sum = {}
+    for s in _shares:
+        _c = _cat_sum.setdefault(s.get("product") or "-", [0, 0, 0, 0, 0])  # 결제액, DE, 총판, 리셀러, 건수
+        _c[0] += s.get("gross_amount", 0)
+        _c[1] += s.get("dragoneyes_amount", 0)
+        _c[2] += s.get("distributor_amount", 0)
+        _c[3] += s.get("reseller_amount", 0)
+        _c[4] += 1
+    _cat_rows = [{
+        "분류": REV_PRODUCT_LABEL.get(_k, _k),
+        "누적 결제액": _won(_v[0]),
+        "드래곤아이즈(80%)": _won(_v[1]),
+        "총판(5%)": _won(_v[2]),
+        "리셀러(15%)": _won(_v[3]),
+        "건수": f"{_v[4]}건",
+    } for _k, _v in _cat_sum.items()]
+    if not _cat_rows:
+        _cat_rows = [{"분류": REV_PRODUCT_LABEL[_k], "누적 결제액": "0원", "드래곤아이즈(80%)": "0원",
+                      "총판(5%)": "0원", "리셀러(15%)": "0원", "건수": "0건"} for _k in REV_PRODUCT_LABEL]
+    st.markdown("**분류별 매출 요약**")
+    st.dataframe(pd.DataFrame(_cat_rows), use_container_width=True, hide_index=True)
+
+    _tab_fam, _tab_par, _tab_share, _tab_entry = st.tabs(
+        ["🏡 가족안심 구독", "🎓 학부모 구독", "💰 배분 원장", "➕ 매출 등록·단가"])
 
     with _tab_fam:
         if not _fam_subs:
@@ -10569,14 +10631,89 @@ def render_subscription_dashboard(view="admin", partner_id=None, is_distributor=
                 pass
             _rows = [{
                 "일시": str(s.get("paid_at", ""))[:16].replace("T", " "),
-                "상품": "가족안심(월)" if s.get("product") == "family_alarm" else "학사모 캠페인(연)",
+                "분류": REV_PRODUCT_LABEL.get(s.get("product"), s.get("product")),
                 "결제액": _won(s.get("gross_amount", 0)),
                 "드래곤아이즈": _won(s.get("dragoneyes_amount", 0)),
                 "총판": f"{_ptmap.get(s.get('distributor_partner_id'), '-')} {_won(s.get('distributor_amount', 0))}" if s.get("distributor_partner_id") else "-",
                 "리셀러": f"{_ptmap.get(s.get('reseller_partner_id'), '-')} {_won(s.get('reseller_amount', 0))}" if s.get("reseller_partner_id") else "-",
+                "메모": (s.get("note") or "")[:30],
                 "정산": "✅" if s.get("settled") else "⏳",
             } for s in sorted(_shares, key=lambda x: str(x.get("paid_at", "")), reverse=True)[:300]]
             st.dataframe(pd.DataFrame(_rows), use_container_width=True, hide_index=True)
+
+    with _tab_entry:
+        # ── 수동 매출 등록 (모니터링 라이선스·기관 캠페인·출장 강사 — PG 미경유 매출) ──
+        st.markdown("**매출 건 등록** — 계약·현장 결제 등 PG를 거치지 않는 매출을 원장에 기록합니다")
+        _visit_price = get_service_price("instructor_visit", 300000)
+        try:
+            _pts_all = supabase.table("partners").select("id,name,is_distributor,is_reseller").execute().data or []
+        except Exception:
+            _pts_all = []
+        _dists = {p["name"]: p["id"] for p in _pts_all if p.get("is_distributor")}
+        _resels = {p["name"]: p["id"] for p in _pts_all if p.get("is_reseller")}
+        _e1, _e2 = st.columns(2)
+        with _e1:
+            _entry_product = st.selectbox("분류", ["instructor_visit", "monitoring_license", "campaign_institution"],
+                                          format_func=lambda x: REV_PRODUCT_LABEL.get(x, x), key="rev_entry_prod")
+            if _entry_product == "instructor_visit":
+                _visit_cnt = st.number_input("강의 회수", min_value=1, value=1, step=1, key="rev_entry_cnt")
+                _entry_amount = int(_visit_cnt) * _visit_price
+                st.caption(f"단가 {_won(_visit_price)}/회 × {int(_visit_cnt)}회 = **{_won(_entry_amount)}**")
+            else:
+                _entry_amount = st.number_input("금액(원)", min_value=0, value=0, step=10000, key="rev_entry_amt")
+            _entry_note = st.text_input("메모 (학교·기관명, 계약 건명 등)", key="rev_entry_note",
+                                        placeholder="예: OO중학교 딥페이크 예방 특강")
+        with _e2:
+            _entry_dist = st.selectbox("귀속 총판 (5%)", ["(없음 — 직판)"] + list(_dists.keys()), key="rev_entry_dist")
+            _entry_res = st.selectbox("귀속 리셀러 (15%)", ["(없음 — 직판)"] + list(_resels.keys()), key="rev_entry_res")
+            _entry_date = st.date_input("매출 일자", value=date.today(), key="rev_entry_date")
+        if st.button("💾 매출 등록", type="primary", key="rev_entry_save"):
+            if _entry_amount <= 0:
+                st.warning("금액을 입력해주세요.")
+            else:
+                _d_id = _dists.get(_entry_dist)
+                _r_id = _resels.get(_entry_res)
+                _a_d = int(_entry_amount * 0.05) if _d_id else 0
+                _a_r = int(_entry_amount * 0.15) if _r_id else 0
+                try:
+                    supabase.table("revenue_shares").insert({
+                        "product": _entry_product,
+                        "gross_amount": int(_entry_amount),
+                        "dragoneyes_amount": int(_entry_amount) - _a_d - _a_r,
+                        "distributor_partner_id": _d_id, "distributor_amount": _a_d,
+                        "reseller_partner_id": _r_id, "reseller_amount": _a_r,
+                        "paid_at": f"{_entry_date.isoformat()}T12:00:00",
+                        "note": (_entry_note or "").strip()[:200],
+                    }).execute()
+                    st.success(f"등록 완료 — {REV_PRODUCT_LABEL.get(_entry_product)} {_won(_entry_amount)} "
+                               f"(드래곤아이즈 {_won(int(_entry_amount)-_a_d-_a_r)} / 총판 {_won(_a_d)} / 리셀러 {_won(_a_r)})")
+                    st.rerun()
+                except Exception as _e:
+                    st.error(f"등록 실패: {_e}")
+
+        st.divider()
+        # ── 서비스 단가 설정 (추후 수정 가능 — 사장님 요청) ──
+        st.markdown("**서비스 단가 설정**")
+        try:
+            _prices = supabase.table("service_prices").select("*").order("code").execute().data or []
+        except Exception:
+            _prices = []
+        for _pr in _prices:
+            _pc1, _pc2, _pc3 = st.columns([3, 2, 1])
+            _pc1.write(f"{_pr.get('label')} (단위: {_pr.get('unit')})")
+            _new_price = _pc2.number_input("단가", min_value=0, value=int(_pr.get("price", 0)), step=1000,
+                                           key=f"svc_price_{_pr['code']}", label_visibility="collapsed")
+            if _pc3.button("저장", key=f"svc_price_save_{_pr['code']}"):
+                try:
+                    supabase.table("service_prices").update({
+                        "price": int(_new_price),
+                        "updated_at": datetime.now().isoformat(),
+                        "updated_by": (st.session_state.get("user") or {}).get("email", ""),
+                    }).eq("code", _pr["code"]).execute()
+                    st.success(f"{_pr.get('label')} → {_won(_new_price)} 저장됨")
+                    st.rerun()
+                except Exception as _e:
+                    st.error(f"저장 실패: {_e}")
 
 def go_to(page, from_tab=None):
     st.session_state.prev_page = st.session_state.current_page
