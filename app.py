@@ -3787,6 +3787,123 @@ def get_kakao_key():
 
 KAKAO_REST_API_KEY = get_kakao_key()
 
+# ════════ 💬 카카오 로그인 (OAuth) — 본인인증 가입 계정에 한해 간편 로그인 ════════
+#  정책: 카카오 로그인으로 '신규 가입' 불가. 휴대폰 본인인증을 거쳐 가입한 기존 계정만
+#        ① 연결된 kakao_id ② 인증된 동일 이메일 매칭으로 로그인 허용 (매칭 시 자동 연결).
+#  관리자 계정은 카카오 로그인 차단(이메일+OTP MFA 경로만 허용).
+KAKAO_CLIENT_SECRET = os.getenv("KAKAO_CLIENT_SECRET", "")
+KAKAO_REDIRECT_URI = os.getenv("KAKAO_REDIRECT_URI", "https://dragoneyes-production.up.railway.app/")
+
+def _kakao_login_enabled():
+    return bool(KAKAO_REST_API_KEY and KAKAO_CLIENT_SECRET)
+
+def _kakao_oauth_state(action="login"):
+    """CSRF 방지 state — OAuth 왕복에서 Streamlit 세션이 유지되지 않으므로 HMAC 서명 방식(무상태)."""
+    import hmac as _hmac, hashlib as _hl, time as _tm
+    _ts = str(int(_tm.time()))
+    _sig = _hmac.new(KAKAO_CLIENT_SECRET.encode(), f"{action}:{_ts}".encode(), _hl.sha256).hexdigest()[:20]
+    return f"dgeyes.{action}.{_ts}.{_sig}"
+
+def _kakao_oauth_state_valid(state, max_age_sec=600):
+    import hmac as _hmac, hashlib as _hl, time as _tm
+    try:
+        _pfx, _action, _ts, _sig = str(state).split(".")
+        if _pfx != "dgeyes" or abs(_tm.time() - int(_ts)) > max_age_sec:
+            return False
+        _exp = _hmac.new(KAKAO_CLIENT_SECRET.encode(), f"{_action}:{_ts}".encode(), _hl.sha256).hexdigest()[:20]
+        return _hmac.compare_digest(_sig, _exp)
+    except Exception:
+        return False
+
+def kakao_authorize_url():
+    from urllib.parse import urlencode as _ue
+    return "https://kauth.kakao.com/oauth/authorize?" + _ue({
+        "client_id": KAKAO_REST_API_KEY,
+        "redirect_uri": KAKAO_REDIRECT_URI,
+        "response_type": "code",
+        "state": _kakao_oauth_state("login"),
+    })
+
+def _kakao_exchange_code(code):
+    """인가코드 → 토큰 → 사용자 정보. 반환 dict(kakao_id/email/email_verified/nickname/refresh_token) 또는 None."""
+    try:
+        _tr = requests.post("https://kauth.kakao.com/oauth/token", data={
+            "grant_type": "authorization_code",
+            "client_id": KAKAO_REST_API_KEY,
+            "client_secret": KAKAO_CLIENT_SECRET,
+            "redirect_uri": KAKAO_REDIRECT_URI,
+            "code": code,
+        }, timeout=10).json()
+        _at = _tr.get("access_token")
+        if not _at:
+            return None
+        _me = requests.get("https://kapi.kakao.com/v2/user/me",
+                           headers={"Authorization": f"Bearer {_at}"}, timeout=10).json()
+        _acct = _me.get("kakao_account") or {}
+        return {
+            "kakao_id": str(_me.get("id") or ""),
+            "email": (_acct.get("email") or "").strip().lower(),
+            "email_verified": bool(_acct.get("is_email_valid")) and bool(_acct.get("is_email_verified")),
+            "nickname": ((_acct.get("profile") or {}).get("nickname") or ""),
+            "refresh_token": _tr.get("refresh_token") or "",
+        }
+    except Exception:
+        return None
+
+def _kakao_refresh_access(k_refresh):
+    """카카오 refresh_token → access_token 갱신 (세션 복원용). 실패 시 None."""
+    try:
+        _tr = requests.post("https://kauth.kakao.com/oauth/token", data={
+            "grant_type": "refresh_token",
+            "client_id": KAKAO_REST_API_KEY,
+            "client_secret": KAKAO_CLIENT_SECRET,
+            "refresh_token": k_refresh,
+        }, timeout=10).json()
+        return _tr if _tr.get("access_token") else None
+    except Exception:
+        return None
+
+def _kakao_user_by_token(access_token):
+    """access_token → kakao_id → users 조회 (preferences.kakao_id 매칭)."""
+    try:
+        _me = requests.get("https://kapi.kakao.com/v2/user/me",
+                           headers={"Authorization": f"Bearer {access_token}"}, timeout=10).json()
+        _kid = str(_me.get("id") or "")
+        if not _kid:
+            return None
+        _r = supabase.table("users").select("*").eq("preferences->>kakao_id", _kid).limit(1).execute()
+        return _r.data[0] if _r.data else None
+    except Exception:
+        return None
+
+def _kakao_find_user(kinfo):
+    """카카오 정보 → 기존 계정 매칭. ① 연결된 kakao_id ② 인증된 동일 이메일. 신규가입 없음."""
+    try:
+        if kinfo.get("kakao_id"):
+            _r = supabase.table("users").select("*").eq("preferences->>kakao_id", kinfo["kakao_id"]).limit(1).execute()
+            if _r.data:
+                return _r.data[0], "linked"
+        if kinfo.get("email") and kinfo.get("email_verified"):
+            _r = supabase.table("users").select("*").eq("email", kinfo["email"]).limit(1).execute()
+            if _r.data:
+                return _r.data[0], "email"
+    except Exception:
+        pass
+    return None, None
+
+def _kakao_link_user(u, kinfo):
+    """계정 preferences에 kakao_id 영구 연결 (최초 이메일 매칭 시)."""
+    try:
+        _prefs = u.get("preferences") or {}
+        if not isinstance(_prefs, dict):
+            _prefs = {}
+        _prefs["kakao_id"] = kinfo["kakao_id"]
+        _prefs["kakao_linked_at"] = datetime.now().isoformat()
+        supabase.table("users").update({"preferences": _prefs}).eq("id", u["id"]).execute()
+        u["preferences"] = _prefs
+    except Exception:
+        pass
+
 st.set_page_config(page_title="DragonEyes / 드래곤아이즈", page_icon="🐉", layout="wide")
 
 # ══════════════════════════════════════════════════════════
@@ -5354,6 +5471,37 @@ if "logged_out" in params:
     # 캠페인 로그인 모드 default
     st.session_state["login_mode"] = "campaign"
 
+# ─── 💬 카카오 세션 복원 (sid → "kakao:<refresh_token>") — supabase 경로보다 먼저 검사 ───
+#     성공 시 user가 설정되어 아래 supabase sid 블록은 자동 스킵. 실패 시 sid 정리 후 스킵.
+if "sid" in params and st.session_state.user is None and "logged_out" not in params:
+    try:
+        _ksid_raw = params["sid"]
+        _krt_pre = _lookup_app_session(_ksid_raw)
+        if _krt_pre and str(_krt_pre).startswith("kakao:"):
+            _ktr = _kakao_refresh_access(str(_krt_pre)[6:])
+            _ku_restore = _kakao_user_by_token(_ktr["access_token"]) if _ktr else None
+            if _ku_restore and (_ku_restore.get("status") or "active") == "active":
+                st.session_state.user = _ku_restore
+                # 🔐 sid 회전 — 새 kakao refresh_token 발급 시 교체 저장
+                _new_krt = (_ktr.get("refresh_token") or str(_krt_pre)[6:])
+                _set_session_param("kakao:" + _new_krt, _ku_restore.get("email", ""), old_sid=_ksid_raw)
+                _kmonth = date.today().strftime("%Y-%m")
+                _kres = supabase.table("reports").select("id").eq("user_id", _ku_restore["id"]).gte("created_at", f"{_kmonth}-01").execute()
+                st.session_state.report_count = len(_kres.data)
+                # 🚫 미성년자·캠페인 전용 → 카카오 복원 경로에서도 모니터링 차단
+                if monitoring_access_blocked(_ku_restore):
+                    st.session_state["login_mode"] = "campaign"
+                    _cp_krestore = st.session_state.get("current_page") or ""
+                    if not (_cp_krestore.startswith("campaign_") or _cp_krestore in _CAMPAIGN_ALLOWED_PAGES):
+                        st.session_state.current_page = "campaign_landing"
+            else:
+                _delete_app_session(_ksid_raw)
+                if "sid" in st.query_params:
+                    del st.query_params["sid"]
+    except Exception:
+        if "sid" in st.query_params:
+            del st.query_params["sid"]
+
 if "sid" in params and st.session_state.user is None and "logged_out" not in params:
     try:
         _sid_raw = params["sid"]
@@ -5406,6 +5554,60 @@ if "sid" in params and st.session_state.user is None and "logged_out" not in par
         # 세션 복원 실패 → sid 정리
         if "sid" in st.query_params:
             del st.query_params["sid"]
+
+# ─── 💬 카카오 로그인 콜백 (?code=&state=dgeyes.*) ───
+#     정책: 신규가입 불가(본인인증 가입 계정만 매칭) · 관리자 계정 차단(MFA 우회 방지)
+#     · 미성년자/캠페인 전용은 캠페인으로 강제 (모니터링 원천 차단 유지)
+if ("code" in params and str(params.get("state", "")).startswith("dgeyes.")
+        and st.session_state.user is None and "logged_out" not in params):
+    _kb_state = str(params.get("state", ""))
+    _kb_code = params.get("code")
+    # 재처리 방지 — code/state 즉시 제거
+    for _kb_p in ("code", "state"):
+        try:
+            if _kb_p in st.query_params:
+                del st.query_params[_kb_p]
+        except Exception:
+            pass
+    if not _kakao_login_enabled() or not _kakao_oauth_state_valid(_kb_state):
+        st.warning("카카오 로그인 요청이 만료되었거나 유효하지 않습니다. 다시 시도해주세요.")
+    else:
+        _kinfo = _kakao_exchange_code(_kb_code)
+        if not _kinfo or not _kinfo.get("kakao_id"):
+            st.error("카카오 로그인에 실패했습니다. 잠시 후 다시 시도해주세요.")
+        else:
+            _kb_user, _kb_how = _kakao_find_user(_kinfo)
+            _kb_is_admin = bool(_kb_user) and (
+                _kb_user.get("role") in ("admin", "superadmin")
+                or _kb_user.get("partner_role") == "partner_admin"
+                or _kb_user.get("is_tenant_admin")
+                or _kb_user.get("hq_position")
+            )
+            if not _kb_user:
+                st.warning(
+                    "🚫 이 카카오계정과 연결된 드래곤아이즈 계정이 없습니다. "
+                    "먼저 회원가입(휴대폰 본인인증)을 완료한 뒤, **가입 이메일과 동일한 카카오계정**으로 로그인해주세요."
+                )
+            elif (_kb_user.get("status") or "active") != "active":
+                st.warning("비활성 상태의 계정입니다. 관리자에게 문의해주세요.")
+            elif _kb_is_admin:
+                st.warning("🔐 관리자 계정은 보안 정책(이메일 OTP 인증)에 따라 카카오 로그인을 사용할 수 없습니다. 이메일+비밀번호로 로그인해주세요.")
+            else:
+                if _kb_how == "email":
+                    _kakao_link_user(_kb_user, _kinfo)  # 최초 이메일 매칭 → kakao_id 영구 연결
+                st.session_state.user = _kb_user
+                if _kinfo.get("refresh_token"):
+                    _set_session_param("kakao:" + _kinfo["refresh_token"], _kb_user.get("email", ""))
+                _kb_month = date.today().strftime("%Y-%m")
+                _kb_res = supabase.table("reports").select("id").eq("user_id", _kb_user["id"]).gte("created_at", f"{_kb_month}-01").execute()
+                st.session_state.report_count = len(_kb_res.data)
+                # 🚫 미성년자·캠페인 전용 → 캠페인 강제 / 일반 모니터링 사용자 → 홈
+                if monitoring_access_blocked(_kb_user):
+                    st.session_state["login_mode"] = "campaign"
+                    st.session_state.current_page = "campaign_landing"
+                else:
+                    st.session_state.current_page = "home_landing"
+                st.rerun()
 
 # ══════════════════════════════
 # 조직 관리 헬퍼 함수
@@ -11436,13 +11638,24 @@ if st.session_state.user is None:
                         st.session_state["current_page"] = "campaign_signup_parent"
                         st.rerun()
 
-        # 카카오 로그인 버튼 (비활성, Coming Soon)
-        st.markdown(f"""
-        <div class="login-divider">OR</div>
+        # 카카오 로그인 버튼 — 키 설정 시 실동작(OAuth), 미설정 시 Coming Soon 유지
+        if _kakao_login_enabled():
+            _kakao_btn_html = f"""
+        <a href="{kakao_authorize_url()}" target="_self" style="
+            display:block; text-align:center; background:#FEE500; color:#191919;
+            font-weight:700; padding:11px 0; border-radius:8px; text-decoration:none;
+            margin-top:4px; font-size:0.95rem;">💬 {t("login_kakao_btn").replace("💬 ","")}</a>
+        <p style="text-align:center; font-size:0.72rem; color:#94a3b8; margin:6px 0 0 0;">
+            본인인증으로 가입한 계정의 이메일과 동일한 카카오계정만 로그인됩니다</p>"""
+        else:
+            _kakao_btn_html = f"""
         <div class="login-kakao-btn">
             <span class="login-kakao-soon">{t("login_kakao_soon")}</span>
             {t("login_kakao_btn")}
-        </div>
+        </div>"""
+        st.markdown(f"""
+        <div class="login-divider">OR</div>
+        {_kakao_btn_html}
         <div class="login-help">
             {t("login_help_link")}
         </div>
