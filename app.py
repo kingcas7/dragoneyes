@@ -5244,6 +5244,56 @@ try:
 except Exception:
     pass
 
+# ═══════════════════════════════════════════════════════════════
+# 🚫 미성년자 모니터링 시스템 원천 차단 (핵심 정책)
+#   - 미성년자(만 19세 미만)는 어떤 경로로도 모니터링 시스템에 로그인/접근 불가
+#   - 판정 소스(하나라도 해당하면 미성년): ① role_v2=student
+#     ② 본인인증(idv) 기록의 is_minor ③ birth_date/birthdate 만나이 < 19
+#   - 차단 지점: login() · sid 세션복원 · 글로벌 페이지 가드 (다층 방어)
+# ═══════════════════════════════════════════════════════════════
+def _user_birth_date(u):
+    """users 레코드에서 생년월일 파싱 — 캠페인(birth_date)·모니터링(birthdate) 모두 지원."""
+    for _bk in ("birth_date", "birthdate"):
+        _bv = (u or {}).get(_bk)
+        if _bv:
+            try:
+                return date.fromisoformat(str(_bv)[:10])
+            except Exception:
+                continue
+    return None
+
+def is_minor_user(u):
+    """미성년자(만 19세 미만) 여부. 생년월일 미상이면 False (성인 판정은 role·idv로 보완)."""
+    if not u:
+        return False
+    if (u.get("role_v2") or "").lower() == "student":
+        return True
+    _prefs = u.get("preferences") or {}
+    if isinstance(_prefs, dict) and (_prefs.get("idv") or {}).get("is_minor"):
+        return True
+    _bd = _user_birth_date(u)
+    if _bd:
+        _t = date.today()
+        _age = _t.year - _bd.year - ((_t.month, _t.day) < (_bd.month, _bd.day))
+        return _age < 19
+    return False
+
+def monitoring_access_blocked(u):
+    """모니터링 시스템 접근 차단 대상 여부 — 미성년자 + 캠페인 전용 계정."""
+    return bool(u) and (is_minor_user(u) or bool(u.get("is_campaign_only")))
+
+# 차단 대상 사용자가 접근 가능한 페이지 (캠페인 생태계 전체)
+_CAMPAIGN_ALLOWED_PAGES = (
+    "campaign_landing", "campaign_materials", "campaign_status", "parent_dashboard",
+    "campaign_student_dashboard", "survey_respond", "payment_callback",
+    "campaign_signup_select", "campaign_signup_institution",
+    "campaign_signup_parent", "campaign_signup_student",
+    "institution_dashboard", "institution_approval", "institution_management",
+    "payment_management", "terms_management", "campaign_consent",
+    "materials_library", "material_view", "materials_management",
+    "surveys_management", "monitoring_stats", "notices",
+)
+
 # ─── 🔐 세션 복원: sid (refresh_token) 사용 ───
 # 옛 token 파라미터 호환 (기존 세션 마이그레이션) — 로그아웃 직후엔 skip
 if "token" in params and st.session_state.user is None and "logged_out" not in params:
@@ -5260,7 +5310,11 @@ if "token" in params and st.session_state.user is None and "logged_out" not in p
                 st.session_state.report_count = len(res.data)
                 _new_user = ud.data[0]
                 _new_role = (_new_user.get("role") or _new_user.get("role_v2") or "").lower()
-                if _new_role == "agency_admin" or _new_user.get("is_tenant_admin"):
+                if monitoring_access_blocked(_new_user):
+                    # 🚫 미성년자·캠페인 전용 → 레거시 token 복원 경로에서도 모니터링 차단
+                    st.session_state["login_mode"] = "campaign"
+                    st.session_state.current_page = "campaign_landing"
+                elif _new_role == "agency_admin" or _new_user.get("is_tenant_admin"):
                     st.session_state.current_page = "agency_dashboard"
                 else:
                     st.session_state.current_page = "home_landing"
@@ -5326,6 +5380,12 @@ if "sid" in params and st.session_state.user is None and "logged_out" not in par
                     this_month = date.today().strftime("%Y-%m")
                     res = supabase.table("reports").select("id").eq("user_id", _u["id"]).gte("created_at", f"{this_month}-01").execute()
                     st.session_state.report_count = len(res.data)
+                    # 🚫 미성년자·캠페인 전용 계정 → 세션복원 경로에서도 모니터링 차단, 캠페인 강제
+                    if monitoring_access_blocked(_u):
+                        st.session_state["login_mode"] = "campaign"
+                        _cp_restore = st.session_state.get("current_page") or ""
+                        if not (_cp_restore.startswith("campaign_") or _cp_restore in _CAMPAIGN_ALLOWED_PAGES):
+                            st.session_state.current_page = "campaign_landing"
                     # current_page는 사용자가 보던 페이지 보존하되, 기본값(home_landing)일 때는 role 기반 분기
                     _cur_page_sid = st.session_state.get("current_page", "home_landing")
                     if _cur_page_sid == "home_landing":
@@ -7790,6 +7850,9 @@ def _render_signup_institution():
         if not (_idv and _idv.get("verified")):
             st.error("📱 휴대폰 본인인증을 먼저 완료해주세요.")
             return
+        if _idv.get("is_minor"):
+            st.error("🚫 교육기관 담당자 가입은 성인(만 19세 이상)만 가능합니다.")
+            return
         if not _agree:
             st.error("약관에 동의해주세요.")
             return
@@ -7878,7 +7941,14 @@ def _render_signup_institution():
                     "is_campaign_only": False,  # 기관 사용자는 모니터링 연동 가능
                     "institution_id": _final_inst_id,
                     "status": "active",
-                    "preferences": {"campaign_title": _title or ""},
+                    "preferences": {
+                        "campaign_title": _title or "",
+                        # 본인인증 기록 보존 — 미성년 판정·감사 근거
+                        "idv": {"is_minor": bool(_idv.get("is_minor")),
+                                "birth": _idv.get("birth"),
+                                "method": _idv.get("method"),
+                                "verified_at": datetime.now().isoformat()},
+                    },
                 }).execute()
             except Exception as e:
                 st.error(f"❌ 사용자 정보 저장 실패: {e}")
@@ -7937,6 +8007,9 @@ def _render_signup_parent():
         if not (_idv and _idv.get("verified")):
             st.error("📱 휴대폰 본인인증을 먼저 완료해주세요.")
             return
+        if _idv.get("is_minor"):
+            st.error("🚫 학부모 가입은 성인(만 19세 이상)만 가능합니다. 학생은 '학생 회원가입'을 이용해주세요.")
+            return
         if not (_agree and _consent):
             st.error("약관과 보호자 동의 항목 모두 체크해주세요.")
             return
@@ -7966,7 +8039,14 @@ def _render_signup_parent():
                     "role_v2": "parent",
                     "is_campaign_only": False,
                     "status": "active",
-                    "preferences": {"parent_relationship_default": _relationship},
+                    "preferences": {
+                        "parent_relationship_default": _relationship,
+                        # 본인인증 기록 보존 — 미성년 판정·감사 근거
+                        "idv": {"is_minor": bool(_idv.get("is_minor")),
+                                "birth": _idv.get("birth"),
+                                "method": _idv.get("method"),
+                                "verified_at": datetime.now().isoformat()},
+                    },
                 }).execute()
             except Exception as e:
                 st.error(f"❌ 저장 실패: {e}")
@@ -8081,6 +8161,10 @@ def _render_signup_student():
         if not (_idv and _idv.get("verified")):
             st.error("📱 휴대폰 본인인증을 먼저 완료해주세요.")
             return
+        # 본인인증 생년월일과 입력 생년월일 불일치 → 나이 위조 방지
+        if _idv.get("birth") and _birth and str(_idv["birth"])[:10] != _birth.isoformat():
+            st.error("🚫 본인인증 생년월일과 입력한 생년월일이 다릅니다. 본인 명의로 다시 인증해주세요.")
+            return
         if not _agree:
             st.error("약관에 동의해주세요.")
             return
@@ -8136,6 +8220,11 @@ def _render_signup_student():
                     "preferences": {
                         "guardian_email": _parent_email or "",
                         "bulk_code_used": _bulk_code or "",
+                        # 본인인증 기록 보존 — 미성년 판정·감사 근거
+                        "idv": {"is_minor": bool(_idv.get("is_minor")),
+                                "birth": _idv.get("birth"),
+                                "method": _idv.get("method"),
+                                "verified_at": datetime.now().isoformat()},
                     },
                 }
                 # 만 14세 이상이거나 보호자 정보가 있어 동의 처리된 경우
@@ -8215,6 +8304,15 @@ def login(email, password):
             ud = supabase.table("users").select("*").eq("email", email).execute()
             if ud.data:
                 _u = ud.data[0]
+                # ─── 🚫 미성년자 모니터링 로그인 원천 차단 (핵심 정책) ───
+                #     모니터링 모드에서 미성년자·캠페인 전용 계정 → 로그인 자체 거부
+                if st.session_state.get("login_mode", "monitoring") == "monitoring" and monitoring_access_blocked(_u):
+                    try:
+                        supabase.auth.sign_out()
+                    except Exception:
+                        pass
+                    return False, ("🚫 미성년자 및 캠페인 전용 계정은 모니터링 시스템에 로그인할 수 없습니다. "
+                                   "'🎓 캠페인 로그인'으로 전환 후 이용해주세요.")
                 # ─── 🚫 주말 차단 검사 (일반 사용자만) ───
                 from datetime import datetime as _dt_login
                 _role = _u.get("role_v2", "user")
@@ -9766,7 +9864,7 @@ def get_token_info(user_id):
 
 def get_today_dragon_count(user_id):
     today = date.today().isoformat()
-    res = supabase.table("analyzed_urls").select("id").eq("assigned_to", user_id).gte("analyzed_at", today).in_("search_type", ["dragon_general","dragon_roblox","dragon_minecraft"]).execute()
+    res = supabase.table("analyzed_urls").select("id").eq("assigned_to", user_id).gte("analyzed_at", today).in_("search_type", ["dragon_general","dragon_roblox","dragon_minecraft","dragon_gambling","dragon_deepfake"]).execute()
     return len(res.data)
 
 # ════════ 모니터링 자동화 설정 ════════
@@ -9861,7 +9959,7 @@ def topup_recommendation_inventory(max_generate=300):
             return summary
         to_make = min(shortfall, max_generate)
         seen = get_analyzed_urls()       # 최근 분석 url(중복 회피용)
-        plats = ["general", "roblox", "minecraft", "gambling"]
+        plats = ["general", "roblox", "minecraft", "gambling", "deepfake"]
         gen = 0; rounds = 0; empty = 0
         while gen < to_make and rounds < 300:
             plat = plats[rounds % len(plats)]; rounds += 1; before = gen
@@ -9932,7 +10030,7 @@ def run_weekly_assignment_all_users(limit_users=None):
                 # ② 부족분만 실시간 생성(폴백)
                 if _assign_n - new_cnt > 0:
                     assigned_urls = get_analyzed_urls()
-                    for plat in ["general", "roblox", "minecraft", "gambling"]:
+                    for plat in ["general", "roblox", "minecraft", "gambling", "deepfake"]:
                         if new_cnt >= _assign_n:
                             break
                         for kw in generate_recommend_keywords(plat):
@@ -9995,7 +10093,7 @@ def extract_severity(text):
     return 1
 
 def extract_category(text):
-    for cat in ["섹스토션", "폭력유도", "그루밍", "성인", "부적절", "스팸", "안전"]:
+    for cat in ["섹스토션", "폭력유도", "그루밍", "딥페이크", "도박", "개인정보침해", "성인", "부적절", "스팸", "안전"]:
         if cat in text:
             return cat
     return "미분류"
@@ -10030,6 +10128,8 @@ def search_type_label(st_val):
         "dragon_general": "🐉 일반추천",
         "dragon_roblox":  "🎮 Roblox추천",
         "dragon_minecraft":"⛏️ Minecraft추천",
+        "dragon_gambling":"🎰 도박추천",
+        "dragon_deepfake":"🎭 딥페이크추천",
         "keyword":        "🔍 키워드탐색",
     }.get(st_val, st_val)
 
@@ -10129,6 +10229,21 @@ def generate_recommend_keywords(platform="general"):
             # 아이템/로벅스 미끼
             "로벅스 무료 지급 이벤트", "로블록스 아이템 공짜", "roblox 해킹 툴 무료",
         ],
+        "deepfake": [
+            # ⚠️ 탐지 한계: 검색어로는 '유포·제작의뢰·거래' 텍스트만 탐지 가능.
+            #    영상 자체가 딥페이크인지 판별은 별도 미디어 포렌식 기술 필요 (docs/딥페이크_탐지_로드맵 참고)
+            # 제작 의뢰·홍보 패턴
+            "딥페이크 제작 의뢰", "얼굴 합성 제작 해드립니다", "AI 얼굴 합성 의뢰",
+            "지인 사진 합성 의뢰", "합성 사진 제작 비용",
+            # 유포·거래 패턴
+            "합성 사진 판매", "지인능욕 방", "겹지인 능욕", "능욕 합성 제작",
+            # 학교·또래 타깃 패턴
+            "같은반 여자 합성", "여학생 얼굴 합성", "친구 얼굴 합성 야한",
+            # 도구·앱 유도 패턴
+            "옷 벗기는 AI 앱", "누드 합성 AI 무료", "딥페이크 앱 무료 사이트",
+            # 텔레그램 등 채널 유도
+            "텔레그램 합성방 입장", "딥페이크 텔레방 링크",
+        ],
         "minecraft": [
             # 마인크래프트 내 위험 표현
             "마인크래프트 여친 서버", "마크 커플 서버 모집", "마인크래프트 여자 친구",
@@ -10227,6 +10342,7 @@ def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="
 ⑦ 도박/사행성: 불법 배팅·토토·카지노 사이트 홍보, 첫충/보너스/무료머니 광고, 대리베팅·총판 모집, 파워볼·코인게임 수익인증, "용돈 버는 법" 위장 도박 유도
 ⑧ 가출/납치: 가출 조장, 만남 장소 공유
 ⑨ 자해/폭력: 자해 방법, 폭력 챌린지 유도
+⑩ 딥페이크/합성: 얼굴 합성 제작 의뢰·판매, 지인능욕, 옷 벗기는 AI·누드 합성 앱 홍보, 합성방 초대
 
 【댓글 분석 주의사항】
 - 댓글에서 연락처 요청, 만남 유도, 나이/학교 묻기 패턴이 있으면 심각도 +1
@@ -10238,7 +10354,7 @@ def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="
 
 반드시 아래 형식으로만 답변하세요:
 심각도: (1~5)
-분류: (안전/스팸/부적절/성인/그루밍/섹스토션/도박/폭력유도/개인정보침해)
+분류: (안전/스팸/부적절/성인/그루밍/섹스토션/도박/딥페이크/폭력유도/개인정보침해)
 위험신호: (발견된 위험 패턴 구체적으로, 없으면 "없음")
 이유: (한 줄 요약)"""}]
         )
@@ -11146,8 +11262,7 @@ if st.session_state.user is None:
                         # ⭐ MFA 통과 후에도 로그인 모드별 라우팅 적용 (일반 로그인 경로와 동일).
                         #    이게 없으면 관리자가 캠페인으로 로그인해도 모니터링으로 빠짐.
                         _u_mfa = st.session_state.get("user") or {}
-                        _role_v2_mfa = (_u_mfa.get("role_v2") or "").lower()
-                        _is_student_mfa = (_role_v2_mfa == "student") or bool(_u_mfa.get("is_campaign_only"))
+                        _is_student_mfa = monitoring_access_blocked(_u_mfa)
                         if _login_mode == "monitoring" and _is_student_mfa:
                             st.session_state["login_mode"] = "campaign"
                             st.session_state["current_page"] = "campaign_landing"
@@ -11184,16 +11299,15 @@ if st.session_state.user is None:
                 elif ok:
                     # ⭐ Phase 2 (v17): 학생 차단 가드 + 모드별 라우팅
                     _u = st.session_state.get("user") or {}
-                    _role_v2  = (_u.get("role_v2") or "").lower()
-                    _is_student = (_role_v2 == "student") or bool(_u.get("is_campaign_only"))
+                    _is_student = monitoring_access_blocked(_u)
 
                     if _login_mode == "monitoring" and _is_student:
-                        # 학생이 모니터링 모드 시도 → 차단 + 캠페인으로 강제 이동
+                        # 미성년자·캠페인 전용이 모니터링 모드 시도 → 차단 + 캠페인으로 강제 이동
                         accessibility.announce(
-                            "학생 사용자는 모니터링 시스템에 접근할 수 없습니다. "
+                            "미성년자 및 캠페인 전용 사용자는 모니터링 시스템에 접근할 수 없습니다. "
                             "캠페인 시스템으로 이동합니다."
                         )
-                        st.warning("⚠️ 학생 사용자는 모니터링 시스템에 접근할 수 없습니다. 캠페인 시스템으로 이동합니다.")
+                        st.warning("⚠️ 미성년자 및 캠페인 전용 사용자는 모니터링 시스템에 접근할 수 없습니다. 캠페인 시스템으로 이동합니다.")
                         st.session_state["login_mode"] = "campaign"
                         st.session_state["current_page"] = "campaign_landing"
                     elif _login_mode == "campaign":
@@ -12006,6 +12120,16 @@ else:
             except Exception: pass
     except Exception:
         pass
+
+    # ═══ 🚫 글로벌 페이지 가드: 미성년자·캠페인 전용 → 모니터링 페이지 렌더링 원천 차단 ═══
+    #     login()·세션복원 차단을 우회해도(모드 전환·query param 조작 등) 여기서 최종 차단
+    if monitoring_access_blocked(user):
+        st.session_state["login_mode"] = "campaign"
+        _cp_guard = st.session_state.get("current_page") or ""
+        if not (_cp_guard.startswith("campaign_") or _cp_guard in _CAMPAIGN_ALLOWED_PAGES):
+            st.session_state.current_page = "campaign_landing"
+            st.warning("⚠️ 미성년자 및 캠페인 전용 사용자는 모니터링 시스템에 접근할 수 없습니다.")
+            st.rerun()
 
     page = st.session_state.current_page
 
@@ -29326,7 +29450,7 @@ else:
                 else:
                     st.warning(t("dragon_daily_warn").format(DAILY_DRAGON_LIMIT))
 
-            btn1, btn2, btn3, btn4 = st.columns(4)
+            btn1, btn2, btn3, btn4, btn5 = st.columns(5)
             with btn1:
                 run_general = st.button(t("dragon_general"), use_container_width=True, disabled=not token_info["ok"])
             with btn2:
@@ -29335,6 +29459,8 @@ else:
                 run_minecraft = st.button(t("dragon_minecraft"), use_container_width=True, disabled=not token_info["ok"])
             with btn4:
                 run_gambling = st.button("🎰 도박 추천", use_container_width=True, disabled=not token_info["ok"])
+            with btn5:
+                run_deepfake = st.button("🎭 딥페이크 추천", use_container_width=True, disabled=not token_info["ok"])
 
             selected_platform = None
             selected_label = ""
@@ -29347,6 +29473,8 @@ else:
                 selected_platform = "minecraft"; selected_label = "⛏️ Minecraft"; selected_type = "dragon_minecraft"
             elif run_gambling:
                 selected_platform = "gambling"; selected_label = "🎰 도박"; selected_type = "dragon_gambling"
+            elif run_deepfake:
+                selected_platform = "deepfake"; selected_label = "🎭 딥페이크"; selected_type = "dragon_deepfake"
 
             # 🏭 관리자: 추천 인벤토리(사전생성 풀) 현황 + 채우기
             if is_admin or is_super:
