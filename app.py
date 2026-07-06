@@ -11295,6 +11295,202 @@ def render_lecture_schedule_page(user):
 def _html_escape_lec(s):
     return _html.escape(str(s or ""))
 
+# ═══ 🧾 발주하기 (파트너 PO 제출) — 영업기회 연동·서류 첨부·본부 승인 ═══
+PARTNER_PO_TYPES = {
+    "monitoring_license": ("🖥️ 모니터링 라이선스", "석", None),
+    "online_lecture_school": ("🏫 교육기관 온라인 강의 — 학교 수 × 단가", "학교", None),
+    "online_lecture_student": ("🏫 교육기관 온라인 강의 — 학생 수 × 단가", "학생", None),
+    "visit_lecture_bulk": ("🧑‍🏫 출장 강의 — 교육청 일괄 (기본 30만/회)", "회", ("instructor_visit", 300000)),
+    "visit_lecture_individual": ("🧑‍🏫 출장 강의 — 학교 개별 (40만/회 이하 협의)", "회", ("instructor_visit_individual", 400000)),
+}
+PARTNER_ORDER_STATUS = {"submitted": "🟡 검토 대기", "approved": "🟢 승인(발주 확정)", "rejected": "⛔ 반려"}
+
+def render_partner_order_page(user):
+    _is_hq = not user.get("partner_id")
+    _my_pid = get_partner_id_for_user(user)
+
+    if _is_hq:
+        # ── 본부: 발주 검토·승인 ──
+        st.subheader("🧾 발주 검토·승인 (본부)")
+        try:
+            _orders = supabase.table("partner_orders").select("*").order("created_at", desc=True).limit(300).execute().data or []
+        except Exception:
+            _orders = []
+        _flt = st.selectbox("상태", ["전체"] + list(PARTNER_ORDER_STATUS.values()), key="po_hq_flt")
+        for _o in _orders:
+            _lbl = PARTNER_ORDER_STATUS.get(_o.get("status"), _o.get("status"))
+            if _flt != "전체" and _lbl != _flt:
+                continue
+            with st.container(border=True):
+                _t_lbl = PARTNER_PO_TYPES.get(_o.get("item_type"), (_o.get("item_type"), "", None))[0]
+                st.markdown(f"**{_o.get('customer_name')}** — {_t_lbl} · "
+                            f"{_o.get('qty')}{_o.get('unit')} × {_won(_o.get('unit_price'))} = **{_won(_o.get('total_amount'))}** · {_lbl}")
+                st.caption(f"신청일 {str(_o.get('created_at', ''))[:16].replace('T', ' ')} · "
+                           f"담당 {_o.get('contact_name') or '-'} {_o.get('contact_phone') or ''} · "
+                           f"학교 {_o.get('school_name') or '-'} · 메모 {(_o.get('note') or '-')[:60]}")
+                for _att in (_o.get("attachments") or []):
+                    if isinstance(_att, dict) and _att.get("url"):
+                        st.markdown(f"📎 [{_att.get('name', '첨부파일')}]({_att['url']})")
+                if _o.get("status") == "submitted":
+                    _b1, _b2, _b3 = st.columns([1, 1, 3])
+                    if _b1.button("🟢 승인", key=f"po_ok_{_o['id']}", use_container_width=True):
+                        try:
+                            supabase.table("partner_orders").update({
+                                "status": "approved", "reviewed_by": user.get("id"),
+                                "reviewed_at": datetime.now().isoformat(),
+                            }).eq("id", _o["id"]).execute()
+                            _prod = ("monitoring_license" if _o["item_type"] == "monitoring_license"
+                                     else "campaign_institution" if str(_o["item_type"]).startswith("online_")
+                                     else "instructor_visit")
+                            record_revenue_share(_prod, _o.get("total_amount") or 0,
+                                                 reseller_id=_o.get("reseller_partner_id"),
+                                                 distributor_id=_o.get("distributor_partner_id"),
+                                                 note=f"발주 승인 #{_o['id']}: {_o.get('customer_name')}")
+                            st.success("승인 완료 — 매출 원장에 반영되었습니다.")
+                            st.rerun()
+                        except Exception as _e:
+                            st.error(f"승인 실패: {_e}")
+                    _rej_note = _b3.text_input("반려 사유", key=f"po_rej_note_{_o['id']}", label_visibility="collapsed",
+                                               placeholder="반려 사유 입력")
+                    if _b2.button("⛔ 반려", key=f"po_rej_{_o['id']}", use_container_width=True):
+                        supabase.table("partner_orders").update({
+                            "status": "rejected", "reviewed_by": user.get("id"),
+                            "reviewed_at": datetime.now().isoformat(),
+                            "review_note": (_rej_note or "").strip() or None,
+                        }).eq("id", _o["id"]).execute()
+                        st.rerun()
+                elif _o.get("review_note"):
+                    st.caption(f"반려 사유: {_o['review_note']}")
+        if not _orders:
+            st.info("접수된 발주가 없습니다.")
+        return
+
+    # ── 파트너: 발주 작성 ──
+    st.subheader("🧾 발주하기")
+    st.caption("영업 기회를 먼저 등록한 뒤, 여기서 불러와 발주를 제출합니다. 본부 검토(1~2 영업일) 후 확정됩니다.")
+
+    # ① 영업기회 불러오기
+    try:
+        _opps = supabase.table("opportunities").select(
+            "id,customer_name,customer_business_no,customer_contact_name,"
+            "customer_contact_phone,customer_contact_email,customer_address,"
+            "expected_amount,expected_seats,license_tier,status"
+        ).eq("assigned_partner_id", _my_pid).order("created_at", desc=True).limit(100).execute().data or []
+    except Exception:
+        _opps = []
+    _opp_labels = ["(영업기회 선택 안 함 — 직접 입력)"] + [
+        f"{o.get('customer_name', '-')} · {o.get('license_tier') or '-'} {o.get('expected_seats') or 0}석 · {_won(o.get('expected_amount') or 0)}"
+        for o in _opps]
+    _sel_opp_idx = st.selectbox("💼 영업기회 불러오기", range(len(_opp_labels)),
+                                format_func=lambda i: _opp_labels[i], key="po_opp_sel")
+    _opp = _opps[_sel_opp_idx - 1] if _sel_opp_idx > 0 else None
+    _kv = f"opp{_opp['id']}" if _opp else "manual"  # 선택 변경 시 위젯 초기화용 키
+
+    # ② 고객 정보
+    st.markdown("**① 고객 정보**")
+    _g1, _g2, _g3 = st.columns(3)
+    _cust_nm = _g1.text_input("고객사(기관)명 *", value=(_opp or {}).get("customer_name") or "", key=f"po_cn_{_kv}")
+    _cust_bn = _g2.text_input("사업자번호", value=(_opp or {}).get("customer_business_no") or "", key=f"po_bn_{_kv}")
+    _cust_ct = _g3.text_input("담당자", value=(_opp or {}).get("customer_contact_name") or "", key=f"po_ct_{_kv}")
+    _g4, _g5, _g6 = st.columns(3)
+    _cust_ph = _g4.text_input("연락처", value=(_opp or {}).get("customer_contact_phone") or "", key=f"po_ph_{_kv}")
+    _cust_em = _g5.text_input("이메일", value=(_opp or {}).get("customer_contact_email") or "", key=f"po_em_{_kv}")
+    _cust_ad = _g6.text_input("주소", value=(_opp or {}).get("customer_address") or "", key=f"po_ad_{_kv}")
+
+    # ③ 발주 내용
+    st.markdown("**② 발주 내용**")
+    _po_t = st.selectbox("발주 항목", list(PARTNER_PO_TYPES.keys()),
+                         format_func=lambda k: PARTNER_PO_TYPES[k][0], key="po_pt_type")
+    _po_lbl, _po_unit, _po_psrc = PARTNER_PO_TYPES[_po_t]
+    _q1, _q2, _q3 = st.columns(3)
+    _def_qty = int((_opp or {}).get("expected_seats") or 1) if _po_t == "monitoring_license" else 1
+    _po_qty = _q1.number_input(f"수량({_po_unit})", min_value=1, value=max(1, _def_qty), step=1, key=f"po_qty_{_kv}_{_po_t}")
+    _def_price = get_service_price(_po_psrc[0], _po_psrc[1]) if _po_psrc else 0
+    _po_price = _q2.number_input("단가(원)", min_value=0, value=int(_def_price), step=10000, key=f"po_price_{_kv}_{_po_t}")
+    _po_total = int(_po_qty) * int(_po_price)
+    _q3.metric("발주 금액", _won(_po_total))
+    if _po_t == "visit_lecture_individual" and _po_price > 400000:
+        st.warning("⚠️ 학교 개별 출장 강의는 1회당 400,000원 이하 협의가 원칙입니다.")
+    _po_school = None
+    if _po_t != "monitoring_license":
+        _po_school = render_school_picker("po_order_pick", label="대상 학교 (선택)")
+        if _po_school:
+            st.caption(f"🏫 연결됨: {_po_school['name']} ({_po_school.get('region') or ''})")
+    _po_note = st.text_input("메모·요청사항", key="po_pt_note")
+
+    # ④ 서류 첨부
+    st.markdown("**③ 발주 서류 첨부** (PO 양식·청약서·공문 등)")
+    _files = st.file_uploader("파일 첨부", type=["pdf", "xlsx", "docx", "png", "jpg", "zip", "hwp"],
+                              accept_multiple_files=True, key="po_pt_files")
+
+    if st.button("🧾 발주 제출 (본부 검토 요청)", type="primary", use_container_width=True, key="po_pt_submit"):
+        if not (_cust_nm or "").strip():
+            st.warning("고객사(기관)명을 입력해주세요.")
+        elif _po_price <= 0:
+            st.warning("단가를 입력해주세요.")
+        elif _po_t == "visit_lecture_individual" and _po_price > 400000:
+            st.error("학교 개별 출장 강의 단가는 400,000원을 초과할 수 없습니다.")
+        else:
+            # 첨부 업로드 (Documents 버킷)
+            _atts = []
+            import time as _tm3
+            for _f in (_files or []):
+                try:
+                    _ext = _f.name.rsplit(".", 1)[-1].lower() if "." in _f.name else "bin"
+                    _path = f"partner_orders/{(user.get('id') or 'anon')[:8]}_{int(_tm3.time())}_{len(_atts)}.{_ext}"
+                    _f.seek(0)
+                    sb_admin().storage.from_("Documents").upload(
+                        _path, _f.read(), {"content-type": _f.type or "application/octet-stream"})
+                    _url = sb_admin().storage.from_("Documents").create_signed_url(_path, 60 * 60 * 24 * 365)["signedURL"]
+                    _atts.append({"name": _f.name, "path": _path, "url": _url})
+                except Exception as _fe:
+                    st.warning(f"첨부 '{_f.name}' 업로드 실패: {str(_fe)[:80]}")
+            _rs_id, _ds_id = _resolve_partner_share_ids(_my_pid)
+            try:
+                supabase.table("partner_orders").insert({
+                    "opportunity_id": (_opp or {}).get("id"),
+                    "customer_name": _cust_nm.strip(),
+                    "business_number": (_cust_bn or "").strip() or None,
+                    "contact_name": (_cust_ct or "").strip() or None,
+                    "contact_phone": (_cust_ph or "").strip() or None,
+                    "contact_email": (_cust_em or "").strip() or None,
+                    "address": (_cust_ad or "").strip() or None,
+                    "item_type": _po_t, "qty": int(_po_qty), "unit": _po_unit,
+                    "unit_price": int(_po_price), "total_amount": _po_total,
+                    "institution_id": _po_school.get("institution_id") if _po_school else None,
+                    "school_name": _po_school.get("name") if _po_school else None,
+                    "note": (_po_note or "").strip() or None,
+                    "attachments": _atts,
+                    "reseller_partner_id": _rs_id, "distributor_partner_id": _ds_id,
+                    "created_by": user.get("id"),
+                }).execute()
+                st.success(f"✅ 발주가 제출되었습니다 — {_won(_po_total)} (본부 검토 후 확정·매출 반영)")
+                st.rerun()
+            except Exception as _e:
+                st.error(f"제출 실패: {_e}")
+
+    # ⑤ 내 발주 이력
+    st.divider()
+    st.markdown("**📋 내 발주 이력**")
+    try:
+        _mine = supabase.table("partner_orders").select("*")\
+            .or_(f"reseller_partner_id.eq.{_my_pid},distributor_partner_id.eq.{_my_pid}")\
+            .order("created_at", desc=True).limit(100).execute().data or []
+    except Exception:
+        _mine = []
+    if _mine:
+        st.dataframe(pd.DataFrame([{
+            "신청일": str(_o.get("created_at", ""))[:10],
+            "고객사": _o.get("customer_name"),
+            "항목": PARTNER_PO_TYPES.get(_o.get("item_type"), (_o.get("item_type"),))[0],
+            "금액": _won(_o.get("total_amount", 0)),
+            "학교": _o.get("school_name") or "-",
+            "상태": PARTNER_ORDER_STATUS.get(_o.get("status"), _o.get("status")),
+            "반려사유": (_o.get("review_note") or "-")[:30],
+        } for _o in _mine]), use_container_width=True, hide_index=True)
+    else:
+        st.caption("발주 이력이 없습니다.")
+
 def go_to(page, from_tab=None):
     st.session_state.prev_page = st.session_state.current_page
     st.session_state.prev_tab = st.session_state.get("active_tab", 0)
@@ -13072,6 +13268,7 @@ else:
         "support_request", "partner_info", "partner_admins", "sales_pipeline",
         "approval_requests", "distributor_sales", "partner_sales", "customer_detail",
         "partner_register", "user_profile", "user_detail", "lecture_schedule",
+        "partner_order",
     }
     # ── 음성지원(접근성)은 '모니터링 업무 페이지'에서만 노출 (일관성) ──
     #    화이트리스트 방식 — 아래 목록 외(파트너/관리/프로필/캠페인 등)에서는
@@ -15310,11 +15507,20 @@ else:
         if not _hq_tower:
             ab1, ab2, ab3 = st.columns([2, 2, 6])
             with ab1:
-                if st.button("➕ 신규 라이선스 신청", type="primary", use_container_width=True, key="new_license_btn"):
-                    go_to("license_request"); st.rerun()
+                # 파트너는 '발주하기'(영업기회 연동 PO 제출) / 본부는 기존 라이선스 신청
+                if user.get("partner_id"):
+                    if st.button("🧾 발주하기", type="primary", use_container_width=True, key="new_license_btn"):
+                        go_to("partner_order"); st.rerun()
+                else:
+                    if st.button("➕ 신규 라이선스 신청", type="primary", use_container_width=True, key="new_license_btn"):
+                        go_to("license_request"); st.rerun()
             with ab2:
-                if st.button("📋 신청 이력 보기", use_container_width=True, key="license_history_btn"):
-                    go_to("license_request"); st.rerun()
+                if user.get("partner_id"):
+                    if st.button("📋 발주 이력 보기", use_container_width=True, key="license_history_btn"):
+                        go_to("partner_order"); st.rerun()
+                else:
+                    if st.button("📋 신청 이력 보기", use_container_width=True, key="license_history_btn"):
+                        go_to("license_request"); st.rerun()
             st.divider()
 
         if _hq_tower:
@@ -19955,6 +20161,10 @@ else:
     elif page == "lecture_schedule":
         _partner_back_btn("back_top_lecture_schedule")
         render_lecture_schedule_page(user)
+
+    elif page == "partner_order":
+        _partner_back_btn("back_top_partner_order")
+        render_partner_order_page(user)
 
     elif page == "sales_pipeline":
         _partner_back_btn("back_top_sales_pipeline")
