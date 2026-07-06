@@ -15300,13 +15300,13 @@ else:
         st.markdown("""
         <style>
         .ac-card {
-            border-radius: 12px;
-            padding: 12px 8px 10px 8px;
+            border-radius: 10px;
+            padding: 7px 6px 6px 6px;
             text-align: center;
             cursor: pointer;
             transition: all 0.2s ease;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
-            min-height: 75px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            min-height: 54px;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -15316,9 +15316,21 @@ else:
             transform: translateY(-2px);
             box-shadow: 0 6px 14px rgba(0,0,0,0.10);
         }
-        .ac-card .ac-icon { font-size: 1.5rem; line-height: 1; }
-        .ac-card .ac-title { font-size: 0.78rem; font-weight: 700; margin-top: 4px; color: #0f172a; }
-        .ac-card .ac-desc { font-size: 0.62rem; color: #475569; margin-top: 2px; }
+        .ac-card .ac-icon { font-size: 1.1rem; line-height: 1; }
+        .ac-card .ac-title { font-size: 0.72rem; font-weight: 700; margin-top: 3px; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+        .ac-card .ac-desc { font-size: 0.56rem; color: #475569; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+        /* 📱 모바일: 카드 행을 가로 유지 + 2개씩 줄바꿈 (구형 웹뷰는 세로 스택 폴백) */
+        @media (max-width: 640px) {
+            [data-testid="stHorizontalBlock"]:has(.ac-card) {
+                flex-direction: row !important; flex-wrap: wrap !important; gap: 6px !important;
+            }
+            [data-testid="stHorizontalBlock"]:has(.ac-card) [data-testid="stColumn"],
+            [data-testid="stHorizontalBlock"]:has(.ac-card) [data-testid="column"] {
+                flex: 0 0 calc(50% - 6px) !important; width: calc(50% - 6px) !important; min-width: 0 !important;
+            }
+            .ac-card { min-height: 48px; padding: 5px 4px; }
+            .ac-card .ac-desc { display: none; }
+        }
         /* 카드 색상 */
         .ac-blue   { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1px solid #bfdbfe; }
         .ac-cyan   { background: linear-gradient(135deg, #ecfeff 0%, #cffafe 100%); border: 1px solid #a5f3fc; }
@@ -15357,23 +15369,21 @@ else:
                     st.rerun()
 
         st.markdown("##### 📁 고객 관리")
-        # 가운데 정렬: 좌우 여백 + 8개 카드 → 4컬럼이지만 절반 너비
-        _pad_l1, ac1, ac2, ac3, ac4, _pad_r1 = st.columns([1, 1.5, 1.5, 1.5, 1.5, 1])
-        _action_card(ac1, "🏢", "고객사 관리", "업체 정보 등록·수정", "card_customer_mgmt", "customer_management", "ac-blue")
-        _action_card(ac2, "👥", "사용자 관리", "추가·수정·퇴사", "card_user_mgmt", "user_management", "ac-cyan")
-        _action_card(ac3, "🔍", "사용자 검색", "업체·지역·기관별", "card_user_search", "user_search", "ac-indigo")
-        _action_card(ac4, "💼", "라이선스 현황", "발급·만료·갱신", "card_license_status", "license_status", "ac-violet")
-        # 📅 고객 교육(출장강연) 일정 + 강사 등록 (2026-07-06)
-        _pad_l1b, ac1b, ac2b, _sp1b, _sp2b, _pad_r1b = st.columns([1, 1.5, 1.5, 1.5, 1.5, 1])
-        _action_card(ac1b, "📅", "고객 교육 일정", "출장강연 신청·배정·캘린더", "card_lecture_schedule", "lecture_schedule", "ac-green")
-        _action_card(ac2b, "🧑‍🏫", "캠페인 강의 강사등록", "강사 풀 등록·관리 (총판·본부)", "card_lecture_inst", "lecture_schedule", "ac-amber")
+        # 한 줄 6칸 균등 — 데스크톱 1행, 모바일은 CSS로 2개씩 줄바꿈 (2026-07-06 컴팩트 재구성)
+        _r1 = st.columns(6, gap="small")
+        _action_card(_r1[0], "🏢", "고객사 관리", "업체 정보 등록·수정", "card_customer_mgmt", "customer_management", "ac-blue")
+        _action_card(_r1[1], "👥", "사용자 관리", "추가·수정·퇴사", "card_user_mgmt", "user_management", "ac-cyan")
+        _action_card(_r1[2], "🔍", "사용자 검색", "업체·지역·기관별", "card_user_search", "user_search", "ac-indigo")
+        _action_card(_r1[3], "💼", "라이선스 현황", "발급·만료·갱신", "card_license_status", "license_status", "ac-violet")
+        _action_card(_r1[4], "📅", "고객 교육 일정", "출장강연 신청·배정·캘린더", "card_lecture_schedule", "lecture_schedule", "ac-green")
+        _action_card(_r1[5], "🧑‍🏫", "강의 강사등록", "강사 풀 등록·관리", "card_lecture_inst", "lecture_schedule", "ac-amber")
 
         st.markdown("##### 📊 보고 및 운영")
-        _pad_l2, ac5, ac6, ac7, ac8, _pad_r2 = st.columns([1, 1.5, 1.5, 1.5, 1.5, 1])
-        _action_card(ac5, "📊", "보고서 통계", "월간 활동 리포트", "card_report_stats", "report_stats", "ac-green")
-        _action_card(ac6, "📑", "공단 서류 대행", "월간 서류 작성", "card_doc_agency", "doc_agency", "ac-amber")
-        _action_card(ac7, "📨", "Support Request", "본부에 요청", "card_support_request", "support_request", "ac-rose")
-        _action_card(ac8, "⚙️", "파트너 정보", "우리 회사 정보", "card_partner_info", "partner_info", "ac-slate")
+        _r2 = st.columns(6, gap="small")
+        _action_card(_r2[0], "📊", "보고서 통계", "월간 활동 리포트", "card_report_stats", "report_stats", "ac-green")
+        _action_card(_r2[1], "📑", "공단 서류 대행", "월간 서류 작성", "card_doc_agency", "doc_agency", "ac-amber")
+        _action_card(_r2[2], "📨", "Support Request", "본부에 요청", "card_support_request", "support_request", "ac-rose")
+        _action_card(_r2[3], "⚙️", "파트너 정보", "우리 회사 정보", "card_partner_info", "partner_info", "ac-slate")
 
         st.markdown("##### 👥 조직 관리 & 💼 Opportunity")
         # 🔔 신규 등록 요청 카드 — 본부(드래곤아이즈) 직원 전용 (2026-05-17 수정)
@@ -15393,14 +15403,14 @@ else:
         _approval_desc = f"⚠️ {_pending_count}건 대기 중" if _pending_count > 0 else "승인 대기 영업 기회"
         _approval_icon = "🚨" if _pending_count > 0 else "🔔"
 
+        # 동일한 6칸 그리드 — 카드 크기를 다른 행과 통일 (비정상 확대 수정, 2026-07-06)
+        _r3 = st.columns(6, gap="small")
+        _action_card(_r3[0], "👥", "담당자 관리", "대표 지정·해제·비활성화", "card_partner_admins", "partner_admins", "ac-teal")
         if _show_approval_card:
-            ac9, ac_approval, ac_op = st.columns(3)
+            _action_card(_r3[1], _approval_icon, f"신규 등록 요청{(' (' + str(_pending_count) + ')') if _pending_count > 0 else ''}", _approval_desc, "card_approval_requests", "approval_requests", "ac-rose")
+            _action_card(_r3[2], "📊", "영업 파이프라인", "고객 발굴·계약 관리", "card_sales_pipeline", "sales_pipeline", "ac-blue")
         else:
-            ac9, ac_op = st.columns(2)
-        _action_card(ac9, "👥", "담당자 관리", "대표 지정·해제·비활성화", "card_partner_admins", "partner_admins", "ac-teal")
-        if _show_approval_card:
-            _action_card(ac_approval, _approval_icon, f"신규 등록 요청{(' (' + str(_pending_count) + ')') if _pending_count > 0 else ''}", _approval_desc, "card_approval_requests", "approval_requests", "ac-rose")
-        _action_card(ac_op, "📊", "영업 파이프라인", "고객 발굴·계약 관리·Forecast", "card_sales_pipeline", "sales_pipeline", "ac-blue")
+            _action_card(_r3[1], "📊", "영업 파이프라인", "고객 발굴·계약 관리", "card_sales_pipeline", "sales_pipeline", "ac-blue")
 
 
         st.divider()
