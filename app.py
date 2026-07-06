@@ -3777,6 +3777,16 @@ def get_naver_keys():
     return cid, sec
 NAVER_CLIENT_ID, NAVER_CLIENT_SECRET = get_naver_keys()
 
+def get_kakao_key():
+    """카카오(다음 검색) REST API 키 — 환경변수 우선, st.secrets 폴백."""
+    key = os.getenv("KAKAO_REST_API_KEY", "")
+    if not key:
+        try: key = st.secrets.get("KAKAO_REST_API_KEY", "")
+        except Exception: key = ""
+    return key
+
+KAKAO_REST_API_KEY = get_kakao_key()
+
 st.set_page_config(page_title="DragonEyes / 드래곤아이즈", page_icon="🐉", layout="wide")
 
 # ══════════════════════════════════════════════════════════
@@ -30612,13 +30622,54 @@ else:
                             st.warning(f"{t_type} 검색 오류: {resp.status_code}")
                     return results
 
+                def kakao_search(query, search_type, display=10):
+                    """다음(Daum) 검색 — KAKAO_REST_API_KEY 설정 시 네이버 결과에 병행 추가.
+                    네이버 item과 동일 스키마로 매핑(title/description/link/pubDate/cafename/_type).
+                    '전체'일 땐 카페·블로그에 더해 네이버가 못 보는 웹문서까지 커버."""
+                    if not KAKAO_REST_API_KEY:
+                        return []
+                    headers = {"Authorization": f"KakaoAK {KAKAO_REST_API_KEY}"}
+                    endpoints = {"카페": "cafe", "블로그": "blog", "웹문서": "web"}
+                    types = ["카페", "블로그", "웹문서"] if search_type == "전체" else [search_type]
+                    results = []
+                    for t_type in types:
+                        ep = endpoints.get(t_type)
+                        if not ep:
+                            continue  # 뉴스 등 다음 검색 미지원 타입은 스킵(네이버가 커버)
+                        try:
+                            resp = requests.get(
+                                f"https://dapi.kakao.com/v2/search/{ep}",
+                                headers=headers,
+                                params={"query": query, "size": min(display, 50), "sort": "recency"},
+                                timeout=10)
+                            if resp.status_code == 200:
+                                for d in resp.json().get("documents", []):
+                                    results.append({
+                                        "title": d.get("title", ""),
+                                        "description": d.get("contents", ""),
+                                        "link": d.get("url", ""),
+                                        "pubDate": (d.get("datetime") or "")[:10],
+                                        "cafename": d.get("cafename", ""),
+                                        "_type": t_type,
+                                        "_source": "다음",
+                                    })
+                            else:
+                                st.warning(f"다음 {t_type} 검색 오류: {resp.status_code}")
+                        except Exception:
+                            pass
+                    return results
+
                 def clean_html(text):
                     import re
                     return re.sub(r'<[^>]+>', '', text)
 
+                if KAKAO_REST_API_KEY:
+                    st.caption("🔎 다음(Daum) 검색 병행 중 — 카페·블로그 + '전체' 선택 시 웹문서까지 커버")
+
                 if do_search and naver_query:
                     with st.spinner(t("naver_searching_msg").format(naver_type)):
                         items = naver_search(naver_query, naver_type, display_count)
+                        items += kakao_search(naver_query, naver_type, display_count)
 
                     if not items:
                         st.warning(t("naver_no_result"))
@@ -30631,13 +30682,14 @@ else:
                                 desc  = clean_html(item.get("description",""))
                                 link  = item.get("link","") or item.get("url","")
                                 src_type = item.get("_type","")
+                                src_portal = item.get("_source", "네이버")
                                 pub_date = item.get("pubDate","") or item.get("postdate","")
                                 cafe_name = clean_html(item.get("cafename",""))
 
                                 try:
                                     msg = client.messages.create(
                                         model="claude-sonnet-4-6", max_tokens=300,
-                                        messages=[{"role":"user","content":f"""당신은 아동 온라인 안전 전문 분석가입니다. 아래 네이버 {src_type} 게시물이 아동·청소년에게 위험한지 엄격하게 분석하세요.
+                                        messages=[{"role":"user","content":f"""당신은 아동 온라인 안전 전문 분석가입니다. 아래 {src_portal} {src_type} 게시물이 아동·청소년에게 위험한지 엄격하게 분석하세요.
 
 제목: {title}
 내용 요약: {desc}
@@ -30687,7 +30739,7 @@ else:
 
                                 analyzed.append({
                                     "title": title, "desc": desc, "link": link,
-                                    "type": src_type, "pubDate": pub_date,
+                                    "type": src_type, "source": src_portal, "pubDate": pub_date,
                                     "cafename": cafe_name,
                                     "severity": sev, "category": cat,
                                     "reason": reason, "danger_signal": danger_signal
@@ -30697,7 +30749,7 @@ else:
                         for _na in analyzed:
                             log_monitoring_event(
                                 "analyze_naver",
-                                platform="naver",
+                                platform=("daum" if _na.get("source") == "다음" else "naver"),
                                 keyword=keyword,
                                 severity=_na.get("severity"),
                                 category=_na.get("category"),
@@ -30718,7 +30770,7 @@ else:
                         if risky:
                             st.markdown(f"### 🚨 주의 필요 ({len(risky)}개)")
                             for a in risky:
-                                with st.expander(f"{sev_icon_map.get(a['severity'],'⚪')} [{a['type']}] {a['title'][:60]}"):
+                                with st.expander(f"{sev_icon_map.get(a['severity'],'⚪')} [{a.get('source','네이버')} {a['type']}] {a['title'][:60]}"):
                                     sc1, sc2 = st.columns(2)
                                     sc1.markdown(f"**심각도:** {a['severity']} | **분류:** {a['category']}")
                                     if a.get("cafename"):
@@ -30741,7 +30793,7 @@ else:
                         if safe:
                             with st.expander(t("safe_count").format(len(safe))):
                                 for a in safe:
-                                    st.caption(f"{sev_icon_map.get(a['severity'],'⚪')} [{a['type']}] {a['title'][:60]} — {a['reason']}")
+                                    st.caption(f"{sev_icon_map.get(a['severity'],'⚪')} [{a.get('source','네이버')} {a['type']}] {a['title'][:60]} — {a['reason']}")
                 elif do_search and not naver_query:
                     st.warning(t("naver_enter_query"))
 
