@@ -17,12 +17,17 @@
 - **준비물**: 앱 이름 "DragonEyes", 회사명 드래곤아이즈 주식회사
 - **연동 후**: 환경변수 `KAKAO_REST_API_KEY` Railway 등록 → 네이버 분석 탭과 동일 패턴으로 코드 추가 (키 받으면 바로 작업 가능)
 
-### Google Custom Search (CSE) JSON API
-- **URL**: https://programmablesearchengine.google.com (검색엔진 생성) + https://console.cloud.google.com (API 키)
-- **자격**: 구글 계정. 즉시
-- **범위**: 전체 웹 검색 — 네이버/다음 밖 사각지대(해외 호스팅 도박·유해 사이트)
-- **비용**: 일 100쿼리 무료, 초과 시 1,000쿼리당 $5
-- **연동 후**: `GOOGLE_CSE_API_KEY`, `GOOGLE_CSE_CX` 환경변수
+### ~~Google Custom Search (CSE) JSON API~~ → ❌ 신규 가입 불가 (2026-07-06 확인)
+- 구글 공식 공지: **Custom Search JSON API는 신규 고객 마감**, 기존 고객도 2027-01-01까지 전환 요구
+- 참고: Bing Search API도 2025-08 은퇴 — 전통적 웹검색 API 시장 자체가 축소됨
+- 구글 권장 대체재(Vertex AI Search)는 50개 도메인 한정이라 전체 웹 탐지 용도엔 부적합
+
+### Brave Search API (구글 CSE 대체) ⭐
+- **URL**: https://api-dashboard.search.brave.com → 가입 즉시 사용 (심사 없음)
+- **범위**: 독립 웹 인덱스 전체 검색 — 해외 호스팅 도박·유해 사이트 커버
+- **비용**: 월 $5 무료 크레딧(약 1,000쿼리) + 초과 시 1,000쿼리당 $3~5. **카드 등록 필수·지출 상한 없음** → 코드에서 일일 호출 상한 필수 구현
+- **조건**: 프로젝트 웹사이트/소개 페이지에 "Brave Search API" 어트리뷰션 표기 필요
+- **연동 후**: `BRAVE_SEARCH_API_KEY` 환경변수
 
 ## 2️⃣ 심사 필요 — 신청서 제출 대상
 
@@ -61,6 +66,6 @@
 - [ ] 담당자: 대표이사 정미옥 명의 서명 (계약·신청 서명 주체)
 
 ## 실행 순서
-1. **이번 주**: 카카오 REST API 키 + Google CSE 키 발급 (사장님 계정으로 5분 작업) → 키 받는 대로 코드 연동
+1. **이번 주**: 카카오 REST API 키(무료) + Brave Search API 키 발급 (사장님 계정으로 각 5분 작업) → 키 받는 대로 코드 연동
 2. **이번 달**: Meta 앱 리뷰 신청서 제출 (준비물 위 체크리스트)
 3. **교육청 계약 후**: TikTok Research API 공동 신청, X API 유료 티어 예산 반영
