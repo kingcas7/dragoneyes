@@ -9307,6 +9307,13 @@ def _render_customer_sales_edit(customer, user):
             _n_seats = _ac1.number_input("구매 수량(석)", min_value=0, step=1, value=0, key="oa_seats")
             _n_tier = _ac2.text_input("제품 Type", value="Standard", key="oa_tier")
             _n_amt = _ac3.number_input("발주금액(예상, 원)", min_value=0, step=100000, value=0, key="oa_amt")
+            # 🧑‍🏫 교육(출장강연) 신청 연동 — 체크 시 교육 일정에 '신청됨'으로 자동 등록 (2026-07-06)
+            _ec1, _ec2 = st.columns([2, 2])
+            _n_edu = _ec1.checkbox("🧑‍🏫 고객이 교육(출장강연)을 신청함", key="oa_edu")
+            _n_edu_amt = _ec2.number_input("교육 계약 금액(원)",
+                                           min_value=0, step=10000,
+                                           value=get_service_price("instructor_visit", 300000),
+                                           key="oa_edu_amt")
             if st.form_submit_button("➕ 영업 기회 추가", type="primary", use_container_width=True):
                 from datetime import datetime as _da
                 _new = {
@@ -9331,6 +9338,29 @@ def _render_customer_sales_edit(customer, user):
                     except Exception as _ea:
                         _le = str(_ea)[:150]
                 if _ok:
+                    # 🧑‍🏫 교육 신청 체크 시 → 출장강연 일정에 '신청됨' 자동 등록
+                    if _n_edu:
+                        try:
+                            _opp_pid = user.get("partner_id")
+                            _opp_is_dist = False
+                            if _opp_pid:
+                                _pr = supabase.table("partners").select("is_distributor").eq("id", _opp_pid).limit(1).execute().data or []
+                                _opp_is_dist = bool(_pr and _pr[0].get("is_distributor"))
+                            supabase.table("lecture_events").insert({
+                                "school_name": customer.get("name") or "미상",
+                                "contact_name": customer.get("representative_name") or None,
+                                "contact_phone": customer.get("phone") or None,
+                                "amount": int(_n_edu_amt),
+                                "status": "requested",
+                                "requested_by": user.get("id"),
+                                "reseller_partner_id": _opp_pid if (_opp_pid and not _opp_is_dist) else None,
+                                "distributor_partner_id": _opp_pid if _opp_is_dist else None,
+                                "source": "sales_report",
+                                "note": "영업 기회 등록 시 교육 신청",
+                            }).execute()
+                            st.info("🧑‍🏫 교육(출장강연) 신청이 함께 등록되었습니다 — '고객 교육 일정'에서 수락·강사 배정 진행")
+                        except Exception:
+                            pass
                     st.success("✅ 영업 기회가 추가되었습니다."); st.rerun()
                 else:
                     st.error(f"추가 실패: {_le}")
@@ -10714,6 +10744,316 @@ def render_subscription_dashboard(view="admin", partner_id=None, is_distributor=
                     st.rerun()
                 except Exception as _e:
                     st.error(f"저장 실패: {_e}")
+
+# ═══ 🧑‍🏫 고객 교육(출장강연) 일정 — 신청→수락→강사배정→확정→완료 ═══
+#   리셀러/총판이 신청 → 총판·드래곤아이즈(또는 강사업체)가 수락·강사 배정 → 캘린더 공유
+#   교육청 일괄 수주는 엑셀 업로드. 선호일 없는 학교는 수주자가 연락·확정 책임.
+LECTURE_STATUS_LABEL = {
+    "requested": "🟡 신청됨", "accepted": "🔵 수락됨",
+    "scheduled": "🟢 확정(강사배정)", "done": "✅ 완료", "cancelled": "⛔ 취소",
+}
+
+def render_lecture_schedule_page(user):
+    _is_hq = not user.get("partner_id")  # 본부(드래곤아이즈)
+    _my_pid = get_partner_id_for_user(user)
+    _my_is_dist = False
+    if _my_pid:
+        try:
+            _r = supabase.table("partners").select("is_distributor").eq("id", _my_pid).limit(1).execute().data or []
+            _my_is_dist = bool(_r and _r[0].get("is_distributor"))
+        except Exception:
+            pass
+    _can_manage = _is_hq or _my_is_dist  # 수락·강사배정·강사등록 권한: 드래곤아이즈 + 총판
+
+    st.subheader("📅 고객 교육(출장강연) 일정")
+    st.caption("리셀러·총판이 신청하면 총판·드래곤아이즈(또는 지정 강사 업체)가 수락하고 강사를 배정합니다. "
+               "확정된 일정은 모두가 이 캘린더에서 실시간으로 봅니다.")
+
+    # ── 데이터 로드 (스코프: 본부=전체 / 총판=자기+산하 / 리셀러=자기) ──
+    try:
+        _events = supabase.table("lecture_events").select("*").order("created_at", desc=True).execute().data or []
+    except Exception:
+        _events = []
+    if not _is_hq and _my_pid:
+        if _my_is_dist:
+            _child_ids = set()
+            try:
+                for _c in (supabase.table("partners").select("id").eq("parent_partner_id", _my_pid).execute().data or []):
+                    _child_ids.add(_c["id"])
+            except Exception:
+                pass
+            _events = [e for e in _events if e.get("distributor_partner_id") == _my_pid
+                       or e.get("reseller_partner_id") == _my_pid
+                       or e.get("reseller_partner_id") in _child_ids]
+        else:
+            _events = [e for e in _events if e.get("reseller_partner_id") == _my_pid]
+    try:
+        _instructors = supabase.table("lecture_instructors").select("*").eq("status", "active").execute().data or []
+    except Exception:
+        _instructors = []
+    _imap = {i["id"]: i.get("name", "-") for i in _instructors}
+
+    _t_cal, _t_manage, _t_excel, _t_inst = st.tabs(
+        ["📅 월간 캘린더", "📋 신청·배정 관리", "📤 엑셀 일괄 업로드", "🧑‍🏫 강사 관리"])
+
+    # ══ ① 월간 캘린더 ══
+    with _t_cal:
+        import calendar as _cal
+        _cc1, _cc2, _ = st.columns([1, 1, 3])
+        _cy = _cc1.selectbox("연도", [date.today().year - 1, date.today().year, date.today().year + 1],
+                             index=1, key="lec_cal_y")
+        _cm = _cc2.selectbox("월", list(range(1, 13)), index=date.today().month - 1, key="lec_cal_m")
+        _first_wd, _ndays = _cal.monthrange(_cy, _cm)  # 월요일=0
+        _by_day = {}
+        for e in _events:
+            _d = e.get("confirmed_date") or e.get("preferred_date")
+            if _d and str(_d)[:7] == f"{_cy}-{_cm:02d}" and e.get("status") != "cancelled":
+                _by_day.setdefault(int(str(_d)[8:10]), []).append(e)
+        _color = {"requested": "#f59e0b", "accepted": "#3b82f6", "scheduled": "#16a34a", "done": "#84cc16"}
+        _html = ["<table style='width:100%;border-collapse:collapse;table-layout:fixed;font-size:0.78rem;'>"]
+        _html.append("<tr>" + "".join(
+            f"<th style='border:1px solid #e2e8f0;padding:4px;background:#f8fafc;color:{'#dc2626' if _w=='일' else '#2563eb' if _w=='토' else '#334155'};'>{_w}</th>"
+            for _w in ["월", "화", "수", "목", "금", "토", "일"]) + "</tr>")
+        _day = 1 - _first_wd
+        while _day <= _ndays:
+            _html.append("<tr>")
+            for _wd in range(7):
+                if 1 <= _day <= _ndays:
+                    _cells = ""
+                    for e in _by_day.get(_day, []):
+                        _tm = (e.get("start_time") or "")[:5]
+                        _inst_nm = _imap.get(e.get("instructor_id"), "")
+                        _cells += (f"<div style='background:{_color.get(e.get('status'), '#94a3b8')};color:#fff;"
+                                   f"border-radius:4px;padding:1px 4px;margin:1px 0;overflow:hidden;"
+                                   f"text-overflow:ellipsis;white-space:nowrap;'>"
+                                   f"{_tm} {_html_escape_lec(e.get('school_name', ''))}"
+                                   f"{(' · ' + _html_escape_lec(_inst_nm)) if _inst_nm else ''}</div>")
+                    _html.append(f"<td style='border:1px solid #e2e8f0;vertical-align:top;padding:3px;height:74px;'>"
+                                 f"<div style='color:#64748b;'>{_day}</div>{_cells}</td>")
+                else:
+                    _html.append("<td style='border:1px solid #e2e8f0;background:#fafafa;'></td>")
+                _day += 1
+            _html.append("</tr>")
+        _html.append("</table>")
+        st.markdown("".join(_html), unsafe_allow_html=True)
+        st.caption("🟡 신청됨 · 🔵 수락됨 · 🟢 확정(강사배정) · ✅ 완료 — 미확정 건은 선호일 기준 표시")
+        _no_date = [e for e in _events if not e.get("confirmed_date") and not e.get("preferred_date")
+                    and e.get("status") in ("requested", "accepted")]
+        if _no_date:
+            st.warning(f"📞 선호일 미기재 {len(_no_date)}건 — 수주자가 학교에 연락해 일자를 확정해야 합니다: "
+                       + ", ".join((e.get("school_name") or "-") for e in _no_date[:10]))
+
+    # ══ ② 신청·배정 관리 ══
+    with _t_manage:
+        with st.expander("➕ 출장강연 신청 (단건)", expanded=not _events):
+            _f1, _f2, _f3 = st.columns(3)
+            _sch = _f1.text_input("학교·기관명 *", key="lec_new_school")
+            _cnm = _f2.text_input("학교 담당자", key="lec_new_contact")
+            _cph = _f3.text_input("담당자 연락처", key="lec_new_phone")
+            _f4, _f5, _f6 = st.columns(3)
+            _has_pref = _f4.checkbox("선호 일자 있음", value=True, key="lec_new_haspref")
+            _pref = _f4.date_input("선호 일자", value=date.today() + timedelta(days=14),
+                                   key="lec_new_pref") if _has_pref else None
+            _amt = _f5.number_input("교육 계약 금액(원)", min_value=0,
+                                    value=get_service_price("instructor_visit", 300000),
+                                    step=10000, key="lec_new_amt")
+            _note = _f6.text_input("메모 (요청사항·대상 학년 등)", key="lec_new_note")
+            if not _has_pref:
+                st.info("📞 선호 일자가 없는 건은 신청자(수주자)가 학교에 직접 연락해 일자를 확정할 책임이 있습니다.")
+            if st.button("🟡 신청 등록", type="primary", key="lec_new_save"):
+                if not (_sch or "").strip():
+                    st.warning("학교·기관명을 입력해주세요.")
+                else:
+                    try:
+                        supabase.table("lecture_events").insert({
+                            "school_name": _sch.strip(),
+                            "contact_name": (_cnm or "").strip() or None,
+                            "contact_phone": (_cph or "").strip() or None,
+                            "preferred_date": _pref.isoformat() if _pref else None,
+                            "amount": int(_amt),
+                            "status": "requested",
+                            "requested_by": user.get("id"),
+                            "reseller_partner_id": _my_pid if (_my_pid and not _my_is_dist) else None,
+                            "distributor_partner_id": _my_pid if _my_is_dist else None,
+                            "source": "manual",
+                            "note": (_note or "").strip() or None,
+                        }).execute()
+                        st.success("신청이 등록되었습니다. 총판·드래곤아이즈 수락 후 강사가 배정됩니다.")
+                        st.rerun()
+                    except Exception as _e:
+                        st.error(f"등록 실패: {_e}")
+
+        st.markdown(f"**전체 {len(_events)}건**")
+        _flt = st.selectbox("상태 필터", ["전체"] + list(LECTURE_STATUS_LABEL.values()), key="lec_flt")
+        for e in _events[:100]:
+            _lbl = LECTURE_STATUS_LABEL.get(e.get("status"), e.get("status"))
+            if _flt != "전체" and _lbl != _flt:
+                continue
+            _d_show = e.get("confirmed_date") or e.get("preferred_date") or "일자 미정"
+            with st.container(border=True):
+                _h1, _h2 = st.columns([3, 2])
+                _h1.markdown(f"**{e.get('school_name')}** — {_lbl}  \n"
+                             f"📅 {_d_show} {(e.get('start_time') or '')[:5]} · {_won(e.get('amount') or 0)}"
+                             f"{(' · 강사: ' + _imap.get(e.get('instructor_id'), '')) if e.get('instructor_id') else ''}")
+                _h1.caption(f"담당 {e.get('contact_name') or '-'} {e.get('contact_phone') or ''} · "
+                            f"메모: {(e.get('note') or '-')[:50]}")
+                with _h2:
+                    if _can_manage and e.get("status") == "requested":
+                        if st.button("🔵 수락", key=f"lec_acc_{e['id']}", use_container_width=True):
+                            supabase.table("lecture_events").update({
+                                "status": "accepted", "accepted_by": user.get("id"),
+                                "accepted_at": datetime.now().isoformat(),
+                            }).eq("id", e["id"]).execute()
+                            st.rerun()
+                    if _can_manage and e.get("status") in ("accepted", "scheduled"):
+                        _inst_names = ["(강사 선택)"] + [f"{i['name']} ({i.get('organization') or '-'})" for i in _instructors]
+                        _sel = st.selectbox("강사 배정", _inst_names, key=f"lec_inst_{e['id']}",
+                                            label_visibility="collapsed")
+                        _cd1, _cd2 = st.columns(2)
+                        _cdate = _cd1.date_input("확정일", key=f"lec_cd_{e['id']}",
+                                                 value=date.fromisoformat(str(e.get("confirmed_date") or e.get("preferred_date") or date.today())),
+                                                 label_visibility="collapsed")
+                        _ctime = _cd2.text_input("시작(HH:MM)", value=(e.get("start_time") or "10:00")[:5],
+                                                 key=f"lec_ct_{e['id']}", label_visibility="collapsed")
+                        if st.button("🟢 확정(배정) 저장", key=f"lec_sched_{e['id']}", use_container_width=True):
+                            _iid = None
+                            if _sel != "(강사 선택)":
+                                _iid = _instructors[_inst_names.index(_sel) - 1]["id"]
+                            supabase.table("lecture_events").update({
+                                "status": "scheduled" if _iid else "accepted",
+                                "instructor_id": _iid,
+                                "confirmed_date": _cdate.isoformat(),
+                                "start_time": (_ctime or "10:00").strip()[:5],
+                            }).eq("id", e["id"]).execute()
+                            st.rerun()
+                    if _can_manage and e.get("status") == "scheduled":
+                        if st.button("✅ 강연 완료 → 매출 기록", key=f"lec_done_{e['id']}", use_container_width=True):
+                            supabase.table("lecture_events").update({"status": "done"}).eq("id", e["id"]).execute()
+                            _g = int(e.get("amount") or 0)
+                            _ad = int(_g * 0.05) if e.get("distributor_partner_id") else 0
+                            _ar = int(_g * 0.15) if e.get("reseller_partner_id") else 0
+                            try:
+                                supabase.table("revenue_shares").insert({
+                                    "product": "instructor_visit", "gross_amount": _g,
+                                    "dragoneyes_amount": _g - _ad - _ar,
+                                    "distributor_partner_id": e.get("distributor_partner_id"),
+                                    "distributor_amount": _ad,
+                                    "reseller_partner_id": e.get("reseller_partner_id"),
+                                    "reseller_amount": _ar,
+                                    "paid_at": datetime.now().isoformat(),
+                                    "note": f"출장강연: {e.get('school_name')}",
+                                }).execute()
+                            except Exception:
+                                pass
+                            st.rerun()
+                    if e.get("status") in ("requested", "accepted", "scheduled"):
+                        if st.button("⛔ 취소", key=f"lec_cxl_{e['id']}", use_container_width=True):
+                            supabase.table("lecture_events").update({"status": "cancelled"}).eq("id", e["id"]).execute()
+                            st.rerun()
+
+    # ══ ③ 엑셀 일괄 업로드 (교육청 일괄 수주) ══
+    with _t_excel:
+        st.markdown("교육청에서 일괄 명단을 받은 경우 엑셀로 업로드합니다.  \n"
+                    "**컬럼**: `학교명`(필수) · `담당자` · `연락처` · `선호일자`(YYYY-MM-DD, 없으면 공란) · `지역` · `메모`")
+        st.caption("⚠️ 선호일자가 비어있는 학교는 업로드한 수주자가 직접 연락해 일자를 확정할 책임이 있습니다.")
+        _up = st.file_uploader("엑셀 파일 (.xlsx)", type=["xlsx"], key="lec_xlsx")
+        if _up is not None:
+            try:
+                _df_up = pd.read_excel(_up)
+                _colmap = {}
+                for _c in _df_up.columns:
+                    _cs = str(_c).strip()
+                    if _cs in ("학교명", "학교", "기관명"): _colmap[_c] = "school_name"
+                    elif "담당" in _cs: _colmap[_c] = "contact_name"
+                    elif "연락" in _cs or "전화" in _cs: _colmap[_c] = "contact_phone"
+                    elif "선호" in _cs or "일자" in _cs or "날짜" in _cs: _colmap[_c] = "preferred_date"
+                    elif "지역" in _cs: _colmap[_c] = "region"
+                    elif "메모" in _cs or "비고" in _cs: _colmap[_c] = "note"
+                _df_up = _df_up.rename(columns=_colmap)
+                if "school_name" not in _df_up.columns:
+                    st.error("'학교명' 컬럼을 찾을 수 없습니다.")
+                else:
+                    st.dataframe(_df_up.head(30), use_container_width=True)
+                    st.caption(f"총 {len(_df_up)}행 — 금액은 현재 단가({_won(get_service_price('instructor_visit', 300000))}/회)로 일괄 적용")
+                    if st.button(f"📤 {len(_df_up)}건 일괄 등록", type="primary", key="lec_bulk_save"):
+                        import time as _tm2
+                        _bid = f"batch_{int(_tm2.time())}"
+                        _n_ok = 0
+                        _price_now = get_service_price("instructor_visit", 300000)
+                        for _, _row in _df_up.iterrows():
+                            _snm = str(_row.get("school_name") or "").strip()
+                            if not _snm or _snm.lower() == "nan":
+                                continue
+                            _pd_val = None
+                            try:
+                                _raw_d = _row.get("preferred_date")
+                                if _raw_d is not None and str(_raw_d).strip() and str(_raw_d).lower() != "nan":
+                                    _pd_val = pd.to_datetime(_raw_d).date().isoformat()
+                            except Exception:
+                                _pd_val = None
+                            try:
+                                supabase.table("lecture_events").insert({
+                                    "school_name": _snm,
+                                    "contact_name": (str(_row.get("contact_name") or "").strip() or None) if str(_row.get("contact_name") or "").lower() != "nan" else None,
+                                    "contact_phone": (str(_row.get("contact_phone") or "").strip() or None) if str(_row.get("contact_phone") or "").lower() != "nan" else None,
+                                    "region": (str(_row.get("region") or "").strip() or None) if str(_row.get("region") or "").lower() != "nan" else None,
+                                    "preferred_date": _pd_val,
+                                    "amount": _price_now,
+                                    "status": "requested",
+                                    "requested_by": user.get("id"),
+                                    "reseller_partner_id": _my_pid if (_my_pid and not _my_is_dist) else None,
+                                    "distributor_partner_id": _my_pid if _my_is_dist else None,
+                                    "source": "excel", "batch_id": _bid,
+                                    "note": (str(_row.get("note") or "").strip() or None) if str(_row.get("note") or "").lower() != "nan" else None,
+                                }).execute()
+                                _n_ok += 1
+                            except Exception:
+                                pass
+                        st.success(f"✅ {_n_ok}건 등록 완료 (배치 {_bid}). 선호일 미기재 건은 연락·확정을 진행해주세요.")
+                        st.rerun()
+            except Exception as _e:
+                st.error(f"엑셀 읽기 실패: {_e}")
+
+    # ══ ④ 강사 관리 (드래곤아이즈·총판 전용) ══
+    with _t_inst:
+        if not _can_manage:
+            st.info("강사 등록·관리는 드래곤아이즈 관리자와 총판만 가능합니다.")
+        else:
+            with st.expander("➕ 캠페인 강의 강사 등록", expanded=not _instructors):
+                _i1, _i2, _i3 = st.columns(3)
+                _in_nm = _i1.text_input("강사명 *", key="inst_new_name")
+                _in_org = _i2.text_input("소속 (드래곤아이즈/업체명)", key="inst_new_org")
+                _in_ph = _i3.text_input("연락처", key="inst_new_phone")
+                _i4, _i5, _i6 = st.columns(3)
+                _in_em = _i4.text_input("이메일", key="inst_new_email")
+                _in_sp = _i5.text_input("전문 분야", placeholder="딥페이크·그루밍 예방 등", key="inst_new_spec")
+                _in_rg = _i6.text_input("활동 지역", key="inst_new_region")
+                if st.button("💾 강사 등록", type="primary", key="inst_new_save"):
+                    if not (_in_nm or "").strip():
+                        st.warning("강사명을 입력해주세요.")
+                    else:
+                        try:
+                            supabase.table("lecture_instructors").insert({
+                                "name": _in_nm.strip(), "organization": (_in_org or "").strip() or None,
+                                "phone": (_in_ph or "").strip() or None, "email": (_in_em or "").strip() or None,
+                                "specialty": (_in_sp or "").strip() or None, "region": (_in_rg or "").strip() or None,
+                                "created_by": user.get("id"),
+                            }).execute()
+                            st.success("강사가 등록되었습니다.")
+                            st.rerun()
+                        except Exception as _e:
+                            st.error(f"등록 실패: {_e}")
+            if _instructors:
+                st.dataframe(pd.DataFrame([{
+                    "강사명": i.get("name"), "소속": i.get("organization") or "-",
+                    "연락처": i.get("phone") or "-", "전문 분야": i.get("specialty") or "-",
+                    "지역": i.get("region") or "-",
+                } for i in _instructors]), use_container_width=True, hide_index=True)
+            else:
+                st.info("등록된 강사가 없습니다. 위에서 강사를 등록해주세요.")
+
+def _html_escape_lec(s):
+    return _html.escape(str(s or ""))
 
 def go_to(page, from_tab=None):
     st.session_state.prev_page = st.session_state.current_page
@@ -12491,7 +12831,7 @@ else:
         "license_status", "license_request", "report_stats", "doc_agency",
         "support_request", "partner_info", "partner_admins", "sales_pipeline",
         "approval_requests", "distributor_sales", "partner_sales", "customer_detail",
-        "partner_register", "user_profile", "user_detail",
+        "partner_register", "user_profile", "user_detail", "lecture_schedule",
     }
     # ── 음성지원(접근성)은 '모니터링 업무 페이지'에서만 노출 (일관성) ──
     #    화이트리스트 방식 — 아래 목록 외(파트너/관리/프로필/캠페인 등)에서는
@@ -15023,6 +15363,10 @@ else:
         _action_card(ac2, "👥", "사용자 관리", "추가·수정·퇴사", "card_user_mgmt", "user_management", "ac-cyan")
         _action_card(ac3, "🔍", "사용자 검색", "업체·지역·기관별", "card_user_search", "user_search", "ac-indigo")
         _action_card(ac4, "💼", "라이선스 현황", "발급·만료·갱신", "card_license_status", "license_status", "ac-violet")
+        # 📅 고객 교육(출장강연) 일정 + 강사 등록 (2026-07-06)
+        _pad_l1b, ac1b, ac2b, _sp1b, _sp2b, _pad_r1b = st.columns([1, 1.5, 1.5, 1.5, 1.5, 1])
+        _action_card(ac1b, "📅", "고객 교육 일정", "출장강연 신청·배정·캘린더", "card_lecture_schedule", "lecture_schedule", "ac-green")
+        _action_card(ac2b, "🧑‍🏫", "캠페인 강의 강사등록", "강사 풀 등록·관리 (총판·본부)", "card_lecture_inst", "lecture_schedule", "ac-amber")
 
         st.markdown("##### 📊 보고 및 운영")
         _pad_l2, ac5, ac6, ac7, ac8, _pad_r2 = st.columns([1, 1.5, 1.5, 1.5, 1.5, 1])
@@ -19357,6 +19701,10 @@ else:
         if st.button("← 대시보드로 돌아가기", key="back_approval_to_dash",
                      use_container_width=True):
             go_to("agency_dashboard"); st.rerun()
+
+    elif page == "lecture_schedule":
+        _partner_back_btn("back_top_lecture_schedule")
+        render_lecture_schedule_page(user)
 
     elif page == "sales_pipeline":
         _partner_back_btn("back_top_sales_pipeline")
