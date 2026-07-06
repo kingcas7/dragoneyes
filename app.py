@@ -6449,6 +6449,18 @@ def _create_contract_from_opportunity(opp, user, tier_code, seat_count,
         contract_id = contract_resp.data[0]["id"]
         contract_no = contract_resp.data[0].get("contract_no")
 
+        # 💰 발주(계약) → 매출 배분 원장 자동 기록 — 모니터링 라이선스 (2026-07-06)
+        #    귀속: 영업기회의 담당 파트너 → 리셀러/총판 체인 자동 산출 (80/5/15)
+        try:
+            _rs_c, _ds_c = _resolve_partner_share_ids(opp.get("assigned_partner_id"))
+            record_revenue_share(
+                "monitoring_license", total_amount,
+                reseller_id=_rs_c, distributor_id=_ds_c,
+                note=f"계약 {contract_no or contract_id}: {tier_code} {seat_count}석",
+            )
+        except Exception:
+            pass
+
         # 3. licenses 일괄 INSERT (실제 좌석만, Waiting은 한도만 저장)
         license_rows = []
         for i in range(1, seat_count + 1):
@@ -9400,6 +9412,69 @@ def _render_customer_sales_edit(customer, user):
                 else:
                     st.error(f"수정 실패: {_le}")
 
+    # ── ➕ 발주 명세 등록 — 라이선스 외 항목 포함, 매출 원장 자동 연동 (2026-07-06) ──
+    _PO_TYPES = {
+        "monitoring_license": ("🖥️ 모니터링 라이선스", "석", None),
+        "online_lecture_school": ("🏫 교육기관 온라인 강의 — 학교 수 × 단가", "학교", None),
+        "online_lecture_student": ("🏫 교육기관 온라인 강의 — 학생 수 × 단가", "학생", None),
+        "visit_lecture_bulk": ("🧑‍🏫 출장 강의 — 교육청 일괄 (기본 30만/회)", "회", ("instructor_visit", 300000)),
+        "visit_lecture_individual": ("🧑‍🏫 출장 강의 — 학교 개별 (40만/회 이하 협의)", "회", ("instructor_visit_individual", 400000)),
+    }
+    with st.expander("➕ 발주 명세 등록 (온라인 강의·출장 강의·라이선스) — 매출 원장 자동 반영"):
+        _po_t = st.selectbox("발주 항목", list(_PO_TYPES.keys()),
+                             format_func=lambda k: _PO_TYPES[k][0], key="po_new_type")
+        _po_lbl, _po_unit, _po_price_src = _PO_TYPES[_po_t]
+        _pq1, _pq2, _pq3 = st.columns(3)
+        _po_qty = _pq1.number_input(f"수량({_po_unit})", min_value=1, value=1, step=1, key="po_new_qty")
+        _po_defprice = get_service_price(_po_price_src[0], _po_price_src[1]) if _po_price_src else 0
+        _po_price = _pq2.number_input("단가(원)", min_value=0, value=int(_po_defprice), step=10000, key="po_new_price")
+        _po_total = int(_po_qty) * int(_po_price)
+        _pq3.metric("발주 금액", _won(_po_total))
+        _po_note = st.text_input("메모", key="po_new_note", placeholder="예: 2026-2학기 OO교육청 일괄 계약")
+        if _po_t == "visit_lecture_individual" and _po_price > 400000:
+            st.warning("⚠️ 학교 개별 출장 강의는 1회당 400,000원 이하 협의가 원칙입니다.")
+        if st.button("💾 발주 등록 (매출 원장 반영)", type="primary", key="po_new_save"):
+            if _po_price <= 0:
+                st.warning("단가를 입력해주세요.")
+            elif _po_t == "visit_lecture_individual" and _po_price > 400000:
+                st.error("학교 개별 출장 강의 단가는 400,000원을 초과할 수 없습니다.")
+            else:
+                _rs_id, _ds_id = _resolve_partner_share_ids(user.get("partner_id"))
+                try:
+                    supabase.table("po_items").insert({
+                        "customer_id": customer.get("id"),
+                        "item_type": _po_t, "qty": int(_po_qty), "unit": _po_unit,
+                        "unit_price": int(_po_price), "total_amount": _po_total,
+                        "note": (_po_note or "").strip() or None,
+                        "reseller_partner_id": _rs_id, "distributor_partner_id": _ds_id,
+                        "created_by": user.get("id"),
+                    }).execute()
+                    _prod_map = ("monitoring_license" if _po_t == "monitoring_license"
+                                 else "campaign_institution" if _po_t.startswith("online_")
+                                 else "instructor_visit")
+                    record_revenue_share(_prod_map, _po_total, reseller_id=_rs_id, distributor_id=_ds_id,
+                                         note=f"발주: {customer.get('name', '')} {_po_lbl} {int(_po_qty)}{_po_unit}")
+                    st.success(f"✅ 발주 등록·매출 반영 완료 — {_won(_po_total)}")
+                    st.rerun()
+                except Exception as _e:
+                    st.error(f"등록 실패: {_e}")
+
+    # 발주 명세 목록
+    try:
+        _po_list = supabase.table("po_items").select("*").eq("customer_id", customer.get("id"))\
+            .order("created_at", desc=True).execute().data or []
+    except Exception:
+        _po_list = []
+    if _po_list:
+        st.dataframe(pd.DataFrame([{
+            "일자": str(_p.get("created_at", ""))[:10],
+            "항목": _PO_TYPES.get(_p.get("item_type"), (_p.get("item_type"), "", None))[0],
+            "수량": f"{_p.get('qty', 0)}{_p.get('unit', '')}",
+            "단가": _won(_p.get("unit_price", 0)),
+            "금액": _won(_p.get("total_amount", 0)),
+            "메모": (_p.get("note") or "-")[:40],
+        } for _p in _po_list]), use_container_width=True, hide_index=True)
+
 
 # ── 공단 제출용 엑셀 빌더 (2026-06-22) ──
 def _kead_xlsx_bytes(title, columns, data_rows, *, sheet_name="Sheet1", subtitle=None):
@@ -10435,6 +10510,53 @@ def get_service_price(code, default):
         return int(_r[0]["price"]) if _r else default
     except Exception:
         return default
+
+def _resolve_partner_share_ids(pid):
+    """파트너 id → (리셀러 id, 총판 id) 자동 산출.
+    총판이면 (None, pid). 리셀러면 parent_partner_id를 따라 상위 총판을 찾음."""
+    if not pid:
+        return None, None
+    try:
+        _p = supabase.table("partners").select("id,is_distributor,parent_partner_id")\
+            .eq("id", pid).limit(1).execute().data or []
+        if not _p:
+            return pid, None
+        if _p[0].get("is_distributor"):
+            return None, pid
+        _parent = _p[0].get("parent_partner_id")
+        if _parent:
+            _pp = supabase.table("partners").select("is_distributor").eq("id", _parent).limit(1).execute().data or []
+            if _pp and _pp[0].get("is_distributor"):
+                return pid, _parent
+        return pid, None
+    except Exception:
+        return pid, None
+
+def record_revenue_share(product, gross, reseller_id=None, distributor_id=None,
+                         note="", payment_id=None, paid_at=None):
+    """매출 배분 원장 기록 — 드래곤아이즈 80% / 총판 5% / 리셀러 15% (미귀속 몫은 드래곤아이즈).
+    PO(발주)·결제·출장강연 완료 등 모든 매출 이벤트의 공용 진입점."""
+    try:
+        _g = int(gross or 0)
+        if _g <= 0:
+            return False
+        _ad = int(_g * 0.05) if distributor_id else 0
+        _ar = int(_g * 0.15) if reseller_id else 0
+        supabase.table("revenue_shares").insert({
+            "payment_id": payment_id,
+            "product": product,
+            "gross_amount": _g,
+            "dragoneyes_amount": _g - _ad - _ar,
+            "distributor_partner_id": distributor_id,
+            "distributor_amount": _ad,
+            "reseller_partner_id": reseller_id,
+            "reseller_amount": _ar,
+            "paid_at": paid_at or datetime.now().isoformat(),
+            "note": (note or "")[:200],
+        }).execute()
+        return True
+    except Exception:
+        return False
 def _won(n):
     try:
         return f"{int(n):,}원"
