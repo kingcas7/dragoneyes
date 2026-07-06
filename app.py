@@ -10681,6 +10681,9 @@ def render_subscription_dashboard(view="admin", partner_id=None, is_distributor=
             st.dataframe(pd.DataFrame(_rows), use_container_width=True, hide_index=True)
         else:
             st.info("아직 귀속된 결제가 없습니다. 학교·지역 영업 성과가 결제로 이어지면 여기에 실시간 반영됩니다.")
+        st.divider()
+        # 📥 원장 엑셀 — 리셀러=자기 / 총판=산하 리셀러 취합
+        render_ledger_export_buttons(view="partner", partner_id=partner_id, is_distributor=is_distributor)
         return
 
     # ── 관리자(전체) 뷰 ──
@@ -10719,6 +10722,10 @@ def render_subscription_dashboard(view="admin", partner_id=None, is_distributor=
                       "총판(5%)": "0원", "리셀러(15%)": "0원", "건수": "0건"} for _k in REV_PRODUCT_LABEL]
     st.markdown("**분류별 매출 요약**")
     st.dataframe(pd.DataFrame(_cat_rows), use_container_width=True, hide_index=True)
+
+    # 📥 원장 엑셀 — 본부 전체 (총판별·리셀러별 취합·예측 포함)
+    render_ledger_export_buttons(view="admin")
+    st.divider()
 
     _tab_fam, _tab_par, _tab_share, _tab_entry = st.tabs(
         ["🏡 가족안심 구독", "🎓 학부모 구독", "💰 배분 원장", "➕ 매출 등록·단가"])
@@ -10923,6 +10930,178 @@ def render_subscription_dashboard(view="admin", partner_id=None, is_distributor=
                     st.rerun()
                 except Exception as _e:
                     st.error(f"저장 실패: {_e}")
+
+# ═══ 📥 원장 엑셀 출력 — 파이프라인/발주·매출/발주완료 명단/취합 요약 (역할별 스코프) ═══
+#   리셀러=자기 / 총판=자기+산하 리셀러 취합 / 본부=전체. 파이프라인과 발주(확정 매출)는 분리.
+def render_ledger_export_buttons(view="admin", partner_id=None, is_distributor=False):
+    st.markdown("**📥 원장 엑셀 출력**")
+    _today_s = date.today().isoformat()
+    try:
+        _pts = supabase.table("partners").select("id,name,is_distributor,is_reseller,parent_partner_id").execute().data or []
+    except Exception:
+        _pts = []
+    _pmap = {p["id"]: p for p in _pts}
+
+    def _nm(pid):
+        return _pmap.get(pid, {}).get("name", "") if pid else ""
+
+    def _chain_mem(pid):
+        _p = _pmap.get(pid)
+        if not _p:
+            return (None, None)
+        if _p.get("is_distributor"):
+            return (None, pid)
+        _par = _p.get("parent_partner_id")
+        if _par and _pmap.get(_par, {}).get("is_distributor"):
+            return (pid, _par)
+        return (pid, None)
+
+    # 스코프 파트너 집합 (None=전체)
+    if view == "admin":
+        _scope = None
+        _scope_label = "드래곤아이즈 전체"
+    elif is_distributor:
+        _children = [p["id"] for p in _pts if p.get("parent_partner_id") == partner_id]
+        _scope = set([partner_id] + _children)
+        _scope_label = f"{_nm(partner_id)} (산하 리셀러 {len(_children)}곳 취합)"
+    else:
+        _scope = {partner_id}
+        _scope_label = _nm(partner_id)
+    st.caption(f"출력 범위: {_scope_label} · 기준일 {_today_s}")
+
+    # ── 데이터 로드 ──
+    try:
+        _opps_all = supabase.table("opportunities").select(
+            "id,created_at,customer_name,customer_business_no,license_tier,"
+            "expected_seats,expected_amount,status,approval_status,assigned_partner_id"
+        ).order("created_at", desc=True).limit(2000).execute().data or []
+    except Exception:
+        _opps_all = []
+    try:
+        _orders_all = supabase.table("partner_orders").select("*").order("created_at", desc=True).limit(2000).execute().data or []
+    except Exception:
+        _orders_all = []
+    try:
+        _shares_all = supabase.table("revenue_shares").select("*").order("paid_at", desc=True).limit(5000).execute().data or []
+    except Exception:
+        _shares_all = []
+
+    def _in_scope_pid(pid_r, pid_d):
+        if _scope is None:
+            return True
+        return (pid_r in _scope) or (pid_d in _scope)
+
+    # 스코프 필터
+    _opps = []
+    for o in _opps_all:
+        _r, _d = _chain_mem(o.get("assigned_partner_id"))
+        if _scope is None or (o.get("assigned_partner_id") in _scope) or _in_scope_pid(_r, _d):
+            o["_rs"], o["_ds"] = _r, _d
+            _opps.append(o)
+    _orders = [o for o in _orders_all if _in_scope_pid(o.get("reseller_partner_id"), o.get("distributor_partner_id"))]
+    _shares = [s for s in _shares_all if _in_scope_pid(s.get("reseller_partner_id"), s.get("distributor_partner_id"))]
+
+    # 발주 완료(승인) 여부 매핑 — 파이프라인 원장에 '발주완료' 포함
+    _appr_by_opp = {}
+    for o in _orders:
+        if o.get("status") == "approved" and o.get("opportunity_id"):
+            _appr_by_opp[o["opportunity_id"]] = _appr_by_opp.get(o["opportunity_id"], 0) + int(o.get("total_amount") or 0)
+
+    _e1, _e2, _e3, _e4 = st.columns(4)
+
+    # ① 영업 파이프라인 원장 (발주 완료 여부 포함)
+    _pipe_rows = [[
+        str(o.get("created_at", ""))[:10], o.get("customer_name") or "-",
+        o.get("customer_business_no") or "-", o.get("license_tier") or "-",
+        o.get("expected_seats") or 0, int(o.get("expected_amount") or 0),
+        o.get("status") or "-", o.get("approval_status") or "-",
+        _nm(o.get("_rs")) or "-", _nm(o.get("_ds")) or "-",
+        "✅ 발주완료" if o.get("id") in _appr_by_opp else "진행중",
+        _appr_by_opp.get(o.get("id"), 0),
+    ] for o in _opps]
+    _e1.download_button(
+        "📊 영업 파이프라인 원장", use_container_width=True,
+        data=_kead_xlsx_bytes(f"영업 파이프라인 원장 — {_scope_label}",
+                              ["등록일", "고객사", "사업자번호", "제품", "예상석수", "예상금액(원)",
+                               "영업상태", "승인상태", "리셀러", "총판", "발주상태", "발주확정금액(원)"],
+                              _pipe_rows, sheet_name="파이프라인", subtitle=f"기준일 {_today_s} · 발주완료 건 포함"),
+        file_name=f"영업파이프라인_{_today_s}.xlsx", key=f"xls_pipe_{view}",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+    # ② 발주·매출 원장 (확정 매출 — 파이프라인과 분리)
+    _rev_rows = [[
+        str(s.get("paid_at", ""))[:10],
+        REV_PRODUCT_LABEL.get(s.get("product"), s.get("product")),
+        (s.get("note") or "-")[:60],
+        int(s.get("gross_amount") or 0), int(s.get("dragoneyes_amount") or 0),
+        _nm(s.get("distributor_partner_id")) or "-", int(s.get("distributor_amount") or 0),
+        _nm(s.get("reseller_partner_id")) or "-", int(s.get("reseller_amount") or 0),
+        "정산완료" if s.get("settled") else "정산대기",
+    ] for s in _shares]
+    _e2.download_button(
+        "💰 발주·매출 원장(확정)", use_container_width=True,
+        data=_kead_xlsx_bytes(f"발주·매출 원장 — {_scope_label}",
+                              ["일자", "분류", "내용", "결제액(원)", "드래곤아이즈(원)",
+                               "총판", "총판배분(원)", "리셀러", "리셀러배분(원)", "정산"],
+                              _rev_rows, sheet_name="확정매출", subtitle=f"기준일 {_today_s}"),
+        file_name=f"발주매출원장_{_today_s}.xlsx", key=f"xls_rev_{view}",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+    # ③ 발주 완료 명단 (승인 건 별도)
+    _done_rows = [[
+        str(o.get("reviewed_at") or o.get("created_at", ""))[:10],
+        o.get("customer_name") or "-",
+        PARTNER_PO_TYPES.get(o.get("item_type"), (o.get("item_type"),))[0],
+        f"{o.get('qty', 0)}{o.get('unit', '')}", int(o.get("unit_price") or 0),
+        int(o.get("total_amount") or 0), o.get("school_name") or "-",
+        _nm(o.get("reseller_partner_id")) or "-", _nm(o.get("distributor_partner_id")) or "-",
+    ] for o in _orders if o.get("status") == "approved"]
+    _e3.download_button(
+        "🧾 발주 완료 명단", use_container_width=True,
+        data=_kead_xlsx_bytes(f"발주 완료 명단 — {_scope_label}",
+                              ["승인일", "고객사", "발주 항목", "수량", "단가(원)", "금액(원)",
+                               "학교", "리셀러", "총판"],
+                              _done_rows, sheet_name="발주완료", subtitle=f"기준일 {_today_s}"),
+        file_name=f"발주완료명단_{_today_s}.xlsx", key=f"xls_done_{view}",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+    # ④ 취합 요약 — 파트너별 확정 매출·배분·파이프라인 예상 (예측)
+    _sum = {}  # pid → [확정 결제액, 파트너 배분액, 파이프라인 예상(진행중), 발주 대기 금액]
+    def _acc(pid, idx, val):
+        if not pid:
+            return
+        _sum.setdefault(pid, [0, 0, 0, 0])[idx] += int(val or 0)
+    for s in _shares:
+        _acc(s.get("reseller_partner_id"), 0, s.get("gross_amount"))
+        _acc(s.get("reseller_partner_id"), 1, s.get("reseller_amount"))
+        _acc(s.get("distributor_partner_id"), 0, s.get("gross_amount"))
+        _acc(s.get("distributor_partner_id"), 1, s.get("distributor_amount"))
+    for o in _opps:
+        if o.get("id") not in _appr_by_opp:
+            _acc(o.get("_rs"), 2, o.get("expected_amount"))
+            _acc(o.get("_ds"), 2, o.get("expected_amount"))
+    for o in _orders:
+        if o.get("status") == "submitted":
+            _acc(o.get("reseller_partner_id"), 3, o.get("total_amount"))
+            _acc(o.get("distributor_partner_id"), 3, o.get("total_amount"))
+    _sum_rows = []
+    for _pid2, _v in sorted(_sum.items(), key=lambda kv: -kv[1][0]):
+        _p2 = _pmap.get(_pid2, {})
+        _sum_rows.append([
+            _nm(_pid2) or "-",
+            "총판" if _p2.get("is_distributor") else "리셀러",
+            _nm(_p2.get("parent_partner_id")) or "-",
+            _v[0], _v[1], _v[3], _v[2], _v[0] + _v[3] + _v[2],
+        ])
+    _e4.download_button(
+        "📈 취합 요약(예측)", use_container_width=True,
+        data=_kead_xlsx_bytes(f"매출 취합 요약 — {_scope_label}",
+                              ["파트너", "구분", "소속 총판", "확정 매출(원)", "내 배분액(원)",
+                               "발주 대기(원)", "파이프라인 예상(원)", "예상 총매출(원)"],
+                              _sum_rows, sheet_name="취합요약",
+                              subtitle=f"기준일 {_today_s} · 예상 총매출 = 확정 + 발주대기 + 파이프라인"),
+        file_name=f"매출취합요약_{_today_s}.xlsx", key=f"xls_sum_{view}",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # ═══ 🏫 공용 학교 선택 위젯 — 캠페인 참여 학교 + NEIS 전국 검색 (권역별) ═══
 #   발주서·출장강연 캘린더 등에서 학교 기본정보를 캠페인 기관정보(institutions)와 연동.
