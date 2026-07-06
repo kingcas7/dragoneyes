@@ -12388,6 +12388,53 @@ else:
     except Exception:
         pass
 
+    # ═══ 🗂️ 탭 선택 유지 (전역) — 위젯 변경 rerun 시 st.tabs가 첫 탭으로 초기화되는 버그 보정 ═══
+    #   탭 클릭 시 '그룹 시그니처(라벨 순서)'별로 선택 라벨을 sessionStorage에 저장,
+    #   rerun 후 첫 탭으로 튕기면 저장된 탭을 자동 재클릭. 라벨 순서가 바뀌면(기존 reorder
+    #   내비게이션·다른 페이지) 시그니처가 달라져 복원하지 않음 → 음성명령 탭 이동과 충돌 없음.
+    _a11y_components.html("""<script>
+    (function(){
+      try {
+        var W = window.top, D = W.document;
+        if (W.__dgeyesTabPersist) return; W.__dgeyesTabPersist = true;
+        var KEY = '__dgeyes_tabsel';
+        function load(){ try { return JSON.parse(W.sessionStorage.getItem(KEY) || '{}'); } catch(e){ return {}; } }
+        function save(m){ try { W.sessionStorage.setItem(KEY, JSON.stringify(m)); } catch(e){} }
+        function sig(tl){
+          var bs = tl.querySelectorAll('button[data-baseweb="tab"]'), a = [];
+          for (var i = 0; i < bs.length; i++) a.push((bs[i].innerText || '').trim());
+          return a.join('|').slice(0, 200);
+        }
+        D.addEventListener('click', function(e){
+          var b = e.target && e.target.closest ? e.target.closest('button[data-baseweb="tab"]') : null;
+          if (!b) return;
+          var tl = b.closest('div[data-baseweb="tab-list"]'); if (!tl) return;
+          var m = load(); m[sig(tl)] = (b.innerText || '').trim(); save(m);
+        }, true);
+        var busy = false;
+        function restore(){
+          if (busy) return;
+          var m = load();
+          var lists = D.querySelectorAll('div[data-baseweb="tab-list"]');
+          for (var i = 0; i < lists.length; i++) {
+            var tl = lists[i], want = m[sig(tl)];
+            if (!want) continue;
+            var bs = [].slice.call(tl.querySelectorAll('button[data-baseweb="tab"]'));
+            var active = bs.find(function(b){ return b.getAttribute('aria-selected') === 'true'; });
+            if (active && (active.innerText || '').trim() === want) continue;
+            var target = bs.find(function(b){ return (b.innerText || '').trim() === want; });
+            if (target) { busy = true; target.click(); setTimeout(function(){ busy = false; }, 350); }
+          }
+        }
+        var mo = new W.MutationObserver(function(){
+          clearTimeout(W.__dgeyesTabT); W.__dgeyesTabT = setTimeout(restore, 300);
+        });
+        mo.observe(D.body, { childList: true, subtree: true });
+        setTimeout(restore, 500);
+      } catch(err) { console.warn('[TabPersist]', err); }
+    })();
+    </script>""", height=0)
+
     # ═══ 🚫 글로벌 페이지 가드: 미성년자·캠페인 전용 → 모니터링 페이지 렌더링 원천 차단 ═══
     #     login()·세션복원 차단을 우회해도(모드 전환·query param 조작 등) 여기서 최종 차단
     if monitoring_access_blocked(user):
