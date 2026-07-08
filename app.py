@@ -10275,7 +10275,9 @@ def get_token_info(user_id):
 
 def get_today_dragon_count(user_id):
     today = date.today().isoformat()
-    res = supabase.table("analyzed_urls").select("id").eq("assigned_to", user_id).gte("analyzed_at", today).in_("search_type", ["dragon_general","dragon_roblox","dragon_minecraft","dragon_gambling","dragon_deepfake"]).execute()
+    res = supabase.table("analyzed_urls").select("id").eq("assigned_to", user_id).gte("analyzed_at", today).in_("search_type", ["dragon_general","dragon_roblox","dragon_minecraft","dragon_gambling","dragon_deepfake",
+                         "dragon_sextortion","dragon_school_violence","dragon_runaway","dragon_illegal_job",
+                         "dragon_crime","dragon_suicide","dragon_abuse","dragon_hate"]).execute()
     return len(res.data)
 
 # ════════ 모니터링 자동화 설정 ════════
@@ -10370,7 +10372,9 @@ def topup_recommendation_inventory(max_generate=300):
             return summary
         to_make = min(shortfall, max_generate)
         seen = get_analyzed_urls()       # 최근 분석 url(중복 회피용)
-        plats = ["general", "roblox", "minecraft", "gambling", "deepfake"]
+        plats = ["general", "roblox", "minecraft", "gambling", "deepfake",
+                 "sextortion", "school_violence", "runaway", "illegal_job",
+                 "crime", "suicide", "abuse", "hate"]
         gen = 0; rounds = 0; empty = 0
         while gen < to_make and rounds < 300:
             plat = plats[rounds % len(plats)]; rounds += 1; before = gen
@@ -10504,7 +10508,9 @@ def extract_severity(text):
     return 1
 
 def extract_category(text):
-    for cat in ["섹스토션", "폭력유도", "그루밍", "딥페이크", "도박", "개인정보침해", "성인", "부적절", "스팸", "안전"]:
+    for cat in ["섹스토션", "성폭력", "학교폭력", "가출유인", "불법알바", "범죄유인",
+                "자살자해", "정서학대", "혐오조장", "폭력유도", "그루밍", "딥페이크",
+                "도박", "개인정보침해", "성인", "부적절", "스팸", "안전"]:
         if cat in text:
             return cat
     return "미분류"
@@ -10541,6 +10547,14 @@ def search_type_label(st_val):
         "dragon_minecraft":"⛏️ Minecraft추천",
         "dragon_gambling":"🎰 도박추천",
         "dragon_deepfake":"🎭 딥페이크추천",
+        "dragon_sextortion":"🚨 섹스토션·성폭력추천",
+        "dragon_school_violence":"🏫 학교폭력·왕따추천",
+        "dragon_runaway":"🏃 가출·실종추천",
+        "dragon_illegal_job":"💼 불법알바추천",
+        "dragon_crime":"🔪 범죄유인추천",
+        "dragon_suicide":"🆘 자살·자해예방추천",
+        "dragon_abuse":"🗣️ 폭언·가스라이팅추천",
+        "dragon_hate":"🧨 혐오조장추천",
         "keyword":        "🔍 키워드탐색",
     }.get(st_val, st_val)
 
@@ -11754,6 +11768,92 @@ def generate_recommend_keywords(platform="general"):
             # SNS 도박 유도
             "오픈채팅 배팅방 초대", "텔레그램 토토방 무료입장", "카톡 도박방 링크",
         ],
+        "sextortion": [
+            # 섹스토션(성착취 협박) — 몸캠·유포 협박 패턴
+            "몸캠 협박 유포", "영상통화 캡처 유포", "사진 보내면 용돈",
+            "사진 유포 협박 10대", "몸캠피싱 자료 공유",
+            # 성폭력·성착취물 거래 패턴
+            "미성년 사진 거래", "여중생 사진 판매", "미성년 영상 텔레그램",
+            "지인 사진 능욕방", "야한 사진 교환 10대",
+            # 조건만남·성매매 알선 패턴
+            "조건만남 미성년", "여고생 조건 후기", "중학생 만남 용돈",
+            "미성년자 성매매 알선", "10대 만남 어플 후기",
+        ],
+        "school_violence": [
+            # 학교폭력 영상·미화 패턴
+            "학교폭력 영상 실제", "집단폭행 영상 중학생", "패싸움 영상 학교",
+            "일진 미화 브이로그", "학폭 가해 자랑",
+            # 왕따·따돌림 패턴
+            "왕따 인증", "왕따 시키는 법", "카톡 왕따 단톡 감옥",
+            "빵셔틀 시키기", "반에서 따돌리는 법",
+            # 사이버불링·저격 패턴
+            "친구 저격 영상", "신상 저격 박제", "저격 박제 계정",
+            "익명 저격 학교", "사이버불링 영상",
+        ],
+        "runaway": [
+            # 가출 유인·헬퍼(가출 청소년 노리는 성인) 패턴
+            "가출팸 모집", "가출 재워줌", "가출 여중생 재워드림",
+            "가출 청소년 헬퍼", "가출 숙식 제공 아저씨",
+            # 가출 모집·동행 패턴
+            "가출 같이 살 사람", "잘곳 없는 10대", "집나온 청소년 만남",
+            "가출 카페 입장", "가출 동행 구함",
+            # 실종·유인 패턴
+            "10대 재워주는 곳", "가출하면 갈곳", "가출 도와줄 사람",
+        ],
+        "illegal_job": [
+            # 미성년 불법 직업소개·범죄 가담 알바 패턴
+            "고수익 알바 10대", "미성년 가능 알바 일당", "나이 안보는 알바 당일",
+            "전달책 알바 당일지급", "현금 수거 알바 고수익",
+            # 금융범죄 가담 유도
+            "대포통장 매입", "통장 대여 알바", "핸드폰 개통 알바 사례금",
+            "명의 빌려주면 돈", "코인 전달 알바",
+            # 유흥·성매매 위장 구인
+            "유흥 알바 미성년", "조건 알바 여학생", "노래방 도우미 10대",
+            "텔레그램 알바 모집 나이무관", "심부름 알바 고액 비밀",
+        ],
+        "crime": [
+            # 범죄 예고·모의 패턴
+            "살인 예고 글", "학교 칼부림 예고", "범죄 모의 오픈채팅",
+            "묻지마 범죄 영상", "흉기 구입 10대",
+            # 절도·범행 인증 패턴
+            "무인점포 절도 인증", "오토바이 절도 인증", "촉법소년 절도 자랑",
+            "도둑질 브이로그 실제", "범행 인증 영상",
+            # 범죄 미화 패턴
+            "살인마 미화 팬영상", "연쇄살인 미화", "촉법소년 처벌 안받는법",
+        ],
+        "suicide": [
+            # 동반자살 모집 패턴 (최우선 탐지)
+            "동반자살 모집", "같이 죽을 사람", "자살 동반 구함",
+            "죽고싶은 사람 모여", "동반 마지막 여행",
+            # 자해 인증·조장 패턴
+            "자해 인증 사진", "자해 흉터 브이로그", "자해 방법 공유",
+            "청소년 자해 유행", "자해 커터 추천",
+            # 자살 조장·유해정보 패턴
+            "자살카페 초대", "우울방 오픈채팅 10대", "극단적 선택 생중계",
+            "자살 조장 노래", "죽는법 알려주는 곳",
+        ],
+        "abuse": [
+            # 폭언·언어폭력 콘텐츠 패턴
+            "패드립 모음", "욕설 챌린지", "폭언 참교육 영상",
+            "기강 잡는법 후배", "면전 욕설 몰카",
+            # 가스라이팅·심리 조종 패턴
+            "가스라이팅 하는법", "친구 조종하는 법", "상대방 세뇌하는 법",
+            "여자친구 길들이기", "심리 지배 기술",
+            # 정서적 학대·통제 패턴
+            "정신적으로 무너뜨리는 법", "약점 잡는 법", "손절 유도하는 법",
+            "은따 만드는 법", "통제 연애 방법",
+        ],
+        "hate": [
+            # 혐오 표현·조롱 콘텐츠 패턴
+            "여혐 밈 모음", "남혐 저격 영상", "장애인 혐오 개그",
+            "급식충 조롱", "소수자 조롱 영상",
+            # 증오·차별 선동 패턴
+            "지역감정 조장 영상", "외국인 혐오 선동", "혐오 표현 챌린지",
+            "증오 선동 커뮤니티", "차별 밈 유행",
+            # 사회증오·극단주의 패턴
+            "사회 불만 총기", "묻지마 증오 글", "극단주의 커뮤니티 입장",
+            "학교 혐오 저격 계정", "선생 혐오 영상",
+        ],
         "roblox": [
             # 실제 로블록스 내 위험 표현
             "로블록스 여자친구 사귀기", "roblox 여친 구함", "로블록스 커플 게임",
@@ -11877,9 +11977,15 @@ def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="
 ⑤ 미끼: 무료 아이템·로벅스·게임 코인으로 미성년자 유인
 ⑥ 협박/섹스토션: 사진·영상 요구 후 유포 협박
 ⑦ 도박/사행성: 불법 배팅·토토·카지노 사이트 홍보, 첫충/보너스/무료머니 광고, 대리베팅·총판 모집, 파워볼·코인게임 수익인증, "용돈 버는 법" 위장 도박 유도
-⑧ 가출/납치: 가출 조장, 만남 장소 공유
-⑨ 자해/폭력: 자해 방법, 폭력 챌린지 유도
+⑧ 가출/납치: 가출 조장·가출팸 모집, 가출 청소년 재워준다는 유인(헬퍼), 만남 장소 공유
+⑨ 자살/자해: 동반자살 모집, 자해 인증·조장, 자살 방법 유포, 극단적 선택 미화
 ⑩ 딥페이크/합성: 얼굴 합성 제작 의뢰·판매, 지인능욕, 옷 벗기는 AI·누드 합성 앱 홍보, 합성방 초대
+⑪ 성폭력/성착취: 미성년 대상 성착취물 거래, 조건만남·성매매 알선, 몸캠 유포
+⑫ 학교폭력/왕따: 집단폭행·괴롭힘 영상, 왕따 조장·인증, 신상 저격·박제, 사이버불링
+⑬ 불법 직업소개: 미성년 고수익 알바 위장(전달책·현금수거·통장대여·유흥), 범죄 가담 모집
+⑭ 범죄 유인: 살인·칼부림 예고, 절도 인증·자랑, 범죄 모의·미화, 촉법소년 악용 조장
+⑮ 폭언/가스라이팅: 언어폭력 콘텐츠, 심리 조종·세뇌·통제 기법 유포, 정서적 학대
+⑯ 혐오/증오 조장: 성별·장애·지역·인종 혐오 선동, 소수자 조롱, 사회증오·극단주의 유도
 
 【댓글 분석 주의사항】
 - 댓글에서 연락처 요청, 만남 유도, 나이/학교 묻기 패턴이 있으면 심각도 +1
@@ -11891,7 +11997,7 @@ def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="
 
 반드시 아래 형식으로만 답변하세요:
 심각도: (1~5)
-분류: (안전/스팸/부적절/성인/그루밍/섹스토션/도박/딥페이크/폭력유도/개인정보침해)
+분류: (안전/스팸/부적절/성인/그루밍/섹스토션/성폭력/학교폭력/가출유인/불법알바/범죄유인/자살자해/정서학대/혐오조장/도박/딥페이크/폭력유도/개인정보침해)
 위험신호: (발견된 위험 패턴 구체적으로, 없으면 "없음")
 이유: (한 줄 요약)"""}]
         )
@@ -31128,6 +31234,26 @@ else:
             with btn5:
                 run_deepfake = st.button("🎭 딥페이크 추천", use_container_width=True, disabled=not token_info["ok"])
 
+            # 🏫 교육당국 특화 카테고리 (2026-07-08 추가)
+            btn6, btn7, btn8, btn9 = st.columns(4)
+            with btn6:
+                run_sextortion = st.button("🚨 섹스토션·성폭력", use_container_width=True, disabled=not token_info["ok"])
+            with btn7:
+                run_schoolv = st.button("🏫 학교폭력·왕따", use_container_width=True, disabled=not token_info["ok"])
+            with btn8:
+                run_suicide = st.button("🆘 자살·자해 예방", use_container_width=True, disabled=not token_info["ok"])
+            with btn9:
+                run_runaway = st.button("🏃 가출·실종", use_container_width=True, disabled=not token_info["ok"])
+            btn10, btn11, btn12, btn13 = st.columns(4)
+            with btn10:
+                run_illegal_job = st.button("💼 불법알바·직업소개", use_container_width=True, disabled=not token_info["ok"])
+            with btn11:
+                run_crime = st.button("🔪 범죄유인 (살인·절도)", use_container_width=True, disabled=not token_info["ok"])
+            with btn12:
+                run_abuse = st.button("🗣️ 폭언·가스라이팅", use_container_width=True, disabled=not token_info["ok"])
+            with btn13:
+                run_hate = st.button("🧨 혐오·증오조장", use_container_width=True, disabled=not token_info["ok"])
+
             selected_platform = None
             selected_label = ""
             selected_type = ""
@@ -31141,6 +31267,22 @@ else:
                 selected_platform = "gambling"; selected_label = "🎰 도박"; selected_type = "dragon_gambling"
             elif run_deepfake:
                 selected_platform = "deepfake"; selected_label = "🎭 딥페이크"; selected_type = "dragon_deepfake"
+            elif run_sextortion:
+                selected_platform = "sextortion"; selected_label = "🚨 섹스토션·성폭력"; selected_type = "dragon_sextortion"
+            elif run_schoolv:
+                selected_platform = "school_violence"; selected_label = "🏫 학교폭력·왕따"; selected_type = "dragon_school_violence"
+            elif run_suicide:
+                selected_platform = "suicide"; selected_label = "🆘 자살·자해 예방"; selected_type = "dragon_suicide"
+            elif run_runaway:
+                selected_platform = "runaway"; selected_label = "🏃 가출·실종"; selected_type = "dragon_runaway"
+            elif run_illegal_job:
+                selected_platform = "illegal_job"; selected_label = "💼 불법알바"; selected_type = "dragon_illegal_job"
+            elif run_crime:
+                selected_platform = "crime"; selected_label = "🔪 범죄유인"; selected_type = "dragon_crime"
+            elif run_abuse:
+                selected_platform = "abuse"; selected_label = "🗣️ 폭언·가스라이팅"; selected_type = "dragon_abuse"
+            elif run_hate:
+                selected_platform = "hate"; selected_label = "🧨 혐오·증오조장"; selected_type = "dragon_hate"
 
             # 🏭 관리자: 추천 인벤토리(사전생성 풀) 현황 + 채우기
             if is_admin or is_super:
