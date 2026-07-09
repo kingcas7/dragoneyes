@@ -28129,10 +28129,14 @@ else:
             except Exception:
                 pass
 
-        _hh1, _hh2 = st.columns([6, 1])
+        _hh1, _hh2, _hh3 = st.columns([5, 1.6, 1.2])
         with _hh1:
             st.markdown("## 🎓 선생님 강의자료 · 연수")
         with _hh2:
+            if st.button("👀 학생 학습자료 보기", key="tt_student_mats", use_container_width=True,
+                         help="학생들에게 배포되는 학습자료를 열람합니다 — 선생님 계정은 프리미엄 자료까지 자동 열람됩니다"):
+                st.session_state.current_page = "materials_library"; st.rerun()
+        with _hh3:
             if st.button("← 대시보드", key="tt_back", use_container_width=True):
                 st.session_state.current_page = "institution_dashboard"; st.rerun()
 
@@ -28289,6 +28293,15 @@ else:
             ).execute().data)
         except Exception:
             _has_premium = False
+
+        # 🎓 교사·기관 계정은 학생 학습자료(프리미엄 포함) 자동 열람 (2026-07-09)
+        if not _has_premium and (
+            _u_ml.get("institution_id")
+            or "teacher" in (_u_ml.get("role_v2") or "").lower()
+            or "institution" in (_u_ml.get("role_v2") or "").lower()
+            or _is_hq_ml
+        ):
+            _has_premium = True
 
         # ⭐ 필터(좌) + KPI 3종(우) 같은 줄
         _flt_col, _kpi_col = st.columns([2, 3])
