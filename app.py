@@ -5417,7 +5417,7 @@ _CAMPAIGN_ALLOWED_PAGES = (
     "campaign_signup_parent", "campaign_signup_student",
     "institution_dashboard", "institution_approval", "institution_management",
     "payment_management", "terms_management", "campaign_consent",
-    "materials_library", "material_view", "materials_management",
+    "materials_library", "material_view", "materials_management", "teacher_training",
     "surveys_management", "monitoring_stats", "notices",
 )
 
@@ -13603,7 +13603,7 @@ else:
         "institution_management",
         "campaign_status", "parent_dashboard",
         "survey_respond", "payment_callback",
-        "materials_library", "material_view", "materials_management",
+        "materials_library", "material_view", "materials_management", "teacher_training",
         "surveys_management",
         "terms_management", "payment_management", "notices",
         "campaign_consent",
@@ -13808,7 +13808,7 @@ else:
         "campaign_signup_parent", "campaign_signup_student",
         "institution_dashboard", "institution_approval", "institution_management",
         "payment_management", "terms_management", "campaign_consent",
-        "materials_library", "material_view", "materials_management",
+        "materials_library", "material_view", "materials_management", "teacher_training",
         "surveys_management",
         "monitoring_stats",
     )
@@ -13832,7 +13832,7 @@ else:
             or _cp_now in ("institution_dashboard", "institution_approval",
                            "institution_management",
                            "campaign_status", "parent_dashboard",
-                           "materials_library", "material_view", "materials_management",
+                           "materials_library", "material_view", "materials_management", "teacher_training",
         "surveys_management",
                            "terms_management", "payment_management", "notices")
             or (_cp_now == "monitoring_stats" and bool(st.session_state.get("_stats_from_campaign")))
@@ -14030,7 +14030,7 @@ else:
                               "institution_management",
                               "campaign_status", "parent_dashboard",
                               "survey_respond", "payment_callback",
-                              "materials_library", "material_view", "materials_management",
+                              "materials_library", "material_view", "materials_management", "teacher_training",
         "surveys_management",
                               "terms_management", "payment_management", "notices")
         or (_curr_page_hdr == "monitoring_stats" and _stats_from_cmp)
@@ -25273,6 +25273,27 @@ else:
                 )
                 st.stop()
 
+        # ⭐ 교사 연수 자료 박스 (2026-07-09) — 초중고 교원 연수(정규) / 유아 교사 교육(권장)
+        _tt_p_box = ((_u.get("preferences") or {}).get("teacher_training") or {})
+        _tt_passed_box = _tt_p_box.get("passed") or {}
+        _tb1, _tb2 = st.columns(2)
+        with _tb1:
+            with st.container(border=True):
+                st.markdown("##### 🎓 선생님 강의자료 열람 — 초·중·고 교원")
+                st.caption("🏷️ **정규 교원 연수 과정** · 자료 2건 이상 열람 + 확인문제(5문항) 통과 시 이수"
+                           + ("  ·  ✅ **이수 완료**" if _tt_passed_box.get("k12") else ""))
+                if st.button("📖 연수 자료 열람하기", key="tt_go_k12", use_container_width=True, type="primary"):
+                    st.session_state["tt_track"] = "k12"
+                    st.session_state.current_page = "teacher_training"; st.rerun()
+        with _tb2:
+            with st.container(border=True):
+                st.markdown("##### 🧸 선생님 강의자료 열람 — 유치원·어린이집 교사")
+                st.caption("🏷️ **권장 교육 사항** · 자료 2건 이상 열람 + 확인문제(5문항) 통과 시 이수"
+                           + ("  ·  ✅ **이수 완료**" if _tt_passed_box.get("ece") else ""))
+                if st.button("📖 교육 자료 열람하기", key="tt_go_ece", use_container_width=True, type="primary"):
+                    st.session_state["tt_track"] = "ece"
+                    st.session_state.current_page = "teacher_training"; st.rerun()
+
         # 기관 정보 표시 (학교 admin 본인 기관 미연결 시)
         if not _inst_id:
             st.warning(
@@ -28045,6 +28066,186 @@ else:
     # ══════════════════════════════════════════════════════════════
     # 📚 학습자료실 — 모든 사용자 접근 가능 (학년대별 자료 목록 + 잠금 UI)
     # ══════════════════════════════════════════════════════════════
+    elif page == "teacher_training":
+        # ⭐ 교사 연수 (2026-07-09) — K12 정규 연수 / ECE 권장 교육
+        #    이수 요건: 트랙 자료 2건 이상 열람 + 확인문제 5문항 통과 (오답 재시도 가능, 전원 통과 설계)
+        #    진행 상태는 users.preferences.teacher_training 에 저장 (DDL 불필요)
+        _u_tt = user or {}
+        _is_hq_tt = (_u_tt.get("role") == "admin" and not _u_tt.get("partner_id"))
+
+        _TT_QUIZ = {
+            "k12": [
+                ("NCMEC(미국 실종·착취아동센터)의 온라인 신고 창구 이름은 무엇인가요?",
+                 ["CyberTipline", "SafeLine", "TipNet", "KidsGuard"], 0,
+                 "1998년 개설된 CyberTipline은 2023년 약 3,600만 건의 신고를 처리했습니다. (교재 1권 2장)"),
+                ("국제 사회가 '아동 포르노' 대신 CSAM이라는 용어를 쓰는 이유는?",
+                 ["범죄의 본질이 '아동 학대의 기록'임을 분명히 하기 위해", "발음이 쉬워서",
+                  "검색 노출을 줄이기 위해", "법률 용어이기 때문에"], 0,
+                 "'포르노'는 합의된 성인물을 연상시켜 학대라는 본질을 흐리기 때문입니다. (교재 1권 4장)"),
+                ("온라인 그루밍의 전형적인 첫 접근 방식은?",
+                 ["친절과 관심으로 신뢰를 쌓는다", "위협으로 시작한다", "금전을 먼저 요구한다", "무작위 욕설을 보낸다"], 0,
+                 "그루밍은 '무섭게'가 아니라 '친절하게' 시작됩니다 — 6단계 모델의 2단계가 신뢰 획득입니다. (교재 1권 4장)"),
+                ("드래곤아이즈 탐지 체계의 심각도는 몇 단계로 판정되나요?",
+                 ["5단계", "3단계", "7단계", "10단계"], 0,
+                 "AI가 16종 위험 신호를 분석해 심각도 1~5단계와 18개 분류로 판정합니다. (교재 2권 1장)"),
+                ("섹스토션 피해를 털어놓은 학생에게 교사가 해야 할 첫 반응은?",
+                 ["\"말해줘서 고맙다, 네 잘못이 아니다\"", "\"왜 사진을 보냈니\"", "혼자 해결해 보라고 격려한다", "부모에게 알리지 말라고 한다"], 0,
+                 "비난 없는 첫 반응이 신고와 회복의 출발점입니다. (교재 2권 2장 ④)"),
+            ],
+            "ece": [
+                ("미국소아과학회(AAP)가 18~24개월 미만 영아에게 권고하는 것은?",
+                 ["영상통화를 제외한 화면 노출을 피한다", "하루 2시간까지 허용", "교육용 앱은 무제한 허용", "TV만 허용"], 0,
+                 "이 시기의 뇌는 화면이 아닌 상호작용으로 발달합니다. (교재 1권 1장)"),
+                ("'엘사게이트(Elsagate)'란 무엇인가요?",
+                 ["아동 캐릭터로 위장한 유해 영상이 대량 유통된 사태", "겨울왕국의 후속작 논란",
+                  "유튜브의 요금제 명칭", "게임 아이템 사기 수법"], 0,
+                 "2017년 유튜브 키즈까지 뚫린 위장 유해 영상 사태입니다 — '캐릭터가 나온다고 아동용이 아니다'. (교재 1권 2장)"),
+                ("교실에서 유해 의심 영상을 발견했을 때 가장 먼저 할 일은?",
+                 ["재생을 멈추고 채널명·URL을 기록(캡처)한다", "즉시 영상을 삭제·차단한다",
+                  "아이들에게 보여주며 설명한다", "무시하고 넘어간다"], 0,
+                 "삭제·차단은 기록 후에 — 기록이 없으면 신고도 차단도 어렵습니다. (교재 2권 1장)"),
+                ("유아가 유해 콘텐츠에 노출되었을 때 나타나기 쉬운 신호는?",
+                 ["놀이 중 연령에 맞지 않는 장면 재연", "식욕 증가", "키 성장 둔화", "시력 급상승"], 0,
+                 "유아는 말 대신 놀이와 행동으로 보여줍니다. (교재 2권 2장)"),
+                ("아동학대 의심 상황에서 유치원·어린이집 교사의 법적 지위는?",
+                 ["법정 신고의무자 — 신고 시 신원이 보호된다", "신고 권한이 없다",
+                  "원장의 허락이 있어야 신고할 수 있다", "학부모 동의 후에만 신고할 수 있다"], 0,
+                 "교사는 아동복지법상 신고의무자이며 신고자 신원은 법으로 보호됩니다. (교재 2권 2장)"),
+            ],
+        }
+
+        def _tt_load():
+            _p = (_u_tt.get("preferences") or {})
+            _t = _p.get("teacher_training") or {}
+            _t.setdefault("viewed", []); _t.setdefault("passed", {})
+            return _t
+
+        def _tt_save(_t):
+            _p = (_u_tt.get("preferences") or {})
+            _p["teacher_training"] = _t
+            try:
+                supabase.table("users").update({"preferences": _p}).eq("id", _u_tt["id"]).execute()
+                _u_tt["preferences"] = _p
+            except Exception:
+                pass
+
+        _hh1, _hh2 = st.columns([6, 1])
+        with _hh1:
+            st.markdown("## 🎓 선생님 강의자료 · 연수")
+        with _hh2:
+            if st.button("← 대시보드", key="tt_back", use_container_width=True):
+                st.session_state.current_page = "institution_dashboard"; st.rerun()
+
+        _track_init = st.session_state.get("tt_track", "k12")
+        _track = st.radio(
+            "과정 선택", ["k12", "ece"],
+            format_func=lambda x: {"k12": "🎓 초·중·고 교원 연수 (정규 연수 과정)",
+                                    "ece": "🧸 유치원·어린이집 교사 교육 (권장 교육 사항)"}[x],
+            horizontal=True, index=(0 if _track_init == "k12" else 1), key="tt_track_radio")
+        st.session_state["tt_track"] = _track
+        _tag_tt = f"teacher-{_track}"
+        _tt = _tt_load()
+        _viewed = set(_tt.get("viewed") or [])
+        _passed_at = (_tt.get("passed") or {}).get(_track)
+
+        st.info("📌 **이수 요건** — 아래 자료 중 **2건 이상 열람** 후 **확인문제 5문항**을 통과하면 이수됩니다. "
+                "오답은 해설과 함께 다시 풀 수 있어 누구나 통과할 수 있습니다. 자료를 읽으면 답할 수 있는 문제들입니다."
+                + ("  |  ✅ **이수 완료: " + str(_passed_at)[:10] + "**" if _passed_at else ""))
+
+        # ── 자료 목록 ──
+        try:
+            _mats = supabase.table("campaign_learning_materials").select(
+                "id,slug,title,summary,attachment_url,reading_time_min,chapter_no")\
+                .eq("category_tag", _tag_tt).eq("is_active", True).order("chapter_no").execute().data or []
+        except Exception:
+            _mats = []
+        if not _mats:
+            st.warning("등록된 연수 자료가 없습니다.")
+        _n_viewed_track = len([m for m in _mats if m["slug"] in _viewed])
+        st.markdown(f"#### 📚 연수 자료 ({len(_mats)}건) — 열람 {_n_viewed_track}건 / 이수 요건 2건")
+        for _m in _mats:
+            _done = _m["slug"] in _viewed
+            with st.container(border=True):
+                _mc1, _mc2, _mc3 = st.columns([6, 1.6, 1.6])
+                with _mc1:
+                    st.markdown(f"**{'✅ ' if _done else ''}{_m['title']}**")
+                    st.caption(f"{_m.get('summary') or ''}  ·  약 {_m.get('reading_time_min') or 30}분")
+                with _mc2:
+                    if _m.get("attachment_url"):
+                        st.link_button("📄 자료 열기", _m["attachment_url"], use_container_width=True)
+                with _mc3:
+                    if _done:
+                        st.button("열람 완료", key=f"tt_v_{_m['slug']}", disabled=True, use_container_width=True)
+                    else:
+                        if st.button("✅ 열람 완료 체크", key=f"tt_v_{_m['slug']}", use_container_width=True):
+                            _tt["viewed"] = sorted(_viewed | {_m["slug"]})
+                            _tt_save(_tt); st.rerun()
+
+        # ── 확인 문제 (2건 이상 열람 시 개방) ──
+        st.divider()
+        st.markdown("#### 📝 확인 문제 (5문항)")
+        if _passed_at:
+            st.success(f"🎉 이 과정을 이수하셨습니다 ({str(_passed_at)[:10]}). 자료는 계속 열람할 수 있습니다.")
+        elif _n_viewed_track < 2:
+            st.warning(f"확인 문제는 자료 **2건 이상 열람** 후 응시할 수 있습니다. (현재 {_n_viewed_track}건)")
+        else:
+            _qs = _TT_QUIZ[_track]
+            _wrong_key = f"tt_wrong_{_track}"
+            _answers = []
+            for _qi, (_q, _opts, _correct, _explain) in enumerate(_qs):
+                st.markdown(f"**{_qi+1}. {_q}**")
+                _pick = st.radio("답을 선택하세요", _opts, key=f"tt_q_{_track}_{_qi}",
+                                 index=None, label_visibility="collapsed")
+                _answers.append(_pick)
+                # 직전 제출에서 틀렸던 문항이면 해설 표시
+                if _qi in (st.session_state.get(_wrong_key) or []):
+                    st.error(f"❌ 오답입니다 — 다시 선택해보세요.  💡 힌트: {_explain}")
+            if st.button("📤 제출하기", key=f"tt_submit_{_track}", type="primary"):
+                _wrong = [i for i, (_q, _opts, _c, _e) in enumerate(_qs)
+                          if _answers[i] != _opts[_c]]
+                if _wrong:
+                    st.session_state[_wrong_key] = _wrong
+                    st.rerun()
+                else:
+                    st.session_state.pop(_wrong_key, None)
+                    _tt.setdefault("passed", {})[_track] = datetime.now().isoformat()
+                    _tt_save(_tt)
+                    st.balloons()
+                    st.rerun()
+
+        # ── 본부 관리자: 자료 추가 ──
+        if _is_hq_tt:
+            st.divider()
+            with st.expander("➕ 연수 자료 추가 (본부 관리자)", expanded=False):
+                st.caption(f"현재 과정({'초·중·고 교원' if _track == 'k12' else '유치원·어린이집 교사'})에 자료가 추가됩니다. "
+                           "전체 자료 관리는 [자료 관리] 페이지에서도 가능합니다 (태그: teacher-k12 / teacher-ece).")
+                _ta_title = st.text_input("제목", key="tt_add_title", placeholder="예: [교원 연수 3] ○○ 심화")
+                _ta_sum = st.text_input("요약 (1~2줄)", key="tt_add_sum")
+                _ta_file = st.file_uploader("PDF 첨부", type=["pdf"], key="tt_add_file")
+                if st.button("등록", key="tt_add_go", type="primary"):
+                    if not _ta_title or not _ta_file:
+                        st.error("제목과 PDF는 필수입니다.")
+                    else:
+                        try:
+                            import time as _t_tt
+                            _pth = f"learning_materials/{int(_t_tt.time())}_teacher_{_track}.pdf"
+                            supabase.storage.from_("Documents").upload(
+                                _pth, _ta_file.getvalue(), {"content-type": "application/pdf"})
+                            _sgn = supabase.storage.from_("Documents").create_signed_url(_pth, 60*60*24*365*5)
+                            _url_tt = _sgn.get("signedURL") or _sgn.get("signedUrl")
+                            _maxch = max([m.get("chapter_no") or 0 for m in _mats] + [20]) + 1
+                            supabase.table("campaign_learning_materials").insert({
+                                "slug": f"teacher-{_track}-{int(_t_tt.time())}",
+                                "title": _ta_title.strip(), "summary": (_ta_sum or "").strip(),
+                                "target_band": "all", "tier": "free", "category_tag": _tag_tt,
+                                "cover_emoji": "🎓" if _track == "k12" else "🧸",
+                                "chapter_no": _maxch, "reading_time_min": 30,
+                                "attachment_url": _url_tt, "is_active": True,
+                            }).execute()
+                            st.success("✅ 등록 완료"); st.rerun()
+                        except Exception as _e_tt:
+                            st.error(f"등록 실패: {str(_e_tt)[:100]}")
+
     elif page == "materials_library":
         _u_ml = user or {}
         _role_ml = (_u_ml.get("role_v2") or "").lower()
