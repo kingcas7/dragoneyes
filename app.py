@@ -28286,6 +28286,10 @@ else:
         except Exception as _e:
             _mats_all = []; st.error(f"학습자료 조회 실패: {_e}")
 
+        # 🎓 교원 연수 자료(teacher-*)는 학생 자료실에 노출하지 않음 — 연수 페이지 전용 (2026-07-09)
+        _mats_all = [m for m in _mats_all
+                     if not str(m.get("category_tag") or "").startswith("teacher-")]
+
         # 프리미엄 접근 권한
         try:
             _has_premium = bool(supabase.rpc(
@@ -28518,6 +28522,15 @@ else:
                 "body_md, attachment_url, is_active, view_count, published_at"
             ).eq("id", _mat_id).limit(1).execute().data or []
             _mv_row = _mv[0] if _mv else {}
+            # 🎓 교원 전용 자료 접근 제한 (2026-07-09)
+            if str(_mv_row.get("category_tag") or "").startswith("teacher-") and not (
+                _u_mv.get("institution_id")
+                or "teacher" in (_u_mv.get("role_v2") or "").lower()
+                or "institution" in (_u_mv.get("role_v2") or "").lower()
+                or (_u_mv.get("role") == "admin" and not _u_mv.get("partner_id"))
+            ):
+                st.error("🎓 교원 전용 연수 자료입니다. 기관(학교) 계정으로 이용해주세요.")
+                st.stop()
         except Exception as _e:
             _mv_row = {}; st.error(f"자료 조회 실패: {_e}")
 
