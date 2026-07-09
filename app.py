@@ -7441,6 +7441,51 @@ def neis_search_schools(query=None, region_code=None, type_filter=None, limit=50
     return results
 
 
+# ⭐ 유치원 전국 검색 — KESS 교육통계 2025.4.1 학교별 원자료 번들 (8,140개원)
+#    NEIS API가 유치원을 제공하지 않아 repo 내 data/kindergartens_2025.csv.gz 사용.
+#    어린이집은 공공데이터포털 인증키(전국어린이집표준데이터) 등록 후 동일 방식으로 추가 예정.
+_SIDO_SHORT = {
+    "서울특별시": "서울", "부산광역시": "부산", "대구광역시": "대구", "인천광역시": "인천",
+    "광주광역시": "광주", "대전광역시": "대전", "울산광역시": "울산", "세종특별자치시": "세종",
+    "경기도": "경기", "강원특별자치도": "강원", "충청북도": "충북", "충청남도": "충남",
+    "전북특별자치도": "전북", "전라남도": "전남", "경상북도": "경북", "경상남도": "경남",
+    "제주특별자치도": "제주",
+}
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def load_kindergarten_directory():
+    """번들된 전국 유치원 명부 로드 (없으면 None)."""
+    try:
+        _p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "kindergartens_2025.csv.gz")
+        if not os.path.exists(_p):
+            return None
+        return pd.read_csv(_p, dtype=str)
+    except Exception:
+        return None
+
+
+def search_kindergartens(query=None, region_name=None, limit=200):
+    """전국 유치원 검색 — NEIS 검색 결과와 동일한 dict 형태로 반환."""
+    df = load_kindergarten_directory()
+    if df is None:
+        return []
+    sub = df
+    if region_name and region_name != "전체":
+        sub = sub[sub["sido"] == _SIDO_SHORT.get(region_name, region_name)]
+    if query and query.strip():
+        sub = sub[sub["name"].str.contains(query.strip(), na=False, regex=False)]
+    out = []
+    for _, r in sub.head(limit).iterrows():
+        out.append({
+            "name": r["name"], "code": f"KG-{r['code']}", "neis_id": None,
+            "type": "kindergarten", "kind_label": "유치원",
+            "region": r["sido"], "district": r["district"] or "",
+            "address": r.get("address") or "", "founder_type": r.get("founder") or "",
+            "phone": None, "homepage_url": None,
+        })
+    return out
+
+
 def render_neis_school_picker(key_prefix, default_region=None, default_band="전체"):
     """⭐ NEIS 학교 검색 UI — 시·도 + 학교급 + 학교명 단계적 검색.
 
@@ -7453,8 +7498,9 @@ def render_neis_school_picker(key_prefix, default_region=None, default_band="전
         dict: 선택된 학교 정보 또는 None
     """
     _regions = ["전체"] + list(NEIS_REGION_CODES.keys())
-    _bands = ["전체", "elementary", "middle", "high", "special"]
-    _band_labels = {"전체":"전체","elementary":"초","middle":"중","high":"고","special":"특수"}
+    _bands = ["전체", "elementary", "middle", "high", "special", "kindergarten", "daycare"]
+    _band_labels = {"전체":"전체(초·중·고·특수)","elementary":"초","middle":"중","high":"고","special":"특수",
+                    "kindergarten":"유치원","daycare":"어린이집"}
 
     _c1, _c2, _c3 = st.columns([2, 2, 3])
     with _c1:
@@ -7487,13 +7533,25 @@ def render_neis_school_picker(key_prefix, default_region=None, default_band="전
     _region_code = NEIS_REGION_CODES.get(_region) if _region != "전체" else None
     _type_filter = None if _band == "전체" else _band
 
-    with st.spinner("학교 검색 중..."):
-        _results = neis_search_schools(
-            query=_query.strip() if _query else None,
-            region_code=_region_code,
-            type_filter=_type_filter,
-            limit=200,
-        )
+    if _band == "daycare":
+        st.info("🍼 어린이집 전국 검색은 준비 중입니다 (공공데이터 '전국어린이집표준데이터' 인증키 등록 후 활성화). "
+                "그 전까지는 '직접 입력' 또는 신규 기관 등록을 이용해주세요.")
+        return None
+
+    if _band == "kindergarten":
+        with st.spinner("유치원 검색 중..."):
+            _results = search_kindergartens(
+                query=_query.strip() if _query else None,
+                region_name=_region, limit=200,
+            )
+    else:
+        with st.spinner("학교 검색 중..."):
+            _results = neis_search_schools(
+                query=_query.strip() if _query else None,
+                region_code=_region_code,
+                type_filter=_type_filter,
+                limit=200,
+            )
 
     if not _results:
         st.info("🔍 검색 결과가 없습니다. 다른 시·도 또는 학교명으로 시도해주세요.")
@@ -7534,8 +7592,8 @@ def neis_upsert_institution(school_dict):
         _existing = _q.data or []
         if _existing:
             return _existing[0].get("id")
-        # 신규 INSERT
-        _ins = supabase.table("institutions").insert({
+        # 신규 INSERT — type CHECK 제약에 없는 값(유치원 등)은 'other'로 폴백
+        _payload = {
             "type":         school_dict.get("type", "other"),
             "name":         school_dict.get("name", ""),
             "code":         school_dict.get("code"),
@@ -7545,10 +7603,15 @@ def neis_upsert_institution(school_dict):
             "address":      school_dict.get("address"),
             "phone":        school_dict.get("phone") or None,
             "homepage_url": school_dict.get("homepage_url") or None,
-            "verification_source": "neis",
+            "verification_source": "neis" if school_dict.get("neis_id") else "kess",
             "status":       "approved",
             "approved_at":  datetime.now().isoformat(),
-        }).execute()
+        }
+        try:
+            _ins = supabase.table("institutions").insert(_payload).execute()
+        except Exception:
+            _payload["type"] = "other"
+            _ins = supabase.table("institutions").insert(_payload).execute()
         return (_ins.data or [{}])[0].get("id")
     except Exception:
         return None
