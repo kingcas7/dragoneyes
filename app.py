@@ -3678,6 +3678,7 @@ client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 youtube = build("youtube", "v3", developerKey=os.getenv("YOUTUBE_API_KEY"))
 supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
+
 # 🔍 부팅 시 1회 — 실제 배포 프로세스가 보는 키 환경변수 (Railway 로그로 ground truth 확인)
 try:
     _BOOT_ENV_LOGGED
@@ -6402,6 +6403,7 @@ def get_team_members(team_id):
     except:
         return []
 
+@st.cache_data(ttl=20, show_spinner=False)
 def get_unread_announcements(user_id):
     try:
         all_ann = supabase.table("announcements").select("id").eq("is_deleted", False).execute().data or []
@@ -7324,6 +7326,7 @@ def get_tenant_license_info(tenant_id):
 
 def mark_announcement_read(announcement_id, user_id):
     try:
+        get_unread_announcements.clear()
         supabase.table("announcement_reads").upsert({
             "announcement_id": announcement_id,
             "user_id": user_id,
@@ -8697,6 +8700,7 @@ def login(email, password):
 def is_weekday():
     return True
 
+@st.cache_data(ttl=15, show_spinner=False)
 def get_chat_token_info(user_id):
     ym = date.today().strftime("%Y-%m")
     res = supabase.table("chat_tokens").select("*").eq("user_id", user_id).eq("year_month", ym).execute()
@@ -8708,6 +8712,7 @@ def get_chat_token_info(user_id):
     }).execute()
     return {"used_count": 0, "extra_tokens": 0}
 
+@st.cache_data(ttl=15, show_spinner=False)
 def get_chat_today_count(user_id):
     today = date.today().isoformat()
     res = supabase.table("chat_logs").select("id").eq("user_id", user_id).gte("created_at", today).execute()
@@ -8748,6 +8753,7 @@ def use_chat_token(user_id):
         "used_count": info["used_count"] + 1,
         "updated_at": datetime.now().isoformat()
     }).eq("user_id", user_id).eq("year_month", ym).execute()
+    get_chat_token_info.clear(); get_chat_today_count.clear()
 
 def add_chat_extra_tokens(user_id, amount):
     ym = date.today().strftime("%Y-%m")
@@ -10364,6 +10370,7 @@ def scan_watched_channel(channel_id, channel_name, max_results=5, assigned_to=No
     except Exception as e:
         return []
 
+@st.cache_data(ttl=15, show_spinner=False)
 def get_token_info(user_id):
     ym = date.today().strftime("%Y-%m")
     res = supabase.table("dragon_tokens").select("*").eq("user_id", user_id).eq("year_month", ym).execute()
@@ -10377,6 +10384,7 @@ def get_token_info(user_id):
     }).execute()
     return {"used_count": 0, "extra_tokens": 0}
 
+@st.cache_data(ttl=15, show_spinner=False)
 def get_today_dragon_count(user_id):
     today = date.today().isoformat()
     res = supabase.table("analyzed_urls").select("id").eq("assigned_to", user_id).gte("analyzed_at", today).in_("search_type", ["dragon_general","dragon_roblox","dragon_minecraft","dragon_gambling","dragon_deepfake",
@@ -10391,6 +10399,7 @@ WEEKLY_ASSIGN_COUNT = PER_USER_WEEKLY_TARGET        # (호환 보존) 실제 배
 MONTHLY_MONITOR_LIMIT = 300      # 1인 월 모니터링 상한
 MANUAL_CLAIM_BATCH = 30          # '추천 생성' 1회 클릭 시 인벤토리에서 꺼내는 기본 배치 수
 
+@st.cache_data(ttl=15, show_spinner=False)
 def get_user_pending_count(user_id):
     """사용자의 미처리(미작성) 배정 모니터링 건수 — 백로그 자동중단 판정용."""
     try:
@@ -10412,6 +10421,7 @@ def get_user_month_assigned_count(user_id):
     except Exception:
         return 0
 
+@st.cache_data(ttl=60, show_spinner=False)
 def count_monitoring_users():
     """모니터링(시스템) 사용자 수 — 풀 재고 목표 산정용.
     총판·리셀러(partner_id), 본부 admin(role≠user), 캠페인전용, 비활성 제외."""
@@ -10425,6 +10435,7 @@ def count_monitoring_users():
     except Exception:
         return 0
 
+@st.cache_data(ttl=30, show_spinner=False)
 def inventory_unclaimed_count(search_type=None):
     """추천 인벤토리 미배정(재고) 개수 — RPC 경유(anon)."""
     try:
@@ -10435,6 +10446,7 @@ def inventory_unclaimed_count(search_type=None):
         return 0
 
 def claim_from_inventory(user_id, search_type, n):
+    inventory_unclaimed_count.clear(); get_user_pending_count.clear()
     """인벤토리에서 FIFO로 최대 n개를 user에게 원자적 배정.
     반환: 화면 표시용 result dict 리스트(+analyzed_urls에 배정 기록)."""
     if not n or n <= 0:
@@ -10463,6 +10475,7 @@ def claim_from_inventory(user_id, search_type, n):
     return out
 
 def topup_recommendation_inventory(max_generate=300):
+    inventory_unclaimed_count.clear(); get_user_pending_count.clear()
     """추천 인벤토리를 (모니터링사용자수 × PER_USER_WEEKLY_TARGET) 까지 보충(부족분만).
     1회 max_generate건으로 상한(폭주 방지). 4개 플랫폼 라운드로빈. 반환: 요약 dict."""
     summary = {"monitoring_users": 0, "target": 0, "current": 0,
@@ -10580,6 +10593,7 @@ def use_dragon_token(user_id):
         "used_count": info["used_count"] + 1,
         "updated_at": datetime.now().isoformat()
     }).eq("user_id", user_id).eq("year_month", ym).execute()
+    get_token_info.clear(); get_today_dragon_count.clear()
 
 def add_extra_tokens(user_id, amount):
     ym = date.today().strftime("%Y-%m")
@@ -31988,9 +32002,9 @@ else:
                 fdate = st.date_input(t("after_date"), value=None, key="hist_date")
 
             if is_admin:
-                hist = supabase.table("analyzed_urls").select("*").order("analyzed_at", desc=True).limit(1000).execute()
+                hist = supabase.table("analyzed_urls").select("id,url,title,search_type,analyzed_at,assigned_to,reported,report_id,severity,category").order("analyzed_at", desc=True).limit(1000).execute()
             else:
-                hist = supabase.table("analyzed_urls").select("*").eq("assigned_to", user["id"]).order("analyzed_at", desc=True).limit(1000).execute()
+                hist = supabase.table("analyzed_urls").select("id,url,title,search_type,analyzed_at,assigned_to,reported,report_id,severity,category").eq("assigned_to", user["id"]).order("analyzed_at", desc=True).limit(1000).execute()
 
             data = hist.data if hist.data else []
 
@@ -32034,16 +32048,14 @@ else:
 
             # 히스토리 팝업
             if st.session_state.get("hist_popup_id"):
-                hist_popup_d = next((x for x in data if x["id"] == st.session_state.hist_popup_id), None)
-                if not hist_popup_d:
-                    # 🎤 음성 열기(voice_open)가 고른 항목이 현재 필터(미작성 등) 목록에
-                    #    없으면 팝업이 조용히 사라짐 → id로 직접 조회해 항상 표시
-                    try:
-                        _hp_res = supabase.table("analyzed_urls").select("*").eq(
-                            "id", st.session_state.hist_popup_id).limit(1).execute()
-                        hist_popup_d = (_hp_res.data or [None])[0]
-                    except Exception:
-                        hist_popup_d = None
+                # 목록은 슬림 컬럼(대용량 분석문 제외)이므로 팝업은 항상 id로 전체 조회.
+                #    필터(미작성 등)에 없는 항목(음성 열기)도 이 경로로 항상 표시됨.
+                try:
+                    _hp_res = supabase.table("analyzed_urls").select("*").eq(
+                        "id", st.session_state.hist_popup_id).limit(1).execute()
+                    hist_popup_d = (_hp_res.data or [None])[0]
+                except Exception:
+                    hist_popup_d = next((x for x in data if x["id"] == st.session_state.hist_popup_id), None)
                 if hist_popup_d:
                     # ⭐ Phase 6: 동영상 정보 음성 안내 → 재생 (2단계 분리)
                     _vp_id = hist_popup_d.get("id", "")
