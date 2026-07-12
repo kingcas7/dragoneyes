@@ -31180,10 +31180,18 @@ else:
 
             # ③ 모니터링 버튼 (하단)
             st.markdown('<div style="font-size:0.82rem; font-weight:600; color:#94a3b8; margin-bottom:4px;">🐉 모니터링</div>', unsafe_allow_html=True)
-            if st.button(t("work_dragon_btn"), use_container_width=True, type="primary", key="home_dragon_btn"):
-                st.session_state.current_page = "home"
-                st.session_state.active_tab = 3
-                st.rerun()
+            _mb1, _mb2 = st.columns([3, 1])
+            with _mb1:
+                if st.button(t("work_dragon_btn"), use_container_width=True, type="primary", key="home_dragon_btn"):
+                    st.session_state.current_page = "home"
+                    st.session_state.active_tab = 3
+                    st.rerun()
+            with _mb2:
+                if st.button(t("tab_history"), use_container_width=True, key="home_hist_btn",
+                             help="탐색 히스토리(분석된 영상 목록)로 바로 이동"):
+                    st.session_state.current_page = "home"
+                    st.session_state.active_tab = 5
+                    st.rerun()
             qa1, qa2, qa3 = st.columns(3)
             with qa1:
                 if st.button(t("home_text_btn"), use_container_width=True, key="home_text_btn"):
