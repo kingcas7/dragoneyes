@@ -32002,9 +32002,9 @@ else:
                 fdate = st.date_input(t("after_date"), value=None, key="hist_date")
 
             if is_admin:
-                hist = supabase.table("analyzed_urls").select("id,url,title,search_type,analyzed_at,assigned_to,reported,report_id,severity,category").order("analyzed_at", desc=True).limit(1000).execute()
+                hist = supabase.table("analyzed_urls").select("id,url,title,search_type,analyzed_at,assigned_to,reported,report_id").order("analyzed_at", desc=True).limit(1000).execute()
             else:
-                hist = supabase.table("analyzed_urls").select("id,url,title,search_type,analyzed_at,assigned_to,reported,report_id,severity,category").eq("assigned_to", user["id"]).order("analyzed_at", desc=True).limit(1000).execute()
+                hist = supabase.table("analyzed_urls").select("id,url,title,search_type,analyzed_at,assigned_to,reported,report_id").eq("assigned_to", user["id"]).order("analyzed_at", desc=True).limit(1000).execute()
 
             data = hist.data if hist.data else []
 
