@@ -12123,13 +12123,16 @@ def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="
         sev = extract_severity(rt)
         cat = extract_category(rt)
 
-        # 드래곤아이즈 추천: AI 판정과 무관하게 모든 결과 노출
-        # 사유: YouTube 안전 필터는 신고된 후만 작동. 사전 모니터링은 인간 검토 필수.
-        # AI 심각도 점수는 참고용으로만 표시. 최종 판단은 전문 모니터가 수행.
-        # 도박만 예외: 공식 채널 등 명백한 안전 콘텐츠는 자동 제외
-        if search_type == "dragon_gambling" and sev <= 1 and cat == "안전":
+        # 🎯 선별 게이트 (2026-07-12, 도박 한정 → 전 카테고리 확대):
+        #    AI가 '안전(심각도 1)'으로 판정하고 위험 댓글 신호도 약하면 사람에게 배정하지 않음.
+        #    — 배정 리스트 대부분이 무해 영상(일상·아기·교복 소개 등)이라 실제 유해
+        #      콘텐츠 발견율이 낮았던 원인. 모니터 시간을 의심 콘텐츠에 집중.
+        #    분석 기록은 assigned_to 없이 남겨 중복 탐색만 방지(누구의 목록에도 안 뜸).
+        #    위험 댓글(연락 유도·만남·나이 묻기 등) 3개 이상이면 AI 판정과 무관하게 배정(놓침 방지).
+        _flagged_cnt = len(flagged) if comments else 0
+        if sev <= 1 and _flagged_cnt < 3:
             analyzed_urls.add(url)
-            mark_url_analyzed(url, title, search_type, assigned_to)
+            mark_url_analyzed(url, title, search_type, assigned_to=None)
             continue
 
         mark_url_analyzed(url, title, search_type, assigned_to)
