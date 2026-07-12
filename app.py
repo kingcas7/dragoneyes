@@ -31986,6 +31986,15 @@ else:
             # 히스토리 팝업
             if st.session_state.get("hist_popup_id"):
                 hist_popup_d = next((x for x in data if x["id"] == st.session_state.hist_popup_id), None)
+                if not hist_popup_d:
+                    # 🎤 음성 열기(voice_open)가 고른 항목이 현재 필터(미작성 등) 목록에
+                    #    없으면 팝업이 조용히 사라짐 → id로 직접 조회해 항상 표시
+                    try:
+                        _hp_res = supabase.table("analyzed_urls").select("*").eq(
+                            "id", st.session_state.hist_popup_id).limit(1).execute()
+                        hist_popup_d = (_hp_res.data or [None])[0]
+                    except Exception:
+                        hist_popup_d = None
                 if hist_popup_d:
                     # ⭐ Phase 6: 동영상 정보 음성 안내 → 재생 (2단계 분리)
                     _vp_id = hist_popup_d.get("id", "")
@@ -32140,7 +32149,9 @@ else:
                             (function(){{
                                 if (window.__a11yVideoAutoStarted_{str(_vp_id).replace('-','_')}) return;
                                 window.__a11yVideoAutoStarted_{str(_vp_id).replace('-','_')} = true;
-                                setTimeout(function(){{
+                                // ⭐ 고정 대기(최대 40초) → TTS 종료 감지 폴링으로 교체:
+                                //    발화가 끝나면(또는 TTS가 아예 차단돼 안 나오면 3초 내) 즉시 재생.
+                                const _clickPlay = function(){{
                                     try {{
                                         const doc = (window.top || window).document;
                                         const btns = doc.querySelectorAll('button');
@@ -32148,12 +32159,26 @@ else:
                                             const tt = (b.innerText || '').replace(/\\s+/g, '');
                                             if (tt.indexOf('지금바로동영상재생') >= 0) {{
                                                 b.click();
-                                                console.log('[A11y] auto play video after TTS');
-                                                return;
+                                                console.log('[A11y] auto play video (TTS done/blocked)');
+                                                return true;
                                             }}
                                         }}
                                     }} catch(e) {{ console.log('[A11y] auto play err', e); }}
-                                }}, {_auto_delay_ms});
+                                    return false;
+                                }};
+                                let _waited = 0;
+                                const _iv = setInterval(function(){{
+                                    _waited += 500;
+                                    let _speaking = false;
+                                    try {{
+                                        const tw = window.top || window;
+                                        _speaking = !!(tw.speechSynthesis && tw.speechSynthesis.speaking);
+                                    }} catch(e) {{}}
+                                    if ((!_speaking && _waited >= 3000) || _waited >= {_auto_delay_ms}) {{
+                                        clearInterval(_iv);
+                                        _clickPlay();
+                                    }}
+                                }}, 500);
                             }})();
                             </script>
                             """, height=0)
