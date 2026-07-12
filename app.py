@@ -13310,7 +13310,7 @@ else:
                     pass
             elif _nav_str == "recommend":
                 st.session_state.current_page = "home"
-                st.session_state.active_tab = 1  # 드래곤아이즈 추천 탭
+                st.session_state.active_tab = 3  # 드래곤아이즈 추천 탭 (_PIN_MAP 3→dragon)
                 st.session_state.pop("_a11y_announced_dragon_recommend_entry", None)
                 st.session_state["_explicit_tab_nav"] = "recommend"
                 try:
@@ -31295,6 +31295,10 @@ else:
         if active_tab_idx in _PIN_MAP:
             st.session_state["_home_tab_pin"] = _PIN_MAP[active_tab_idx]
             st.session_state.active_tab = 0
+            # 🎬 핀이 이미 같은 탭이면 st.tabs가 재생성되지 않아 선택 탭이 안 바뀌고,
+            #    TabPersist JS가 이전 선택 탭으로 되돌려 팝업(영상)이 숨은 패널에 그려짐.
+            #    → 라벨 nonce(폭 0 문자)로 항상 재생성해 핀 탭이 확실히 선택되게 함.
+            st.session_state["_home_tab_nonce"] = int(st.session_state.get("_home_tab_nonce", 0)) + 1
         _tab_pin = st.session_state.get("_home_tab_pin")
         if _tab_pin:
             _pin_keys = [i for i, d in enumerate(tab_defs) if d[0] == _tab_pin]
@@ -31303,6 +31307,9 @@ else:
 
         tab_keys   = [d[0] for d in tab_defs]
         tab_labels = [d[1] for d in tab_defs]
+        _tab_nonce = int(st.session_state.get("_home_tab_nonce", 0))
+        if _tab_nonce and _tab_pin:
+            tab_labels[0] = tab_labels[0] + "​" * ((_tab_nonce % 3) + 1)
 
         tabs = st.tabs(tab_labels)
         tab_map = {key: tabs[i] for i, key in enumerate(tab_keys)}
@@ -32081,7 +32088,10 @@ else:
                         except Exception:
                             pass
 
-                    _video_ready = st.session_state.get(_vp_show_video_key, False)
+                    # 🎬 음성 안내 OFF(일반 사용자)면 정보카드·TTS 대기 없이 즉시 영상 표시.
+                    #    2단계(안내→자동재생) 흐름은 음성 모드 사용자 전용.
+                    _video_ready = (st.session_state.get(_vp_show_video_key, False)
+                                    or not st.session_state.get("voice_guide_enabled"))
 
                     with st.container(border=True):
                         hp1, hp2 = st.columns([8, 1])
