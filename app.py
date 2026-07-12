@@ -32236,16 +32236,19 @@ else:
                                     else:
                                         _emb_vid = ""
                                     if _emb_vid:
-                                        # 유튜브 iframe 직접 임베드 — autoplay=1&mute=1 (브라우저는 무음 자동재생만 허용)
-                                        _a11y_components.html(
+                                        # 유튜브 iframe 직접 임베드 — 소리 포함 자동재생.
+                                        #   components.html(중첩 iframe)로 감싸면 allow="autoplay" 위임이 끊겨
+                                        #   무음만 허용됨 → st.markdown으로 본문에 직접 삽입.
+                                        #   사용자가 '열기'를 클릭한 활성화 상태라 대부분 소리 재생 허용.
+                                        st.markdown(
                                             '<iframe width="100%" height="360" '
-                                            f'src="https://www.youtube.com/embed/{_emb_vid}?autoplay=1&mute=1&rel=0&playsinline=1" '
+                                            f'src="https://www.youtube.com/embed/{_emb_vid}?autoplay=1&rel=0&playsinline=1" '
                                             'title="video" frameborder="0" style="border-radius:10px;" '
                                             'allow="autoplay; encrypted-media; picture-in-picture; fullscreen" '
                                             'allowfullscreen></iframe>',
-                                            height=375,
+                                            unsafe_allow_html=True,
                                         )
-                                        st.caption("🎬 자동 재생 중(무음) — 소리는 영상의 🔊 아이콘을 눌러 켜세요.")
+                                        st.caption("🎬 자동 재생 — 소리가 안 나오면 영상 안의 ▶️ 또는 🔊 아이콘을 한 번 눌러주세요.")
                                     else:
                                         st.markdown(f"[🔗 유튜브에서 열기]({hurl})")
                                 else:
