@@ -730,6 +730,35 @@ def _a11y_inject_shortcuts():
                         if (w.top) w.top.__a11yLastFocusText = text;
                     }} catch(_){{}}
 
+                    // ⭐ 음성 안내 ON 상태의 Tab/포커스 이동: 장황한 라벨 발화 대신
+                    //    짧은 '띠링' 차임만 (첫 안내는 토글 시 1회) + 진행 중 발화 즉시 중단
+                    //    → TTS가 사용자 음성 명령과 섞이는 문제 해결
+                    if (_vOn2) {{
+                        try {{
+                            const twc = w.top || w;
+                            if (!twc.__a11yChime) {{
+                                twc.__a11yChime = function() {{
+                                    try {{
+                                        if (!twc.__a11yAC) twc.__a11yAC = new (twc.AudioContext || twc.webkitAudioContext)();
+                                        const ac = twc.__a11yAC;
+                                        if (ac.state === 'suspended') ac.resume();
+                                        const o = ac.createOscillator(), g = ac.createGain();
+                                        o.type = 'sine'; o.frequency.value = 1245;
+                                        g.gain.setValueAtTime(0.0001, ac.currentTime);
+                                        g.gain.exponentialRampToValueAtTime(0.15, ac.currentTime + 0.012);
+                                        g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 0.16);
+                                        o.connect(g); g.connect(ac.destination);
+                                        o.start(); o.stop(ac.currentTime + 0.18);
+                                    }} catch(e) {{}}
+                                }};
+                            }}
+                            [w, w.parent, w.top].forEach(function(wx) {{
+                                try {{ wx.speechSynthesis && wx.speechSynthesis.cancel(); }} catch(_) {{}}
+                            }});
+                            twc.__a11yChime();
+                        }} catch(e) {{}}
+                        return;
+                    }}
                     const tag = (e.target?.tagName || '').toUpperCase();
                     const isInputField = tag === 'INPUT' && (e.target?.type === 'text' || e.target?.type === 'email' || e.target?.type === 'password' || e.target?.type === 'search');
                     const isTextarea = tag === 'TEXTAREA' || e.target?.isContentEditable;
@@ -1212,7 +1241,12 @@ def _a11y_inject_shortcuts():
                         recog.continuous = false;
                         recog.interimResults = false;
                         recog.onstart = () => {{
-                            if (w._dragoneyesSpeak) w._dragoneyesSpeak("음성 명령을 말씀하세요.");
+                            // ⭐ 마이크가 듣는 중에 TTS가 겹치던 문제 — 발화 대신 짧은 차임
+                            try {{
+                                const twm = w.top || w;
+                                try {{ twm.speechSynthesis && twm.speechSynthesis.cancel(); }} catch(_) {{}}
+                                if (twm.__a11yChime) twm.__a11yChime();
+                            }} catch(_) {{}}
                         }};
                         recog.onresult = (event) => {{
                             const cmd = (event.results[0][0].transcript || '').toLowerCase().trim();
@@ -1485,7 +1519,9 @@ def _a11y_render_keyboard_mic():
                                     e.preventDefault();
                                     btn.focus();
                                     console.log('[A11y ESC] mic btn re-focused');
-                                    if (top.__a11ySpeak) top.__a11ySpeak('음성 명령 버튼으로 이동했습니다. 엔터로 시작하세요.');
+                                    // ⭐ 장황한 안내 → 짧은 차임 (없으면 무음)
+                                    try { top.speechSynthesis && top.speechSynthesis.cancel(); } catch(_){}
+                                    if (top.__a11yChime) top.__a11yChime();
                                 }
                             }
                         }, true);
@@ -3101,19 +3137,24 @@ def _a11y_render_floating_mic():
                             try { recog.start(); } catch(e) { console.error('[DragonEyes Voice] start err', e); }
                         };
                         try {
-                            if ('speechSynthesis' in w) {
-                                w.speechSynthesis.cancel();
-                                var _pu = new w.SpeechSynthesisUtterance("말씀하세요.");
-                                _pu.lang = 'ko-KR';
-                                _pu.rate = (w.__a11ySpeed || 1.0);
-                                _pu.onend = _go;
-                                _pu.onerror = _go;
-                                w.speechSynthesis.speak(_pu);
-                                // 안전장치 — 프롬프트가 2.5초 내 안 끝나면 강제 시작
-                                setTimeout(_go, 2500);
-                            } else {
-                                _go();
-                            }
+                            // ⭐ "말씀하세요" 발화(~1초+) → 짧은 '띠링' 차임으로 교체.
+                            //    차임은 0.2초라 마이크가 켜져도 명령과 섞이지 않음.
+                            if ('speechSynthesis' in w) { w.speechSynthesis.cancel(); }
+                            var _twc = w.top || w;
+                            try {
+                                if (!_twc.__a11yAC) _twc.__a11yAC = new (_twc.AudioContext || _twc.webkitAudioContext)();
+                                var _ac = _twc.__a11yAC;
+                                if (_ac.state === 'suspended') _ac.resume();
+                                var _o = _ac.createOscillator(), _g = _ac.createGain();
+                                _o.type = 'sine'; _o.frequency.value = 1245;
+                                _g.gain.setValueAtTime(0.0001, _ac.currentTime);
+                                _g.gain.exponentialRampToValueAtTime(0.15, _ac.currentTime + 0.012);
+                                _g.gain.exponentialRampToValueAtTime(0.0001, _ac.currentTime + 0.16);
+                                _o.connect(_g); _g.connect(_ac.destination);
+                                _o.start(); _o.stop(_ac.currentTime + 0.18);
+                            } catch(e) {}
+                            // 차임 직후 인식 시작 (0.25초 — 차임이 마이크에 안 섞이게)
+                            setTimeout(_go, 250);
                         } catch(e) { _go(); }
                     })();
                 } catch (err) {
