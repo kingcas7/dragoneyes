@@ -10399,6 +10399,33 @@ WEEKLY_ASSIGN_COUNT = PER_USER_WEEKLY_TARGET        # (호환 보존) 실제 배
 MONTHLY_MONITOR_LIMIT = 300      # 1인 월 모니터링 상한
 MANUAL_CLAIM_BATCH = 30          # '추천 생성' 1회 클릭 시 인벤토리에서 꺼내는 기본 배치 수
 
+# ═══════════════════════════════════════════════
+# 🤖 캠페인 AI 기능 공통 (2026-07-13) — 학사모 캠페인에 AI 적용
+#    일일 사용량은 users.preferences JSONB로 관리 (DDL 불필요)
+# ═══════════════════════════════════════════════
+def _campaign_ai_quota(user_row, key, limit=5):
+    """(사용가능여부, 남은횟수) — preferences[key] = {date, count}"""
+    try:
+        prefs = (user_row or {}).get("preferences") or {}
+        rec = prefs.get(key) or {}
+        today = date.today().isoformat()
+        used = rec.get("count", 0) if rec.get("date") == today else 0
+        return used < limit, max(0, limit - used)
+    except Exception:
+        return True, limit
+
+def _campaign_ai_quota_bump(user_row, key):
+    try:
+        prefs = (user_row or {}).get("preferences") or {}
+        rec = prefs.get(key) or {}
+        today = date.today().isoformat()
+        used = rec.get("count", 0) if rec.get("date") == today else 0
+        prefs[key] = {"date": today, "count": used + 1}
+        supabase.table("users").update({"preferences": prefs}).eq("id", user_row["id"]).execute()
+        user_row["preferences"] = prefs
+    except Exception:
+        pass
+
 @st.cache_data(ttl=15, show_spinner=False)
 def get_user_pending_count(user_id):
     """사용자의 미처리(미작성) 배정 모니터링 건수 — 백로그 자동중단 판정용."""
@@ -23009,6 +23036,75 @@ else:
         st.markdown("")
 
         # ──────────────────────────────────────────────────────
+        # ── 🤖 AI 학습 도우미 (2026-07-13, 캠페인 AI) ──
+        with st.expander("🤖 AI 학습 도우미 — 나에게 맞는 학습자료 추천받기", expanded=False):
+            st.caption("설문 응답과 학년을 바탕으로 AI가 지금 나에게 가장 필요한 학습자료를 골라줘요.")
+            _sr_cache_key = f"stu_ai_reco_{_target_student_id}"
+            if st.session_state.get(_sr_cache_key):
+                st.markdown(st.session_state[_sr_cache_key])
+                if st.button("📚 학습자료실 바로가기", key="stu_ai_go_lib"):
+                    st.session_state["current_page"] = "materials_library"
+                    st.rerun()
+            else:
+                _sr_ok, _sr_left = _campaign_ai_quota(user, "stu_ai_reco", limit=5)
+                if st.button(f"✨ AI 추천 받기 (오늘 {_sr_left}회 가능)", key="stu_ai_reco_go",
+                             type="primary", disabled=not _sr_ok):
+                    with st.spinner("AI가 나에게 맞는 자료를 고르는 중..."):
+                        try:
+                            # 내 설문 응답 (있으면)
+                            _sr_ans_summary = "설문 미완료"
+                            try:
+                                _sr_resp = supabase.table("survey_responses").select("id").eq(
+                                    "student_id", _target_student_id).eq("status", "completed")\
+                                    .order("submitted_at", desc=True).limit(1).execute().data or []
+                                if _sr_resp:
+                                    _sr_ans = supabase.table("survey_answers").select(
+                                        "question_id, answer").eq("response_id", _sr_resp[0]["id"]).execute().data or []
+                                    _sr_qs = supabase.table("survey_questions").select(
+                                        "id, topic_tag, text").execute().data or []
+                                    _sr_qmap = {q["id"]: q for q in _sr_qs}
+                                    _sr_pairs = []
+                                    for a in _sr_ans[:34]:
+                                        q = _sr_qmap.get(a.get("question_id"))
+                                        if not q:
+                                            continue
+                                        _v = a.get("answer")
+                                        if isinstance(_v, list):
+                                            _v = ", ".join(str(x) for x in _v[:3])
+                                        _sr_pairs.append(f"[{q.get('topic_tag') or '기타'}] {str(_v)[:30]}")
+                                    if _sr_pairs:
+                                        _sr_ans_summary = " / ".join(_sr_pairs[:20])
+                            except Exception:
+                                pass
+                            # 학습자료 목록 (교원용 제외)
+                            _sr_mats = supabase.table("campaign_learning_materials").select(
+                                "title, chapter_no, slug, summary").eq("is_active", True)\
+                                .order("chapter_no").limit(40).execute().data or []
+                            _sr_mats = [m for m in _sr_mats if not str(m.get("slug","")).startswith("teacher-")]
+                            _sr_list = "\n".join(f"- {m.get('title','')}" for m in _sr_mats[:25])
+                            _sr_grade = "미상"
+                            try:
+                                _sr_u = supabase.table("users").select("grade").eq(
+                                    "id", _target_student_id).single().execute().data or {}
+                                _sr_grade = _sr_u.get("grade") or "미상"
+                            except Exception:
+                                pass
+                            _sr_msg = client.messages.create(
+                                model="claude-haiku-4-5-20251001", max_tokens=500,
+                                messages=[{"role": "user", "content": (
+                                    f"당신은 청소년 온라인 안전 학습 코치입니다. 학생(학년: {_sr_grade})에게 "
+                                    f"아래 학습자료 중 지금 가장 필요한 2~3개를 추천하세요.\n\n"
+                                    f"학생의 설문 응답 요약: {_sr_ans_summary}\n\n자료 목록:\n{_sr_list}\n\n"
+                                    "형식: 추천 자료마다 '**제목** — 추천 이유(1~2문장, 학생 눈높이)'. "
+                                    "마지막에 응원 한 줄. 주의: 무섭거나 자극적인 표현·민감한 단어(자살 등)는 절대 쓰지 말고 "
+                                    "존중과 격려의 톤으로, 목록에 있는 자료 제목만 사용할 것.")}]
+                            )
+                            _campaign_ai_quota_bump(user, "stu_ai_reco")
+                            st.session_state[_sr_cache_key] = _sr_msg.content[0].text
+                            st.rerun()
+                        except Exception as _e_sr:
+                            st.error(f"추천 생성 실패 — 잠시 후 다시 시도해주세요. ({str(_e_sr)[:60]})")
+
         # ⭐ KPI 3종 (학교 정보 바로 아래로 이동) — 누적봉사/응답수/응시가능
         #    페이지 진입 시 점수가 가장 먼저 보이도록 정렬
         # ──────────────────────────────────────────────────────
@@ -24405,6 +24501,49 @@ else:
             if st.button("← 캠페인 홈", key="pdash_back_top", use_container_width=True):
                 st.session_state["current_page"] = "campaign_landing"
                 st.rerun()
+
+        # ── 🤖 AI 위험 메시지 판별 (2026-07-13, 캠페인 AI) ──
+        with st.expander("🛡️ AI 위험 메시지 판별 — 자녀가 받은 메시지가 위험한지 확인하세요", expanded=False):
+            st.caption("자녀가 받은 DM·댓글·문자를 붙여넣으면 드래곤아이즈 모니터링 AI가 그루밍·사기·협박 등 "
+                       "위험 신호를 분석하고 대처 방법을 알려드립니다. 입력 내용은 분석에만 사용되며 저장되지 않습니다.")
+            _pa_txt = st.text_area("메시지 내용", key="parent_ai_msg", height=110,
+                                   placeholder="예: 게임에서 만난 형이 '카톡 아이디 알려주면 스킨 선물해줄게'라고 해요")
+            _pa_ok, _pa_left = _campaign_ai_quota(_u_p, "parent_ai_check", limit=5)
+            if st.button(f"🤖 AI 분석하기 (오늘 {_pa_left}회 가능)", key="parent_ai_go",
+                         type="primary", disabled=not _pa_ok):
+                if not (_pa_txt or "").strip():
+                    st.warning("메시지 내용을 입력해주세요.")
+                else:
+                    with st.spinner("AI가 위험 신호를 분석하는 중..."):
+                        try:
+                            _pa_msg = client.messages.create(
+                                model="claude-sonnet-4-6", max_tokens=600,
+                                messages=[{"role": "user", "content": (
+                                    "당신은 아동 온라인 안전 전문가입니다. 학부모가 자녀가 받은 메시지의 위험 여부 "
+                                    "검사를 의뢰했습니다.\n\n메시지: \"\"\"" + _pa_txt[:1500] + "\"\"\"\n\n"
+                                    "그루밍·연락처 유도·만남 제안·나이/학교 묻기·선물 미끼·사진/영상 요구·협박·도박 유도 "
+                                    "등 위험 신호 관점에서 분석하고, 학부모가 이해하기 쉬운 말로 답하세요. 확신할 수 "
+                                    "없으면 과장하지 말고 주의 수준으로 답하세요.\n\n형식:\n"
+                                    "위험도: (안전/주의/위험/매우 위험)\n"
+                                    "발견된 신호: (구체적으로, 없으면 '없음')\n"
+                                    "설명: (2~3문장, 학부모 눈높이)\n"
+                                    "대처 방법: (1~3가지 — 필요시 학교 보고, 경찰 112, 학교폭력 117, 청소년 상담 1388 안내)")}]
+                            )
+                            _campaign_ai_quota_bump(_u_p, "parent_ai_check")
+                            st.session_state["parent_ai_result"] = _pa_msg.content[0].text
+                        except Exception as _e_pa:
+                            st.error(f"분석 실패 — 잠시 후 다시 시도해주세요. ({str(_e_pa)[:60]})")
+            if not _pa_ok:
+                st.info("오늘 사용 가능 횟수를 모두 사용했습니다. 내일 다시 이용할 수 있어요.")
+            if st.session_state.get("parent_ai_result"):
+                _pa_res = st.session_state["parent_ai_result"]
+                if ("매우 위험" in _pa_res) or ("위험도: 위험" in _pa_res):
+                    st.error(_pa_res)
+                elif "주의" in _pa_res:
+                    st.warning(_pa_res)
+                else:
+                    st.info(_pa_res)
+                st.caption("⚠️ AI 분석은 참고용입니다. 실제 위협이 의심되면 즉시 112(경찰) 또는 117(학교폭력)에 신고하세요.")
 
         # 자녀 목록 조회 (parent_student_links + users JOIN)
         try:
@@ -26748,6 +26887,75 @@ else:
 
                 st.divider()
 
+                # ── 🤖 AI 설문 분석 리포트 (2026-07-13, 캠페인 AI) ──
+                with st.expander("🤖 AI 설문 분석 리포트 — 우리 학교 학생들의 취약 영역 진단", expanded=False):
+                    st.caption("완료된 설문 응답을 AI가 주제별로 분석해 취약 영역과 권장 교육 주제를 제시합니다. "
+                               "개별 학생이 아닌 학교 단위 익명 집계만 사용합니다.")
+                    _ir_ok, _ir_left = _campaign_ai_quota(user, "inst_ai_report", limit=3)
+                    if st.session_state.get("inst_ai_report_txt"):
+                        st.markdown(st.session_state["inst_ai_report_txt"])
+                        st.caption("⚠️ AI 분석은 참고용 진단입니다.")
+                    if st.button(f"📊 AI 리포트 생성 (오늘 {_ir_left}회 가능)", key="inst_ai_report_go",
+                                 type="primary", disabled=not _ir_ok):
+                        with st.spinner("설문 응답을 집계하고 AI가 분석하는 중... (최대 30초)"):
+                            try:
+                                _ir_resp_ids = []
+                                for _ck in range(0, len(_stu_ids_inst), 100):
+                                    _chunk = _stu_ids_inst[_ck:_ck+100]
+                                    _rr = supabase.table("survey_responses").select("id").eq(
+                                        "status", "completed").in_("student_id", _chunk).limit(300).execute().data or []
+                                    _ir_resp_ids += [x["id"] for x in _rr]
+                                    if len(_ir_resp_ids) >= 300:
+                                        _ir_resp_ids = _ir_resp_ids[:300]; break
+                                if not _ir_resp_ids:
+                                    st.info("아직 완료된 설문 응답이 없습니다 — 학생들의 응답이 모이면 AI 리포트를 생성할 수 있어요.")
+                                else:
+                                    _ir_ans = []
+                                    for _ck in range(0, len(_ir_resp_ids), 100):
+                                        _aa = supabase.table("survey_answers").select("question_id, answer").in_(
+                                            "response_id", _ir_resp_ids[_ck:_ck+100]).limit(20000).execute().data or []
+                                        _ir_ans += _aa
+                                    _ir_qs = supabase.table("survey_questions").select(
+                                        "id, text, topic_tag, qno").execute().data or []
+                                    _qmap = {q["id"]: q for q in _ir_qs}
+                                    _agg = {}
+                                    for a in _ir_ans:
+                                        q = _qmap.get(a.get("question_id"))
+                                        if not q:
+                                            continue
+                                        _topic = q.get("topic_tag") or "기타"
+                                        _val = a.get("answer")
+                                        if isinstance(_val, list):
+                                            _val = ", ".join(str(v) for v in _val[:3])
+                                        _val = str(_val)[:40]
+                                        _agg.setdefault(_topic, {}).setdefault(_val, 0)
+                                        _agg[_topic][_val] += 1
+                                    _lines = []
+                                    for _topic, _cnts in _agg.items():
+                                        _top = sorted(_cnts.items(), key=lambda x: -x[1])[:5]
+                                        _lines.append(f"[{_topic}] " + " / ".join(f"{v}({c}명)" for v, c in _top))
+                                    _ir_summary = "\n".join(_lines[:40])
+                                    _ir_msg = client.messages.create(
+                                        model="claude-sonnet-4-6", max_tokens=1200,
+                                        messages=[{"role": "user", "content": (
+                                            f"당신은 아동·청소년 온라인 안전 교육 전문가입니다. "
+                                            f"{_inst.get('name','우리 학교')} 학생들의 온라인 안전 설문 응답을 주제별로 "
+                                            f"집계한 결과입니다 (완료 응답 {len(_ir_resp_ids)}건).\n\n" + _ir_summary +
+                                            "\n\n다음 형식의 학교 진단 리포트를 작성하세요 (교사·관리자 대상, 존중하는 톤):\n"
+                                            "#### 📋 종합 요약 (3문장)\n"
+                                            "#### ⚠️ 취약 영역 TOP 3 (각 영역: 근거 응답 경향 + 왜 위험한지 1~2문장)\n"
+                                            "#### 🎯 권장 교육 주제 (2~3개 — 우선순위와 이유)\n"
+                                            "#### 💡 학교가 바로 할 수 있는 것 (2~3가지 실천 항목)\n"
+                                            "주의: 특정 학생을 지목하지 말 것, 자극적 표현 금지, 데이터에 없는 내용을 단정하지 말 것.")}]
+                                    )
+                                    _campaign_ai_quota_bump(user, "inst_ai_report")
+                                    st.session_state["inst_ai_report_txt"] = _ir_msg.content[0].text
+                                    st.rerun()
+                            except Exception as _e_ir:
+                                st.error(f"리포트 생성 실패 — 잠시 후 다시 시도해주세요. ({str(_e_ir)[:60]})")
+
+                st.divider()
+
                 # 학년별 응답 분포 차트
                 st.markdown("##### 📈 학년별 설문 완료율")
                 _by_grade_resp = {}
@@ -28262,6 +28470,26 @@ else:
                 # 직전 제출에서 틀렸던 문항이면 해설 표시
                 if _qi in (st.session_state.get(_wrong_key) or []):
                     st.error(f"❌ 오답입니다 — 다시 선택해보세요.  💡 힌트: {_explain}")
+                    # 🤖 AI 맞춤 해설 (2026-07-13, 캠페인 AI)
+                    _ai_k = f"tt_ai_exp_{_track}_{_qi}"
+                    if st.session_state.get(_ai_k):
+                        st.info(f"🤖 AI 선생님: {st.session_state[_ai_k]}")
+                    elif st.button("🤖 AI 선생님의 맞춤 설명 듣기", key=f"tt_ai_btn_{_track}_{_qi}"):
+                        with st.spinner("설명을 만드는 중..."):
+                            try:
+                                _m_tt = client.messages.create(
+                                    model="claude-haiku-4-5-20251001", max_tokens=300,
+                                    messages=[{"role": "user", "content": (
+                                        f"교원 연수 퀴즈 오답 해설을 부탁합니다.\n문항: {_q}\n"
+                                        f"선택지: {', '.join(_opts)}\n정답: {_opts[_correct]}\n"
+                                        f"학습자가 현재 고른 답: {_pick or '(미선택)'}\n기본 힌트: {_explain}\n\n"
+                                        "학습자가 왜 헷갈렸을지 짚어주고 관련 개념을 3~4문장으로 친절하게 설명하세요. "
+                                        "정답 문구를 그대로 말하지 말고 스스로 고를 수 있게 개념 중심으로 설명하세요.")}]
+                                )
+                                st.session_state[_ai_k] = _m_tt.content[0].text
+                                st.rerun()
+                            except Exception:
+                                st.error("설명 생성에 실패했어요 — 잠시 후 다시 시도해주세요.")
             if st.button("📤 제출하기", key=f"tt_submit_{_track}", type="primary"):
                 _wrong = [i for i, (_q, _opts, _c, _e) in enumerate(_qs)
                           if _answers[i] != _opts[_c]]
