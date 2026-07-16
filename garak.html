@@ -2068,7 +2068,7 @@ window.selectNationality = function(type){
   if(type === 'korean'){
     korean.style.border='1.5px solid var(--a1)'; korean.style.background='rgba(0,232,188,.08)';
     korean.querySelectorAll('div')[1].style.color='var(--a1)';
-    // 내국인 선택 시 주민등록번호 앞 6자리 표시
+    // 내국인 선택 시 생년월일 6자리 입력란 표시
     if(rrnSection) rrnSection.style.display = 'block';
     foreign.style.border='1.5px solid var(--b1)'; foreign.style.background='var(--s2)';
     foreign.querySelectorAll('div')[1].style.color='var(--t2)';
@@ -3237,10 +3237,16 @@ window.openBankRegister = function(){
   window.openSheet('sh-bank-register');
 };
 
+// 계좌번호 마스킹 — 앞 3자리·뒤 2자리만 노출, 나머지는 ● 처리
+function maskAccount(acc){
+  const s = String(acc||'').replace(/[^0-9]/g,'');
+  if(s.length <= 5) return s.replace(/\d/g,'●');
+  return s.slice(0,3) + '●'.repeat(s.length-5) + s.slice(-2);
+}
 window.saveBankInfo = function(){
   const bank   =document.getElementById('bank-name')?.value;
-  const account=document.getElementById('bank-account')?.value.trim();
-  const holder =document.getElementById('bank-holder')?.value.trim();
+  const account=(document.getElementById('bank-account')?.value||'').replace(/[^0-9]/g,'');
+  const holder =sanitizeText(document.getElementById('bank-holder')?.value, 30);
   if(!bank)   { toast('은행을 선택하세요'); return; }
   if(!account){ toast('계좌번호를 입력하세요'); return; }
   if(!holder) { toast('예금주를 입력하세요'); return; }
@@ -3485,7 +3491,7 @@ window.onRoleCardClick = function(role, containerId){
       window._nationality = null;
     }
   }
-  // 주민등록번호 앞 6자리 섹션 (개인 내국인만 — 처음엔 국적 선택 후 표시)
+  // 생년월일 6자리 섹션 (개인 내국인만 — 국적 선택 후 표시, 주민번호 미수집)
   if(rrnSection) rrnSection.style.display = 'none'; // 국적 선택 후 표시
 
   // ── 사업자번호 섹션 ──
@@ -9235,7 +9241,7 @@ function renderMyProfile(r, gi, score){
       <div style="font-size:10px;color:var(--t2);font-weight:700;margin-bottom:6px;">🏦 계좌 정보 (대금수령)</div>
       ${window._bankInfo?`
       <div style="background:var(--s2);border-radius:8px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;">
-        <div style="font-size:11px;font-weight:600;">${window._bankInfo.bank} ${window._bankInfo.account}</div>
+        <div style="font-size:11px;font-weight:600;">${escapeHtml(window._bankInfo.bank)} ${maskAccount(window._bankInfo.account)}</div>
         <button onclick="window.openBankRegister()" style="padding:4px 9px;border-radius:7px;background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-size:10px;cursor:pointer;">변경</button>
       </div>`:`
       <button onclick="window.openBankRegister()"
