@@ -2509,11 +2509,13 @@ def _a11y_render_floating_mic():
                 if (n === '분류' || n === '분류안내' || (n.indexOf('분류') >= 0 && n.indexOf('알려') >= 0)) {
                     if (w._dragoneyesSpeak) {
                         w._dragoneyesSpeak(
-                            "분류는 다섯 가지입니다. 안전. 스팸. 부적절. 성인. 그루밍. " +
-                            "이 중 하나를 말씀해주세요."
+                            "분류는 열여덟 가지입니다. 안전. 스팸. 부적절. 성인. 그루밍. 섹스토션. 성폭력. " +
+                            "학교폭력. 가출유인. 불법알바. 범죄유인. 자살자해. 정서학대. 혐오조장. 도박. " +
+                            "딥페이크. 폭력유도. 개인정보침해. 이 중 하나를 말씀해주세요. " +
+                            "안전으로 분류하시려면 분류 안전이라고 말씀해주세요."
                         );
                     }
-                    showDiag('<b>📋 분류 선택</b><br>안전·스팸·부적절·성인·그루밍', 10000);
+                    showDiag('<b>📋 분류 선택</b><br>안전·스팸·부적절·성인·그루밍·섹스토션·성폭력·학교폭력·가출유인·불법알바·범죄유인·자살자해·정서학대·혐오조장·도박·딥페이크·폭력유도·개인정보침해', 12000);
                     return true;
                 }
                 // ── 분류 직접 선택 ──
@@ -2535,6 +2537,23 @@ def _a11y_render_floating_mic():
                 if (n === '그루밍' || n === 'groom' || n === 'grooming') {
                     if (w._dragoneyesSpeak) w._dragoneyesSpeak("분류 그루밍을 선택합니다.");
                     setTimeout(function() { _voiceSelectOption('분류', function(t,i){ return t.indexOf('그루밍') >= 0; }); }, 600);
+                    return true;
+                }
+                // ── 확장 13대 분류 직접 선택 (2026-07-16) ──
+                const _catCmds = {'섹스토션':'섹스토션','성폭력':'성폭력','학교폭력':'학교폭력','왕따':'학교폭력',
+                    '가출유인':'가출유인','가출':'가출유인','불법알바':'불법알바','알바':'불법알바',
+                    '범죄유인':'범죄유인','범죄':'범죄유인','자살자해':'자살자해','정서학대':'정서학대',
+                    '가스라이팅':'정서학대','혐오조장':'혐오조장','혐오':'혐오조장','도박':'도박',
+                    '딥페이크':'딥페이크','폭력유도':'폭력유도','개인정보침해':'개인정보침해','개인정보':'개인정보침해'};
+                var _catHit = _catCmds[n] || (n.indexOf('분류') === 0 ? _catCmds[n.slice(2)] : null);
+                if (_catHit) {
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak("분류 " + _catHit + "를 선택합니다.");
+                    setTimeout(function() { _voiceSelectOption('분류', function(t,i){ return t.indexOf(_catHit) >= 0; }); }, 600);
+                    return true;
+                }
+                if (n === '분류안전') {
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak("분류 안전을 선택합니다.");
+                    setTimeout(function() { _voiceSelectOption('분류', function(t,i){ return i === 0; }); }, 600);
                     return true;
                 }
                 // 단독 "안전"은 심각도 1과 분류 안전 둘 다일 수 있음 — 우선 심각도 1로 처리됨 (위에서)
@@ -14679,7 +14698,11 @@ else:
                     key=f"rf_severity_v{_sev_ver}",
                 )
             with rc2:
-                cl = [t("cat_safe"), t("cat_spam"), t("cat_bad"), t("cat_adult"), t("cat_groom")]
+                # 13대 카테고리 확장(2026-07-16): AI 분석 18개 분류와 일치 —
+                # 프리필(prefill_category)이 목록에 없어 '안전'으로 떨어지던 문제 수정
+                cl = [t("cat_safe"), t("cat_spam"), t("cat_bad"), t("cat_adult"), t("cat_groom"),
+                      "섹스토션", "성폭력", "학교폭력", "가출유인", "불법알바", "범죄유인",
+                      "자살자해", "정서학대", "혐오조장", "도박", "딥페이크", "폭력유도", "개인정보침해"]
                 # prefill_category가 cl에 있으면 그 index 사용, 없으면 0
                 _pre_cat = st.session_state.get("prefill_category", t("cat_safe"))
                 _cat_idx = cl.index(_pre_cat) if _pre_cat in cl else 0
