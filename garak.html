@@ -1557,6 +1557,27 @@ input,select,textarea{font-family:inherit;touch-action:manipulation;}
 // Smart AI K-Chain — 프로토타입
 // ══════════════════════════════════════════
 
+// ── 보안: HTML 이스케이프 (XSS 방어 공용 함수) ──
+// 사용자·외부(전표 CSV/JSON·QR·URL) 입력을 innerHTML에 넣기 전 반드시 통과시킨다.
+function escapeHtml(v){
+  if(v === null || v === undefined) return '';
+  return String(v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+// 외부/신뢰불가 텍스트에서 제어문자·태그성 문자를 제거해 저장값 자체를 무해화한다.
+function sanitizeText(v, maxLen){
+  if(v === null || v === undefined) return '';
+  let s = String(v).replace(/[\x00-\x1F\x7F]/g, '').replace(/[<>]/g, '');
+  if(maxLen && s.length > maxLen) s = s.slice(0, maxLen);
+  return s.trim();
+}
+window.escapeHtml = escapeHtml;
+window.sanitizeText = sanitizeText;
+
 const SUPABASE_URL = 'https://stqmgwwpuphqflwtekuy.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_E5FHlxYRRSgXWF_CYyBYTA_wTUZQtQ2'; // ← 여기에 Publishable Key 붙여넣기
 const { createClient } = supabase;
@@ -3908,11 +3929,12 @@ window.doLogin = async function(){
     return;
   }
 
-  // 카카오 실명을 최종 이름으로 우선 반영
+  // 카카오 실명을 최종 이름으로 우선 반영 (이름은 앱 전역 헤더·인사말에 렌더되므로 살균)
   let finalName = (nameEl && nameEl.value.trim()) || r.n + ' 사용자';
   if(isKakaoFlow && window._kakaoProfile?.realname){
     finalName = window._kakaoProfile.realname;
   }
+  finalName = sanitizeText(finalName, 40) || (r.n + ' 사용자');
 
   curUserName = finalName;
   const regTel = (telEl&&telEl.value.trim()) || '';
@@ -4478,27 +4500,30 @@ window.processQRResult = function(data){
   window.closeQRScan();
   try {
     const info = JSON.parse(data);
-    if(!info.gkid){ toast('❌ 올바른 K-Chain QR이 아닙니다'); return; }
+    // QR은 외부(신뢰불가) 입력 — 필드 살균 후 gkid 형식 검증
+    const gkid = sanitizeText(info.gkid, 40);
+    if(!gkid || !/^[A-Za-z0-9\-]+$/.test(gkid)){ toast('❌ 올바른 K-Chain QR이 아닙니다'); return; }
+    const name = sanitizeText(info.name, 40) || '(이름미상)';
 
     // 거래처 등록
     const db = JSON.parse(localStorage.getItem('garak_data_'+curGkid)||'{}');
     if(!db._partners) db._partners = [];
 
-    const exists = db._partners.find(p=>p.gkid===info.gkid);
-    if(exists){ toast('이미 등록된 거래처입니다: '+info.name); return; }
+    const exists = db._partners.find(p=>p.gkid===gkid);
+    if(exists){ toast('이미 등록된 거래처입니다: '+name); return; }
 
     db._partners.push({
       id: 'P-'+Date.now(),
-      gkid: info.gkid,
-      name: info.name,
-      role: info.role,
-      roleName: info.roleName,
+      gkid: gkid,
+      name: name,
+      role: sanitizeText(info.role, 30),
+      roleName: sanitizeText(info.roleName, 40),
       status: 'active',
       addedAt: new Date().toISOString(),
       addedBy: 'qr'
     });
     localStorage.setItem('garak_data_'+curGkid, JSON.stringify(db));
-    toast('✅ '+info.name+'님이 거래처로 등록됐습니다!');
+    toast('✅ '+name+'님이 거래처로 등록됐습니다!');
     renderPartnerPage();
   } catch(e){
     toast('❌ QR 인식 오류: 올바른 K-Chain QR인지 확인해주세요');
@@ -4647,8 +4672,11 @@ if(document.readyState === 'loading'){
   // URL 파라미터 제거 (히스토리 정리)
   window.history.replaceState({}, '', window.location.pathname);
 
-  // 앱이 로드된 후 처리
-  window._pendingAddPartner = addGkid;
+  // URL 파라미터는 반사형 XSS 벡터 — GKID 형식만 허용
+  const clean = sanitizeText(addGkid, 40);
+  if(clean && /^[A-Za-z0-9\-]+$/.test(clean)){
+    window._pendingAddPartner = clean;
+  }
 })();
 
 // ══════════════
@@ -5070,15 +5098,15 @@ window.openCropSheet = function(){
 
 window.saveCrop = function(){
   const name=document.getElementById('crop-name').value;
-  const r1=document.getElementById('crop-region1').value.trim();
-  const r2=document.getElementById('crop-region2').value.trim();
+  const r1=sanitizeText(document.getElementById('crop-region1').value, 40);
+  const r2=sanitizeText(document.getElementById('crop-region2').value, 40);
   const area=document.getElementById('crop-area').value;
   const unit=document.getElementById('crop-unit').value;
   const plantDate=document.getElementById('crop-plant-date').value;
   const harvestDate=document.getElementById('crop-harvest-date').value;
   const estYield=document.getElementById('crop-est-yield').value;
   const yieldUnit=document.getElementById('crop-yield-unit').value;
-  const memo=document.getElementById('crop-memo').value;
+  const memo=sanitizeText(document.getElementById('crop-memo').value, 200);
   if(!name||!r1||!area){ toast('작물명, 위치, 면적은 필수입니다'); return; }
   const yieldData=CROP_YIELD[name];
   let aiNote='';
@@ -6845,14 +6873,15 @@ function eivNormalize(rec, adapterId){
   const keys=Object.keys(rec);
   const pick=f=>{const k=eivFindKey(keys,EIV_ALIAS[f]);return k?rec[k]:'';};
   const num=v=>{const n=parseFloat(String(v).replace(/[^0-9.\-]/g,''));return isNaN(n)?0:n;};
-  const extId=String(pick('ext_id')||'').trim();
-  const item=String(pick('item')||'').trim();
+  // 외부 파일(신뢰불가) 텍스트는 저장 전 살균해 저장형 XSS를 원천 차단한다.
+  const extId=sanitizeText(pick('ext_id'), 60);
+  const item=sanitizeText(pick('item'), 100);
   const qty=num(pick('qty')), price=num(pick('price'));
   let amount=num(pick('amount')); if(!amount) amount=qty*price;
   if(!item&&!extId&&!amount) return null; // 매핑 실패 행
-  const rawDate=String(pick('date')||'').trim();
+  const rawDate=sanitizeText(pick('date'), 40);
   let created=new Date(rawDate); if(isNaN(created.getTime())) created=new Date();
-  const rawStatus=String(pick('status')||'').trim();
+  const rawStatus=sanitizeText(pick('status'), 20);
   const settled=/정산|완료|eform|settled|paid/i.test(rawStatus);
   const uid=extId||(item+'_'+qty+'_'+amount+'_'+rawDate).replace(/\s/g,'');
   return {
@@ -6860,7 +6889,7 @@ function eivNormalize(rec, adapterId){
     ext_source:adapterId, ext_id:uid,
     item:item||'(품목미상)', qty:qty, price:price,
     confirmed_price:price, total_amt:amount,
-    buyer_name:String(pick('buyer')||'').trim()||'(외부거래처)',
+    buyer_name:sanitizeText(pick('buyer'), 60)||'(외부거래처)',
     status:settled?'eform':'confirmed',
     eform_id:settled?('EIV-'+uid):undefined,
     origin_addr:'', delivery_type:'', memo:'[외부연동] '+(EIV_ADAPTERS.find(a=>a.id===adapterId)?.name||adapterId),
@@ -10052,6 +10081,7 @@ window.removeProduct=function(id){
 };
 window.onProductChange=function(id,field,value){
   const p=products.find(x=>x.id===id); if(!p) return;
+  if(field==='item'||field==='originDetail') value=sanitizeText(value, 100);
   p[field]=field==='price'||field==='qty'?(parseInt(value)||0):value;
   if(field==='item'&&value&&AI_PRICES[value]&&!p.price){p.price=AI_PRICES[value];const el=document.getElementById('p-price-'+id);if(el)el.value=p.price;}
   calcTotalAll();
@@ -10126,7 +10156,8 @@ window.renderSettlePreview2=function(){
 };
 
 window.submitInvoice=function(){
-  const buyerName=document.getElementById('inv-buyer-name').value.trim();
+  // 거래처명·품목·주소는 상대 사용자(배차기사·도매법인) 화면에도 렌더되므로 저장 전 살균
+  const buyerName=sanitizeText(document.getElementById('inv-buyer-name').value, 60);
   if(!buyerName){toast('수취인을 입력하세요');window.invNextStep(1);return;}
   const validProducts=products.filter(p=>p.item&&p.price&&p.qty);
   if(!validProducts.length){toast('상품 정보를 입력하세요');window.invNextStep(2);return;}
@@ -10136,15 +10167,15 @@ window.submitInvoice=function(){
   const totalAmt=validProducts.reduce((s,p)=>s+(p.price*p.qty),0);
   const mainP=validProducts[0];
   INVOICES.unshift({id,status:invDelivery==='call'?'awaiting_dispatch':'sent',seller_gkid:curGkid,buyer_name:buyerName,
-    item:validProducts.map(p=>p.item).join(', '),qty:validProducts.reduce((s,p)=>s+p.qty,0),
+    item:sanitizeText(validProducts.map(p=>p.item).join(', '), 200),qty:validProducts.reduce((s,p)=>s+p.qty,0),
     price:Math.round(totalAmt/(validProducts.reduce((s,p)=>s+p.qty,0)||1)),
-    total_amt:totalAmt,origin_type:mainP.origin,origin_detail:mainP.originDetail,
+    total_amt:totalAmt,origin_type:mainP.origin,origin_detail:sanitizeText(mainP.originDetail, 100),
     delivery_type:invDelivery,req_auction:invReqs.auction,req_consign:invReqs.consign,
     freight_status: invDelivery==='call'?'dispatched':'self',
     freight_fee: 0,
     call_id: invDelivery==='call'?(window._pendingCallId||null):null,
-    origin_addr: (document.getElementById('inv-origin-addr')||{}).value||window._pendingInvOrigin||'',
-    dest_addr:   (document.getElementById('inv-dest-addr')||{}).value||window._pendingInvDest||'',
+    origin_addr: sanitizeText((document.getElementById('inv-origin-addr')||{}).value||window._pendingInvOrigin||'', 100),
+    dest_addr:   sanitizeText((document.getElementById('inv-dest-addr')||{}).value||window._pendingInvDest||'', 100),
     created_at:now.toISOString()});
   window._pendingCallId=null;
   window._pendingInvOrigin=null;
@@ -11377,7 +11408,7 @@ window.sendAIMsg=function(msg){
 
   // 사용자 메시지 표시
   area.innerHTML+=`<div style="margin:8px 0;display:flex;justify-content:flex-end;">
-    <div style="background:var(--a2);color:#080d18;padding:8px 12px;border-radius:12px 12px 2px 12px;font-size:12px;max-width:80%;line-height:1.5;">${msg}</div>
+    <div style="background:var(--a2);color:#080d18;padding:8px 12px;border-radius:12px 12px 2px 12px;font-size:12px;max-width:80%;line-height:1.5;">${escapeHtml(msg)}</div>
   </div>`;
   area.scrollTop=area.scrollHeight;
 
@@ -11424,7 +11455,7 @@ ${ctx}
     if(loadEl) loadEl.remove();
     area.innerHTML+=`<div style="margin:8px 0;display:flex;gap:8px;align-items:flex-start;">
       <div style="width:28px;height:28px;border-radius:50%;background:var(--a1);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🤖</div>
-      <div style="background:var(--s2);border:1px solid var(--b1);padding:9px 12px;border-radius:2px 12px 12px 12px;font-size:12px;color:var(--t1);line-height:1.7;max-width:82%;">${reply.replace(/\n/g,'<br>')}</div>
+      <div style="background:var(--s2);border:1px solid var(--b1);padding:9px 12px;border-radius:2px 12px 12px 12px;font-size:12px;color:var(--t1);line-height:1.7;max-width:82%;">${escapeHtml(reply).replace(/\n/g,'<br>')}</div>
     </div>`;
     area.scrollTop=area.scrollHeight;
   })
