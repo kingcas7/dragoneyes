@@ -1833,22 +1833,18 @@ function renderRoleCards(containerId, withInput=true){
           <div class="flabel">이메일 * <span style="font-size:10px;color:var(--t3);">(로그인에 사용됩니다)</span></div>
           <input type="email" class="finput" id="reg-email" placeholder="example@email.com" style="margin-bottom:8px;">
 
-          <!-- 주민등록번호 앞 6자리 (개인 역할만 표시) -->
+          <!-- 생년월일 6자리 (개인 역할만 표시) — 주민등록번호는 수집하지 않음 -->
           <div id="reg-rrn-section" style="display:none;margin-bottom:8px;">
             <div style="background:rgba(0,232,188,.05);border:1px solid rgba(0,232,188,.2);border-radius:10px;padding:10px 12px;">
-              <div style="font-size:11px;font-weight:700;color:var(--a1);margin-bottom:6px;">🪪 본인 확인</div>
-              <div class="flabel">주민등록번호 앞 6자리 *</div>
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-                <input type="text" class="finput" id="reg-rrn-front"
-                  placeholder="예: 901225"
-                  maxlength="6"
-                  inputmode="numeric"
-                  oninput="this.value=this.value.replace(/[^0-9]/g,'');window.onRrnInput(this.value)"
-                  style="flex:1;font-size:16px;font-weight:700;letter-spacing:3px;text-align:center;">
-                <span style="font-size:18px;color:var(--t3);">-</span>
-                <div style="flex:1;padding:10px;border-radius:10px;background:var(--s2);border:1px solid var(--b1);text-align:center;font-size:16px;font-weight:700;letter-spacing:3px;color:var(--t3);">●●●●●●●</div>
-              </div>
-              <div id="reg-rrn-msg" style="font-size:10px;color:var(--t3);margin-top:4px;">생년월일(6자리)을 입력하세요 · 뒷자리는 저장되지 않습니다</div>
+              <div style="font-size:11px;font-weight:700;color:var(--a1);margin-bottom:6px;">🎂 생년월일</div>
+              <div class="flabel">생년월일 6자리 (YYMMDD) *</div>
+              <input type="text" class="finput" id="reg-rrn-front"
+                placeholder="예: 901225"
+                maxlength="6"
+                inputmode="numeric"
+                oninput="this.value=this.value.replace(/[^0-9]/g,'')"
+                style="width:100%;font-size:16px;font-weight:700;letter-spacing:3px;text-align:center;box-sizing:border-box;">
+              <div id="reg-rrn-msg" style="font-size:10px;color:var(--t3);margin-top:4px;">주민등록번호는 수집하지 않습니다 · 생년월일 6자리만 입력해 주세요</div>
             </div>
           </div>
 
@@ -1870,7 +1866,7 @@ function renderRoleCards(containerId, withInput=true){
                 <span style="font-size:24px;flex-shrink:0;">📱</span>
                 <div>
                   <div style="font-size:13px;font-weight:800;">휴대폰 본인인증</div>
-                  <div style="font-size:10px;color:var(--t2);margin-top:2px;">PASS (통신사 인증)</div>
+                  <div style="font-size:10px;color:var(--t2);margin-top:2px;">데모 · 정식 PASS 연동 예정</div>
                 </div>
                 <span style="margin-left:auto;font-size:11px;color:var(--t3);">→</span>
               </button>
@@ -1894,7 +1890,7 @@ function renderRoleCards(containerId, withInput=true){
                 <span style="font-size:22px;flex-shrink:0; background:#fff;border-radius:4px;padding:1px 3px;color:#03C75A;font-weight:900;font-size:14px;line-height:1.5;">N</span>
                 <div>
                   <div style="font-size:13px;font-weight:800;">네이버 인증</div>
-                  <div style="font-size:10px;color:rgba(255,255,255,.75);margin-top:2px;">네이버 앱으로 간편 인증</div>
+                  <div style="font-size:10px;color:rgba(255,255,255,.75);margin-top:2px;">데모 · 정식 연동 예정</div>
                 </div>
                 <span style="margin-left:auto;font-size:11px;color:rgba(255,255,255,.7);">→</span>
               </button>
@@ -2029,6 +2025,32 @@ function renderRoleCards(containerId, withInput=true){
               📞 사업자등록번호가 없으시면 <strong style="color:var(--a4);">관리자 문의(02-3435-1000)</strong>를 통해 개별 승인 절차를 안내해 드립니다.
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- 개인정보 수집·이용 동의 (전 역할 공통·필수) -->
+      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:12px 14px;margin-bottom:8px;">
+        <div style="font-size:12px;font-weight:800;color:var(--t1);margin-bottom:10px;">📋 약관 동의 <span style="color:var(--red);font-size:10px;">(필수)</span></div>
+
+        <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;margin-bottom:9px;">
+          <input type="checkbox" id="reg-consent-privacy" style="width:18px;height:18px;flex-shrink:0;margin-top:1px;accent-color:var(--a1);">
+          <span style="font-size:11px;color:var(--t1);line-height:1.6;">
+            <b>[필수]</b> 개인정보 수집·이용에 동의합니다
+            <button type="button" onclick="event.preventDefault();window.showPrivacyPolicy()" style="color:var(--a1);background:none;border:none;text-decoration:underline;font-size:11px;cursor:pointer;padding:0 0 0 2px;">전문 보기</button>
+          </span>
+        </label>
+
+        <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;">
+          <input type="checkbox" id="reg-consent-terms" style="width:18px;height:18px;flex-shrink:0;margin-top:1px;accent-color:var(--a1);">
+          <span style="font-size:11px;color:var(--t1);line-height:1.6;">
+            <b>[필수]</b> 서비스 이용약관에 동의합니다
+            <button type="button" onclick="event.preventDefault();window.showTermsOfService()" style="color:var(--a1);background:none;border:none;text-decoration:underline;font-size:11px;cursor:pointer;padding:0 0 0 2px;">전문 보기</button>
+          </span>
+        </label>
+
+        <div style="margin-top:9px;font-size:9px;color:var(--t3);line-height:1.6;">
+          수집 항목: 이름·연락처·이메일(로그인)·사업자정보 등 · 목적: 회원관리 및 유통 거래 중개 · 보유기간: 회원 탈퇴 시까지<br>
+          개인정보 보호책임자: 드래곤아이즈(주) · kingcas7@gmail.com · 070-5100-0944
         </div>
       </div>
     </div>`:'');
@@ -2385,16 +2407,16 @@ window.doAuth = function(method){
     }
 
   } else if(method === 'naver'){
-    // 네이버 — 서버사이드 OAuth 필요, 현재는 시뮬레이션
-    _authShowProgress('🟢', '네이버 인증 중...', '네이버 앱 알림을 확인해 주세요 (향후 연동 예정)');
+    // 네이버 — 정식 OAuth 미연동. 실제 본인확인이 아님을 명확히 표시(허위표시 금지).
+    _authShowProgress('🟢', '데모 인증 처리 중...', '정식 네이버 인증은 준비 중입니다');
     setTimeout(()=>{ document.getElementById('reg-auth-bar') && (document.getElementById('reg-auth-bar').style.width='100%'); }, 50);
-    setTimeout(()=>{ _authShowDone('naver', '네이버 인증 완료', '네이버 본인확인 완료 · '+tel); }, 2200);
+    setTimeout(()=>{ _authShowDone('naver', '데모 인증 완료', '⚠️ 데모용 · 정식 네이버 본인확인 연동 예정'); }, 1500);
 
   } else {
-    // 휴대폰 — PASS 연동 예정, 현재는 시뮬레이션
-    _authShowProgress('📱', '휴대폰 본인인증 중...', 'PASS 앱으로 인증 요청을 보냈습니다 (향후 연동 예정)');
+    // 휴대폰 — PASS/NICE 미연동. 실제 통신사 인증이 아님을 명확히 표시(허위표시 금지).
+    _authShowProgress('📱', '데모 인증 처리 중...', '정식 PASS/통신사 인증은 준비 중입니다');
     setTimeout(()=>{ document.getElementById('reg-auth-bar') && (document.getElementById('reg-auth-bar').style.width='100%'); }, 50);
-    setTimeout(()=>{ _authShowDone('phone', '휴대폰 본인인증 완료', 'PASS 인증 완료 · '+tel); }, 2200);
+    setTimeout(()=>{ _authShowDone('phone', '데모 인증 완료', '⚠️ 데모용 · 정식 PASS/NICE 본인확인 연동 예정'); }, 1500);
   }
 };
 
@@ -3830,6 +3852,54 @@ window.showScreen = function(screen){
 
 
 // ══════════════
+// ── 개인정보처리방침 / 이용약관 모달 ──
+function _policyModal(title, bodyHtml){
+  const panel = document.createElement('div');
+  panel.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:16px;';
+  panel.onclick = e => { if(e.target===panel) panel.remove(); };
+  panel.innerHTML = `<div style="width:100%;max-width:400px;max-height:82vh;background:var(--s1);border:1px solid var(--b1);border-radius:18px;display:flex;flex-direction:column;overflow:hidden;">
+    <div style="padding:16px 18px;border-bottom:1px solid var(--b1);font-size:15px;font-weight:800;flex-shrink:0;">${escapeHtml(title)}</div>
+    <div style="padding:16px 18px;overflow-y:auto;font-size:11.5px;color:var(--t1);line-height:1.85;">${bodyHtml}</div>
+    <div style="padding:12px 18px;border-top:1px solid var(--b1);flex-shrink:0;">
+      <button onclick="this.closest('div').parentElement.remove()" style="width:100%;padding:12px;border-radius:12px;background:var(--a1);color:#080d18;font-size:13px;font-weight:800;border:none;cursor:pointer;">확인</button>
+    </div>
+  </div>`;
+  document.body.appendChild(panel);
+}
+window.showPrivacyPolicy = function(){
+  _policyModal('개인정보 수집·이용 동의', `
+    <p><b>1. 수집하는 개인정보 항목</b><br>
+    - 필수: 이름/상호, 휴대폰번호, 이메일(로그인 ID), 생년월일<br>
+    - 사업자 회원: 사업자등록번호(법인은 법인번호)<br>
+    - 외국인 회원: 국적, 비자종류, 여권번호, 체류지 정보<br>
+    - 서비스 이용 과정에서 생성되는 거래·전표·정산 기록</p>
+    <p><b>2. 수집·이용 목적</b><br>
+    회원 식별 및 관리, 농수산물 유통 거래 중개, 전자송장·정산 처리, 정책자금 매칭 안내, 법령상 의무 이행</p>
+    <p><b>3. 보유 및 이용 기간</b><br>
+    회원 탈퇴 시까지. 단, 관계 법령(전자상거래법·전자금융거래법·국세기본법 등)에 따라 거래기록은 최대 5년간 보관합니다.</p>
+    <p><b>4. 동의 거부 권리</b><br>
+    귀하는 동의를 거부할 권리가 있습니다. 다만 필수 항목 미동의 시 회원가입 및 서비스 이용이 제한됩니다.</p>
+    <p><b>5. 개인정보 보호책임자</b><br>
+    드래곤아이즈 주식회사 · kingcas7@gmail.com · 070-5100-0944</p>
+    <p style="color:var(--t3);font-size:10px;">※ 본 서비스는 현재 프로토타입 단계이며, 정식 서비스 전환 시 개인정보처리방침을 별도 고지합니다.</p>
+  `);
+};
+window.showTermsOfService = function(){
+  _policyModal('서비스 이용약관', `
+    <p><b>제1조 (목적)</b><br>
+    본 약관은 드래곤아이즈 주식회사가 제공하는 K-Chain 농수산물 유통 플랫폼의 이용 조건 및 절차를 정합니다.</p>
+    <p><b>제2조 (서비스 내용)</b><br>
+    전자송장 발행, 거래 중개, 전자계약, 정산·장부 관리, 외부 전자전표 연동, 정책자금 안내 등을 제공합니다.</p>
+    <p><b>제3조 (회원의 의무)</b><br>
+    회원은 정확한 정보를 제공해야 하며, 타인의 정보를 도용하거나 허위 거래를 등록해서는 안 됩니다.</p>
+    <p><b>제4조 (거래 책임)</b><br>
+    본 플랫폼은 거래 당사자 간 중개 도구를 제공하며, 실제 거래의 이행 책임은 거래 당사자에게 있습니다.</p>
+    <p><b>제5조 (서비스 변경·중단)</b><br>
+    프로토타입 단계에서는 기능이 예고 없이 변경·중단될 수 있습니다.</p>
+    <p style="color:var(--t3);font-size:10px;">※ 정식 서비스 전환 시 확정된 이용약관을 별도 게시합니다.</p>
+  `);
+};
+
 // 로그인
 // ══════════════
 window.doLogin = async function(){
@@ -3850,6 +3920,12 @@ window.doLogin = async function(){
   const emailVal = document.getElementById('reg-email')?.value.trim();
   if(!emailVal){ toast('이메일을 입력하세요 (로그인에 사용됩니다)'); return; }
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)){ toast('올바른 이메일 형식이 아닙니다'); return; }
+
+  // 개인정보 수집·이용 동의 + 이용약관 동의 (법정 필수)
+  const consentPrivacy = document.getElementById('reg-consent-privacy');
+  const consentTerms   = document.getElementById('reg-consent-terms');
+  if(consentPrivacy && !consentPrivacy.checked){ toast('개인정보 수집·이용에 동의해 주세요 (필수)'); return; }
+  if(consentTerms && !consentTerms.checked){ toast('서비스 이용약관에 동의해 주세요 (필수)'); return; }
 
   // 생산자(개인)/individual 제외 — 사업자번호 또는 특승인 요청 필수
   const PERSONAL_ROLES_LOGIN = ['producer_ind','individual'];
