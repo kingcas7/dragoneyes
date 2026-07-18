@@ -12999,14 +12999,18 @@ if st.session_state.user is None:
             )
         # ⭐ 캠페인 모드는 좌측 카드 미출력 (1컬럼 가운데 로그인 박스만)
         if _login_mode != "campaign":
+            _lb_login = _brand_logo_b64("full")
+            if _lb_login:
+                _login_brand_html = (f'<img src="data:image/png;base64,{_lb_login}" alt="{t("login_brand_sub")}" '
+                                     f'style="width:320px;max-width:92%;display:block;margin:0 0 4px 0;">')
+            else:
+                _login_brand_html = (f'<div class="login-brand-logo">🐉</div><div>'
+                                     f'<p class="login-brand-name">{t("login_title").replace("🐉 ", "")}</p>'
+                                     f'<p class="login-brand-sub">{t("login_brand_sub")}</p></div>')
             st.markdown(f"""
         <div class="login-left-card">
             <div class="login-brand">
-                <div class="login-brand-logo">🐉</div>
-                <div>
-                    <p class="login-brand-name">{t("login_title").replace("🐉 ", "")}</p>
-                    <p class="login-brand-sub">{t("login_brand_sub")}</p>
-                </div>
+                {_login_brand_html}
             </div>
             <div class="{_mission_class}">
                 <div class="login-mission-icon">{_mission_icon}</div>
