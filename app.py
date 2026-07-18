@@ -10432,6 +10432,22 @@ def _brand_logo_b64(kind="header"):
     except Exception:
         return ""
 
+def _dragon_icon_label(key, kind="icon"):
+    """t(key)의 🐉 이모지를 로고 아이콘(마크다운 이미지)으로 치환 — 아이콘 없으면 원문 유지.
+    kind: icon(컬러, 밝은 배경용) / icon_white(화이트, primary 버튼용)"""
+    _txt = t(key)
+    _b = _brand_logo_b64(kind)
+    if _b and "🐉" in _txt:
+        return _txt.replace("🐉", f"![](data:image/png;base64,{_b})")
+    return _txt
+
+def _dragon_icon_html(txt, kind="icon", h="1em"):
+    """HTML(unsafe_allow_html) 문자열용: 🐉 → <img> 치환 — 아이콘 없으면 원문 유지."""
+    _b = _brand_logo_b64(kind)
+    if _b and "🐉" in txt:
+        return txt.replace("🐉", f'<img src="data:image/png;base64,{_b}" style="height:{h};vertical-align:-0.12em;" alt=""/>')
+    return txt
+
 def _campaign_ai_quota(user_row, key, limit=5):
     """(사용가능여부, 남은횟수) — preferences[key] = {date, count}"""
     try:
@@ -17205,7 +17221,7 @@ else:
         st.markdown(f"""<div style="display:flex;gap:6px;margin:10px 0 6px 0;">
             <div style="flex:1;background:linear-gradient(135deg,#0ea5e9,#06b6d4);border-radius:8px;padding:5px 8px;text-align:center;"><div style="font-size:0.62rem;color:#e0f7ff;">{t("month_report")}</div><div style="font-size:1rem;font-weight:700;color:#fff;">{month_cnt}{t("unit_reports")}</div><div style="font-size:0.58rem;color:#bae6fd;">{t("goal").format(target)}</div></div>
             <div style="flex:1;background:linear-gradient(135deg,#10b981,#34d399);border-radius:8px;padding:5px 8px;text-align:center;"><div style="font-size:0.62rem;color:#d1fae5;">{t("achievement")}</div><div style="font-size:1rem;font-weight:700;color:#fff;">{rate}%</div><div style="font-size:0.58rem;color:#a7f3d0;">{t("goal").format(target)}</div></div>
-            <div style="flex:1;background:linear-gradient(135deg,#f59e0b,#fbbf24);border-radius:8px;padding:5px 8px;text-align:center;"><div style="font-size:0.62rem;color:#fef3c7;">{t("dragon_token")}</div><div style="font-size:1rem;font-weight:700;color:#fff;">{token_info["monthly_remaining"]}{t("unit_times")}</div><div style="font-size:0.58rem;color:#fde68a;">{t("token_remain").format(token_info["monthly_remaining"])[:3]}</div></div>
+            <div style="flex:1;background:linear-gradient(135deg,#f59e0b,#fbbf24);border-radius:8px;padding:5px 8px;text-align:center;"><div style="font-size:0.62rem;color:#fef3c7;">{_dragon_icon_html(t("dragon_token"), "icon_white", "0.95em")}</div><div style="font-size:1rem;font-weight:700;color:#fff;">{token_info["monthly_remaining"]}{t("unit_times")}</div><div style="font-size:0.58rem;color:#fde68a;">{t("token_remain").format(token_info["monthly_remaining"])[:3]}</div></div>
             <div style="flex:1;background:linear-gradient(135deg,#ec4899,#f472b6);border-radius:8px;padding:5px 8px;text-align:center;"><div style="font-size:0.62rem;color:#fce7f3;">{t("tab_history")}</div><div style="font-size:1rem;font-weight:700;color:#fff;">{history_cnt}{t("unit_reports")}</div><div style="font-size:0.58rem;color:#fbcfe8;">{t("pending_list")}</div></div>
         </div><div style="background:#334155;border-radius:4px;height:4px;margin:0 0 6px 0;"><div style="background:{"#22c55e" if rate>=100 else "#f59e0b" if rate>=50 else "#e94560"};width:{rate}%;height:4px;border-radius:4px;"></div></div>""", unsafe_allow_html=True)
 
@@ -17475,7 +17491,7 @@ else:
                     st.session_state.work_page_num += 1; st.rerun()
             st.divider()
             st.markdown('<div style="font-size:0.82rem;font-weight:600;color:#94a3b8;margin-bottom:4px;">🚀 바로가기</div>', unsafe_allow_html=True)
-            if st.button(t("work_dragon_btn"), use_container_width=True, type="primary", key="work_dragon_btn"):
+            if st.button(_dragon_icon_label("work_dragon_btn", "icon_white"), use_container_width=True, type="primary", key="work_dragon_btn"):
                 st.session_state.current_page = "home"; st.session_state.active_tab = 3; st.rerun()
             wg1, wg2, wg3 = st.columns(3)
             with wg1:
@@ -31444,7 +31460,7 @@ else:
                         <div style="font-size:0.65rem; color:#64748b;">{t("goal").format(target_h)[:6]}</div>
                     </div>
                     <div style="flex:1; background:#faf5ff; border:1px solid #e9d5ff; border-radius:8px; padding:10px 14px;">
-                        <div style="font-size:0.7rem; color:#7c3aed; margin-bottom:2px; font-weight:600;">{t("dragon_token")}</div>
+                        <div style="font-size:0.7rem; color:#7c3aed; margin-bottom:2px; font-weight:600;">{_dragon_icon_html(t("dragon_token"))}</div>
                         <div style="font-size:1.5rem; font-weight:700; color:#7c3aed; line-height:1.1;">{token_info_h['monthly_remaining']}회</div>
                         <div style="font-size:0.65rem; color:#64748b;">{t("token_remain").format("")}</div>
                     </div>
@@ -31470,10 +31486,10 @@ else:
             """, unsafe_allow_html=True)
 
             # ③ 모니터링 버튼 (하단)
-            st.markdown('<div style="font-size:0.82rem; font-weight:600; color:#94a3b8; margin-bottom:4px;">🐉 모니터링</div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="font-size:0.82rem; font-weight:600; color:#94a3b8; margin-bottom:4px;">{_dragon_icon_html("🐉 모니터링")}</div>', unsafe_allow_html=True)
             _mb1, _mb2 = st.columns([3, 1])
             with _mb1:
-                if st.button(t("work_dragon_btn"), use_container_width=True, type="primary", key="home_dragon_btn"):
+                if st.button(_dragon_icon_label("work_dragon_btn", "icon_white"), use_container_width=True, type="primary", key="home_dragon_btn"):
                     st.session_state.current_page = "home"
                     st.session_state.active_tab = 3
                     st.rerun()
@@ -31610,7 +31626,7 @@ else:
         #   chat(드래곤파더)/text(텍스트 분석)는 콘텐츠 참조가 많아 정의는 유지하되
         #   탭 버튼은 JS로 숨김(시각적 제거) — 드래곤파더 챗은 상단 박스에 별도 존재.
         tab_defs = [
-            ("dragon",  t("tab_dragon")),
+            ("dragon",  _dragon_icon_label("tab_dragon")),
             ("history", t("tab_history")),
             ("reports", t("tab_reports")),
             ("stats",   t("tab_stats")),
@@ -31831,7 +31847,16 @@ else:
 
         # ── 드래곤아이즈 추천 ──
         with tab4:
-            st.subheader(t("dragon_title"))
+            _dt_icon = _brand_logo_b64("icon")
+            if _dt_icon:
+                st.markdown(
+                    f'<h3 style="display:flex;align-items:center;gap:10px;margin:0 0 0.4rem 0;">'
+                    f'<img src="data:image/png;base64,{_dt_icon}" style="height:1.15em;" alt="DragonEyes"/>'
+                    f'{t("dragon_title").replace("🐉 ", "").replace("🐉", "")}</h3>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.subheader(t("dragon_title"))
             st.caption("AI가 플랫폼별 위험 키워드를 자동 생성하고 유튜브를 탐색합니다. 이미 분석한 영상은 자동 제외됩니다.")
 
             # ⭐ Phase 5: 드래곤아이즈 추천 페이지 진입 자동 음성 안내
@@ -31861,7 +31886,7 @@ else:
 
             btn1, btn2, btn3, btn4, btn5 = st.columns(5)
             with btn1:
-                run_general = st.button(t("dragon_general"), use_container_width=True, disabled=not token_info["ok"])
+                run_general = st.button(_dragon_icon_label("dragon_general"), use_container_width=True, disabled=not token_info["ok"])
             with btn2:
                 run_roblox = st.button(t("dragon_roblox"), use_container_width=True, disabled=not token_info["ok"])
             with btn3:
