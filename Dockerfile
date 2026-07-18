@@ -11,6 +11,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app.py .
+COPY assets/ ./assets/
+COPY data/ ./data/
 
 RUN mkdir -p ~/.streamlit
 RUN echo '[server]\nheadless = true\nenableCORS = false\nenableXsrfProtection = false\nport = 8501\n\n[browser]\ngatherUsageStats = false\n' > ~/.streamlit/config.toml
