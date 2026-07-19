@@ -10628,8 +10628,24 @@ def render_portal_home(user):
     _portal_header()
     _hello = f"{user.get('name') or user.get('email') or ''}님"
     st.markdown(f'<div style="text-align:center;color:#334155;font-size:0.92rem;margin-bottom:8px;">👋 {_esc(_hello)}, 환영합니다.</div>', unsafe_allow_html=True)
-    _tabs = ["📚 교육 자료실", "💼 영업 자료실", "📢 공지사항", "🚀 바로가기"]
-    _t1, _t2, _t3, _t4 = st.tabs(_tabs)
+
+    # ── 🔔 테스크·공지 알림 (미확인 공지 / 업무지시·긴급 강조) ──
+    _unread_ids = [a["id"] for a in (get_unread_announcements(user["id"]) or [])]
+    _n_task = 0
+    if _unread_ids:
+        try:
+            _urows = supabase.table("announcements").select("id,type").in_("id", _unread_ids).execute().data or []
+            _n_task = sum(1 for a in _urows if a.get("type") in ("work_order", "urgent"))
+        except Exception:
+            pass
+        if _n_task:
+            st.error(f"🚨 확인이 필요한 업무지시·긴급 공지 {_n_task}건이 있습니다! '📢 공지' 탭에서 확인해주세요. (미확인 공지 총 {len(_unread_ids)}건)")
+        else:
+            st.info(f"🔔 미확인 공지 {len(_unread_ids)}건이 있습니다. '📢 공지' 탭에서 확인해주세요.")
+
+    _ann_label = f"📢 공지 ({len(_unread_ids)})" if _unread_ids else "📢 공지"
+    _tabs = ["📚 교육 자료실", "💼 영업 자료실", _ann_label, "👤 사용자", "🚀 바로가기"]
+    _t1, _t2, _t3, _t5, _t4 = st.tabs(_tabs)
     with _t1:
         _portal_materials_tab(user, "edu", "교육")
     with _t2:
@@ -10637,7 +10653,7 @@ def render_portal_home(user):
     with _t3:
         try:
             _anns = supabase.table("announcements").select("id,title,content,type,created_at")\
-                .order("created_at", desc=True).limit(10).execute().data or []
+                .eq("is_deleted", False).order("created_at", desc=True).limit(15).execute().data or []
         except Exception:
             _anns = []
         if not _anns:
@@ -10645,9 +10661,61 @@ def render_portal_home(user):
         for _a in _anns:
             with st.container(border=True):
                 _ic = {"notice": "🔵", "work_order": "🟠", "urgent": "🚨"}.get(_a.get("type"), "📢")
-                st.markdown(f"**{_ic} {_esc(_a['title'])}**")
+                _is_unread = _a["id"] in _unread_ids
+                _badge = ' <span style="color:#dc2626;font-size:0.78rem;font-weight:700;">●미확인</span>' if _is_unread else ""
+                st.markdown(f"**{_ic} {_esc(_a['title'])}**{_badge}", unsafe_allow_html=True)
                 st.markdown(f'<div style="color:#1e293b;font-size:0.92rem;">{_esc(_a.get("content") or "")}</div>', unsafe_allow_html=True)
-                st.caption(str(_a.get("created_at", ""))[:10])
+                _ac1, _ac2 = st.columns([5, 1])
+                _ac1.caption(str(_a.get("created_at", ""))[:10])
+                if _is_unread:
+                    if _ac2.button("✅ 확인", key=f"portal_ann_read_{_a['id']}", use_container_width=True):
+                        mark_announcement_read(_a["id"], user["id"])
+                        st.rerun()
+    with _t5:
+        # ── 👤 내 정보 자가 관리 ──
+        st.markdown("**내 정보**")
+        _role_label = (
+            "본사 관리자" if _portal_is_hq_admin(user)
+            else ("파트너 관리자" if (user.get("partner_role") == "partner_admin" or user.get("is_tenant_admin")) else "파트너·직원")
+        )
+        _info1, _info2 = st.columns(2)
+        _info1.caption(f"이메일: {user.get('email') or '-'}")
+        _info2.caption(f"구분: {_role_label}" + (f" · {user.get('hq_position')}" if user.get("hq_position") else ""))
+        with st.form("portal_profile_form"):
+            _pf_name = st.text_input("이름", value=user.get("name") or "")
+            _pf_phone = st.text_input("연락처", value=user.get("phone") or "", placeholder="010-0000-0000")
+            _pf_addr = st.text_input("주소 (선택)", value=user.get("address") or "")
+            if st.form_submit_button("💾 정보 저장", type="primary", use_container_width=True):
+                try:
+                    supabase.table("users").update({
+                        "name": (_pf_name or "").strip() or user.get("name"),
+                        "phone": (_pf_phone or "").strip() or None,
+                        "address": (_pf_addr or "").strip() or None,
+                        "profile_updated_at": datetime.now().isoformat(),
+                    }).eq("id", user["id"]).execute()
+                    _u_new = supabase.table("users").select("*").eq("id", user["id"]).execute().data
+                    if _u_new:
+                        st.session_state.user = _u_new[0]
+                    st.success("저장 완료")
+                    st.rerun()
+                except Exception as _pe:
+                    st.error(f"저장 실패: {str(_pe)[:100]}")
+        st.divider()
+        st.markdown("**비밀번호 변경**")
+        with st.form("portal_pw_form"):
+            _pw1 = st.text_input("새 비밀번호 (8자 이상)", type="password")
+            _pw2 = st.text_input("새 비밀번호 확인", type="password")
+            if st.form_submit_button("🔒 비밀번호 변경", use_container_width=True):
+                if len(_pw1 or "") < 8:
+                    st.warning("비밀번호는 8자 이상이어야 합니다.")
+                elif _pw1 != _pw2:
+                    st.warning("두 비밀번호가 일치하지 않습니다.")
+                else:
+                    try:
+                        supabase.auth.update_user({"password": _pw1})
+                        st.success("비밀번호가 변경되었습니다. 다음 로그인부터 새 비밀번호를 사용하세요.")
+                    except Exception as _pwe:
+                        st.error(f"변경 실패: {str(_pwe)[:100]} — 잠시 후 다시 시도해주세요.")
     with _t4:
         st.markdown("**관리·업무 화면으로 이동** (포털과 같은 로그인 상태로 이동합니다)")
         _g1, _g2 = st.columns(2)
