@@ -5380,7 +5380,16 @@ if "survey_token" in params:
         st.session_state["_survey_token"] = _stoken
         st.session_state["current_page"] = "survey_respond"
 
-# 🏢 직원·파트너 포털 진입 (?portal=1) — 홈페이지 로그인 버튼 경로
+# 🏢 직원·파트너 포털 진입 — portal.dragoneyes.co.kr 접속 또는 ?portal=1
+#    포털 전용 서브도메인(홈페이지 로그인 버튼)은 파라미터 없이도 자동 포털 모드
+_is_portal_host = False
+try:
+    _is_portal_host = (st.context.headers.get("host") or "").lower().startswith("portal.")
+except Exception:
+    pass
+if _is_portal_host and "portal" not in params:
+    params["portal"] = "1"  # 이하 로직·세션복원과 동일하게 취급
+
 if "portal" in params and not st.session_state.get("_portal_boot"):
     st.session_state["_portal_boot"] = True
     st.session_state["login_mode"] = "portal"
