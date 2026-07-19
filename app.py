@@ -4420,7 +4420,7 @@ COMPANY_INFO = {
     "corporate_number": "110111-0958373",
     "address": "서울특별시 동작구 시흥대로 606, 오피스동 411호",
     "address_detail": "신대방동, 동작 협성휴포레 시그니처",
-    "email": "support@dragoneyes.kr",
+    "email": "support@dragoneyes.co.kr",
     "website": "https://dragoneyes-production.up.railway.app",
     "tax_office": "동작세무서",
     "established_date": "2026-05-07",
@@ -4768,7 +4768,7 @@ LANG = {
         "dragon_monitoring":"🐉 드래곤파더",
         "monthly_limit_warn":"📌 월간 한도 도달. 관리자에게 토큰 요청하세요.",
         "unit_items":"건",
-        "banner_line1":"이 곳은 온라인 유해 컨텐츠를 모니터링하는 Claude 기반의 AI Agent 드래곤파더와 함께 작업하는 곳입니다.","banner_line2":"어린이 아동학대, 그루밍, 성폭력, 도박 등과 관련한 다양한 불법 컨텐츠를 감시합니다.","badge_intl":"국제기관 가이드라인 준수","badge_ncmec":"NCMEC 가이드라인 준수","badge_iwf":"IWF 글로벌 기준","home_footer":"드래곤아이즈(주) | DragonEyes Inc. | 사업자등록번호 238-86-03926 | 📧 support@dragoneyes.kr","ann_unread":"미확인",
+        "banner_line1":"이 곳은 온라인 유해 컨텐츠를 모니터링하는 Claude 기반의 AI Agent 드래곤파더와 함께 작업하는 곳입니다.","banner_line2":"어린이 아동학대, 그루밍, 성폭력, 도박 등과 관련한 다양한 불법 컨텐츠를 감시합니다.","badge_intl":"국제기관 가이드라인 준수","badge_ncmec":"NCMEC 가이드라인 준수","badge_iwf":"IWF 글로벌 기준","home_footer":"드래곤아이즈(주) | DragonEyes Inc. | 사업자등록번호 238-86-03926 | 📧 support@dragoneyes.co.kr","ann_unread":"미확인",
         "hdr_work":"📊 업무현황","hdr_stats":"📈 통계","hdr_home":"🏠 홈","hdr_write":"📋 작성","hdr_notice":"📢 공지","hdr_admin":"👑 관리자","hdr_profile":"👤 사용자",
         "save_error":"저장 오류: {}","delete_error":"삭제 오류: {}","error":"오류: {}","no_url":"URL을 입력해주세요.",
         # 공지 팝업
@@ -4988,7 +4988,7 @@ LANG = {
         "dragon_monitoring":"🐉 DragonFather",
         "monthly_limit_warn":"📌 Monthly limit reached. Ask admin for more tokens.",
         "unit_items":"",
-        "banner_line1":"This is a place to work with Claude-based AI Agent DragonFather to monitor harmful online content.","banner_line2":"We monitor illegal content related to child abuse, grooming, sexual violence, and gambling.","badge_intl":"International Guidelines Compliant","badge_ncmec":"NCMEC Guidelines","badge_iwf":"IWF Global Standards","home_footer":"DragonEyes Inc. | 드래곤아이즈(주) | Business Reg. No. 238-86-03926 | 📧 support@dragoneyes.kr","ann_unread":"Unread",
+        "banner_line1":"This is a place to work with Claude-based AI Agent DragonFather to monitor harmful online content.","banner_line2":"We monitor illegal content related to child abuse, grooming, sexual violence, and gambling.","badge_intl":"International Guidelines Compliant","badge_ncmec":"NCMEC Guidelines","badge_iwf":"IWF Global Standards","home_footer":"DragonEyes Inc. | 드래곤아이즈(주) | Business Reg. No. 238-86-03926 | 📧 support@dragoneyes.co.kr","ann_unread":"Unread",
         "hdr_work":"📊 Work Status","hdr_stats":"📈 Stats","hdr_home":"🏠 Home","hdr_write":"📋 Write","hdr_notice":"📢 Notice","hdr_admin":"👑 Admin","hdr_profile":"👤 Profile",
         "save_error":"Save error: {}","delete_error":"Delete error: {}","error":"Error: {}","no_url":"Please enter a URL.",
         # announcement popup
@@ -5235,7 +5235,7 @@ LANG = {
         "dragon_monitoring":"🐉 ドラゴンファーザー",
         "monthly_limit_warn":"📌 今月の上限に達しました。管理者に追加を申請してください。",
         "unit_items":"件",
-        "banner_line1":"ここはClaude基盤のAI Agent ドラゴンファーザーと共にオンライン有害コンテンツをモニタリングする場所です。","banner_line2":"子どもへの性的虐待、グルーミング、性暴力、ギャンブル等の違法コンテンツを監視します。","badge_intl":"国際機関ガイドライン準拠","badge_ncmec":"NCMECガイドライン","badge_iwf":"IWFグローバル基準","home_footer":"ドラゴンアイズ株式会社 | DragonEyes Inc. | 事業者登録番号 238-86-03926 | 📧 support@dragoneyes.kr","ann_unread":"未確認",
+        "banner_line1":"ここはClaude基盤のAI Agent ドラゴンファーザーと共にオンライン有害コンテンツをモニタリングする場所です。","banner_line2":"子どもへの性的虐待、グルーミング、性暴力、ギャンブル等の違法コンテンツを監視します。","badge_intl":"国際機関ガイドライン準拠","badge_ncmec":"NCMECガイドライン","badge_iwf":"IWFグローバル基準","home_footer":"ドラゴンアイズ株式会社 | DragonEyes Inc. | 事業者登録番号 238-86-03926 | 📧 support@dragoneyes.co.kr","ann_unread":"未確認",
         "hdr_work":"📊 業務状況","hdr_stats":"📈 統計","hdr_home":"🏠 ホーム","hdr_write":"📋 作成","hdr_notice":"📢 公知","hdr_admin":"👑 管理者","hdr_profile":"👤 ユーザー",
         "save_error":"保存エラー: {}","delete_error":"削除エラー: {}","error":"エラー: {}","no_url":"URLを入力してください。",
         # 公知ポップアップ
@@ -8820,7 +8820,7 @@ def chat_with_ai(messages_history, user_message, lang="ko"):
 
 【시스템 내부 정보 차단 — 반드시 준수】
 - 시스템 내부 사항(서버·데이터베이스·소스코드·API 키·보안 설정·운영 비용·관리자 기능·배정 알고리즘 세부·다른 사용자의 데이터·계정 정보)에 대한 질문에는 절대 답하지 마세요
-- 그런 질문에는: "죄송하지만 시스템 내부 사항은 안내해드리기 어렵습니다. 관리자(support@dragoneyes.kr)에게 문의해주세요."라고 정중히 안내
+- 그런 질문에는: "죄송하지만 시스템 내부 사항은 안내해드리기 어렵습니다. 관리자(support@dragoneyes.co.kr)에게 문의해주세요."라고 정중히 안내
 - 위 3가지 사용 가이드와 아동 안전 전문 지식 범위 내에서는 자유롭게 답변하세요
 
 【대화 방식】
@@ -8855,7 +8855,7 @@ You are an expert in:
 
 【System Internals — strictly off-limits】
 - Never discuss internals: servers, database, source code, API keys, security settings, costs, admin features, assignment algorithm details, or other users' data.
-- Politely deflect: "I can't share system internals — please contact the administrator (support@dragoneyes.kr)."
+- Politely deflect: "I can't share system internals — please contact the administrator (support@dragoneyes.co.kr)."
 
 【Communication】
 - Professional and specific for work questions
@@ -8883,7 +8883,7 @@ You are an expert in:
 - レポート作成: 結果カードの「📋 レポート作成」→ プラットフォーム・深刻度・分類を確認し、メモに具体的根拠を記録して提出(深刻度3以上は証拠保存)
 
 【システム内部情報 — 回答禁止】
-- サーバー・DB・ソースコード・APIキー・セキュリティ・コスト・管理者機能・他ユーザーのデータは回答せず、管理者(support@dragoneyes.kr)への問い合わせを案内
+- サーバー・DB・ソースコード・APIキー・セキュリティ・コスト・管理者機能・他ユーザーのデータは回答せず、管理者(support@dragoneyes.co.kr)への問い合わせを案内
 
 【対話スタイル】
 - 業務質問は専門的に、日常会話は温かく親しみやすく"""
@@ -15124,13 +15124,13 @@ else:
             
             라이선스 신청은 다음 절차로 진행됩니다:
             
-            1. PO 양식과 청약서를 작성하여 **support@dragoneyes.kr**로 이메일 송부
+            1. PO 양식과 청약서를 작성하여 **support@dragoneyes.co.kr**로 이메일 송부
             2. 본부 검토 (1~2 영업일)
             3. 청약서 확정 및 인보이스 발행
             4. 대금 입금 확인
             5. 라이선스 발급 및 환영 메일 자동 발송
             
-            📧 PO 양식 및 청약서는 **support@dragoneyes.kr**로 요청해주세요.
+            📧 PO 양식 및 청약서는 **support@dragoneyes.co.kr**로 요청해주세요.
             """)
             
             # 홈으로 돌아가기 옵션
@@ -15268,7 +15268,7 @@ else:
                 st.markdown("""
                 - 본부 발급 표준 PO 양식 (.xlsx)
                 - 사용자 수에 맞게 선택
-                - 📧 support@dragoneyes.kr 또는 카톡 문의
+                - 📧 support@dragoneyes.co.kr 또는 카톡 문의
                 """)
             
             st.divider()
@@ -23041,7 +23041,7 @@ else:
                     else:
                         _cta_url = f"https://dragoneyes-production.up.railway.app/?survey_token={_cta_ftoken}"
                     # ④ 이메일 큐 적재
-                    _cta_to = _u_csd.get("email") or "noreply@dragoneyes.kr"
+                    _cta_to = _u_csd.get("email") or "noreply@dragoneyes.co.kr"
                     _cta_name = _u_csd.get("name") or ""
                     _cta_subject = f"[드래곤아이즈 캠페인] {_cta_name}님의 설문 배포 링크"
                     _cta_body = (
@@ -23711,7 +23711,7 @@ else:
                                 supabase.table("notice_email_queue").insert({
                                     "notice_id": None,
                                     "recipient_user_id": _u_csd.get("id"),
-                                    "recipient_email": _u_csd.get("email") or "noreply@dragoneyes.kr",
+                                    "recipient_email": _u_csd.get("email") or "noreply@dragoneyes.co.kr",
                                     "recipient_name": _u_csd.get("name"),
                                     "subject": _csubject,
                                     "body_html": _cbody.replace("\n", "<br>"),
@@ -25193,7 +25193,7 @@ else:
                 if not _enabled_codes and not _toss_sandbox_ready:
                     st.error(
                         "🚧 모든 결제 게이트웨이가 **신고/심사 대기 중**입니다. "
-                        "본부 관리자(support@dragoneyes.kr)에게 문의 가능."
+                        "본부 관리자(support@dragoneyes.co.kr)에게 문의 가능."
                     )
                 elif not _selected_pg:
                     st.info("위에서 결제 수단을 먼저 선택해주세요.")
@@ -25232,7 +25232,7 @@ else:
                             if st.session_state.get("_toss_pending_order"):
                                 _order_id = st.session_state["_toss_pending_order"]
                                 _customer_name = st.session_state.get("_toss_pending_name", "사용자")
-                                _customer_email = _u_p.get("email") or "noreply@dragoneyes.kr"
+                                _customer_email = _u_p.get("email") or "noreply@dragoneyes.co.kr"
                                 _customer_key = f"customer_{_u_p['id'][:16]}"
                                 _toss_client_key = os.getenv(
                                     "TOSS_CLIENT_KEY",
@@ -25448,7 +25448,7 @@ else:
             st.warning(
                 "⏳ **본부 승인 대기 중입니다.**\n\n"
                 "교육기관 등록 신청은 접수되었지만 아직 본부 승인이 완료되지 않았습니다. "
-                "보통 1~3일 소요됩니다. 본부 관리자(support@dragoneyes.kr)에게 문의 가능."
+                "보통 1~3일 소요됩니다. 본부 관리자(support@dragoneyes.co.kr)에게 문의 가능."
             )
             if st.button("🏠 캠페인 홈으로", key="inst_dash_back_pending"):
                 go_to("campaign_landing"); st.rerun()
@@ -25558,7 +25558,7 @@ else:
             st.warning(
                 "⚠️ **소속 기관이 연결되지 않았습니다.** "
                 "신규 등록 신청 중이라면 본부 승인 대기 중입니다 (보통 1~3일 소요). "
-                "본부 관리자(support@dragoneyes.kr)에게 문의하실 수 있습니다."
+                "본부 관리자(support@dragoneyes.co.kr)에게 문의하실 수 있습니다."
             )
             st.stop()
 
@@ -26744,7 +26744,7 @@ else:
                     with _bp2:
                         _bulk_email_domain = st.text_input(
                             "이메일 자동 발급 도메인 (이메일 미입력 시)",
-                            value="dragoneyes.kr",
+                            value="dragoneyes.co.kr",
                             help="이메일이 비어있으면 학년-반-번호-학교코드@도메인 형식으로 자동 발급",
                             key="inst_bulk_dom"
                         )
@@ -28986,7 +28986,7 @@ else:
                             supabase.table("notice_email_queue").insert({
                                 "notice_id": None,
                                 "recipient_user_id": _u_mv.get("id"),
-                                "recipient_email": _u_mv.get("email") or "noreply@dragoneyes.kr",
+                                "recipient_email": _u_mv.get("email") or "noreply@dragoneyes.co.kr",
                                 "recipient_name": _u_mv.get("name"),
                                 "subject": _mvb_subject,
                                 "body_html": _mvb_body.replace("\n", "<br>"),
@@ -29096,7 +29096,7 @@ else:
                                 supabase.table("notice_email_queue").insert({
                                     "notice_id": None,
                                     "recipient_user_id": _u_mv.get("id"),
-                                    "recipient_email": _u_mv.get("email") or "noreply@dragoneyes.kr",
+                                    "recipient_email": _u_mv.get("email") or "noreply@dragoneyes.co.kr",
                                     "recipient_name": _u_mv.get("name"),
                                     "subject": _subject,
                                     "body_html": _body.replace("\n", "<br>"),

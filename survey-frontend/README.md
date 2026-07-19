@@ -61,7 +61,7 @@ vercel --prod # 운영 배포
 
 Vercel 대시보드 → Settings → Domains:
 - 기본: `<project>.vercel.app`
-- 커스텀: `survey.dragoneyes.kr` (DNS CNAME)
+- 커스텀: `survey.dragoneyes.co.kr` (DNS CNAME)
 
 ## 🔗 학생 dashboard 측 URL 변경
 
@@ -70,7 +70,7 @@ Railway 환경변수 `SURVEY_FRONTEND_URL`로 분리:
 
 ```bash
 # Railway → Variables
-SURVEY_FRONTEND_URL=https://survey.dragoneyes.kr
+SURVEY_FRONTEND_URL=https://survey.dragoneyes.co.kr
 ```
 
 미설정 시 Streamlit 페이지로 fallback (개발 환경).
