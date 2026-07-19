@@ -5380,6 +5380,13 @@ if "survey_token" in params:
         st.session_state["_survey_token"] = _stoken
         st.session_state["current_page"] = "survey_respond"
 
+# 🏢 직원·파트너 포털 진입 (?portal=1) — 홈페이지 로그인 버튼 경로
+if "portal" in params and not st.session_state.get("_portal_boot"):
+    st.session_state["_portal_boot"] = True
+    st.session_state["login_mode"] = "portal"
+    # 이미 로그인/세션복원된 경우 → 포털 홈으로 (권한은 렌더에서 재검사)
+    st.session_state["_portal_redirect"] = True
+
 # 🔑 커스텀 비밀번호 재설정 토큰 링크 (Resend로 보낸 자체 링크 — Supabase 설정 무관)
 if "pwreset_token" in params:
     _prt = params.get("pwreset_token")
@@ -8655,7 +8662,15 @@ def _finalize_login(_u, access_token, refresh_token, email):
         or _u.get("is_tenant_admin")
         or (_u.get("role") == "admin" and _u.get("partner_id"))
     )
-    st.session_state.current_page = "agency_dashboard" if _is_partner_admin else "home_landing"
+    if st.session_state.get("login_mode") == "portal":
+        # 🏢 포털 로그인 → 포털 홈 (모니터링 화면 미노출)
+        st.session_state.current_page = "portal_home"
+        try:
+            st.query_params["portal"] = "1"
+        except Exception:
+            pass
+    else:
+        st.session_state.current_page = "agency_dashboard" if _is_partner_admin else "home_landing"
 
 def login(email, password):
     try:
@@ -8673,6 +8688,13 @@ def login(email, password):
                         pass
                     return False, ("🚫 미성년자 및 캠페인 전용 계정은 모니터링 시스템에 로그인할 수 없습니다. "
                                    "'🎓 캠페인 로그인'으로 전환 후 이용해주세요.")
+                # ─── 🏢 포털 로그인 게이트 — 직원·파트너만 (모니터링/캠페인 사용자 차단) ───
+                if st.session_state.get("login_mode") == "portal" and not _portal_access_ok(_u):
+                    try:
+                        supabase.auth.sign_out()
+                    except Exception:
+                        pass
+                    return False, "🚫 포털 접근 권한이 없습니다. 직원·파트너 계정으로만 로그인할 수 있습니다."
                 # ─── 🚫 주말 차단 검사 (일반 사용자만) ───
                 from datetime import datetime as _dt_login
                 _role = _u.get("role_v2", "user")
@@ -8685,7 +8707,9 @@ def login(email, password):
                     or _u.get("distributor_id")
                     or _u.get("is_tenant_admin")
                 )
-                if _role == "user" and _is_weekend and not _is_admin_role and _weekend_block_active():
+                if (_role == "user" and _is_weekend and not _is_admin_role and _weekend_block_active()
+                        and st.session_state.get("login_mode") != "portal"):
+                    # 포털은 주말 자율 학습 공간이므로 주말 차단 미적용
                     return False, "📅 주말 보안 정책에 따라 일반 사용자는 토요일/일요일에 접속할 수 없습니다. 평일에 다시 시도해주세요."
 
                 # ─── 🔐 관리자 MFA (이메일 OTP) — 관리자 계정만, 일반 사용자는 불편 없게 제외 ───
@@ -10447,6 +10471,250 @@ def _dragon_icon_html(txt, kind="icon", h="1em"):
     if _b and "🐉" in txt:
         return txt.replace("🐉", f'<img src="data:image/png;base64,{_b}" style="height:{h};vertical-align:-0.12em;" alt=""/>')
     return txt
+
+# ═══════════════════════════════════════════════
+# 🏢 직원·파트너 포털 (2026-07-19) — 홈페이지(dragoneyes.co.kr) 로그인 전용
+#    모니터링 요원·캠페인 사용자는 접근 불가. 교육/영업 자료실 + 관리 바로가기.
+# ═══════════════════════════════════════════════
+def _portal_access_ok(u):
+    """포털 접근 가능 여부 — 본사 직원 + 파트너(및 파트너 직원)만.
+
+    허용: role='admin', role_v2 superadmin/director/agency_admin/tenant_admin,
+          hq_position, partner_role, partner_id/distributor_id 소속, is_tenant_admin,
+          preferences.portal_access=True(개별 허용)
+    차단: 캠페인 계정(학생·학부모·기관), 일반 모니터링 요원,
+          preferences.portal_access=False(개별 차단 — 허용 조건보다 우선)
+    """
+    if not u:
+        return False
+    if u.get("is_campaign_only") or u.get("role_v2") in ("student", "parent", "institution_admin"):
+        return False
+    _prefs = u.get("preferences") or {}
+    if not isinstance(_prefs, dict):
+        _prefs = {}
+    if _prefs.get("portal_access") is False:
+        return False
+    return bool(
+        u.get("role") == "admin"
+        or u.get("role_v2") in ("superadmin", "director", "agency_admin", "tenant_admin")
+        or u.get("hq_position")
+        or u.get("partner_role")
+        or u.get("partner_id")
+        or u.get("distributor_id")
+        or u.get("is_tenant_admin")
+        or _prefs.get("portal_access") is True
+    )
+
+def _portal_is_hq_admin(u):
+    """포털 자료 업로드·삭제 권한 — 본사 관리자만."""
+    return bool(
+        u.get("role") == "admin"
+        or u.get("role_v2") in ("superadmin", "director")
+        or u.get("hq_position")
+    )
+
+def _portal_header():
+    _lb = _brand_logo_b64("full")
+    if _lb:
+        st.markdown(
+            f'<div style="text-align:center;margin:6px 0 2px;">'
+            f'<img src="data:image/png;base64,{_lb}" style="width:230px;max-width:70%;" alt="DragonEyes"/></div>',
+            unsafe_allow_html=True,
+        )
+    st.markdown(
+        '<div style="text-align:center;font-weight:700;color:#16324F;font-size:1.05rem;margin-bottom:2px;">'
+        '직원·파트너 포털</div>'
+        '<div style="text-align:center;color:#64748b;font-size:0.85rem;margin-bottom:10px;">'
+        'DragonEyes Staff &amp; Partner Portal</div>',
+        unsafe_allow_html=True,
+    )
+
+def _portal_materials_tab(user, category, label):
+    """자료실 탭 — 목록 + (본사 관리자) 업로드/삭제."""
+    try:
+        _rows = supabase.table("portal_materials").select("*")\
+            .eq("category", category).order("sort_no").order("created_at", desc=True).execute().data or []
+    except Exception as _e:
+        st.warning("자료실 준비 중입니다. (portal_materials 테이블 미생성 — docs/sql/v18_001_portal_materials.sql 적용 필요)")
+        return
+    if not _rows:
+        st.info(f"등록된 {label} 자료가 아직 없습니다.")
+    for _m in _rows:
+        with st.container(border=True):
+            _c1, _c2 = st.columns([6, 2])
+            with _c1:
+                st.markdown(f"**{_esc(_m['title'])}**")
+                if _m.get("description"):
+                    st.caption(_esc(_m["description"]))
+                st.caption(str(_m.get("created_at", ""))[:10] + ((" · " + _esc(_m["uploaded_by_name"])) if _m.get("uploaded_by_name") else ""))
+            with _c2:
+                if _m.get("file_url"):
+                    st.link_button("📥 다운로드", _m["file_url"], use_container_width=True)
+                if _m.get("link_url"):
+                    st.link_button("🔗 열기", _m["link_url"], use_container_width=True)
+                if _portal_is_hq_admin(user):
+                    if st.button("🗑️ 삭제", key=f"pm_del_{_m['id']}", use_container_width=True):
+                        try:
+                            supabase.table("portal_materials").delete().eq("id", _m["id"]).execute()
+                            st.rerun()
+                        except Exception as _de:
+                            st.error(f"삭제 실패: {str(_de)[:80]}")
+    # ── 업로드 (본사 관리자 전용) ──
+    if _portal_is_hq_admin(user):
+        with st.expander(f"➕ {label} 자료 등록 (본사 관리자)"):
+            _t_in = st.text_input("제목", key=f"pm_t_{category}")
+            _d_in = st.text_input("설명 (선택)", key=f"pm_d_{category}")
+            _l_in = st.text_input("외부 링크 (선택 — 영상 등)", key=f"pm_l_{category}", placeholder="https://...")
+            _f_in = st.file_uploader("파일 (선택)", type=["pdf", "xlsx", "docx", "pptx", "png", "jpg", "zip", "hwp", "hwpx"],
+                                     key=f"pm_f_{category}")
+            if st.button("등록", type="primary", key=f"pm_up_{category}"):
+                if not (_t_in or "").strip():
+                    st.warning("제목을 입력해주세요.")
+                elif not _f_in and not (_l_in or "").strip():
+                    st.warning("파일 또는 외부 링크 중 하나는 필요합니다.")
+                else:
+                    _furl = _fname = _fpath = None
+                    try:
+                        if _f_in:
+                            import time as _pmt
+                            _ext = _f_in.name.rsplit(".", 1)[-1].lower() if "." in _f_in.name else "bin"
+                            _fpath = f"portal/{category}_{int(_pmt.time())}.{_ext}"
+                            _f_in.seek(0)
+                            sb_admin().storage.from_("Documents").upload(
+                                _fpath, _f_in.read(), {"content-type": _f_in.type or "application/octet-stream"})
+                            _furl = sb_admin().storage.from_("Documents").create_signed_url(_fpath, 60 * 60 * 24 * 365)["signedURL"]
+                            _fname = _f_in.name
+                        supabase.table("portal_materials").insert({
+                            "category": category, "title": _t_in.strip(),
+                            "description": (_d_in or "").strip() or None,
+                            "file_name": _fname, "file_url": _furl, "file_path": _fpath,
+                            "link_url": (_l_in or "").strip() or None,
+                            "uploaded_by": user.get("id"), "uploaded_by_name": user.get("name"),
+                        }).execute()
+                        st.success("등록 완료")
+                        st.rerun()
+                    except Exception as _ue:
+                        st.error(f"등록 실패: {str(_ue)[:120]}")
+
+def _portal_logout():
+    """포털 로그아웃 — 세션·쿼리 정리 (앱 공용 logout 경로와 동일 동작)."""
+    try:
+        _delete_app_session(st.query_params.get("sid"))
+    except Exception:
+        pass
+    try:
+        supabase.auth.sign_out()
+    except Exception:
+        pass
+    for _k in list(st.session_state.keys()):
+        try:
+            del st.session_state[_k]
+        except Exception:
+            pass
+    try:
+        st.query_params.clear()
+        st.query_params["portal"] = "1"  # 로그아웃 후에도 포털 로그인 화면 유지
+    except Exception:
+        pass
+
+def render_portal_home(user):
+    """포털 홈 — 자료실·공지·관리 바로가기."""
+    if not _portal_access_ok(user):
+        st.error("🚫 포털 접근 권한이 없습니다. 직원·파트너 계정으로만 이용할 수 있습니다.")
+        if st.button("로그아웃", key="portal_denied_logout"):
+            _portal_logout()
+            st.rerun()
+        st.stop()
+    _portal_header()
+    _hello = f"{user.get('name') or user.get('email') or ''}님"
+    st.markdown(f'<div style="text-align:center;color:#334155;font-size:0.92rem;margin-bottom:8px;">👋 {_esc(_hello)}, 환영합니다.</div>', unsafe_allow_html=True)
+    _tabs = ["📚 교육 자료실", "💼 영업 자료실", "📢 공지사항", "🚀 바로가기"]
+    _t1, _t2, _t3, _t4 = st.tabs(_tabs)
+    with _t1:
+        _portal_materials_tab(user, "edu", "교육")
+    with _t2:
+        _portal_materials_tab(user, "sales", "영업")
+    with _t3:
+        try:
+            _anns = supabase.table("announcements").select("id,title,content,type,created_at")\
+                .order("created_at", desc=True).limit(10).execute().data or []
+        except Exception:
+            _anns = []
+        if not _anns:
+            st.info("공지사항이 없습니다.")
+        for _a in _anns:
+            with st.container(border=True):
+                _ic = {"notice": "🔵", "work_order": "🟠", "urgent": "🚨"}.get(_a.get("type"), "📢")
+                st.markdown(f"**{_ic} {_esc(_a['title'])}**")
+                st.markdown(f'<div style="color:#1e293b;font-size:0.92rem;">{_esc(_a.get("content") or "")}</div>', unsafe_allow_html=True)
+                st.caption(str(_a.get("created_at", ""))[:10])
+    with _t4:
+        st.markdown("**관리·업무 화면으로 이동** (포털과 같은 로그인 상태로 이동합니다)")
+        _g1, _g2 = st.columns(2)
+        _is_partner_admin = bool(
+            user.get("partner_role") == "partner_admin" or user.get("is_tenant_admin")
+            or (user.get("role") == "admin" and user.get("partner_id"))
+        )
+        with _g1:
+            if _is_partner_admin:
+                if st.button("🏢 파트너 관리 대시보드", use_container_width=True, key="portal_go_agency"):
+                    st.session_state.current_page = "agency_dashboard"; st.rerun()
+            if _portal_is_hq_admin(user):
+                if st.button("🏢 조직·사용자 관리 (모니터링 시스템)", use_container_width=True, key="portal_go_org"):
+                    st.session_state.current_page = "home_landing"; st.rerun()
+        with _g2:
+            if st.button("🛡️ 모니터링 시스템으로 이동", use_container_width=True, key="portal_go_mon"):
+                st.session_state.current_page = "home_landing"; st.rerun()
+        st.divider()
+        if st.button("🚪 로그아웃", key="portal_logout"):
+            _portal_logout()
+            st.rerun()
+
+def render_portal_login():
+    """포털 전용 로그인 화면 — 모니터링/캠페인 토글 없이 단독."""
+    _pad_l, _mid, _pad_r = st.columns([1, 1.2, 1])
+    with _mid:
+        _portal_header()
+        st.caption("드래곤아이즈 직원과 파트너(파트너 직원 포함) 전용 공간입니다. 모니터링·캠페인 계정은 로그인할 수 없습니다.")
+        # MFA 대기 (관리자 계정)
+        _mfa_p = st.session_state.get("_mfa_pending")
+        if _mfa_p:
+            st.info(f"📧 **{_mfa_p['email']}** 로 6자리 인증코드를 보냈습니다. 5분 내 입력하세요.")
+            _otp_p = st.text_input("인증코드 6자리", max_chars=6, key="portal_mfa_otp", placeholder="000000")
+            _pv1, _pv2 = st.columns(2)
+            with _pv1:
+                if st.button("✅ 인증 확인", type="primary", use_container_width=True, key="portal_mfa_verify"):
+                    if datetime.now().isoformat() > _mfa_p.get("expires", ""):
+                        st.session_state.pop("_mfa_pending", None)
+                        st.error("⏱️ 인증코드가 만료되었습니다. 다시 로그인해주세요.")
+                    elif (_otp_p or "").strip() == _mfa_p["otp"]:
+                        _finalize_login(_mfa_p["user"], _mfa_p["access_token"], _mfa_p["refresh_token"], _mfa_p["email"])
+                        st.session_state.pop("_mfa_pending", None)
+                        st.session_state["current_page"] = "portal_home"
+                        st.rerun()
+                    else:
+                        _mfa_p["attempts"] = _mfa_p.get("attempts", 0) + 1
+                        if _mfa_p["attempts"] >= 5:
+                            st.session_state.pop("_mfa_pending", None)
+                            st.error("❌ 인증 5회 실패. 다시 로그인해주세요.")
+                        else:
+                            st.error(f"❌ 코드가 일치하지 않습니다. ({_mfa_p['attempts']}/5)")
+            with _pv2:
+                if st.button("취소", use_container_width=True, key="portal_mfa_cancel"):
+                    st.session_state.pop("_mfa_pending", None)
+                    st.rerun()
+            st.stop()
+        _em = st.text_input("이메일", key="portal_login_email", placeholder="email@example.com")
+        _pw = st.text_input("비밀번호", type="password", key="portal_login_pw", placeholder="••••••••")
+        if st.button("🔑 포털 로그인", type="primary", use_container_width=True, key="portal_login_btn"):
+            _ok, _msg = login((_em or "").strip(), _pw or "")
+            if _ok:
+                st.rerun()
+            elif _ok is None and _msg == "MFA_SENT":
+                st.rerun()
+            else:
+                st.error(_msg)
+        st.caption("계정 문의: support@dragoneyes.co.kr")
 
 def _campaign_ai_quota(user_row, key, limit=5):
     """(사용가능여부, 남은횟수) — preferences[key] = {date, count}"""
@@ -12399,6 +12667,11 @@ if params.get("cron") == "fill_inventory":
 # 로그인 화면 (v2026.05.05 - 70:30 리디자인 + 다국어 + 카카오 버튼)
 # ══════════════════════════════
 if st.session_state.user is None:
+    # 🏢 포털 모드 — 전용 로그인 화면 (모니터링/캠페인 토글 없음)
+    if st.session_state.get("login_mode") == "portal":
+        render_portal_login()
+        st.stop()
+
     # ⭐ Phase 3 (v17): 비로그인 사용자도 캠페인 회원가입 페이지 진입 가능
     _signup_pages = (
         "campaign_signup_select",
@@ -14041,7 +14314,17 @@ else:
             st.warning("⚠️ 미성년자 및 캠페인 전용 사용자는 모니터링 시스템에 접근할 수 없습니다.")
             st.rerun()
 
+    # 🏢 포털 리다이렉트 — ?portal=1로 진입한 로그인/복원 세션을 포털 홈으로 (1회)
+    if st.session_state.pop("_portal_redirect", False) and _portal_access_ok(user):
+        st.session_state["login_mode"] = "portal"
+        st.session_state.current_page = "portal_home"
+
     page = st.session_state.current_page
+
+    # 🏢 포털 홈 — 모니터링 공지 팝업·헤더를 타지 않는 독립 화면
+    if page == "portal_home":
+        render_portal_home(user)
+        st.stop()
 
     # ── 미확인 공지 팝업 (시각장애인 음성 친화) ──
     unread_ann = get_unread_announcements(user["id"])
