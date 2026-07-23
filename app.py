@@ -2090,6 +2090,101 @@ def _a11y_render_floating_mic():
                 const rawTranscript = (cmd || '').trim();  // 메모 받아쓰기용 원본 텍스트 (공백 보존)
                 console.log('[DragonEyes Voice] normalized:', '(' + (n ? n.length : 0) + '자)');
 
+                // ════════ 보고서 폼 제어 (심각도 · 분류 · 플랫폼 · 추가 메모) ════════
+                const findWidgetByLabel = function(testid, labelText) {
+                    const boxes = Array.from(w.document.querySelectorAll('[data-testid="' + testid + '"]'));
+                    for (const b of boxes) {
+                        if (b.offsetParent === null) continue;
+                        const lab = (b.innerText || '').split('\\n')[0].replace(/\\s+/g, '');
+                        if (lab.indexOf(labelText.replace(/\\s+/g, '')) >= 0) return b;
+                    }
+                    return null;
+                };
+                const setSelectByVoice = function(labelText, matchFn, spokenName) {
+                    const box = findWidgetByLabel('stSelectbox', labelText);
+                    if (!box) return false;
+                    const ctrl = box.querySelector('[data-baseweb="select"]');
+                    if (!ctrl) return false;
+                    // 드롭다운 열기
+                    const inner = ctrl.querySelector('div') || ctrl;
+                    inner.dispatchEvent(new MouseEvent('mousedown', {bubbles: true, cancelable: true}));
+                    inner.click();
+                    setTimeout(function() {
+                        const opts = Array.from(w.document.querySelectorAll('li[role="option"], ul[role="listbox"] li'));
+                        const target = opts.find(function(o) { return matchFn((o.innerText || '').replace(/\\s+/g, '').toLowerCase()); });
+                        if (target) {
+                            target.click();
+                            const chosen = (target.innerText || '').trim();
+                            if (w._dragoneyesSpeak) w._dragoneyesSpeak(spokenName + '를 ' + chosen + '으로 설정했습니다.');
+                            showDiag('<b style="color:#16a34a;">✅ ' + spokenName + ' 설정</b><br>' + chosen, 5000);
+                        } else {
+                            // 못 찾으면 드롭다운 닫기
+                            try { w.document.body.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true})); } catch(_){}
+                            if (w._dragoneyesSpeak) w._dragoneyesSpeak(spokenName + ' 항목을 찾지 못했습니다.');
+                            showDiag('<b style="color:#dc2626;">❌ ' + spokenName + ' 옵션 못 찾음</b>', 5000);
+                        }
+                    }, 450);
+                    return true;
+                };
+                // 한글 숫자 → 숫자 (음성이 "이" "삼"으로 적는 경우)
+                const parseLevel = function(s) {
+                    const m = s.match(/[1-5]/);
+                    if (m) return m[0];
+                    if (/(^|[^가-힣])일([^가-힣]|$)/.test(s) || s.indexOf('하나') >= 0) return '1';
+                    if (s.indexOf('이') >= 0 || s.indexOf('둘') >= 0) return '2';
+                    if (s.indexOf('삼') >= 0 || s.indexOf('셋') >= 0) return '3';
+                    if (s.indexOf('사') >= 0 || s.indexOf('넷') >= 0) return '4';
+                    if (s.indexOf('오') >= 0 || s.indexOf('다섯') >= 0) return '5';
+                    return null;
+                };
+                // ── "심각도 N" ──
+                if (n.indexOf('심각도') >= 0) {
+                    const lv = parseLevel(n.split('심각도')[1] || '');
+                    if (lv) {
+                        if (setSelectByVoice('심각도', function(t) { return t.indexOf(lv) === 0 || t.indexOf(lv + '—') >= 0 || t.indexOf(lv + '-') >= 0; }, '심각도')) return true;
+                    }
+                }
+                // ── "분류 XXX" ──
+                if (n.indexOf('분류') >= 0) {
+                    const word = n.split('분류')[1] || '';
+                    const key = word.replace(/(으로|로|설정|변경|바꿔|해줘|바꿔줘)/g, '').trim();
+                    if (key.length >= 1) {
+                        if (setSelectByVoice('분류', function(t) { return t.indexOf(key) >= 0; }, '분류')) return true;
+                    }
+                }
+                // ── "플랫폼 XXX" ──
+                if (n.indexOf('플랫폼') >= 0) {
+                    let key = n.split('플랫폼')[1] || '';
+                    key = key.replace(/(으로|로|설정|변경|바꿔|해줘|바꿔줘)/g, '').trim();
+                    const alias = {'유튜브': 'youtube', '네이버': 'naver', '디스코드': 'discord', '틱톡': 'tiktok', '인스타': 'instagram'};
+                    const eng = alias[key] || key;
+                    if (eng.length >= 2) {
+                        if (setSelectByVoice('플랫폼', function(t) { return t.indexOf(eng) >= 0 || t.indexOf(key) >= 0; }, '플랫폼')) return true;
+                    }
+                }
+                // ── "추가 메모 …" / "메모 …" — 받아쓰기 입력 ──
+                if (n.indexOf('메모') >= 0) {
+                    const idx = rawTranscript.indexOf('메모');
+                    let memoText = rawTranscript.substring(idx + 2).replace(/^(에|는|를|:|,)?\\s*/, '').trim();
+                    memoText = memoText.replace(/\\s*(기재|입력|작성)(해줘|해|하라고)?\\s*$/, '').trim();
+                    if (memoText.length >= 1) {
+                        const box = findWidgetByLabel('stTextArea', '추가 메모');
+                        const ta = box ? box.querySelector('textarea') : null;
+                        if (ta) {
+                            try {
+                                const setter = Object.getOwnPropertyDescriptor(w.HTMLTextAreaElement.prototype, 'value').set;
+                                setter.call(ta, memoText);
+                                ta.dispatchEvent(new Event('input', {bubbles: true}));
+                                ta.dispatchEvent(new Event('change', {bubbles: true}));
+                                ta.blur();
+                                if (w._dragoneyesSpeak) w._dragoneyesSpeak('추가 메모에 입력했습니다. ' + memoText);
+                                showDiag('<b style="color:#16a34a;">✅ 추가 메모 입력</b><br>' + memoText, 6000);
+                                return true;
+                            } catch(e) { console.error('[Voice] memo input:', e); }
+                        }
+                    }
+                }
+
                 // ════════ 현재 페이지 설명 ════════
                 if (n.indexOf('현재페이지설명') >= 0 || n.indexOf('페이지설명') >= 0 ||
                     n.indexOf('이페이지') >= 0 || n.indexOf('페이지소개') >= 0 ||
@@ -2163,6 +2258,7 @@ def _a11y_render_floating_mic():
                         "추천 카테고리: 일반, 로블록스, 마인크래프트, 도박. " +
                         "모니터링 워크플로우: 모니터링 시작, 다음 모니터링, 모니터링 종료. " +
                         "보고서: 보고서 작성, 보고서 제출, 보고서 목록. " +
+                        "보고서 폼 입력: 심각도 숫자, 분류 이름, 플랫폼 이름, 메모 뒤에 내용. " +
                         "기타: 드래곤파더, 다음, 이전, 확인, 취소, 닫기, 새로고침, 중지.";
                     if (w._dragoneyesSpeak) w._dragoneyesSpeak(help);
                     showDiag('<b>❓ 도움말</b><br>음성 명령 안내 발화 중', 10000);
@@ -3067,7 +3163,8 @@ def _a11y_render_floating_mic():
                                 '<b>📖 페이지:</b> 현재 페이지 설명, 메뉴 읽어줘, 다시 안내<br>' +
                                 '<b>🧭 이동:</b> 통계, 홈, 업무, 파트너, 관리자, 사용자<br>' +
                                 '<b>🔍 분석:</b> 텍스트, 유튜브, 네이버, 디스코드, 키워드<br>' +
-                                '<b>🎯 추천:</b> 일반, 로블록스, 마인크래프트, 도박', 12000);
+                                '<b>🎯 추천:</b> 일반, 로블록스, 마인크래프트, 도박<br>' +
+                                '<b>📋 폼 입력:</b> "심각도 2", "분류 그루밍", "플랫폼 유튜브", "메모 ○○○"', 12000);
                             if (w._dragoneyesSpeak) w._dragoneyesSpeak("일치하는 메뉴를 찾지 못했습니다.");
                         }
                     };
@@ -15298,22 +15395,25 @@ else:
                                 st.toast("✅ 보고서 제출·이메일 발송 — 탐색 히스토리로 복귀", icon="🎉")
                             except Exception:
                                 pass
-                        elif _was_monitoring:
-                            # 🔄 수동 제출이라도 '모니터링 영상' 보고서면 탐색 히스토리로 복귀(사이클 유지)
+                        else:
+                            # 🔄 모든 제출은 탐색 히스토리로 복귀 — 다음 대기 목록을 바로 이어서 모니터링
                             st.session_state.current_page = "home"
                             st.session_state.active_tab = 5  # history 탭
                             st.session_state.pop("_a11y_announced_history_tab_entry", None)
                             st.session_state.pop("_a11y_announced_history_tab_empty", None)
                             st.session_state["_explicit_tab_nav"] = "history"
                             try:
+                                accessibility.announce(
+                                    "보고서 제출이 완료되었습니다. "
+                                    "탐색 히스토리로 돌아갑니다. "
+                                    "다음 대기 목록을 이어서 모니터링하세요."
+                                )
+                            except Exception:
+                                pass
+                            try:
                                 st.toast("✅ 보고서 제출 — 탐색 히스토리로 복귀", icon="🎉")
                             except Exception:
                                 pass
-                        else:
-                            prev = st.session_state.prev_page
-                            prev_tab = st.session_state.get("prev_tab", 0)
-                            st.session_state.current_page = prev
-                            st.session_state.active_tab = prev_tab
                         st.success(t("report_submitted"))
                         st.rerun()
                 else:
@@ -16537,17 +16637,19 @@ else:
                 _tgt = st.session_state.get(_tkey, 0)
                 _rate = (_rev / (_tgt * 10000) * 100) if _tgt and _tgt > 0 else 0
                 _icon = "🏢" if kind == "dist" else "🤝"
-                _bg = "#eff6ff" if kind == "dist" else "#f5f3ff"
-                _bd = "#bfdbfe" if kind == "dist" else "#ddd6fe"
+                _bg = "#DCEAFB" if kind == "dist" else "#D6EFE3"
+                _bd = "#A9CCF3" if kind == "dist" else "#9FD8BE"
+                _chip = "#BFDBF7" if kind == "dist" else "#B7E4CF"
+                _accent = "#3D6ED1" if kind == "dist" else "#0E9469"
                 st.markdown(
                     f"<div style='background:{_bg};border:1px solid {_bd};border-radius:9px;"
                     f"padding:8px 9px 6px;margin-bottom:4px;min-height:78px;'>"
-                    f"<div style='font-size:1.15rem;line-height:1;'>{_icon}</div>"
+                    f"<div style='display:inline-flex;width:26px;height:26px;border-radius:8px;background:{_chip};align-items:center;justify-content:center;font-size:0.9rem;line-height:1;'>{_icon}</div>"
                     f"<div style='font-weight:700;font-size:0.8rem;color:#0f172a;margin-top:2px;'>{idx}. {_nm}</div>"
                     f"<div style='font-size:0.6rem;color:#64748b;'>{_ch}</div>"
                     f"<div style='font-size:0.66rem;color:#334155;margin-top:3px;'>매출 {_fmt_won_ct(_rev)} · 달성 {_rate:.0f}%</div>"
                     f"<div style='background:#e2e8f0;border-radius:3px;height:4px;margin-top:3px;'>"
-                    f"<div style='background:#3b82f6;width:{min(_rate,100)}%;height:4px;border-radius:3px;'></div></div>"
+                    f"<div style='background:{_accent};width:{min(_rate,100)}%;height:4px;border-radius:3px;'></div></div>"
                     f"</div>",
                     unsafe_allow_html=True,
                 )
@@ -16557,14 +16659,19 @@ else:
                     st.session_state["hq_selected_partner"] = {"id": p.get("id"), "name": _nm}
                     st.rerun()
 
-            def _empty_card_ct(label):
+            def _empty_card_ct(label, kind="dist"):
+                _e_bd = "#A9CCF3" if kind == "dist" else "#9FD8BE"
+                _e_bg = "#EFF6FE" if kind == "dist" else "#EDF9F3"
+                _e_chip = "#BFDBF7" if kind == "dist" else "#B7E4CF"
+                _e_fg = "#3D6ED1" if kind == "dist" else "#0E9469"
                 st.markdown(
-                    f"<div style='border:1.5px dashed #cbd5e1;border-radius:9px;padding:8px 9px;"
-                    f"margin-bottom:4px;min-height:78px;color:#94a3b8;text-align:center;"
-                    f"display:flex;flex-direction:column;justify-content:center;'>"
-                    f"<div style='font-size:1.15rem;'>➕</div>"
-                    f"<div style='font-weight:600;font-size:0.74rem;margin-top:2px;'>{label}</div>"
-                    f"<div style='font-size:0.62rem;'>배정 대기</div></div>",
+                    f"<div style='border:1.5px dashed {_e_bd};background:{_e_bg};border-radius:9px;padding:8px 9px;"
+                    f"margin-bottom:4px;min-height:78px;text-align:center;"
+                    f"display:flex;flex-direction:column;align-items:center;justify-content:center;'>"
+                    f"<div style='display:inline-flex;width:26px;height:26px;border-radius:8px;background:{_e_chip};"
+                    f"align-items:center;justify-content:center;font-size:0.85rem;color:{_e_fg};font-weight:800;'>＋</div>"
+                    f"<div style='font-weight:600;font-size:0.74rem;margin-top:3px;color:#475569;'>{label}</div>"
+                    f"<div style='font-size:0.62rem;color:{_e_fg};'>배정 대기</div></div>",
                     unsafe_allow_html=True,
                 )
 
@@ -16579,37 +16686,39 @@ else:
                     go_to("license_request"); st.rerun()
                 st.caption(f"운용: 총판 {len(_distributors_ct)}개 · 다이렉트 {len(_direct_ct)}개")
             with _tr:
-                st.markdown("**① 영업 · 매출 현황**")
+                st.markdown("<span style='display:inline-block;background:#132238;color:#fff;padding:3px 12px;border-radius:14px;font-weight:700;font-size:0.82rem;margin-bottom:4px;'>① 영업 · 매출 현황</span>", unsafe_allow_html=True)
                 st.markdown(
                     f"<div style='display:flex;gap:8px;'>"
-                    f"<div style='flex:1;background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;padding:6px 9px;'>"
-                    f"<div style='font-size:0.64rem;color:#64748b;'>📊 진행 파이프라인</div>"
-                    f"<div style='font-size:1.0rem;font-weight:700;color:#0f172a;'>{len(_active_ct)}건</div>"
-                    f"<div style='font-size:0.62rem;color:#475569;'>{_fmt_won_ct(_sum_amt(_active_ct))}</div></div>"
-                    f"<div style='flex:1;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:7px;padding:6px 9px;'>"
-                    f"<div style='font-size:0.64rem;color:#64748b;'>💡 구매의사 기회</div>"
-                    f"<div style='font-size:1.0rem;font-weight:700;color:#0f172a;'>{len(_intent_ct)}건</div>"
-                    f"<div style='font-size:0.62rem;color:#475569;'>{_fmt_won_ct(_sum_amt(_intent_ct))}</div></div>"
+                    f"<div style='flex:1;background:#3D6ED1;border-radius:10px;padding:8px 11px;box-shadow:0 2px 6px rgba(61,110,209,0.25);'>"
+                    f"<span style='display:inline-flex;width:24px;height:24px;border-radius:8px;background:rgba(255,255,255,0.22);align-items:center;justify-content:center;font-size:0.8rem;'>📊</span>"
+                    f"<div style='font-size:0.64rem;color:rgba(255,255,255,0.85);font-weight:600;margin-top:3px;'>진행 파이프라인</div>"
+                    f"<div style='font-size:1.15rem;font-weight:800;color:#ffffff;'>{len(_active_ct)}건</div>"
+                    f"<div style='font-size:0.62rem;color:rgba(255,255,255,0.75);'>{_fmt_won_ct(_sum_amt(_active_ct))}</div></div>"
+                    f"<div style='flex:1;background:#0E9469;border-radius:10px;padding:8px 11px;box-shadow:0 2px 6px rgba(14,148,105,0.25);'>"
+                    f"<span style='display:inline-flex;width:24px;height:24px;border-radius:8px;background:rgba(255,255,255,0.22);align-items:center;justify-content:center;font-size:0.8rem;'>💡</span>"
+                    f"<div style='font-size:0.64rem;color:rgba(255,255,255,0.85);font-weight:600;margin-top:3px;'>구매의사 기회</div>"
+                    f"<div style='font-size:1.15rem;font-weight:800;color:#ffffff;'>{len(_intent_ct)}건</div>"
+                    f"<div style='font-size:0.62rem;color:rgba(255,255,255,0.75);'>{_fmt_won_ct(_sum_amt(_intent_ct))}</div></div>"
                     f"</div>",
                     unsafe_allow_html=True,
                 )
                 _mt1, _mt2 = st.columns(2)
                 _ty_man = _mt1.number_input(f"{_year_ct} 연간 목표(만원)", min_value=0, step=1000, key=f"hq_target_year_{_year_ct}")
                 _tq_man = _mt2.number_input(f"{_q_ct}분기 목표(만원)", min_value=0, step=500, key=f"hq_target_q_{_year_ct}_{_q_ct}")
-                _bar_row_ct(f"{_year_ct} 연간", _total_actual_ct, _ty_man * 10000, "#16a34a")
-                _bar_row_ct(f"{_q_ct}분기", _q_actual_ct, _tq_man * 10000, "#0ea5e9")
+                _bar_row_ct(f"{_year_ct} 연간", _total_actual_ct, _ty_man * 10000, "#0E9469")
+                _bar_row_ct(f"{_q_ct}분기", _q_actual_ct, _tq_man * 10000, "#3D6ED1")
 
             st.divider()
 
             # ── ② 총판 (1~4) 테이블 ──
-            st.markdown("##### ② 총판 (1~4)")
+            st.markdown("<span style='display:inline-block;background:#DCEAFB;color:#2F5FC4;padding:3px 12px;border-radius:14px;font-weight:700;font-size:0.86rem;margin:6px 0 4px;'>🏢 ② 총판 (1~4)</span>", unsafe_allow_html=True)
             _dist_cols = st.columns(4)
             for _i in range(4):
                 with _dist_cols[_i]:
                     if _i < len(_distributors_ct):
                         _slot_card_ct(_distributors_ct[_i], _i + 1, "dist")
                     else:
-                        _empty_card_ct(f"총판 {_i + 1}")
+                        _empty_card_ct(f"총판 {_i + 1}", kind="dist")
             # 4개 초과 총판
             if len(_distributors_ct) > 4:
                 _ex_cols = st.columns(4)
@@ -16618,7 +16727,7 @@ else:
                         _slot_card_ct(_p, _j + 5, "dist")
 
             # ── ③ 다이렉트 파트너 (1~3) 테이블 ──
-            st.markdown("##### ③ 다이렉트 파트너 (1~3)")
+            st.markdown("<span style='display:inline-block;background:#D6EFE3;color:#0B7A55;padding:3px 12px;border-radius:14px;font-weight:700;font-size:0.86rem;margin:6px 0 4px;'>🤝 ③ 다이렉트 파트너 (1~3)</span>", unsafe_allow_html=True)
             _dp_n = max(3, len(_direct_ct))
             _dp_cols = st.columns(_dp_n)
             for _i in range(_dp_n):
@@ -16626,7 +16735,7 @@ else:
                     if _i < len(_direct_ct):
                         _slot_card_ct(_direct_ct[_i], _i + 1, "direct")
                     else:
-                        _empty_card_ct(f"다이렉트 파트너 {_i + 1}")
+                        _empty_card_ct(f"다이렉트 파트너 {_i + 1}", kind="direct")
 
             st.caption("💡 카드의 '▶ 들어가기'를 누르면 해당 총판·파트너의 세부 영업·서비스 페이지로 이동합니다.")
             st.stop()  # 관제 타워(개요)에서는 아래 세부 페이지를 렌더링하지 않음
