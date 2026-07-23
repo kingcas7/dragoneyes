@@ -55,3 +55,4 @@ __pycache__/
 _archive_backups/
 venv/
 *.backup_*
+.claude/

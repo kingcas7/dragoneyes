@@ -4113,7 +4113,73 @@ head { display: none !important; }
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="DragonEyes">
-<meta name="theme-color" content="#0f3460">
+<meta name="theme-color" content="#132238">
+""", unsafe_allow_html=True)
+
+# ── 디자인 시스템 v2 (버전 B: 라이트 · 네이비 #132238 · 그린 #0E9469) ──
+st.markdown("""
+<style>
+/* ═══ DragonEyes Design v2 — 전역 토큰 ═══ */
+.stApp { background: #F7F8FA !important; }
+h1, h2, h3 { color: #132238 !important; letter-spacing: -0.01em; }
+
+/* 기본 버튼: 흰 카드형 */
+.stButton > button {
+    background: #FFFFFF !important;
+    color: #132238 !important;
+    border: 1px solid #E2E8F0 !important;
+    border-radius: 12px !important;
+    box-shadow: 0 1px 2px rgba(19,34,56,0.05) !important;
+    transition: border-color .15s, box-shadow .15s !important;
+}
+.stButton > button:hover {
+    border-color: #0E9469 !important;
+    color: #0E9469 !important;
+    box-shadow: 0 2px 8px rgba(14,148,105,0.12) !important;
+}
+/* 폼 제출 버튼(로그인 등): 딥 네이비 */
+[data-testid="stFormSubmitButton"] button {
+    background: #132238 !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    border-radius: 12px !important;
+}
+[data-testid="stFormSubmitButton"] button:hover { background: #1C3450 !important; }
+/* 프라이머리 버튼: 딥 네이비 */
+.stButton > button[kind="primary"] {
+    background: #132238 !important;
+    color: #FFFFFF !important;
+    border: none !important;
+}
+.stButton > button[kind="primary"]:hover {
+    background: #1C3450 !important;
+    color: #FFFFFF !important;
+}
+/* 탭: 활성 그린 밑줄 */
+button[data-baseweb="tab"][aria-selected="true"] {
+    color: #0E9469 !important;
+    border-bottom: 2px solid #0E9469 !important;
+}
+/* 입력 위젯 라운드 */
+[data-testid="stTextInput"] input, [data-testid="stNumberInput"] input,
+[data-testid="stTextArea"] textarea, [data-baseweb="select"] > div {
+    border-radius: 10px !important;
+}
+/* 익스팬더 카드화 */
+[data-testid="stExpander"] {
+    background: #FFFFFF !important;
+    border: 1px solid #E9EDF2 !important;
+    border-radius: 12px !important;
+    box-shadow: 0 1px 2px rgba(19,34,56,0.04) !important;
+}
+/* 메트릭 카드화 */
+[data-testid="metric-container"] {
+    background: #FFFFFF !important;
+    border: 1px solid #E9EDF2 !important;
+    border-radius: 12px !important;
+    padding: 0.6rem 0.8rem !important;
+}
+</style>
 """, unsafe_allow_html=True)
 
 # ── 모바일 반응형 CSS ──
@@ -6349,7 +6415,7 @@ def send_notification(sent_by_id, target_type, target_id, channel, subject, body
                     "subject": subject,
                     "html": f"""
                     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
-                        <div style="background:linear-gradient(135deg,#0f3460,#16213e);padding:20px;border-radius:8px;margin-bottom:20px;">
+                        <div style="background:#132238;padding:20px;border-radius:8px;margin-bottom:20px;">
                             <h2 style="color:white;margin:0;">🐉 DragonEyes 모니터링</h2>
                         </div>
                         <div style="background:#f8fafc;padding:20px;border-radius:8px;border:1px solid #e2e8f0;">
@@ -11068,10 +11134,10 @@ GUIDELINE_BADGE_FULL = """
     <span style="color:#94a3b8; font-size:0.72rem; font-weight:600; letter-spacing:0.08em; margin-right:4px; white-space:nowrap;">
         🛡️ 국제기관 가이드라인 준수
     </span>
-    <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #2563eb55;color:#60a5fa;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:0.03em;white-space:nowrap;">🇺🇸 NCMEC 가이드라인 준수</span>
-    <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #7c3aed55;color:#a78bfa;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:0.03em;white-space:nowrap;">🌍 WeProtect Global Alliance 기준 적용</span>
-    <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #059669aa;color:#34d399;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:0.03em;white-space:nowrap;">🇬🇧 IWF 글로벌 기준 참고</span>
-    <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #d9770655;color:#fb923c;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:0.03em;white-space:nowrap;">⚙️ Tech Coalition Developer Good Practices 준수</span>
+    <span style="background:#132238;border:1px solid #2563eb55;color:#60a5fa;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:0.03em;white-space:nowrap;">🇺🇸 NCMEC 가이드라인 준수</span>
+    <span style="background:#132238;border:1px solid #7c3aed55;color:#a78bfa;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:0.03em;white-space:nowrap;">🌍 WeProtect Global Alliance 기준 적용</span>
+    <span style="background:#132238;border:1px solid #059669aa;color:#34d399;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:0.03em;white-space:nowrap;">🇬🇧 IWF 글로벌 기준 참고</span>
+    <span style="background:#132238;border:1px solid #d9770655;color:#fb923c;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:0.03em;white-space:nowrap;">⚙️ Tech Coalition Developer Good Practices 준수</span>
 </div>
 """
 
@@ -13568,7 +13634,7 @@ if st.session_state.user is None:
                                     "subject": "[DragonEyes] 비밀번호 재설정 안내",
                                     "html": f"""
                                     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
-                                      <div style="background:linear-gradient(135deg,#0f3460,#16213e);padding:18px;border-radius:8px;margin-bottom:18px;">
+                                      <div style="background:#132238;padding:18px;border-radius:8px;margin-bottom:18px;">
                                         <h2 style="color:white;margin:0;">🐉 DragonEyes 비밀번호 재설정</h2>
                                       </div>
                                       <div style="background:#f8fafc;padding:20px;border-radius:8px;border:1px solid #e2e8f0;color:#334155;line-height:1.7;">
@@ -14211,7 +14277,7 @@ else:
             st.markdown('<div style="font-size:1.4rem;font-weight:700;padding:8px 0;">🐉 드래곤아이즈 모니터링</div>', unsafe_allow_html=True)
         st.divider()
         st.markdown(f"""
-        <div style="background:linear-gradient(135deg,#0f3460,#16213e);border-radius:12px;padding:20px 24px;margin-bottom:16px;">
+        <div style="background:#132238;border-radius:12px;padding:20px 24px;margin-bottom:16px;">
             <h2 style="color:white;margin:0 0 8px 0;">📋 최종사용자 이용약관 동의</h2>
             <p style="color:#94a3b8;margin:0;">DragonEyes 시스템을 사용하기 위해 아래 이용약관에 동의하셔야 합니다.</p>
             <p style="color:#f59e0b;margin:4px 0 0 0;font-size:0.85rem;">⚠️ 모든 필수 항목에 동의하지 않으면 시스템을 사용할 수 없습니다.</p>
@@ -14660,8 +14726,8 @@ else:
                     )
                     st.rerun()
         st.markdown(
-            '<div style="background:linear-gradient(135deg,#047857 0%,#10b981 100%);'
-            'border-left:5px solid #34d399;border-radius:8px;padding:0.7rem 1.2rem;'
+            '<div style="background:#0E9469;'
+            'border-left:5px solid #0B7A57;border-radius:8px;padding:0.7rem 1.2rem;'
             'margin:0 0 0.5rem 0;color:white;font-size:0.95rem;line-height:1.5;">'
             '🎓 <strong>우리 모두가 함께 아동·청소년들의 건전한 온라인 문화를 만들어 갑시다.</strong><br>'
             '이 곳은 건전한 온라인 캠페인을 통해 학생들의 봉사활동을 지원합니다.'
@@ -15042,10 +15108,10 @@ else:
             </div>
             <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; justify-content:flex-end;">
                 <span style="color:#94a3b8; font-size:0.68rem; font-weight:600; letter-spacing:0.05em; white-space:nowrap; margin-right:2px;">🛡️ {t("badge_intl")}</span>
-                <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #2563eb55;color:#60a5fa;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;">🇺🇸 {t("badge_ncmec")}</span>
-                <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #7c3aed55;color:#a78bfa;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;">🌍 WeProtect Global Alliance</span>
-                <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #059669aa;color:#34d399;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;">🇬🇧 {t("badge_iwf")}</span>
-                <span style="background:linear-gradient(135deg,#1a3a5c,#0e2a4a);border:1px solid #d9770655;color:#fb923c;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;">⚙️ Tech Coalition</span>
+                <span style="background:#132238;border:1px solid #2563eb55;color:#60a5fa;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;">🇺🇸 {t("badge_ncmec")}</span>
+                <span style="background:#132238;border:1px solid #7c3aed55;color:#a78bfa;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;">🌍 WeProtect Global Alliance</span>
+                <span style="background:#132238;border:1px solid #059669aa;color:#34d399;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;">🇬🇧 {t("badge_iwf")}</span>
+                <span style="background:#132238;border:1px solid #d9770655;color:#fb923c;font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;">⚙️ Tech Coalition</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
