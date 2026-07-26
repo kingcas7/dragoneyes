@@ -10547,9 +10547,15 @@ def scan_watched_channel(channel_id, channel_name, max_results=5, assigned_to=No
             part="snippet", channelId=channel_id, type="video",
             maxResults=max_results, order="date", safeSearch="none"
         ).execute()
+        _ch_ids = tuple(it["id"]["videoId"] for it in sr.get("items", [])
+                        if (it.get("id") or {}).get("videoId"))
+        _ch_durs = get_video_durations(_ch_ids) if _ch_ids else {}
         results = []
         for item in sr.get("items", []):
             vid = item["id"]["videoId"]
+            _cd = _ch_durs.get(vid)
+            if _cd is not None and _cd < 120:
+                continue  # 2분 미만 영상 제외 (광고·쇼츠 과다 방지)
             url = f"https://www.youtube.com/watch?v={vid}"
             title = item["snippet"]["title"]
             desc = item["snippet"].get("description","")[:300]
@@ -12624,12 +12630,17 @@ def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="
 
     sr = youtube.search().list(
         part="snippet", q=keyword, type="video",
-        maxResults=max_results + 10,
+        maxResults=max_results + 15,
         relevanceLanguage="ko",
         order="date",
         regionCode="KR",
         safeSearch="none"
     ).execute()
+
+    # ⏱️ 재생 길이 배치 조회 — 2분 미만(쇼츠·광고성)은 추천 제외
+    _cand_ids = tuple(it["id"]["videoId"] for it in sr.get("items", [])
+                      if (it.get("id") or {}).get("videoId"))
+    _durs = get_video_durations(_cand_ids) if _cand_ids else {}
 
     results = []
     for item in sr.get("items", []):
@@ -12639,6 +12650,9 @@ def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="
         url = f"https://www.youtube.com/watch?v={vid}"
         if url in analyzed_urls:
             continue
+        _dsec = _durs.get(vid)
+        if _dsec is not None and _dsec < 120:
+            continue  # 2분 미만 영상 제외 (광고·쇼츠 과다 방지)
         title = item["snippet"]["title"]
         desc = item["snippet"].get("description", "")[:300]
         channel = item["snippet"]["channelTitle"]
