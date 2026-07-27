@@ -557,7 +557,7 @@ def _a11y_inject_shortcuts():
     - Tab 포커스 → 항목 음성 안내 (즉시)
     - Alt+숫자(1~9) → N번째 주요 버튼 클릭 + 음성
     - Alt+A: 음성 토글로 이동
-    - Alt+M: 메인 콘텐츠로 이동
+    - Alt+M: 메인 컨텐츠로 이동
     - Alt+H: 도움말 음성 안내 (전체 단축키 소개)
     """
     _voice_on = bool(st.session_state.get("voice_guide_enabled", False))
@@ -1043,7 +1043,7 @@ def _a11y_inject_shortcuts():
                         }}
                         e.preventDefault();
                     }} else if (isM) {{
-                        // Ctrl+Shift+M: 메인 콘텐츠로 이동
+                        // Ctrl+Shift+M: 메인 컨텐츠로 이동
                         const main = w.document.querySelector('[role="main"], main, [data-testid="stMain"]');
                         if (main) main.scrollIntoView({{block:'start', behavior:'smooth'}});
                         e.preventDefault();
@@ -2812,7 +2812,7 @@ def _a11y_render_floating_mic():
             const _pageWorkflow = [
                 {
                     match: ['드래곤아이즈 모니터링', '드래곤아이즈 홈'],
-                    speak: '드래곤아이즈 홈입니다. 온라인 유해 콘텐츠를 모니터링하는 페이지입니다. ' +
+                    speak: '드래곤아이즈 홈입니다. 온라인 유해 컨텐츠를 모니터링하는 페이지입니다. ' +
                            '모니터링을 시작하시려면 음성 명령 마이크에서 엔터 키를 누른 후 모니터링이라고 말씀하세요. ' +
                            '드래곤파더에게 질문하시려면 F3 키로 받아쓰기를 켜고 사용하세요.',
                     next: '다음 음성 명령: 모니터링',
@@ -2937,13 +2937,13 @@ def _a11y_render_floating_mic():
                     '원하는 카테고리를 음성으로 말씀하시면 해당 추천이 시작됩니다.',
                 '유튜브': '유튜브 분석 페이지입니다. ' +
                     '유튜브 영상 URL을 입력하면 AI가 영상의 위험도를 5단계로 분석합니다. ' +
-                    '제목, 설명, 태그, 댓글을 종합 분석하여 그루밍, 도박, 부적절 콘텐츠 등을 감지합니다.',
-                '키워드': '키워드 탐색 페이지입니다. 검색어를 입력하면 위험 콘텐츠를 자동으로 탐색합니다.',
+                    '제목, 설명, 태그, 댓글을 종합 분석하여 그루밍, 도박, 부적절 컨텐츠 등을 감지합니다.',
+                '키워드': '키워드 탐색 페이지입니다. 검색어를 입력하면 위험 컨텐츠를 자동으로 탐색합니다.',
                 '네이버': '네이버 탐색 페이지입니다. 네이버 카페, 블로그, 뉴스에서 위험 컨텐츠를 검색하고 분석합니다.',
                 '디스코드': '디스코드 탐색 페이지입니다. 디스코드 서버 유인 패턴을 가진 영상을 자동 감지합니다.',
-                '히스토리': '탐색 히스토리 페이지입니다. 지금까지 탐색·분석한 모든 콘텐츠 이력을 확인할 수 있습니다.',
+                '히스토리': '탐색 히스토리 페이지입니다. 지금까지 탐색·분석한 모든 컨텐츠 이력을 확인할 수 있습니다.',
                 '보고서 목록': '보고서 목록 페이지입니다. 작성한 모든 보고서를 조회·검색·다운로드할 수 있습니다.',
-                '보고서 작성': '보고서 작성 페이지입니다. 분석한 콘텐츠를 법적 신고용 표준 보고서로 작성합니다. ' +
+                '보고서 작성': '보고서 작성 페이지입니다. 분석한 컨텐츠를 법적 신고용 표준 보고서로 작성합니다. ' +
                     '입력이 끝나면 음성으로 "제출" 이라고 말씀하시면 자동으로 제출됩니다.',
                 '업무 현황': '업무 현황 페이지입니다. ' +
                     '팀별 업무 진행 상황, 미작성 목록, 달성률 등 팀 운영 지표를 확인할 수 있습니다.',
@@ -4541,7 +4541,7 @@ TERMS_CONTENT = {
             "num": "1",
             "title": "시스템 소개",
             "items": [
-                "(1) 본 시스템은 '드래곤아이즈' 입니다. AI Agent가 온라인 유해컨텐츠를 자동으로 추적·모니터링하여 유해컨텐츠로 의심되는 콘텐츠를 추천리스트 형태로 각 사용자에게 중복 없이 제공합니다.",
+                "(1) 본 시스템은 '드래곤아이즈' 입니다. AI Agent가 온라인 유해컨텐츠를 자동으로 추적·모니터링하여 유해컨텐츠로 의심되는 컨텐츠를 추천리스트 형태로 각 사용자에게 중복 없이 제공합니다.",
                 "(2) 관리자는 사용자의 업무 목표(모니터링 건수)를 설정하고 업무 달성도를 모니터링하며, 필요한 지시를 할 수 있습니다.",
                 "(3) 라이선스 신청 업체의 동의가 있을 경우 파트너관리 업체도 사용자를 관리할 수 있게 지원합니다.",
                 "(4) 드래곤아이즈의 자동추적 기능은 외부의 업무 요청을 수용할 수 있으며, 상황에 따라 자동 검색과 보고서 작성 업무 범위가 변경될 수 있습니다.",
@@ -4789,13 +4789,13 @@ LANG = {
         "login_form_title":"로그인","login_form_subtitle":"관리 콘솔에 접속합니다",
         "login_brand_sub":"DragonEyes Online Safety Platform",
         "login_mission_title":"AI가 지키는 아동·청소년 온라인 안전",
-        "login_mission_desc":"24시간 자동 모니터링 · 위험 콘텐츠 즉시 감지",
+        "login_mission_desc":"24시간 자동 모니터링 · 위험 컨텐츠 즉시 감지",
         "login_feature1_title":"실시간 모니터링","login_feature1_desc":"유튜브·네이버 등 자동 추적",
         "login_feature2_title":"AI 위험 분석","login_feature2_desc":"9가지 패턴 5단계 평가",
         "login_feature3_title":"전문 보고서","login_feature3_desc":"법적 신고용 표준 보고서",
         "login_stats_title":"추적 중인 위험 카테고리",
         "login_cat_grooming":"그루밍","login_cat_gambling":"도박","login_cat_sextortion":"섹스토션",
-        "login_cat_inappropriate":"부적절 콘텐츠","login_cat_other":"기타",
+        "login_cat_inappropriate":"부적절 컨텐츠","login_cat_other":"기타",
         "login_badges_title":"국제 가이드라인 준수",
         "login_help_link":"계정 문제? 관리자에게 이메일 문의 →",
         "login_kakao_btn":"💬 카카오 로그인","login_kakao_soon":"Coming Soon",
@@ -4808,7 +4808,7 @@ LANG = {
         "tab_text":"📝 텍스트 분석","tab_youtube":"🎬 유튜브 분석","tab_keyword":"🔍 키워드 탐색",
         "tab_dragon":"🐉 드래곤아이즈 추천","tab_history":"📜 탐색 히스토리",
         "tab_reports":"📁 보고서 목록","tab_stats":"📈 내 성과","tab_admin":"👑 관리자",
-        "text_title":"텍스트 콘텐츠 분석","text_input":"분석할 텍스트 입력",
+        "text_title":"텍스트 컨텐츠 분석","text_input":"분석할 텍스트 입력",
         "analyze_start":"분석 시작","analyzing":"분석 중...","result_title":"분석 결과",
         "to_report":"📋 보고서로 작성하기","enter_text":"텍스트를 입력해주세요.",
         "yt_title":"유튜브 영상 분석","yt_url":"유튜브 URL 입력","yt_collecting":"데이터 수집 중...",
@@ -4831,11 +4831,11 @@ LANG = {
         "sort":"정렬","sort_sev_high":"심각도 높은순","sort_sev_low":"심각도 낮은순",
         "sort_newest":"최신순","sort_oldest":"오래된순",
         "report_title":"📋 보고서 작성","platform":"플랫폼","severity":"심각도","category":"분류",
-        "content_url":"콘텐츠 내용 또는 URL","memo":"추가 메모 (선택)","memo_placeholder":"직접 판단한 내용, 특이사항 등",
+        "content_url":"컨텐츠 내용 또는 URL","memo":"추가 메모 (선택)","memo_placeholder":"직접 판단한 내용, 특이사항 등",
         "ai_result":"🤖 AI 분석 결과 보기","yt_open_video":"▶️ 유튜브에서 영상 열기",
-        "enter_content":"콘텐츠 내용을 입력해주세요.","report_detail":"보고서 상세보기",
+        "enter_content":"컨텐츠 내용을 입력해주세요.","report_detail":"보고서 상세보기",
         "written_by":"작성자","written_at":"작성일","updated_at":"수정일",
-        "content":"**콘텐츠 내용**","analysis":"**분석 결과**","edit_report":"✏️ 보고서 수정",
+        "content":"**컨텐츠 내용**","analysis":"**분석 결과**","edit_report":"✏️ 보고서 수정",
         "edit_sev":"심각도 수정","edit_cat":"분류 수정","edit_result":"분석 결과 수정",
         "edit_saved":"✅ 수정됐습니다!","delete_report":"🗑️ 이 보고서 삭제",
         "report_list":"📁 보고서 목록","filter_sev":"심각도 필터","filter_cat":"분류 필터",
@@ -4977,7 +4977,7 @@ LANG = {
         "ch_view":"▶️ 채널 보기","ch_scan":"🔍 지금 스캔","ch_scan_ing":"스캔 중...",
         "ch_scan_done":"{}개 영상 스캔 완료 — 위험 {}개","ch_no_new":"새 영상 없음",
         "ch_delete":"🗑️ 삭제","ch_scan_all":"🐉 모니터링 채널 전체 스캔",
-        "ch_scan_all_done":"✅ 전체 스캔 완료 — 위험 콘텐츠 {}개 발견",
+        "ch_scan_all_done":"✅ 전체 스캔 완료 — 위험 컨텐츠 {}개 발견",
         # 네이버
         "naver_title":"🟢 네이버 카페·블로그·뉴스 검색",
         "naver_query":"🔍 검색어 입력","naver_query_ph":"예: 미성년자 채팅 만남, 아동 온라인 위험",
@@ -8985,7 +8985,7 @@ def chat_with_ai(messages_history, user_message, lang="ko"):
 【전문 역할】
 당신은 다음 분야의 전문가입니다:
 - 온라인 그루밍 패턴 식별 및 분석
-- 아동 성착취 콘텐츠(CSAM) 탐지 방법론
+- 아동 성착취 컨텐츠(CSAM) 탐지 방법론
 - 섹스토션·딥페이크 피해 대응
 - 유튜브·로블록스·마인크래프트·틱톡 등 플랫폼별 위험 패턴
 - NCMEC·WeProtect·IWF 국제 가이드라인
@@ -10174,11 +10174,11 @@ def learn_keywords_from_report(content, result, severity, category):
             model="claude-sonnet-4-6", max_tokens=200,
             messages=[{"role": "user", "content": f"""[시스템 컨텍스트]
 이 시스템은 NCMEC(미국 실종학대아동방지센터) 가이드라인과 WeProtect Global Alliance 기준을 준수하는 합법적인 아동 안전 모니터링 도구입니다.
-법 집행 기관 및 아동보호 단체와 협력하여 위험 콘텐츠를 식별하고 신고하는 것이 목적입니다.
+법 집행 기관 및 아동보호 단체와 협력하여 위험 컨텐츠를 식별하고 신고하는 것이 목적입니다.
 
 [작업]
-아래 보고된 위험 콘텐츠에서 동일한 패턴의 다른 콘텐츠를 검색하기 위한 키워드를 추출하세요.
-이 키워드는 YouTube/네이버에서 유사 위험 콘텐츠를 찾아 신고하는 데 사용됩니다.
+아래 보고된 위험 컨텐츠에서 동일한 패턴의 다른 컨텐츠를 검색하기 위한 키워드를 추출하세요.
+이 키워드는 YouTube/네이버에서 유사 위험 컨텐츠를 찾아 신고하는 데 사용됩니다.
 
 분류: {category}
 심각도: {severity}
@@ -12463,7 +12463,7 @@ def generate_recommend_keywords(platform="general"):
             # 청소년 타깃 위장
             "용돈 버는 앱 추천 학생", "게임으로 돈버는 방법 10대", "소액투자 수익 인증",
             "하루 10만원 버는법 알바", "재택알바 나이무관 일당지급", "카카오페이 용돈",
-            # 도박 광고 위장 콘텐츠
+            # 도박 광고 위장 컨텐츠
             "무료 머니 지급 이벤트", "첫충 보너스 카지노", "가입즉시 포인트 지급",
             "토큰게임 수익인증", "코인게임 환전가능", "크래쉬게임 전략",
             # 대리베팅/총판 모집
@@ -12537,7 +12537,7 @@ def generate_recommend_keywords(platform="general"):
             "자살 조장 노래", "죽는법 알려주는 곳",
         ],
         "abuse": [
-            # 폭언·언어폭력 콘텐츠 패턴
+            # 폭언·언어폭력 컨텐츠 패턴
             "패드립 모음", "욕설 챌린지", "폭언 참교육 영상",
             "기강 잡는법 후배", "면전 욕설 몰카",
             # 가스라이팅·심리 조종 패턴
@@ -12548,7 +12548,7 @@ def generate_recommend_keywords(platform="general"):
             "은따 만드는 법", "통제 연애 방법",
         ],
         "hate": [
-            # 혐오 표현·조롱 콘텐츠 패턴
+            # 혐오 표현·조롱 컨텐츠 패턴
             "여혐 밈 모음", "남혐 저격 영상", "장애인 혐오 개그",
             "급식충 조롱", "소수자 조롱 영상",
             # 증오·차별 선동 패턴
@@ -12696,7 +12696,7 @@ def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="
 ⑫ 학교폭력/왕따: 집단폭행·괴롭힘 영상, 왕따 조장·인증, 신상 저격·박제, 사이버불링
 ⑬ 불법 직업소개: 미성년 고수익 알바 위장(전달책·현금수거·통장대여·유흥), 범죄 가담 모집
 ⑭ 범죄 유인: 살인·칼부림 예고, 절도 인증·자랑, 범죄 모의·미화, 촉법소년 악용 조장
-⑮ 폭언/가스라이팅: 언어폭력 콘텐츠, 심리 조종·세뇌·통제 기법 유포, 정서적 학대
+⑮ 폭언/가스라이팅: 언어폭력 컨텐츠, 심리 조종·세뇌·통제 기법 유포, 정서적 학대
 ⑯ 혐오/증오 조장: 성별·장애·지역·인종 혐오 선동, 소수자 조롱, 사회증오·극단주의 유도
 
 【댓글 분석 주의사항】
@@ -12720,7 +12720,7 @@ def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="
         # 🎯 선별 게이트 (2026-07-12, 도박 한정 → 전 카테고리 확대):
         #    AI가 '안전(심각도 1)'으로 판정하고 위험 댓글 신호도 약하면 사람에게 배정하지 않음.
         #    — 배정 리스트 대부분이 무해 영상(일상·아기·교복 소개 등)이라 실제 유해
-        #      콘텐츠 발견율이 낮았던 원인. 모니터 시간을 의심 콘텐츠에 집중.
+        #      컨텐츠 발견율이 낮았던 원인. 모니터 시간을 의심 컨텐츠에 집중.
         #    분석 기록은 assigned_to 없이 남겨 중복 탐색만 방지(누구의 목록에도 안 뜸).
         #    위험 댓글(연락 유도·만남·나이 묻기 등) 3개 이상이면 AI 판정과 무관하게 배정(놓침 방지).
         _flagged_cnt = len(flagged) if comments else 0
@@ -17302,7 +17302,7 @@ else:
                             st.warning(f"⚠️ 달성률 50% 미만 업체: {len(danger_tenants)}개")
                             ds1 = st.text_input("제목", key="danger_subj", value="[DragonEyes] 업무 목표 달성 독려")
                             ds2 = st.text_area("내용", key="danger_body", height=80,
-                                value="안녕하세요.\n\n이번달 업무 목표 달성률이 저조합니다.\n배정된 콘텐츠 확인 및 보고서 작성을 부탁드립니다.\n\n감사합니다.\n[DragonEyes 관리팀]")
+                                value="안녕하세요.\n\n이번달 업무 목표 달성률이 저조합니다.\n배정된 컨텐츠 확인 및 보고서 작성을 부탁드립니다.\n\n감사합니다.\n[DragonEyes 관리팀]")
                             if st.button("📧 50% 미만 업체 전원 발송", type="primary", key="send_danger"):
                                 cnt = 0
                                 for _, t_users in danger_tenants:
@@ -17336,7 +17336,7 @@ else:
                         st.markdown("**📧 이 그룹에 일괄 이메일 발송**")
                         b50_subj = st.text_input("제목", key="b50_subj", value=f"[DragonEyes] {today_str} 업무 독려 안내")
                         b50_body = st.text_area("내용", key="b50_body", height=100,
-                            value=f"안녕하세요.\n\n오늘({today_str}) 업무 달성률이 목표의 50%에 미달하고 있습니다.\n배정된 콘텐츠를 확인하고 보고서를 작성해 주시기 바랍니다.\n\n감사합니다.\n[DragonEyes 관리팀]")
+                            value=f"안녕하세요.\n\n오늘({today_str}) 업무 달성률이 목표의 50%에 미달하고 있습니다.\n배정된 컨텐츠를 확인하고 보고서를 작성해 주시기 바랍니다.\n\n감사합니다.\n[DragonEyes 관리팀]")
                         if st.button("📧 50% 미만 그룹 일괄 발송", type="primary", key="send_b50"):
                             for bu in below50_users:
                                 send_notification(user["id"], "individual", bu["id"], "email", b50_subj, b50_body)
@@ -17451,7 +17451,7 @@ else:
                     ("📊 50~79% 그룹", group_50, "#f59e0b", "g50",
                      "이번달 중간 이상 달성하고 계십니다. 꾸준한 모니터링 활동 부탁드립니다."),
                     ("⚠️ 50% 미만 그룹", group_low, "#ef4444", "glow",
-                     "이번달 업무 목표 달성률이 저조합니다. 배정된 콘텐츠를 확인하고 보고서를 작성해 주세요."),
+                     "이번달 업무 목표 달성률이 저조합니다. 배정된 컨텐츠를 확인하고 보고서를 작성해 주세요."),
                 ]:
                     if not grp_users:
                         continue
@@ -23779,7 +23779,7 @@ else:
                 st.caption("자녀의 설문 링크와 봉사 점수 현황을 확인하실 수 있습니다.")
             else:
                 st.markdown("## 🎒 학생 설문 + 봉사 점수")
-                st.caption("드래곤아이즈 온라인 유해콘텐츠 예방 캠페인 — 나의 학습·설문·봉사 현황")
+                st.caption("드래곤아이즈 온라인 유해컨텐츠 예방 캠페인 — 나의 학습·설문·봉사 현황")
         with _hh2:
             if st.button("← 캠페인 홈", key="csd_back", use_container_width=True):
                 # 자녀 둘러보기 모드면 학부모 dashboard로
@@ -24614,7 +24614,7 @@ else:
         _hh1, _hh2 = st.columns([6, 1])
         with _hh1:
             st.markdown("## 📚 드래곤아이즈 캠페인 커리큘럼")
-            st.caption("교육 콘텐츠 · 학습 자료 · 동영상 강의")
+            st.caption("교육 컨텐츠 · 학습 자료 · 동영상 강의")
         with _hh2:
             if st.button("← 캠페인 홈", key="cm_back_landing", use_container_width=True):
                 st.session_state["current_page"] = "campaign_landing"
@@ -25062,7 +25062,7 @@ else:
             st.markdown(
                 "- 🛡️ **온라인 안전·디지털 시민의식** — 그루밍·도박·딥페이크 인식\n"
                 "- 📜 **저작권 침해 방지** — 불법 복제물 · 합법 출처 활용법 (미개척 분야)\n"
-                "- 🚨 **유해 콘텐츠 노출 시 행동강령** — 신고 절차 · 보호 매뉴얼\n"
+                "- 🚨 **유해 컨텐츠 노출 시 행동강령** — 신고 절차 · 보호 매뉴얼\n"
                 "- 👥 **건전한 SNS 사용** — 사이버 폭력 예방 · 디지털 발자국\n"
                 "- 💬 **AI 시대 디지털 윤리** — 챗봇·딥페이크·개인정보\n"
             )
@@ -28962,7 +28962,7 @@ else:
                 ("온라인 그루밍의 전형적인 첫 접근 방식은?",
                  ["친절과 관심으로 신뢰를 쌓는다", "위협으로 시작한다", "금전을 먼저 요구한다", "무작위 욕설을 보낸다"], 0,
                  "그루밍은 '무섭게'가 아니라 '친절하게' 시작됩니다 — 신뢰를 쌓은 뒤 착취로 이어집니다. (2권 부록 A)"),
-                ("불법 스트리밍·웹툰 사이트의 주된 수익원이자, 다른 유해콘텐츠로 가는 '관문' 역할을 하는 것은?",
+                ("불법 스트리밍·웹툰 사이트의 주된 수익원이자, 다른 유해컨텐츠로 가는 '관문' 역할을 하는 것은?",
                  ["불법 도박·성인 사이트 배너 광고", "정부 보조금", "이용자 구독료", "기업 후원금"], 0,
                  "불법 사이트의 광고주 대부분이 도박·성인 사이트입니다 — 저작권 교육이 안전 교육인 이유. (1권 1장 ④)"),
                 ("섹스토션 피해를 털어놓은 학생에게 교사가 해야 할 첫 반응은?",
@@ -28981,7 +28981,7 @@ else:
                  ["재생을 멈추고 채널명·URL을 기록(캡처)한다", "즉시 영상을 삭제·차단한다",
                   "아이들에게 보여주며 설명한다", "무시하고 넘어간다"], 0,
                  "삭제·차단은 기록 후에 — 기록이 없으면 신고도 차단도 어렵습니다. (교재 2권 1장)"),
-                ("유아가 유해 콘텐츠에 노출되었을 때 나타나기 쉬운 신호는?",
+                ("유아가 유해 컨텐츠에 노출되었을 때 나타나기 쉬운 신호는?",
                  ["놀이 중 연령에 맞지 않는 장면 재연", "식욕 증가", "키 성장 둔화", "시력 급상승"], 0,
                  "유아는 말 대신 놀이와 행동으로 보여줍니다. (교재 2권 2장)"),
                 ("아동학대 의심 상황에서 유치원·어린이집 교사의 법적 지위는?",
@@ -29367,7 +29367,7 @@ else:
                 f"<div style='background:{_pl_bg};border:1px dashed #f59e0b;"
                 f"border-radius:8px;padding:10px 16px;text-align:center;"
                 f"font-size:0.88rem;color:#92400e;'>"
-                f"⭐ 심화 콘텐츠가 곧 추가됩니다."
+                f"⭐ 심화 컨텐츠가 곧 추가됩니다."
                 f"</div>",
                 unsafe_allow_html=True,
             )
@@ -30195,7 +30195,7 @@ else:
                 with _nc1:
                     _nn_title = st.text_input(
                         "제목 *", key="sm_nn_title",
-                        placeholder="예: 온라인 유해콘텐츠 예방 캠페인 설문 (중학생용)",
+                        placeholder="예: 온라인 유해컨텐츠 예방 캠페인 설문 (중학생용)",
                     )
                     _nn_band = st.selectbox(
                         "학년대 *",
@@ -30459,7 +30459,7 @@ else:
                         _qq_text = st.text_area("문항 텍스트 *",
                                                   key=f"sm_qtext_{_es_id}",
                                                   height=80,
-                                                  placeholder="예: 온라인 유해콘텐츠 문제가 심각하다고 인식하고 있다.")
+                                                  placeholder="예: 온라인 유해컨텐츠 문제가 심각하다고 인식하고 있다.")
                         if st.form_submit_button("➕ 문항 추가", type="primary",
                                                   use_container_width=True):
                             if not _qq_text.strip():
@@ -32172,7 +32172,7 @@ else:
         active_tab_idx = st.session_state.get("active_tab", 0)
 
         # 🔀 탭 순서(2026-06-23): 추천·히스토리·보고서를 맨 앞으로.
-        #   chat(드래곤파더)/text(텍스트 분석)는 콘텐츠 참조가 많아 정의는 유지하되
+        #   chat(드래곤파더)/text(텍스트 분석)는 컨텐츠 참조가 많아 정의는 유지하되
         #   탭 버튼은 JS로 숨김(시각적 제거) — 드래곤파더 챗은 상단 박스에 별도 존재.
         tab_defs = [
             ("dragon",  _dragon_icon_label("tab_dragon")),
@@ -32242,8 +32242,8 @@ else:
                     with st.spinner(t("analyzing")):
                         msg = client.messages.create(
                             model="claude-sonnet-4-6", max_tokens=1024,
-                            messages=[{"role":"user","content":f"""아동 안전 모니터링 전문가로서 아래 콘텐츠를 분석해주세요.
-콘텐츠: {content}
+                            messages=[{"role":"user","content":f"""아동 안전 모니터링 전문가로서 아래 컨텐츠를 분석해주세요.
+컨텐츠: {content}
 형식:
 심각도: 1~5 (1=안전, 5=매우위험)
 분류: (스팸/부적절/성인/그루밍/안전 중 하나)
@@ -32615,8 +32615,8 @@ else:
 
         # ── 디스코드 탐색 ──
         with tab_discord:
-            st.subheader("💬 디스코드 위험 서버·콘텐츠 탐색")
-            st.caption("유튜브/네이버에서 디스코드 유도 콘텐츠를 탐지합니다. 디스코드 초대 링크·서버명·채널 관련 위험 패턴을 분석합니다.")
+            st.subheader("💬 디스코드 위험 서버·컨텐츠 탐색")
+            st.caption("유튜브/네이버에서 디스코드 유도 컨텐츠를 탐지합니다. 디스코드 초대 링크·서버명·채널 관련 위험 패턴을 분석합니다.")
 
             dc1, dc2 = st.columns([3, 1])
             with dc1:
@@ -32679,7 +32679,7 @@ else:
 
                                 msg = client.messages.create(
                                     model="claude-sonnet-4-6", max_tokens=300,
-                                    messages=[{"role":"user","content":f"""아동 안전 전문가로서 이 영상이 아동·청소년을 디스코드로 유인하는 위험 콘텐츠인지 분석하세요.
+                                    messages=[{"role":"user","content":f"""아동 안전 전문가로서 이 영상이 아동·청소년을 디스코드로 유인하는 위험 컨텐츠인지 분석하세요.
 
 제목: {title}
 채널: {channel}
@@ -32735,7 +32735,7 @@ else:
                                                 open_report_form(r['url'], r['analysis'], r['severity'], r['category'], "discord", from_tab=4)
                                                 st.rerun()
                             else:
-                                st.success("🟢 위험한 콘텐츠가 발견되지 않았습니다.")
+                                st.success("🟢 위험한 컨텐츠가 발견되지 않았습니다.")
 
                             if safe:
                                 with st.expander(f"✅ 안전 ({len(safe)}개)"):
@@ -34766,7 +34766,7 @@ else:
                                     risky_scan = [r for r in scan_results if r['severity'] >= 2]
                                     total_risky += len(risky_scan)
                                 prog.progress((i+1)/len(channels))
-                            st.success(f"✅ 전체 스캔 완료 — 위험 콘텐츠 {total_risky}개 발견")
+                            st.success(f"✅ 전체 스캔 완료 — 위험 컨텐츠 {total_risky}개 발견")
 
                 with admin_tab8:
                     st.subheader("🧠 키워드 자동 학습 현황")
@@ -35228,12 +35228,12 @@ else:
                     with tpl1:
                         if st.button("📊 달성률 독려", key="tpl1"):
                             st.session_state["notif_subject"] = "[DragonEyes] 이번달 업무 목표 달성 독려"
-                            st.session_state["notif_body"] = "안녕하세요.\n\n이번달 업무 목표 달성을 위해 꾸준한 모니터링 활동 부탁드립니다.\n드래곤아이즈 시스템에 접속하여 배정된 콘텐츠를 확인해 주세요.\n\n감사합니다.\n[DragonEyes 관리팀]"
+                            st.session_state["notif_body"] = "안녕하세요.\n\n이번달 업무 목표 달성을 위해 꾸준한 모니터링 활동 부탁드립니다.\n드래곤아이즈 시스템에 접속하여 배정된 컨텐츠를 확인해 주세요.\n\n감사합니다.\n[DragonEyes 관리팀]"
                             st.rerun()
                     with tpl2:
                         if st.button("📋 보고서 제출 요청", key="tpl2"):
                             st.session_state["notif_subject"] = "[DragonEyes] 보고서 미제출 안내"
-                            st.session_state["notif_body"] = "안녕하세요.\n\n배정된 콘텐츠에 대한 보고서가 아직 제출되지 않았습니다.\n빠른 시일 내에 DragonEyes 시스템에 접속하여 보고서를 제출해 주시기 바랍니다.\n\n감사합니다.\n[DragonEyes 관리팀]"
+                            st.session_state["notif_body"] = "안녕하세요.\n\n배정된 컨텐츠에 대한 보고서가 아직 제출되지 않았습니다.\n빠른 시일 내에 DragonEyes 시스템에 접속하여 보고서를 제출해 주시기 바랍니다.\n\n감사합니다.\n[DragonEyes 관리팀]"
                             st.rerun()
                     with tpl3:
                         if st.button("🔔 시스템 공지", key="tpl3"):
