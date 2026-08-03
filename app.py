@@ -20,6 +20,7 @@ def _weekend_block_active():
     """주말 차단을 실제로 적용할지 여부 (해제 기간엔 False)."""
     return date.today() > WEEKEND_POLICY_SUSPENDED_UNTIL
 
+import re
 import pandas as pd
 import requests
 try:
