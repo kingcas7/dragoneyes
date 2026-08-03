@@ -10462,6 +10462,33 @@ def get_video_durations(video_ids_tuple):
             pass
     return out
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_video_categories(video_ids_tuple):
+    """YouTube 영상 카테고리 ID 배치 조회 — 뉴스(25) 필터용, 1시간 캐시."""
+    out = {}
+    ids = [v for v in video_ids_tuple if v]
+    for i in range(0, len(ids), 50):
+        chunk = ids[i:i + 50]
+        try:
+            resp = youtube.videos().list(part="snippet", id=",".join(chunk)).execute()
+            for item in resp.get("items", []):
+                out[item["id"]] = (item.get("snippet", {}) or {}).get("categoryId", "")
+        except Exception:
+            pass
+    return out
+
+# 뉴스·언론사 채널 패턴 (2026-08-04: 추천 리스트 뉴스 과다 방지)
+_NEWS_CH_RE = re.compile(
+    r'(뉴스|News|KBS|MBC|SBS|JTBC|YTN|연합뉴스|채널A|TV조선|TV CHOSUN|MBN|뉴시스|Newsis'
+    r'|한겨레|조선일보|중앙일보|동아일보|매일경제|한국경제|머니투데이|이데일리|아리랑|Arirang'
+    r'|OBS|국민일보|경향신문|노컷|CBS|서울신문|세계일보|연합뉴스TV|Yonhap)', re.I)
+
+def _is_news_video(channel_title, category_id):
+    """유튜브 공식 카테고리 25(News & Politics) 또는 언론사 채널명이면 True."""
+    if category_id == "25":
+        return True
+    return bool(_NEWS_CH_RE.search(channel_title or ""))
+
 def _fmt_hm(total_sec):
     """초 → 'N시간 M분' (1분 미만은 '1분 미만')."""
     if not total_sec:
@@ -10560,12 +10587,15 @@ def scan_watched_channel(channel_id, channel_name, max_results=5, assigned_to=No
         _ch_ids = tuple(it["id"]["videoId"] for it in sr.get("items", [])
                         if (it.get("id") or {}).get("videoId"))
         _ch_durs = get_video_durations(_ch_ids) if _ch_ids else {}
+        _ch_cats = get_video_categories(_ch_ids) if _ch_ids else {}
         results = []
         for item in sr.get("items", []):
             vid = item["id"]["videoId"]
             _cd = _ch_durs.get(vid)
             if _cd is not None and _cd < 120:
                 continue  # 2분 미만 영상 제외 (광고·쇼츠 과다 방지)
+            if _is_news_video(channel_name, _ch_cats.get(vid, "")):
+                continue  # 뉴스·언론사 영상 제외
             url = f"https://www.youtube.com/watch?v={vid}"
             title = item["snippet"]["title"]
             desc = item["snippet"].get("description","")[:300]
@@ -12761,6 +12791,7 @@ def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="
     _cand_ids = tuple(it["id"]["videoId"] for it in sr.get("items", [])
                       if (it.get("id") or {}).get("videoId"))
     _durs = get_video_durations(_cand_ids) if _cand_ids else {}
+    _cats = get_video_categories(_cand_ids) if _cand_ids else {}
 
     results = []
     for item in sr.get("items", []):
@@ -12773,6 +12804,8 @@ def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="
         _dsec = _durs.get(vid)
         if _dsec is not None and _dsec < 120:
             continue  # 2분 미만 영상 제외 (광고·쇼츠 과다 방지)
+        if _is_news_video(item["snippet"].get("channelTitle", ""), _cats.get(vid, "")):
+            continue  # 뉴스·언론사 영상 제외 (2026-08-04: 추천 리스트 뉴스 과다 방지)
         title = item["snippet"]["title"]
         desc = item["snippet"].get("description", "")[:300]
         channel = item["snippet"]["channelTitle"]
