@@ -10312,6 +10312,16 @@ def save_report(content, result, severity, category, platform="manual"):
         if severity >= 3:
             learn_keywords_from_report(content, result, severity, category)
 
+        # ⚡ 컨텐츠 지문 등록 (심각도 3 이상 유튜브 신고) — 재유통 자동 감지용
+        if severity >= 3 and content and ("youtube.com" in content or "youtu.be" in content):
+            try:
+                _fp_vid = _yt_video_id(content)
+                if _fp_vid:
+                    _save_fingerprint(_fp_vid, category, severity,
+                                      report_id=(res.data[0]["id"] if res.data else None))
+            except Exception:
+                pass
+
         st.session_state.report_count = get_month_count(st.session_state.user["id"])
         st.session_state.search_results = saved_search
         st.session_state.recommend_results = saved_recommend
@@ -12624,6 +12634,116 @@ def get_video_comments(video_id, max_comments=30):
     except:
         return []  # 댓글 비활성화 or API 오류시 빈 리스트
 
+# ─────────────────────────────────────────────
+# 🔎 컨텐츠 지문(퍼셉추얼 해시) — 재유통 자동 감지 (2026-08-04)
+#   확정 신고된 영상의 썸네일 dHash를 Storage(JSON)에 보관하고,
+#   새 후보 영상의 썸네일과 대조해 "기확인 유해물 재유통"을 자동 태깅.
+#   제목/파일명이 바뀐 재업로드도 썸네일 지문으로 식별 (해밍거리 ≤ 8).
+#   DDL 불가 환경이라 테이블 대신 app-data 버킷 JSON 사용.
+# ─────────────────────────────────────────────
+_FP_PATH = "fingerprints/confirmed_v1.json"
+
+def _yt_video_id(url_or_id):
+    try:
+        s = str(url_or_id or "")
+        m = re.search(r"(?:v=|youtu\.be/|shorts/|embed/)([A-Za-z0-9_-]{11})", s)
+        if m:
+            return m.group(1)
+        if re.fullmatch(r"[A-Za-z0-9_-]{11}", s):
+            return s
+    except Exception:
+        pass
+    return None
+
+def _thumb_dhash(video_id, hash_size=8):
+    """유튜브 썸네일 dHash(64bit hex). 실패 시 None — 전체 흐름에 영향 없음."""
+    try:
+        from PIL import Image as _FPImg
+        import io as _fpio
+        r = requests.get(f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg", timeout=5)
+        if r.status_code != 200 or not r.content:
+            return None
+        img = _FPImg.open(_fpio.BytesIO(r.content)).convert("L")
+        img = img.resize((hash_size + 1, hash_size), _FPImg.LANCZOS)
+        px = list(img.getdata())
+        bits = 0
+        for row in range(hash_size):
+            for col in range(hash_size):
+                l = px[row * (hash_size + 1) + col]
+                rr = px[row * (hash_size + 1) + col + 1]
+                bits = (bits << 1) | (1 if l > rr else 0)
+        return f"{bits:016x}"
+    except Exception:
+        return None
+
+@st.cache_data(ttl=180, show_spinner=False)
+def _load_fingerprints():
+    try:
+        raw = sb_admin().storage.from_("app-data").download(_FP_PATH)
+        import json as _fpjson
+        data = _fpjson.loads(raw.decode("utf-8"))
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+def _save_fingerprint(video_id, category, severity, report_id=None, title=""):
+    """보고서 확정 시 지문 등록 (best-effort)."""
+    try:
+        h = _thumb_dhash(video_id)
+        if not h:
+            return False
+        import json as _fpjson, datetime as _fpdt
+        entries = [e for e in _load_fingerprints() if e.get("vid") != video_id]
+        entries.append({
+            "vid": video_id, "hash": h,
+            "category": category, "severity": int(severity or 3),
+            "report_id": report_id, "title": (title or "")[:80],
+            "at": _fpdt.datetime.now().isoformat()[:19],
+        })
+        entries = entries[-2000:]  # 상한
+        blob = _fpjson.dumps(entries, ensure_ascii=False).encode("utf-8")
+        try:
+            sb_admin().storage.from_("app-data").upload(
+                _FP_PATH, blob,
+                {"content-type": "application/json", "x-upsert": "true"})
+        except Exception:
+            try:
+                sb_admin().storage.from_("app-data").remove([_FP_PATH])
+            except Exception:
+                pass
+            sb_admin().storage.from_("app-data").upload(
+                _FP_PATH, blob, {"content-type": "application/json"})
+        try:
+            _load_fingerprints.clear()
+        except Exception:
+            pass
+        return True
+    except Exception:
+        return False
+
+def _match_reupload(video_id, max_dist=8):
+    """기확인 지문과 대조 — 일치 시 해당 지문 dict 반환."""
+    try:
+        fps = _load_fingerprints()
+        if not fps:
+            return None
+        h = _thumb_dhash(video_id)
+        if not h:
+            return None
+        hv = int(h, 16)
+        best, best_d = None, max_dist + 1
+        for e in fps:
+            try:
+                d = bin(hv ^ int(e.get("hash", "0"), 16)).count("1")
+            except Exception:
+                continue
+            if d < best_d:
+                best, best_d = e, d
+        return best if best is not None and best_d <= max_dist else None
+    except Exception:
+        return None
+
+
 def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="keyword", assigned_to=None):
     if analyzed_urls is None:
         analyzed_urls = set()
@@ -12657,6 +12777,29 @@ def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="
         desc = item["snippet"].get("description", "")[:300]
         channel = item["snippet"]["channelTitle"]
         published = item["snippet"].get("publishedAt", "")[:10]
+
+        # ⚡ 재유통 감지 — 기확인 유해물의 썸네일 지문과 일치하면 AI 분석 생략 후 즉시 배정
+        _re_m = _match_reupload(vid)
+        if _re_m:
+            sev = max(int(_re_m.get("severity") or 3), 3)
+            cat = _re_m.get("category") or "부적절"
+            rt = ("⚡ 기확인 유해물 재유통 의심 — 이전 신고 컨텐츠와 썸네일 지문 일치\n"
+                  f"심각도: {sev}\n분류: {cat}\n"
+                  f"위험신호: 이전 신고(분류 {cat} · 심각도 {_re_m.get('severity')} · {str(_re_m.get('at'))[:10]})와 동일 컨텐츠의 재업로드로 추정\n"
+                  "이유: 제목·계정을 바꾼 재유통 — 내용 확인 후 즉시 보고서 제출 가능")
+            mark_url_analyzed(url, title, search_type, assigned_to)
+            if sev >= 3:
+                register_watched_channel(
+                    channel_id=item["snippet"]["channelId"],
+                    channel_name=channel, severity=sev, added_by=assigned_to)
+            results.append({
+                "id": vid, "title": f"⚡재유통의심 | {title}", "channel": channel,
+                "url": url, "keyword": keyword, "analysis": rt,
+                "severity": sev, "category": cat, "search_type": search_type,
+                "published": published, "reupload": True,
+            })
+            analyzed_urls.add(url)
+            continue
 
         # 댓글 수집
         comments = get_video_comments(vid, max_comments=30)
