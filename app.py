@@ -2225,7 +2225,19 @@ def _a11y_render_floating_mic():
 
                 // ════════ 기타 페이지들 ════════
                 if (n.indexOf('히스토리') >= 0 || n.indexOf('탐색이력') >= 0 || n.indexOf('history') >= 0) {
-                    return clickAndSpeak(findVisibleButton(['탐색히스토리', '히스토리', 'history']), '탐색 히스토리');
+                    // 탐색 히스토리는 탭이라 버튼 클릭 탐색이 실패 → nav_to 쿼리로 직접 이동 (Phase 3 방식, 2026-08-05 버그픽스)
+                    if (w._dragoneyesSpeak) w._dragoneyesSpeak('탐색 히스토리 페이지로 이동합니다.');
+                    setTimeout(function() {
+                        try {
+                            const tp = w.top || w.parent || w;
+                            const url = new URL(tp.location.href);
+                            url.searchParams.set('nav_to', 'history');
+                            const prevVt = url.searchParams.get('vt');
+                            url.searchParams.set('vt', String((prevVt ? Number(prevVt) : 0) + 1));
+                            tp.location.href = url.toString();
+                        } catch(e) { console.error('[A11y] nav_to history err:', e); }
+                    }, 600);
+                    return true;
                 }
                 if ((n.indexOf('내성과') >= 0 || n.indexOf('성과') >= 0 || n.indexOf('my') >= 0) && n.indexOf('보고서') < 0) {
                     return clickAndSpeak(findVisibleButton(['내성과', '성과', 'myresults']), '내 성과');
