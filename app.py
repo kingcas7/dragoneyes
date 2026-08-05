@@ -16695,6 +16695,20 @@ else:
                 st.session_state.current_page = "home_landing"
                 st.rerun()
             st.stop()
+        # 🛡️ 고객사 관리자(tenant_admin) 차단 — 파트너 소속·본부 직책이 없는
+        #    순수 고객사 책임자는 파트너 페이지 열람 불가 (2026-08-05, 마포시니어클럽 케이스)
+        if (
+            (user.get("role_v2") or "").lower() == "tenant_admin"
+            and not user.get("is_tenant_admin")
+            and not (user.get("partner_id") or user.get("distributor_id")
+                     or user.get("partner_role") or user.get("hq_position"))
+            and (user.get("role") or "").lower() not in ("admin", "super_admin", "superadmin")
+        ):
+            st.error("🚫 파트너 페이지는 본부·파트너 관리자 전용입니다. 고객사 관리자 계정은 접근할 수 없습니다.")
+            if st.button("🏠 홈으로 돌아가기", type="primary", key="ag_block_tenant_home"):
+                st.session_state.current_page = "home_landing"
+                st.rerun()
+            st.stop()
 
         col_back, col_title = st.columns([1, 5])
         with col_back:
