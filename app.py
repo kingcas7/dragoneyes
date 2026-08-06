@@ -13687,7 +13687,7 @@ if st.session_state.user is None:
             _mission_title  = "온라인 유해컨텐츠 예방 캠페인"
             _mission_desc   = "교육기관·학부모·학생이 함께 만드는 안전한 온라인 환경"
             _feat1_icon, _feat1_title, _feat1_desc = "🏫", "교육기관 전용 대시보드", "학생 보호 교육·행동강령·저작권 등 미개척 분야 커리큘럼"
-            _feat2_icon, _feat2_title, _feat2_desc = "📋", "학생 설문 + 봉사 점수", "50문항 성실 완료 → 교육부 인정 봉사시간 (4~8시간) 발급"
+            _feat2_icon, _feat2_title, _feat2_desc = "📋", "학생 설문 + 봉사 점수", "설문 성실 완료 → 캠페인 봉사시간 (4~8시간) 발급"
             _feat3_icon, _feat3_title, _feat3_desc = "👨‍👩‍👧 ", "학부모 자료·자녀 관리", "연 1만 7천원으로 모든 유료 자료 무제한 + 자녀 설문 모니터링"
             _stats_title = ""  # 캠페인 모드는 stats 박스 자체 미사용
             # ⭐ 사용자 요청: 캠페인 정책 요약 박스 제거 (가려져 안 보이고 raw HTML 문제도 있음)
@@ -23775,16 +23775,16 @@ else:
                 else:
                     # ② 학년대 임계값 (이메일 본문용)
                     _cta_band_meta = {
-                        "elementary": (20, 4, "초등학생"),
-                        "middle":     (30, 5, "중학생"),
-                        "high":       (50, 8, "고등학생"),
+                        "elementary": (10, 4, "초등학생"),
+                        "middle":     (20, 5, "중학생"),
+                        "high":       (30, 8, "고등학생"),
                     }
                     _cta_band = None
                     try:
                         _cta_band = supabase.rpc("get_student_band",
                                                   {"p_student_id": _target_student_id}).execute().data
                     except Exception: pass
-                    _cta_thr, _cta_hr, _cta_kr = _cta_band_meta.get(_cta_band, (30, 5, "—"))
+                    _cta_thr, _cta_hr, _cta_kr = _cta_band_meta.get(_cta_band, (20, 5, "—"))
                     # ③ 설문 URL 생성
                     _cta_ftoken = _cta_tok_row["access_token"]
                     _cta_frontend = os.getenv("SURVEY_FRONTEND_URL", "").rstrip("/")
@@ -24332,17 +24332,17 @@ else:
         _prev_band = st.radio(
             "학년대 선택",
             ["elementary", "middle", "high"],
-            format_func=lambda x: {"elementary":"🎒 초등학생용 (20명 → 4시간)",
-                                    "middle":"📚 중학생용 (30명 → 5시간)",
-                                    "high":"🎓 고등학생용 (50명 → 8시간)"}.get(x, x),
+            format_func=lambda x: {"elementary":"🎒 초등학생용 (10명 → 4시간)",
+                                    "middle":"📚 중학생용 (20명 → 5시간)",
+                                    "high":"🎓 고등학생용 (30명 → 8시간)"}.get(x, x),
             horizontal=True,
             index=["elementary","middle","high"].index(_prev_band_default),
             key="csd_prev_band",
         )
         _prev_band_meta = {
-            "elementary": (20, 4, "초등학생"),
-            "middle":     (30, 5, "중학생"),
-            "high":       (50, 8, "고등학생"),
+            "elementary": (10, 4, "초등학생"),
+            "middle":     (20, 5, "중학생"),
+            "high":       (30, 8, "고등학생"),
         }[_prev_band]
         _prev_threshold, _prev_hours, _prev_band_kr = _prev_band_meta
 
@@ -29652,9 +29652,9 @@ else:
         # 자료의 학년대 → 봉사시간 안내 매칭
         _mv_band = _mv_row.get("target_band")
         _band_thresholds = {
-            "elementary": (20, 4, "초등학생"),
-            "middle":     (30, 5, "중학생"),
-            "high":       (50, 8, "고등학생"),
+            "elementary": (10, 4, "초등학생"),
+            "middle":     (20, 5, "중학생"),
+            "high":       (30, 8, "고등학생"),
         }
         # target_band='all'인 자료라면 학생 본인 학년대로 매칭
         _student_band_mv = None
