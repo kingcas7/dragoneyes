@@ -23742,110 +23742,317 @@ else:
         # ──────────────────────────────────────────────────────
         # ⭐ 설문조사 시작 버튼 — 이메일로 본인 배포자 링크 발송
         # ──────────────────────────────────────────────────────
-        st.markdown(
-            "<style>"
-            "div.csd-big-cta-anchor + div div[data-testid='stButton'] button{"
-            "font-size:1.08rem !important;"
-            "padding:0.85rem 1.4rem !important;"
-            "min-height:3.4rem !important;"
-            "font-weight:700 !important;"
-            "letter-spacing:0.01em;"
-            "}"
-            "</style>"
-            "<div class='csd-big-cta-anchor'></div>",
-            unsafe_allow_html=True,
-        )
-        _cta_l, _cta_m, _cta_r = st.columns([1, 3, 1])
-        with _cta_m:
-            if st.button("📤 설문조사 시작하기 (이메일로 내 배포 링크 받기)",
-                          key="csd_cta_start_survey",
-                          type="primary",
-                          use_container_width=True):
-                # ① 본인 토큰 조회
-                try:
-                    _cta_tok = supabase.table("student_survey_tokens").select(
-                        "access_token, response_count"
-                    ).eq("student_id", _target_student_id).limit(1).execute().data or []
-                    _cta_tok_row = _cta_tok[0] if _cta_tok else None
-                except Exception as _cte:
-                    _cta_tok_row = None
-                    st.error(f"토큰 조회 실패: {_cte}")
-                if not _cta_tok_row or not _cta_tok_row.get("access_token"):
-                    st.error("⚠️ 설문 토큰이 없습니다. 학교·학년·반 정보를 먼저 등록해주세요.")
-                else:
-                    # ② 학년대 임계값 (이메일 본문용)
-                    _cta_band_meta = {
-                        "elementary": (10, 4, "초등학생"),
-                        "middle":     (20, 5, "중학생"),
-                        "high":       (30, 8, "고등학생"),
-                    }
-                    _cta_band = None
-                    try:
-                        _cta_band = supabase.rpc("get_student_band",
-                                                  {"p_student_id": _target_student_id}).execute().data
-                    except Exception: pass
-                    _cta_thr, _cta_hr, _cta_kr = _cta_band_meta.get(_cta_band, (20, 5, "—"))
-                    # ③ 설문 URL 생성
-                    _cta_ftoken = _cta_tok_row["access_token"]
-                    _cta_frontend = os.getenv("SURVEY_FRONTEND_URL", "").rstrip("/")
-                    if _cta_frontend:
-                        _cta_url = f"{_cta_frontend}/?token={_cta_ftoken}"
-                    else:
-                        _cta_url = f"https://dragoneyes-production.up.railway.app/?survey_token={_cta_ftoken}"
-                    # ④ 이메일 큐 적재
-                    _cta_to = _u_csd.get("email") or "noreply@dragoneyes.co.kr"
-                    _cta_name = _u_csd.get("name") or ""
-                    _cta_subject = f"[드래곤아이즈 캠페인] {_cta_name}님의 설문 배포 링크"
-                    _cta_body = (
-                        f"{_cta_name}님, 안녕하세요!\n\n"
-                        f"드래곤아이즈 온라인 유해컨텐츠 예방 캠페인에 참여해주셔서 감사합니다.\n\n"
-                        f"━━━━━━━━━━━━━━━━━━━━━━━\n"
-                        f"📋 내 설문 배포 링크:\n{_cta_url}\n"
-                        f"━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-                        f"🎯 목표: {_cta_thr}명 응답 → 🏆 봉사시간 {_cta_hr}시간 자동 발급 ({_cta_kr})\n"
-                        f"📊 현재 진행: {_cta_tok_row.get('response_count') or 0} / {_cta_thr}명\n\n"
-                        f"이 링크를 카카오톡·SNS·이메일로 친구·가족에게 공유하세요.\n"
-                        f"응답이 모이면 자동으로 봉사 활동 인증서가 발급됩니다.\n\n"
-                        f"감사합니다.\n드래곤아이즈 캠페인 팀"
-                    )
-                    try:
-                        supabase.table("notice_email_queue").insert({
-                            "notice_id": None,
-                            "recipient_user_id": _u_csd.get("id"),
-                            "recipient_email": _cta_to,
-                            "recipient_name": _cta_name,
-                            "subject": _cta_subject,
-                            "body_html": _cta_body.replace("\n", "<br>"),
-                            "body_text": _cta_body,
-                            "status": "pending",
-                        }).execute()
-                        st.session_state["_csd_cta_sent_url"] = _cta_url
-                        st.session_state["_csd_cta_sent_email"] = _cta_to
-                        st.rerun()
-                    except Exception as _qe:
-                        st.error(f"이메일 큐 적재 실패: {_qe}")
 
-        # 이메일 발송 결과 박스 (rerun 후 표시)
-        if st.session_state.get("_csd_cta_sent_url"):
-            _sent_url = st.session_state["_csd_cta_sent_url"]
-            _sent_email = st.session_state.get("_csd_cta_sent_email", "")
-            with st.container(border=True):
-                st.success(
-                    f"✅ **설문조사 시작 완료!** `{_sent_email}` 로 배포 링크가 발송되었습니다."
+        # ══════════════════════════════════════════════════════
+        # 🎓 학생 캠페인 참여하기 — 3단계 프로세스 (2026-08-06)
+        #    1단계 학습+이수테스트 → 2단계 설문조사·토론 → 3단계 보고서 제출
+        #    진행 상태는 users.preferences["c3"]에 저장 (DDL 불가 환경)
+        # ══════════════════════════════════════════════════════
+        _c3_all = {}
+        _c3 = {}
+        try:
+            _c3_row = supabase.table("users").select("preferences").eq(
+                "id", _target_student_id).single().execute().data or {}
+            _c3_all = _c3_row.get("preferences") or {}
+            if not isinstance(_c3_all, dict):
+                _c3_all = {}
+            _c3 = _c3_all.get("c3") or {}
+        except Exception:
+            pass
+        _c3_quiz_ok = bool(_c3.get("quiz_passed"))
+        _c3_report_ok = bool(_c3.get("report_submitted_at"))
+
+        _c3_band = None
+        try:
+            _c3_band = supabase.rpc("get_student_band",
+                                     {"p_student_id": _target_student_id}).execute().data
+        except Exception:
+            pass
+        _c3_thr, _c3_hr, _c3_kr = {
+            "elementary": (10, 4, "초등학생"),
+            "middle":     (20, 5, "중학생"),
+            "high":       (30, 8, "고등학생"),
+        }.get(_c3_band, (20, 5, "중학생"))
+        try:
+            _c3_tokq = supabase.table("student_survey_tokens").select(
+                "response_count").eq("student_id", _target_student_id).limit(1).execute().data or []
+            _c3_resp = int((_c3_tokq[0] if _c3_tokq else {}).get("response_count") or 0)
+        except Exception:
+            _c3_resp = 0
+        _c3_survey_done = _c3_resp >= _c3_thr
+
+        def _c3_save(patch):
+            _np = dict(_c3_all)
+            _nc = dict(_c3)
+            _nc.update(patch)
+            _np["c3"] = _nc
+            supabase.table("users").update({"preferences": _np}).eq(
+                "id", _target_student_id).execute()
+
+        st.markdown("## 🎓 학생 캠페인 참여하기")
+        _c3_s1 = "✅" if _c3_quiz_ok else "🔵"
+        _c3_s2 = "✅" if _c3_survey_done else ("🔵" if _c3_quiz_ok else "🔒")
+        _c3_s3 = "✅" if _c3_report_ok else ("🔵" if (_c3_quiz_ok and _c3_survey_done) else "🔒")
+        st.caption(f"{_c3_s1} 1단계 학습하기 → {_c3_s2} 2단계 설문조사·토론 → {_c3_s3} 3단계 보고서 제출")
+
+        with st.expander(
+            ("✅ 1단계 · 학습하기 — 이수 완료" if _c3_quiz_ok
+             else "📖 1단계 · 학습하기 — 학습자료 공부 + 이수 테스트 (5문항)"),
+            expanded=not _c3_quiz_ok,
+        ):
+            _c3_mat_url = None
+            try:
+                _c3_mat = supabase.table("campaign_learning_materials").select(
+                    "attachment_url").eq("slug", f"basic-{_c3_band or 'middle'}").limit(1).execute().data or []
+                _c3_mat_url = (_c3_mat[0] if _c3_mat else {}).get("attachment_url")
+            except Exception:
+                pass
+            st.markdown(
+                "**① 학습자료를 정독하세요.** 설문을 수행할 때 응답자의 질문에 답할 수 있도록 "
+                "만든 자료예요. 각 단원의 🔗 표시가 설문 문항과의 연결이에요."
+            )
+            if _c3_mat_url:
+                st.link_button(f"📖 학습자료 열람하기 ({_c3_kr}용 v3)", _c3_mat_url,
+                                use_container_width=True)
+            else:
+                st.caption("학습자료 링크를 불러오지 못했어요. 캠페인 홈 > 학습자료에서 열람해주세요.")
+
+            st.markdown(
+                "**② 이수 테스트 (5문항)** — 학습자료를 정독했다면 쉽게 풀 수 있어요. "
+                "틀려도 해설을 읽고 다시 고르면 돼요. 5문항을 모두 맞히면 2단계가 열려요."
+            )
+
+            _C3_QUIZ = [
+                ("딥페이크 구별 신호 5가지가 하나도 안 보이는 영상을 봤어요. 가장 올바른 태도는? (설문 7번 · 학습지 4단원)",
+                 ["신호가 없으니 진짜라고 믿는다",
+                  "화질이 좋으면 진짜다",
+                  "어디서 온 자료인지 출처를 확인하고, 바로 믿지 않는다",
+                  "재미있으면 일단 공유한다"], 2,
+                 "구별 신호가 안 보여도 안심은 금물 — 출처 확인과 '바로 믿지 않기'가 가장 강력한 방어예요."),
+                ("가스라이팅을 폭언과 구별하는 핵심 특징은? (설문 17번 · 학습지 7단원)",
+                 ["큰소리로 욕설을 하는 것",
+                  "상대가 자기 기억과 판단을 의심하게 만드는 말이 반복되는 것",
+                  "딱 한 번 심한 말을 하는 것",
+                  "칭찬을 많이 해주는 것"], 1,
+                 "'네가 예민한 거야' 같은 말이 반복되며 판단력이 흐려지게 만드는 것이 핵심이에요."),
+                ("\"올린 글은 지우면 끝 아닌가요?\"에 대한 올바른 설명은? (설문 21번 · 학습지 9단원)",
+                 ["삭제 버튼을 누르면 완전히 사라진다",
+                  "시간이 지나면 자동으로 사라진다",
+                  "내가 지워도 캡처·복사본이 남아 나중에 영향을 줄 수 있다",
+                  "비공개 계정이면 아무 흔적도 남지 않는다"], 2,
+                 "디지털 발자국은 내 손을 떠나 남을 수 있어요. 올리기 전 3초 생각이 중요해요."),
+                ("청소년이 저작권을 침해하면 어떤 책임을 질 수 있을까요? (설문 26~27번 · 학습지 6단원)",
+                 ["몰랐다고 하면 아무 책임이 없다",
+                  "청소년은 처벌 대상이 아니다",
+                  "사과만 하면 끝난다",
+                  "형사처벌과 민사 손해배상, 기록까지 남을 수 있다"], 3,
+                 "'몰랐다'는 면제 사유가 되지 않아요. 형사·민사·기록의 3중 부담이 함께 올 수 있어요."),
+                ("미국의 온라인 유해물 대응 방식의 특징으로 맞는 것은? (설문 31번 · 학습지 11단원)",
+                 ["개인이 알아서 신고하도록 맡겨둔다",
+                  "기업(플랫폼)이 발견한 유해물을 중심 기관에 의무적으로 신고하게 한다",
+                  "국가는 관여하지 않는다",
+                  "인터넷 자체를 차단한다"], 1,
+                 "미국은 플랫폼 의무 신고 + 중심 기관(NCMEC) 구조로, 한 해 2천만 건 넘게 모여요."),
+            ]
+
+            if _c3_quiz_ok:
+                st.success(f"✅ 이수 테스트 통과! ({(_c3.get('quiz_passed_at') or '')[:10]}) 2단계로 진행하세요.")
+            else:
+                with st.form("c3_quiz_form"):
+                    _c3_answers = []
+                    for _qi, (_qt, _qopts, _qc, _qexp) in enumerate(_C3_QUIZ):
+                        _c3_answers.append(st.radio(
+                            f"**문제 {_qi+1}.** {_qt}", _qopts, index=None, key=f"c3_q{_qi}"))
+                    _c3_submitted = st.form_submit_button(
+                        "📝 채점하기", type="primary", use_container_width=True)
+                if _c3_submitted:
+                    _c3_wrong = 0
+                    for _qi, (_qt, _qopts, _qc, _qexp) in enumerate(_C3_QUIZ):
+                        if _c3_answers[_qi] is None:
+                            st.warning(f"문제 {_qi+1}: 답을 선택해주세요.")
+                            _c3_wrong += 1
+                        elif _c3_answers[_qi] != _qopts[_qc]:
+                            st.error(f"문제 {_qi+1} 오답 — 💡 {_qexp} 다른 답을 다시 골라보세요.")
+                            _c3_wrong += 1
+                        else:
+                            st.success(f"문제 {_qi+1} 정답!")
+                    _c3_att = int(_c3.get("quiz_attempts") or 0) + 1
+                    if _c3_wrong == 0:
+                        try:
+                            _c3_save({"quiz_passed": True,
+                                      "quiz_passed_at": datetime.now().isoformat(),
+                                      "quiz_attempts": _c3_att})
+                            st.balloons()
+                            st.success("🎉 5문항 모두 정답! 이수 완료 — 2단계 설문조사가 열렸어요.")
+                            st.rerun()
+                        except Exception as _c3e:
+                            st.error(f"저장 실패: {_c3e}")
+                    else:
+                        try:
+                            _c3_save({"quiz_attempts": _c3_att})
+                        except Exception:
+                            pass
+
+        # ── 2단계 · 설문조사 (1단계 이수 후 노출) ──
+        if _c3_quiz_ok:
+            st.markdown(f"#### 📤 2단계 · 설문조사·토론 — 진행 {_c3_resp}/{_c3_thr}명")
+            st.markdown(
+                "<style>"
+                "div.csd-big-cta-anchor + div div[data-testid='stButton'] button{"
+                "font-size:1.08rem !important;"
+                "padding:0.85rem 1.4rem !important;"
+                "min-height:3.4rem !important;"
+                "font-weight:700 !important;"
+                "letter-spacing:0.01em;"
+                "}"
+                "</style>"
+                "<div class='csd-big-cta-anchor'></div>",
+                unsafe_allow_html=True,
+            )
+            _cta_l, _cta_m, _cta_r = st.columns([1, 3, 1])
+            with _cta_m:
+                if st.button("📤 설문조사 시작하기 (이메일로 내 배포 링크 받기)",
+                              key="csd_cta_start_survey",
+                              type="primary",
+                              use_container_width=True):
+                    # ① 본인 토큰 조회
+                    try:
+                        _cta_tok = supabase.table("student_survey_tokens").select(
+                            "access_token, response_count"
+                        ).eq("student_id", _target_student_id).limit(1).execute().data or []
+                        _cta_tok_row = _cta_tok[0] if _cta_tok else None
+                    except Exception as _cte:
+                        _cta_tok_row = None
+                        st.error(f"토큰 조회 실패: {_cte}")
+                    if not _cta_tok_row or not _cta_tok_row.get("access_token"):
+                        st.error("⚠️ 설문 토큰이 없습니다. 학교·학년·반 정보를 먼저 등록해주세요.")
+                    else:
+                        # ② 학년대 임계값 (이메일 본문용)
+                        _cta_band_meta = {
+                            "elementary": (10, 4, "초등학생"),
+                            "middle":     (20, 5, "중학생"),
+                            "high":       (30, 8, "고등학생"),
+                        }
+                        _cta_band = None
+                        try:
+                            _cta_band = supabase.rpc("get_student_band",
+                                                      {"p_student_id": _target_student_id}).execute().data
+                        except Exception: pass
+                        _cta_thr, _cta_hr, _cta_kr = _cta_band_meta.get(_cta_band, (20, 5, "—"))
+                        # ③ 설문 URL 생성
+                        _cta_ftoken = _cta_tok_row["access_token"]
+                        _cta_frontend = os.getenv("SURVEY_FRONTEND_URL", "").rstrip("/")
+                        if _cta_frontend:
+                            _cta_url = f"{_cta_frontend}/?token={_cta_ftoken}"
+                        else:
+                            _cta_url = f"https://dragoneyes-production.up.railway.app/?survey_token={_cta_ftoken}"
+                        # ④ 이메일 큐 적재
+                        _cta_to = _u_csd.get("email") or "noreply@dragoneyes.co.kr"
+                        _cta_name = _u_csd.get("name") or ""
+                        _cta_subject = f"[드래곤아이즈 캠페인] {_cta_name}님의 설문 배포 링크"
+                        _cta_body = (
+                            f"{_cta_name}님, 안녕하세요!\n\n"
+                            f"드래곤아이즈 온라인 유해컨텐츠 예방 캠페인에 참여해주셔서 감사합니다.\n\n"
+                            f"━━━━━━━━━━━━━━━━━━━━━━━\n"
+                            f"📋 내 설문 배포 링크:\n{_cta_url}\n"
+                            f"━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                            f"🎯 목표: {_cta_thr}명 응답 → 🏆 봉사시간 {_cta_hr}시간 자동 발급 ({_cta_kr})\n"
+                            f"📊 현재 진행: {_cta_tok_row.get('response_count') or 0} / {_cta_thr}명\n\n"
+                            f"이 링크를 카카오톡·SNS·이메일로 친구·가족에게 공유하세요.\n"
+                            f"응답이 모이면 자동으로 봉사 활동 인증서가 발급됩니다.\n\n"
+                            f"감사합니다.\n드래곤아이즈 캠페인 팀"
+                        )
+                        try:
+                            supabase.table("notice_email_queue").insert({
+                                "notice_id": None,
+                                "recipient_user_id": _u_csd.get("id"),
+                                "recipient_email": _cta_to,
+                                "recipient_name": _cta_name,
+                                "subject": _cta_subject,
+                                "body_html": _cta_body.replace("\n", "<br>"),
+                                "body_text": _cta_body,
+                                "status": "pending",
+                            }).execute()
+                            st.session_state["_csd_cta_sent_url"] = _cta_url
+                            st.session_state["_csd_cta_sent_email"] = _cta_to
+                            st.rerun()
+                        except Exception as _qe:
+                            st.error(f"이메일 큐 적재 실패: {_qe}")
+
+            # 이메일 발송 결과 박스 (rerun 후 표시)
+            if st.session_state.get("_csd_cta_sent_url"):
+                _sent_url = st.session_state["_csd_cta_sent_url"]
+                _sent_email = st.session_state.get("_csd_cta_sent_email", "")
+                with st.container(border=True):
+                    st.success(
+                        f"✅ **설문조사 시작 완료!** `{_sent_email}` 로 배포 링크가 발송되었습니다."
+                    )
+                    st.markdown("**📋 내 설문 배포 링크 (즉시 복사·공유 가능):**")
+                    st.code(_sent_url, language=None)
+                    _cb1, _cb2 = st.columns([1, 1])
+                    with _cb1:
+                        if st.button("✖️ 닫기", key="csd_cta_close", use_container_width=True):
+                            st.session_state.pop("_csd_cta_sent_url", None)
+                            st.session_state.pop("_csd_cta_sent_email", None)
+                            st.rerun()
+                    with _cb2:
+                        if st.button("🔗 QR/링크 자세히 보기 ↓", key="csd_cta_scroll", use_container_width=True):
+                            st.session_state.pop("_csd_cta_sent_url", None)
+                            st.session_state.pop("_csd_cta_sent_email", None)
+                            st.rerun()
+
+            if _c3_survey_done:
+                st.success(f"✅ 설문 목표 달성! ({_c3_resp}/{_c3_thr}명) 3단계 보고서를 작성해주세요.")
+        else:
+            st.info("🔒 2단계 설문조사는 1단계 이수 테스트를 통과하면 열려요.")
+
+        # ── 3단계 · 보고서 작성·제출 (설문 목표 달성 후 노출) ──
+        if _c3_report_ok:
+            st.success(
+                f"✅ 3단계 · 보고서 제출 완료 ({(_c3.get('report_submitted_at') or '')[:10]}) — "
+                "지도 선생님께 제출되었고, 봉사활동 인증서는 아래 인증서 섹션에서 확인·출력할 수 있어요."
+            )
+            with st.expander("📄 제출한 보고서 다시 보기", expanded=False):
+                st.write(_c3.get("report_text") or "")
+        elif _c3_quiz_ok and _c3_survey_done:
+            with st.expander("📝 3단계 · 보고서 작성하기 (500자 이상)", expanded=True):
+                st.markdown(
+                    "**활동을 돌아보며 보고서를 작성해요.** 어떤 질문을 받았는지, 조사 결과에서 "
+                    "무엇을 알게 됐는지, 토론에서 어떤 의견이 나왔는지, 앞으로의 다짐을 담아주세요."
                 )
-                st.markdown("**📋 내 설문 배포 링크 (즉시 복사·공유 가능):**")
-                st.code(_sent_url, language=None)
-                _cb1, _cb2 = st.columns([1, 1])
-                with _cb1:
-                    if st.button("✖️ 닫기", key="csd_cta_close", use_container_width=True):
-                        st.session_state.pop("_csd_cta_sent_url", None)
-                        st.session_state.pop("_csd_cta_sent_email", None)
-                        st.rerun()
-                with _cb2:
-                    if st.button("🔗 QR/링크 자세히 보기 ↓", key="csd_cta_scroll", use_container_width=True):
-                        st.session_state.pop("_csd_cta_sent_url", None)
-                        st.session_state.pop("_csd_cta_sent_email", None)
-                        st.rerun()
+                _c3_rep = st.text_area(
+                    "보고서 (500자 이상)", value=_c3.get("report_draft") or "",
+                    height=260, key="c3_report_text",
+                    placeholder="예) 저는 이번 캠페인에서 친구들에게 설문을 진행하며...",
+                )
+                _c3_rl = len((_c3_rep or "").strip())
+                st.caption(f"현재 {_c3_rl}자 / 최소 500자")
+                _c3_b1, _c3_b2 = st.columns([1, 1])
+                with _c3_b1:
+                    if st.button("💾 임시 저장", key="c3_report_save", use_container_width=True):
+                        try:
+                            _c3_save({"report_draft": _c3_rep})
+                            st.success("임시 저장 완료")
+                        except Exception as _c3e:
+                            st.error(f"저장 실패: {_c3e}")
+                with _c3_b2:
+                    if st.button("📮 제출하기", key="c3_report_submit", type="primary",
+                                  use_container_width=True,
+                                  disabled=(_c3_rl < 500)):
+                        try:
+                            _c3_save({
+                                "report_text": _c3_rep,
+                                "report_len": _c3_rl,
+                                "report_submitted_at": datetime.now().isoformat(),
+                                "report_band": _c3_band,
+                                "report_resp": _c3_resp,
+                            })
+                            st.balloons()
+                            st.rerun()
+                        except Exception as _c3e:
+                            st.error(f"제출 실패: {_c3e}")
+        else:
+            st.info(f"🔒 3단계 보고서 작성은 설문 목표({_c3_thr}명 응답)를 달성하면 열려요.")
 
         st.markdown("")
 
@@ -26612,7 +26819,7 @@ else:
 
         # ⭐ 빠른 진입 아이콘 5개 (인증서 + 년도별 기록 추가)
         st.markdown("##### 🎯 빠른 진입")
-        _qa1, _qa2, _qa3, _qa4, _qa5 = st.columns(5)
+        _qa1, _qa2, _qa3, _qa4, _qa5, _qa6 = st.columns(6)
         with _qa1:
             with st.container(border=True):
                 st.markdown("### 🏫 우리 학교")
@@ -26657,6 +26864,14 @@ else:
                 if st.button("→ 보기", key="qa_yearly",
                               type="primary", use_container_width=True):
                     st.session_state["_inst_dash_view"] = "yearly_records"
+                    st.rerun()
+        with _qa6:
+            with st.container(border=True):
+                st.markdown("### 📝 제출 보고서")
+                st.caption("캠페인 3단계 보고서")
+                if st.button("→ 보기", key="qa_c3_reports",
+                              type="primary", use_container_width=True):
+                    st.session_state["_inst_dash_view"] = "c3_reports"
                     st.rerun()
 
         st.divider()
@@ -27125,6 +27340,44 @@ else:
                 st.session_state.pop("_inst_dash_view", None)
                 st.rerun()
             st.divider()
+
+        elif _qa_view == "c3_reports":
+            # ── 📝 학생 캠페인 3단계 보고서 제출함 — 지도교사 확인 (2026-08-06) ──
+            st.markdown("### 📝 학생 캠페인 보고서 제출함")
+            st.caption(
+                "3단계 프로세스(학습·이수 테스트 → 설문·토론 → 보고서)를 완료한 학생들의 "
+                "제출 보고서입니다. 이수 테스트 통과와 설문 목표 달성 후 제출된 것만 표시됩니다."
+            )
+            try:
+                _c3r_students = supabase.table("users").select(
+                    "id, name, grade, class_no, preferences"
+                ).eq("institution_id", _inst_id).eq("role_v2", "student").execute().data or []
+            except Exception as _c3re:
+                _c3r_students = []
+                st.caption(f"⚠️ 조회 실패: {_c3re}")
+            _c3r_rows = []
+            for _c3r_s in _c3r_students:
+                _c3r_p = _c3r_s.get("preferences") or {}
+                _c3r_c = _c3r_p.get("c3") if isinstance(_c3r_p, dict) else None
+                if _c3r_c and _c3r_c.get("report_submitted_at"):
+                    _c3r_rows.append((_c3r_s, _c3r_c))
+            if not _c3r_rows:
+                st.info("아직 제출된 보고서가 없습니다.")
+            else:
+                _c3r_rows.sort(key=lambda x: x[1].get("report_submitted_at") or "", reverse=True)
+                st.markdown(f"**총 {len(_c3r_rows)}건**")
+                for _c3r_s, _c3r_c in _c3r_rows:
+                    _c3r_hdr = (
+                        f"{_c3r_s.get('grade','-')}학년 {_c3r_s.get('class_no','-')}반 · "
+                        f"{_c3r_s.get('name','-')} · {(_c3r_c.get('report_submitted_at') or '')[:10]} · "
+                        f"{_c3r_c.get('report_len') or 0}자 · 응답 {_c3r_c.get('report_resp') or 0}명"
+                    )
+                    with st.expander(f"📄 {_c3r_hdr}", expanded=False):
+                        st.write(_c3r_c.get("report_text") or "")
+                        st.caption(
+                            f"이수 테스트 통과: {(_c3r_c.get('quiz_passed_at') or '')[:10]} · "
+                            f"응시 {_c3r_c.get('quiz_attempts') or 1}회"
+                        )
 
         elif _qa_view == "yearly_records":
             # ──────────────────────────────────────────────────
