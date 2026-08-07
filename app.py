@@ -14715,6 +14715,14 @@ else:
     except Exception:
         pass
 
+    # ═══ 📺 영상 표시 반응형 보정 (2026-08-07 — 시니어 테스터 피드백) ═══
+    st.markdown("""<style>
+    div[data-testid="stVideo"] video { width:100% !important; height:auto !important; border-radius:10px; }
+    @media (max-width: 820px) {
+      div[data-testid="stVideo"] video { max-height:60vh; }
+    }
+    </style>""", unsafe_allow_html=True)
+
     # ═══ ⬅️ 브라우저 뒤로가기 감지 (2026-08-07) ═══
     #   Streamlit은 popstate를 처리하지 않아 URL만 바뀌고 화면이 그대로였음.
     #   뒤로/앞으로 이동 시 reload → 새 세션이 URL의 page 파라미터를 읽어 해당 화면 복원.
@@ -18612,8 +18620,7 @@ else:
                         if st.button(t("popup_close"), key="popup_close_btn", use_container_width=True):
                             st.session_state.work_popup_id = None; st.rerun()
                     url = popup_d.get("url","")
-                    pv1, pv2, pv3 = st.columns([1, 3, 1])
-                    with pv2:
+                    if True:
                         if "youtube.com" in url or "youtu.be" in url:
                             st.video(url)
                         else:
@@ -34121,8 +34128,8 @@ else:
                             """, height=0)
                         else:
                             # ── 2단계: 영상 표시 + 자동 재생 ──
-                            pv1, pv2, pv3 = st.columns([1, 3, 1])
-                            with pv2:
+                            # 영상은 전체 폭 사용 (2026-08-07: 화면이 작다는 현장 피드백 반영)
+                            if True:
                                 if "youtube.com" in hurl or "youtu.be" in hurl:
                                     # 영상 ID 추출
                                     if "v=" in hurl:
@@ -34136,12 +34143,15 @@ else:
                                         #   components.html(중첩 iframe)로 감싸면 allow="autoplay" 위임이 끊겨
                                         #   무음만 허용됨 → st.markdown으로 본문에 직접 삽입.
                                         #   사용자가 '열기'를 클릭한 활성화 상태라 대부분 소리 재생 허용.
+                                        # 16:9 반응형 래퍼 — PC는 크게, 모바일은 화면 폭에 자동 맞춤
                                         st.markdown(
-                                            '<iframe width="100%" height="360" '
+                                            '<div style="position:relative;width:100%;max-width:1280px;margin:0 auto;'
+                                            'padding-top:56.25%;background:#000;border-radius:10px;overflow:hidden;">'
+                                            '<iframe style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;" '
                                             f'src="https://www.youtube.com/embed/{_emb_vid}?autoplay=1&rel=0&playsinline=1" '
-                                            'title="video" frameborder="0" style="border-radius:10px;" '
+                                            'title="video" '
                                             'allow="autoplay; encrypted-media; picture-in-picture; fullscreen" '
-                                            'allowfullscreen></iframe>',
+                                            'allowfullscreen></iframe></div>',
                                             unsafe_allow_html=True,
                                         )
                                         st.caption("🎬 자동 재생 — 소리가 안 나오면 영상 안의 ▶️ 또는 🔊 아이콘을 한 번 눌러주세요.")
@@ -34296,8 +34306,7 @@ else:
                             if st.button("✖", key="rep_popup_close_top", use_container_width=True, help="닫기"):
                                 st.session_state.rep_video_popup_id = None; st.rerun()
                         # 동영상 재생
-                        pv1, pv2, pv3 = st.columns([1, 3, 1])
-                        with pv2:
+                        if True:
                             if "youtube.com" in _purl or "youtu.be" in _purl:
                                 st.video(_purl)
                             elif _purl:
