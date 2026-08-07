@@ -16800,8 +16800,9 @@ else:
             # ── 영업 기회 로드 (승인된 건만) ──
             try:
                 _opps_ct = supabase.table("opportunities").select(
-                    "status,expected_amount,win_probability,assigned_partner_id,"
-                    "approval_status,expected_close_date"
+                    "id,customer_name,status,expected_amount,win_probability,assigned_partner_id,"
+                    "approval_status,expected_close_date,primary_owner,origin_channel,"
+                    "license_tier,expected_seats,created_at"
                 ).execute().data or []
             except Exception:
                 _opps_ct = []
@@ -16955,12 +16956,28 @@ else:
                     else:
                         _empty_card_ct(f"총판 {_i + 1}", kind="dist")
             with _dist_cols[-1]:
-                # 📊 그래프 3종: ①목표 대비 달성률 ②그룹별 파이프라인 ③분기 포캐스트 (2026-08-07)
+                # 📊 대시보드 3패널: ①목표 대비 달성률 ②Forecast(가운데) ③전체 파이프라인 (2026-08-07 개편)
                 _name_to_id_ct = {p.get("name"): p.get("id") for p in _all_partners_ct}
                 _pname_by_id_ct = {p.get("id"): p.get("name") for p in _all_partners_ct}
-                _short_nm = lambda n: (n or "미배정").replace("주식회사 ", "").replace(" 주식회사", "").replace(" (테스트)", "")
+                _short_nm = lambda n: (n or "본부·미배정").replace("주식회사 ", "").replace(" 주식회사", "").replace(" (테스트)", "")
 
-                # ① 목표 대비 달성률 (가상 목표 50/20/10억 — 확정 시 실목표 연동)
+                def _fc_class_ct(p):
+                    p = float(p or 0)
+                    if p >= 90:
+                        return "IN"
+                    if p >= 80:
+                        return "Commit"
+                    if p >= 60:
+                        return "Best Case"
+                    return "Pipeline"
+
+                def _q4_rows_ct(rows):
+                    return [o for o in rows
+                            if o.get("expected_close_date")
+                            and str(o.get("expected_close_date"))[:4] == str(_year_ct)
+                            and ((int(str(o.get("expected_close_date"))[5:7]) - 1) // 3 + 1) == _q_ct]
+
+                # ① 목표 대비 달성률 (가상 목표 — 확정 시 실목표 연동)
                 _g_goals = [("주식회사 해당씨엔에이", 50, "#3D6ED1"),
                             ("집집공인중개사 (테스트)", 20, "#6C8FE0"),
                             ("포유솔루션 주식회사", 10, "#0E9469")]
@@ -16976,7 +16993,27 @@ else:
                         f"<span style='flex:none;width:58px;font-size:0.72rem;font-weight:800;color:#0f172a;text-align:right;'>{_grate:.0f}% <span style=\'font-weight:600;color:#94A3B8;\'>/{_gv}억</span></span></div>"
                     )
 
-                # ② 그룹별 진행 파이프라인 (실데이터)
+                # ② Forecast — 전체 금액(숫자 전체) + 계약확률 분류
+                _fc_rows_all = _q4_rows_ct(_active_ct)
+                _fc_w = sum(float(_o.get("expected_amount") or 0) * float(_o.get("win_probability") or 0) / 100 for _o in _fc_rows_all)
+                _fc_cls = {"IN": [0, 0.0], "Commit": [0, 0.0], "Best Case": [0, 0.0], "Pipeline": [0, 0.0]}
+                for _o in _fc_rows_all:
+                    _k = _fc_class_ct(_o.get("win_probability"))
+                    _fc_cls[_k][0] += 1
+                    _fc_cls[_k][1] += float(_o.get("expected_amount") or 0)
+                _fc_colors = {"IN": "#0E9469", "Commit": "#3D6ED1", "Best Case": "#EF9F27", "Pipeline": "#94A3B8"}
+                _rows_c = (
+                    f"<div style='font-size:1.25rem;font-weight:800;color:#0f172a;margin:0 0 6px;'>₩{_fc_w:,.0f}</div>"
+                )
+                for _k in ("IN", "Commit", "Best Case", "Pipeline"):
+                    _c, _a = _fc_cls[_k]
+                    _rows_c += (
+                        f"<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;'>"
+                        f"<span style='font-size:0.72rem;font-weight:800;color:{_fc_colors[_k]};'>{_k}</span>"
+                        f"<span style='font-size:0.72rem;font-weight:700;color:#0f172a;'>{_c}건 · ₩{_a:,.0f}</span></div>"
+                    )
+
+                # ③ 전체 파이프라인 (그룹별 요약 바)
                 _pipe_ct = {}
                 for _o in _active_ct:
                     _pid = _o.get("assigned_partner_id")
@@ -16995,19 +17032,6 @@ else:
                 if not _rows_b:
                     _rows_b = "<div style='font-size:0.74rem;color:#94A3B8;'>진행 중 파이프라인 없음</div>"
 
-                # ③ 이번 목표분기 포캐스트 (성사확률 가중)
-                _fc_rows = [_o for _o in _active_ct
-                            if str(_o.get("expected_close_date") or "")[:4] == str(_year_ct)
-                            and _o.get("expected_close_date")
-                            and ((int(str(_o.get("expected_close_date"))[5:7]) - 1) // 3 + 1) == _q_ct]
-                _fc_w = sum(float(_o.get("expected_amount") or 0) * float(_o.get("win_probability") or 0) / 100 for _o in _fc_rows)
-                _fc_t = sum(float(_o.get("expected_amount") or 0) for _o in _fc_rows)
-                _panel_c = (
-                    f"<div style='font-size:1.35rem;font-weight:800;color:#0f172a;margin:2px 0;'>{_fmt_won_ct(_fc_w)}</div>"
-                    f"<div style='font-size:0.72rem;color:#64748b;'>성사확률 가중 · 대상 {len(_fc_rows)}건</div>"
-                    f"<div style='font-size:0.72rem;color:#64748b;'>파이프라인 총액 {_fmt_won_ct(_fc_t)}</div>"
-                )
-
                 def _panel_ct(title, body):
                     return (f"<div style='flex:1;min-width:0;border:1px solid #E2E8F0;background:#FFFFFF;"
                             f"border-radius:10px;padding:9px 12px;'>"
@@ -17016,11 +17040,20 @@ else:
                 st.markdown(
                     "<div style='display:flex;gap:10px;'>"
                     + _panel_ct("🎯 목표 대비 달성률 <span style='font-weight:600;color:#94A3B8;font-size:0.68rem;'>(가상 목표)</span>", _rows_a)
-                    + _panel_ct("📊 그룹별 파이프라인", _rows_b)
-                    + _panel_ct(f"🔮 {_q_ct}분기 포캐스트", _panel_c)
+                    + _panel_ct(f"🔮 {_q_ct}분기 Forecast", _rows_c)
+                    + _panel_ct("📊 전체 파이프라인 보기", _rows_b)
                     + "</div>",
                     unsafe_allow_html=True,
                 )
+                _pbsp, _pb1, _pb2 = st.columns([1.05, 1, 1], gap="small")
+                with _pb1:
+                    if st.button(f"🔮 {_q_ct}분기 Forecast 상세", key="open_drill_fc", use_container_width=True):
+                        st.session_state["tower_drill"] = {"view": "forecast", "group": None}
+                        st.rerun()
+                with _pb2:
+                    if st.button("📊 파이프라인 상세", key="open_drill_pl", use_container_width=True):
+                        st.session_state["tower_drill"] = {"view": "pipeline", "group": None}
+                        st.rerun()
 
             st.markdown("<span style='display:inline-block;background:#D6EFE3;color:#0B7A55;padding:3px 12px;border-radius:14px;font-weight:700;font-size:0.86rem;margin:6px 0 4px;'>🤝 ③ 다이렉트 파트너</span>", unsafe_allow_html=True)
             _dp_n = max(2, len(_direct_ct))
@@ -17031,6 +17064,96 @@ else:
                         _slot_card_ct(_direct_ct[_i], _i + 1, "direct")
                     else:
                         _empty_card_ct(f"다이렉트 파트너 {_i + 1}", kind="direct")
+
+            # ── 🔍 드릴다운: Forecast / 파이프라인 → 그룹 → 세부내역 (2026-08-07) ──
+            _drill_ct = st.session_state.get("tower_drill")
+            if _drill_ct:
+                st.divider()
+                _dv_ct = _drill_ct.get("view")
+                _st_kr_ct = {"lead": "리드", "consult": "상담", "demo": "시연", "proposal": "제안",
+                             "negotiation": "협상", "contract": "계약진행"}
+                _dh1, _dh2 = st.columns([6, 1])
+                with _dh1:
+                    st.markdown("### " + (f"🔮 {_q_ct}분기 Forecast — 그룹별 현황" if _dv_ct == "forecast"
+                                            else "📊 전체 파이프라인 — 그룹별 현황"))
+                with _dh2:
+                    if st.button("✖ 닫기", key="tower_drill_close", use_container_width=True):
+                        st.session_state.pop("tower_drill", None)
+                        st.rerun()
+
+                _groups_ct = ([("dist", _p) for _p in _distributors_ct]
+                              + [("direct", _p) for _p in _direct_ct]
+                              + [("hq", {"id": None, "name": "본부·미배정"})])
+
+                def _grp_rows_ct(gid):
+                    _rows = [o for o in _active_ct if o.get("assigned_partner_id") == gid]
+                    return _q4_rows_ct(_rows) if _dv_ct == "forecast" else _rows
+
+                _gcols_ct = st.columns(max(4, len(_groups_ct)), gap="medium")
+                for _gi, (_gk, _gp) in enumerate(_groups_ct):
+                    with _gcols_ct[_gi]:
+                        _gid = _gp.get("id")
+                        _gkey = _gid or "hq"
+                        _rows_g = _grp_rows_ct(_gid)
+                        _amt_g = sum(float(o.get("expected_amount") or 0) for o in _rows_g)
+                        _gicon = "🏢" if _gk == "dist" else ("🤝" if _gk == "direct" else "🏛️")
+                        _gsel = (_drill_ct.get("group") == _gkey)
+                        _gbd = "#3D6ED1" if _gsel else "#E2E8F0"
+                        st.markdown(
+                            f"<div style='border:2px solid {_gbd};background:#FFFFFF;border-radius:9px;"
+                            f"padding:6px 10px;margin-bottom:4px;'>"
+                            f"<div style='font-size:0.88rem;font-weight:800;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>{_gicon} {_short_nm(_gp.get('name'))}</div>"
+                            f"<div style='font-size:0.78rem;color:#334155;'>{len(_rows_g)}건 · {_fmt_won_ct(_amt_g)}</div></div>",
+                            unsafe_allow_html=True,
+                        )
+                        if st.button("🔍 보기", key=f"drill_g_{_gkey}", use_container_width=True):
+                            st.session_state["tower_drill"]["group"] = _gkey
+                            st.rerun()
+
+                _gsel_ct = _drill_ct.get("group")
+                if _gsel_ct:
+                    _gid = None if _gsel_ct == "hq" else _gsel_ct
+                    _gname_ct = "본부·미배정" if _gsel_ct == "hq" else (_pname_by_id_ct.get(_gid) or "-")
+                    _gkind = next((k for k, p in _groups_ct if p.get("id") == _gid), "hq")
+                    _rows_g = _grp_rows_ct(_gid)
+                    st.markdown(f"#### {_gname_ct} — 세부 내역 ({len(_rows_g)}건)")
+
+                    # 총판: 산하 파트너 명단 → 각 파트너 영업현황 진입
+                    if _dv_ct == "pipeline" and _gkind == "dist":
+                        _subs_ct = [p for p in _all_partners_ct if p.get("parent_partner_id") == _gid]
+                        st.markdown("**🤝 산하 파트너 명단**")
+                        if not _subs_ct:
+                            st.caption("등록된 산하 파트너(대리점)가 없습니다. 파트너 등록 시 이곳에 표시됩니다.")
+                        else:
+                            for _sp in _subs_ct:
+                                _sc1, _sc2 = st.columns([4, 1])
+                                _sc1.markdown(f"- **{_sp.get('name')}** · {_sp.get('channel_type') or '대리점'}")
+                                if _sc2.button("영업현황 →", key=f"drill_sub_{_sp.get('id')}", use_container_width=True):
+                                    st.session_state["hq_selected_partner"] = {"id": _sp.get("id"), "name": _sp.get("name")}
+                                    st.session_state.pop("tower_drill", None)
+                                    st.rerun()
+                        st.markdown("")
+
+                    if not _rows_g:
+                        st.info("해당 그룹의 " + ("Forecast 대상 건이" if _dv_ct == "forecast" else "진행 중 영업 건이") + " 없습니다.")
+                    else:
+                        for _o in sorted(_rows_g, key=lambda x: -float(x.get("expected_amount") or 0)):
+                            _wp = float(_o.get("win_probability") or 0)
+                            _cls = _fc_class_ct(_wp)
+                            _hdr = (f"{_o.get('customer_name') or '-'} · {_cls} · 진행 {_wp:.0f}% · "
+                                    f"{_fmt_won_ct(float(_o.get('expected_amount') or 0))}")
+                            with st.expander(_hdr, expanded=False):
+                                _d1, _d2 = st.columns(2)
+                                with _d1:
+                                    st.markdown(f"- **단계**: {_st_kr_ct.get(_o.get('status'), _o.get('status') or '-')}")
+                                    st.markdown(f"- **계약 확률**: {_wp:.0f}% ({_cls})")
+                                    st.markdown(f"- **예상 금액**: ₩{float(_o.get('expected_amount') or 0):,.0f}")
+                                    st.markdown(f"- **예상 마감**: {_o.get('expected_close_date') or '-'}")
+                                with _d2:
+                                    st.markdown(f"- **담당**: {_o.get('primary_owner') or '-'}")
+                                    st.markdown(f"- **유입 채널**: {_o.get('origin_channel') or '-'}")
+                                    st.markdown(f"- **라이선스**: {_o.get('license_tier') or '-'} · {_o.get('expected_seats') or '-'}명")
+                                    st.markdown(f"- **등록일**: {str(_o.get('created_at') or '')[:10]}")
 
             st.caption("💡 카드의 '▶ 들어가기'를 누르면 해당 총판·파트너의 세부 영업·서비스 페이지로 이동합니다.")
             st.stop()  # 관제 타워(개요)에서는 아래 세부 페이지를 렌더링하지 않음
