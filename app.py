@@ -16992,10 +16992,10 @@ else:
 
             def _fmt_won_ct(v):
                 if v >= 100000000:
-                    return f"₩{v/100000000:.2f}억"
+                    return f"{v/100000000:.1f}억"
                 if v >= 10000:
-                    return f"₩{v/10000:,.0f}만"
-                return f"₩{v:,.0f}"
+                    return f"{v/10000:,.0f}만"
+                return f"{v:,.0f}원"
 
             # 파트너별 수주 매출 합계
             _rev_by_partner = {}
@@ -17188,14 +17188,14 @@ else:
                     _fc_cls[_k][1] += float(_o.get("expected_amount") or 0)
                 _fc_colors = {"IN": "#0E9469", "Commit": "#3D6ED1", "Best Case": "#EF9F27", "Pipeline": "#94A3B8"}
                 _rows_c = (
-                    f"<div style='font-size:1.55rem;font-weight:600;color:#0f172a;margin:0 0 8px;'>₩{_fc_w:,.0f}</div>"
+                    f"<div style='font-size:1.55rem;font-weight:600;color:#0f172a;margin:0 0 8px;'>{round(_fc_w/100000000, 1):g}억</div>"
                 )
                 for _k in ("IN", "Commit", "Best Case", "Pipeline"):
                     _c, _a = _fc_cls[_k]
                     _rows_c += (
                         f"<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;'>"
                         f"<span style='font-size:1.05rem;font-weight:600;color:{_fc_colors[_k]};'>{_k}</span>"
-                        f"<span style='font-size:1.05rem;font-weight:500;color:#0f172a;'>{_c}건 · ₩{_a:,.0f}</span></div>"
+                        f"<span style='font-size:1.05rem;font-weight:500;color:#0f172a;'>{_c}건 · {round(_a/100000000, 1):g}억</span></div>"
                     )
 
                 # ③ 전체 파이프라인 (그룹별 요약 바)
