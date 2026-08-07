@@ -16840,11 +16840,11 @@ else:
             def _bar_row_ct(label, actual, target_won, accent):
                 _r = (actual / target_won * 100) if target_won > 0 else 0
                 st.markdown(
-                    f"<div style='display:flex;justify-content:space-between;font-size:1.35rem;font-weight:700;"
-                    f"color:#0f172a;margin-bottom:2px;'><span>{label}</span>"
+                    f"<div style='display:flex;justify-content:space-between;gap:8px;font-size:0.95rem;font-weight:700;"
+                    f"color:#0f172a;margin-bottom:2px;white-space:nowrap;'><span>{label}</span>"
                     f"<span>{_fmt_won_ct(actual)} · <b>{_r:.0f}%</b></span></div>"
-                    f"<div style='background:#e2e8f0;border-radius:4px;height:7px;margin-bottom:8px;'>"
-                    f"<div style='background:{accent};width:{min(_r,100)}%;height:7px;border-radius:4px;'></div></div>",
+                    f"<div style='background:#e2e8f0;border-radius:3px;height:6px;margin-bottom:4px;'>"
+                    f"<div style='background:{accent};width:{min(_r,100)}%;height:6px;border-radius:3px;'></div></div>",
                     unsafe_allow_html=True,
                 )
 
@@ -16905,13 +16905,13 @@ else:
                 st.markdown("<span style='display:inline-block;background:#132238;color:#fff;padding:3px 12px;border-radius:14px;font-weight:700;font-size:0.82rem;margin-bottom:4px;'>① 영업 · 매출 현황</span>", unsafe_allow_html=True)
                 st.markdown(
                     f"<div style='display:flex;gap:10px;margin:2px 0 8px;'>"
-                    f"<div style='flex:1;max-width:300px;background:#3D6ED1;border-radius:9px;padding:7px 12px;'>"
+                    f"<div style='flex:1;max-width:180px;background:#3D6ED1;border-radius:9px;padding:7px 12px;'>"
                     f"<div style='display:flex;align-items:center;gap:6px;'>"
                     f"<span style='font-size:0.85rem;line-height:1;'>📊</span>"
                     f"<span style='font-size:0.82rem;color:rgba(255,255,255,0.9);font-weight:600;'>진행 파이프라인</span></div>"
                     f"<div style='font-size:1.35rem;font-weight:800;color:#ffffff;line-height:1.3;'>{len(_active_ct)}건"
                     f" <span style='font-size:0.8rem;font-weight:600;color:rgba(255,255,255,0.8);'>{_fmt_won_ct(_sum_amt(_active_ct))}</span></div></div>"
-                    f"<div style='flex:1;max-width:300px;background:#0E9469;border-radius:9px;padding:7px 12px;'>"
+                    f"<div style='flex:1;max-width:180px;background:#0E9469;border-radius:9px;padding:7px 12px;'>"
                     f"<div style='display:flex;align-items:center;gap:6px;'>"
                     f"<span style='font-size:0.85rem;line-height:1;'>💡</span>"
                     f"<span style='font-size:0.82rem;color:rgba(255,255,255,0.9);font-weight:600;'>구매의사 기회</span></div>"
@@ -16920,15 +16920,23 @@ else:
                     f"</div>",
                     unsafe_allow_html=True,
                 )
-                _mt1, _mt2 = st.columns(2)
-                with _mt1:
-                    st.markdown(f"<div style='font-size:1.3rem;font-weight:800;color:#0f172a;margin:4px 0 2px;'>{_year_ct} 연간 목표(만원)</div>", unsafe_allow_html=True)
-                    _ty_man = st.number_input(f"{_year_ct} 연간 목표(만원)", min_value=0, step=1000, key=f"hq_target_year_{_year_ct}", label_visibility="collapsed")
-                with _mt2:
-                    st.markdown(f"<div style='font-size:1.3rem;font-weight:800;color:#0f172a;margin:4px 0 2px;'>{_q_ct}분기 목표(만원)</div>", unsafe_allow_html=True)
-                    _tq_man = st.number_input(f"{_q_ct}분기 목표(만원)", min_value=0, step=500, key=f"hq_target_q_{_year_ct}_{_q_ct}", label_visibility="collapsed")
-                _bar_row_ct(f"{_year_ct} 연간", _total_actual_ct, _ty_man * 10000, "#0E9469")
-                _bar_row_ct(f"{_q_ct}분기", _q_actual_ct, _tq_man * 10000, "#3D6ED1")
+                _mc1, _mc2, _mc3, _mc4 = st.columns([1.1, 1.1, 1.1, 1.1], gap="small")
+                with _mc1:
+                    st.markdown(f"<div style='font-size:1.02rem;font-weight:800;color:#0f172a;margin:4px 0 2px;white-space:nowrap;'>{_year_ct} 연간 목표(억원)</div>", unsafe_allow_html=True)
+                    _ty_eok = st.number_input(f"{_year_ct} 연간 목표(억원)", min_value=0.0, step=0.5,
+                                               format="%.1f", key=f"hq_target_year_eok_{_year_ct}",
+                                               label_visibility="collapsed")
+                with _mc2:
+                    st.markdown("<div style='height:33px;'></div>", unsafe_allow_html=True)
+                    _bar_row_ct(f"{_year_ct} 연간", _total_actual_ct, _ty_eok * 100000000, "#0E9469")
+                with _mc3:
+                    st.markdown(f"<div style='font-size:1.02rem;font-weight:800;color:#0f172a;margin:4px 0 2px;white-space:nowrap;'>{_q_ct}분기 목표(억원)</div>", unsafe_allow_html=True)
+                    _tq_eok = st.number_input(f"{_q_ct}분기 목표(억원)", min_value=0.0, step=0.5,
+                                               format="%.1f", key=f"hq_target_q_eok_{_year_ct}_{_q_ct}",
+                                               label_visibility="collapsed")
+                with _mc4:
+                    st.markdown("<div style='height:33px;'></div>", unsafe_allow_html=True)
+                    _bar_row_ct(f"{_q_ct}분기", _q_actual_ct, _tq_eok * 100000000, "#3D6ED1")
 
             st.divider()
 
