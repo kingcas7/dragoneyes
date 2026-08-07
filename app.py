@@ -17173,10 +17173,10 @@ else:
                     _grate = _grev / (_gv * 100000000) * 100 if _gv else 0
                     _rows_a += (
                         f"<div style='display:flex;align-items:center;gap:6px;margin-bottom:6px;'>"
-                        f"<span style='flex:none;width:84px;font-size:0.72rem;font-weight:600;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>{_short_nm(_gn)}</span>"
+                        f"<span style='flex:none;width:128px;font-size:1.05rem;font-weight:500;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>{_short_nm(_gn)}</span>"
                         f"<div style='flex:1;background:#EEF2F7;border-radius:3px;height:12px;'>"
                         f"<div style='background:{_gc};width:{min(_grate,100):.0f}%;height:12px;border-radius:3px;'></div></div>"
-                        f"<span style='flex:none;width:58px;font-size:0.72rem;font-weight:800;color:#0f172a;text-align:right;'>{_grate:.0f}% <span style=\'font-weight:600;color:#94A3B8;\'>/{_gv}억</span></span></div>"
+                        f"<span style='flex:none;width:92px;font-size:1.05rem;font-weight:600;color:#0f172a;text-align:right;'>{_grate:.0f}% <span style=\'font-weight:600;color:#94A3B8;\'>/{_gv}억</span></span></div>"
                     )
 
                 # ② Forecast — 전체 금액(숫자 전체) + 계약확률 분류
@@ -17189,14 +17189,14 @@ else:
                     _fc_cls[_k][1] += float(_o.get("expected_amount") or 0)
                 _fc_colors = {"IN": "#0E9469", "Commit": "#3D6ED1", "Best Case": "#EF9F27", "Pipeline": "#94A3B8"}
                 _rows_c = (
-                    f"<div style='font-size:1.25rem;font-weight:800;color:#0f172a;margin:0 0 6px;'>₩{_fc_w:,.0f}</div>"
+                    f"<div style='font-size:1.55rem;font-weight:600;color:#0f172a;margin:0 0 8px;'>₩{_fc_w:,.0f}</div>"
                 )
                 for _k in ("IN", "Commit", "Best Case", "Pipeline"):
                     _c, _a = _fc_cls[_k]
                     _rows_c += (
                         f"<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;'>"
-                        f"<span style='font-size:0.72rem;font-weight:800;color:{_fc_colors[_k]};'>{_k}</span>"
-                        f"<span style='font-size:0.72rem;font-weight:700;color:#0f172a;'>{_c}건 · ₩{_a:,.0f}</span></div>"
+                        f"<span style='font-size:1.05rem;font-weight:600;color:{_fc_colors[_k]};'>{_k}</span>"
+                        f"<span style='font-size:1.05rem;font-weight:500;color:#0f172a;'>{_c}건 · ₩{_a:,.0f}</span></div>"
                     )
 
                 # ③ 전체 파이프라인 (그룹별 요약 바)
@@ -17210,10 +17210,10 @@ else:
                 for _pid, (_c, _a) in sorted(_pipe_ct.items(), key=lambda x: -x[1][1]):
                     _rows_b += (
                         f"<div style='display:flex;align-items:center;gap:6px;margin-bottom:6px;'>"
-                        f"<span style='flex:none;width:84px;font-size:0.72rem;font-weight:600;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>{_short_nm(_pname_by_id_ct.get(_pid))}</span>"
+                        f"<span style='flex:none;width:128px;font-size:1.05rem;font-weight:500;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>{_short_nm(_pname_by_id_ct.get(_pid))}</span>"
                         f"<div style='flex:1;background:#EEF2F7;border-radius:3px;height:12px;'>"
                         f"<div style='background:#8B5CF6;width:{_a/_pipe_max*100:.0f}%;height:12px;border-radius:3px;'></div></div>"
-                        f"<span style='flex:none;width:70px;font-size:0.72rem;font-weight:800;color:#0f172a;text-align:right;'>{_c}건 {_fmt_won_ct(_a)}</span></div>"
+                        f"<span style='flex:none;width:110px;font-size:1.05rem;font-weight:600;color:#0f172a;text-align:right;'>{_c}건 {_fmt_won_ct(_a)}</span></div>"
                     )
                 if not _rows_b:
                     _rows_b = "<div style='font-size:0.74rem;color:#94A3B8;'>진행 중 파이프라인 없음</div>"
@@ -17221,7 +17221,7 @@ else:
                 def _panel_ct(title, body):
                     return (f"<div style='flex:1;min-width:0;border:1px solid #E2E8F0;background:#FFFFFF;"
                             f"border-radius:10px;padding:7px 10px;'>"
-                            f"<div style='font-size:0.8rem;font-weight:800;color:#0f172a;margin-bottom:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;'>{title}</div>{body}</div>")
+                            f"<div style='font-size:1.15rem;font-weight:600;color:#0f172a;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;'>{title}</div>{body}</div>")
 
                 st.markdown(
                     "<div style='display:flex;gap:10px;'>"
@@ -17248,13 +17248,13 @@ else:
                 def _mini_bars_ct(items):
                     _items = [x for x in items if x[1] > 0]
                     if not _items:
-                        return "<div style='font-size:0.68rem;color:#94A3B8;height:84px;display:flex;align-items:center;justify-content:center;'>데이터 없음</div>"
+                        return "<div style='font-size:1.0rem;color:#94A3B8;height:84px;display:flex;align-items:center;justify-content:center;'>데이터 없음</div>"
                     _vmax = max(v for _, v, _ in _items) or 1
                     _cols_h = "".join(
                         f"<div style='flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;min-width:0;'>"
-                        f"<span style='font-size:0.62rem;font-weight:800;color:#0f172a;'>{v:g}</span>"
+                        f"<span style='font-size:0.95rem;font-weight:600;color:#0f172a;'>{v:g}</span>"
                         f"<div style='width:70%;max-width:34px;height:{max(v/_vmax*54, 3):.0f}px;background:{c};border-radius:3px 3px 0 0;'></div>"
-                        f"<span style='font-size:0.6rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;'>{l}</span></div>"
+                        f"<span style='font-size:0.9rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;'>{l}</span></div>"
                         for l, v, c in _items
                     )
                     return f"<div style='display:flex;align-items:flex-end;gap:4px;height:84px;'>{_cols_h}</div>"
@@ -17263,7 +17263,7 @@ else:
                     _items = [x for x in items if x[1] > 0]
                     _tot = sum(v for _, v, _ in _items)
                     if _tot <= 0:
-                        return "<div style='font-size:0.68rem;color:#94A3B8;height:84px;display:flex;align-items:center;justify-content:center;'>데이터 없음</div>"
+                        return "<div style='font-size:1.0rem;color:#94A3B8;height:84px;display:flex;align-items:center;justify-content:center;'>데이터 없음</div>"
                     _stops = []
                     _acc = 0.0
                     for _l, _v, _c in _items:
@@ -17274,15 +17274,15 @@ else:
                     _legend = "".join(
                         f"<div style='display:flex;align-items:center;gap:4px;'>"
                         f"<span style='width:8px;height:8px;border-radius:2px;background:{_c};flex:none;'></span>"
-                        f"<span style='font-size:0.6rem;color:#334155;white-space:nowrap;'>{_l} {_v:g}억</span></div>"
+                        f"<span style='font-size:0.9rem;color:#334155;white-space:nowrap;'>{_l} {_v:g}억</span></div>"
                         for _l, _v, _c in _items
                     )
                     return (
                         f"<div style='display:flex;align-items:center;gap:10px;height:84px;'>"
-                        f"<div style='width:72px;height:72px;border-radius:50%;flex:none;"
+                        f"<div style='width:82px;height:82px;border-radius:50%;flex:none;"
                         f"background:conic-gradient({', '.join(_stops)});display:flex;align-items:center;justify-content:center;'>"
-                        f"<div style='width:44px;height:44px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;"
-                        f"font-size:0.62rem;font-weight:800;color:#0f172a;'>{_tot:g}억</div></div>"
+                        f"<div style='width:52px;height:52px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;"
+                        f"font-size:0.9rem;font-weight:600;color:#0f172a;'>{_tot:g}억</div></div>"
                         f"<div style='display:flex;flex-direction:column;gap:3px;min-width:0;'>{_legend}</div></div>"
                     )
 
@@ -17298,7 +17298,7 @@ else:
 
                 def _chart_card_ct(title, body):
                     return (f"<div style='flex:1;min-width:0;border:1px solid #E2E8F0;background:#FFFFFF;border-radius:10px;"
-                            f"padding:6px 10px;'><div style='font-size:0.72rem;font-weight:800;color:#334155;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;'>{title}</div>{body}</div>")
+                            f"padding:6px 10px;'><div style='font-size:1.05rem;font-weight:600;color:#334155;margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;'>{title}</div>{body}</div>")
 
                 st.markdown(
                     "<div style='display:flex;gap:10px;margin-top:4px;'>"
