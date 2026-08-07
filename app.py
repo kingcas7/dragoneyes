@@ -16927,19 +16927,19 @@ else:
                     _bar_row_ct(f"{_q_ct}분기", _q_actual_ct, _tq_eok * 100000000, "#3D6ED1")
             with _tr2:
                 st.markdown(
-                    f"<div style='display:flex;flex-direction:column;gap:8px;'>"
-                    f"<div style='background:#3D6ED1;border-radius:9px;padding:6px 12px;'>"
-                    f"<div style='display:flex;align-items:center;justify-content:center;gap:6px;'>"
-                    f"<span style='font-size:0.85rem;line-height:1;'>📊</span>"
-                    f"<span style='font-size:0.8rem;color:rgba(255,255,255,0.9);font-weight:600;'>진행 파이프라인</span></div>"
-                    f"<div style='font-size:1.25rem;font-weight:800;color:#ffffff;line-height:1.25;text-align:center;'>{len(_active_ct)}건"
-                    f" <span style='font-size:0.78rem;font-weight:600;color:rgba(255,255,255,0.8);'>{_fmt_won_ct(_sum_amt(_active_ct))}</span></div></div>"
-                    f"<div style='background:#0E9469;border-radius:9px;padding:6px 12px;'>"
-                    f"<div style='display:flex;align-items:center;justify-content:center;gap:6px;'>"
-                    f"<span style='font-size:0.85rem;line-height:1;'>💡</span>"
-                    f"<span style='font-size:0.8rem;color:rgba(255,255,255,0.9);font-weight:600;'>구매의사 기회</span></div>"
-                    f"<div style='font-size:1.25rem;font-weight:800;color:#ffffff;line-height:1.25;text-align:center;'>{len(_intent_ct)}건"
-                    f" <span style='font-size:0.78rem;font-weight:600;color:rgba(255,255,255,0.8);'>{_fmt_won_ct(_sum_amt(_intent_ct))}</span></div></div>"
+                    f"<div style='display:flex;gap:8px;'>"
+                    f"<div style='flex:1;min-width:0;background:#3D6ED1;border-radius:8px;padding:5px 8px;'>"
+                    f"<div style='display:flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap;overflow:hidden;'>"
+                    f"<span style='font-size:0.7rem;line-height:1;'>📊</span>"
+                    f"<span style='font-size:0.7rem;color:rgba(255,255,255,0.9);font-weight:600;'>진행 파이프라인</span></div>"
+                    f"<div style='font-size:1.05rem;font-weight:800;color:#ffffff;line-height:1.3;text-align:center;white-space:nowrap;'>{len(_active_ct)}건"
+                    f" <span style='font-size:0.7rem;font-weight:600;color:rgba(255,255,255,0.8);'>{_fmt_won_ct(_sum_amt(_active_ct))}</span></div></div>"
+                    f"<div style='flex:1;min-width:0;background:#0E9469;border-radius:8px;padding:5px 8px;'>"
+                    f"<div style='display:flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap;overflow:hidden;'>"
+                    f"<span style='font-size:0.7rem;line-height:1;'>💡</span>"
+                    f"<span style='font-size:0.7rem;color:rgba(255,255,255,0.9);font-weight:600;'>구매의사 기회</span></div>"
+                    f"<div style='font-size:1.05rem;font-weight:800;color:#ffffff;line-height:1.3;text-align:center;white-space:nowrap;'>{len(_intent_ct)}건"
+                    f" <span style='font-size:0.7rem;font-weight:600;color:rgba(255,255,255,0.8);'>{_fmt_won_ct(_sum_amt(_intent_ct))}</span></div></div>"
                     f"</div>",
                     unsafe_allow_html=True,
                 )
