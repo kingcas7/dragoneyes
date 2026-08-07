@@ -16859,13 +16859,13 @@ else:
                 _chip = "#BFDBF7" if kind == "dist" else "#B7E4CF"
                 _accent = "#3D6ED1" if kind == "dist" else "#0E9469"
                 st.markdown(
-                    f"<div style='background:{_bg};border:1px solid {_bd};border-radius:9px;"
-                    f"padding:8px 9px 6px;margin-bottom:4px;min-height:78px;'>"
-                    f"<div style='display:inline-flex;width:26px;height:26px;border-radius:8px;background:{_chip};align-items:center;justify-content:center;font-size:0.9rem;line-height:1;'>{_icon}</div>"
-                    f"<div style='font-weight:700;font-size:0.8rem;color:#0f172a;margin-top:2px;'>{idx}. {_nm}</div>"
-                    f"<div style='font-size:0.6rem;color:#64748b;'>{_ch}</div>"
-                    f"<div style='font-size:0.66rem;color:#334155;margin-top:3px;'>매출 {_fmt_won_ct(_rev)} · 달성 {_rate:.0f}%</div>"
-                    f"<div style='background:#e2e8f0;border-radius:3px;height:4px;margin-top:3px;'>"
+                    f"<div style='background:{_bg};border:1px solid {_bd};border-radius:8px;"
+                    f"padding:7px 10px 6px;margin-bottom:6px;min-height:62px;'>"
+                    f"<div style='display:flex;align-items:center;gap:6px;'>"
+                    f"<span style='display:inline-flex;width:18px;height:18px;border-radius:5px;background:{_chip};align-items:center;justify-content:center;font-size:0.7rem;line-height:1;flex:none;'>{_icon}</span>"
+                    f"<span style='font-weight:700;font-size:1.0rem;color:#0f172a;line-height:1.25;'>{idx}. {_nm}</span></div>"
+                    f"<div style='font-size:0.86rem;color:#334155;margin-top:3px;'>{_ch} · 매출 {_fmt_won_ct(_rev)} · 달성 {_rate:.0f}%</div>"
+                    f"<div style='background:#e2e8f0;border-radius:3px;height:4px;margin-top:4px;'>"
                     f"<div style='background:{_accent};width:{min(_rate,100)}%;height:4px;border-radius:3px;'></div></div>"
                     f"</div>",
                     unsafe_allow_html=True,
@@ -16882,13 +16882,11 @@ else:
                 _e_chip = "#BFDBF7" if kind == "dist" else "#B7E4CF"
                 _e_fg = "#3D6ED1" if kind == "dist" else "#0E9469"
                 st.markdown(
-                    f"<div style='border:1.5px dashed {_e_bd};background:{_e_bg};border-radius:9px;padding:8px 9px;"
-                    f"margin-bottom:4px;min-height:78px;text-align:center;"
-                    f"display:flex;flex-direction:column;align-items:center;justify-content:center;'>"
-                    f"<div style='display:inline-flex;width:26px;height:26px;border-radius:8px;background:{_e_chip};"
-                    f"align-items:center;justify-content:center;font-size:0.85rem;color:{_e_fg};font-weight:800;'>＋</div>"
-                    f"<div style='font-weight:600;font-size:0.74rem;margin-top:3px;color:#475569;'>{label}</div>"
-                    f"<div style='font-size:0.62rem;color:{_e_fg};'>배정 대기</div></div>",
+                    f"<div style='border:1.5px dashed {_e_bd};background:{_e_bg};border-radius:8px;padding:7px 10px;"
+                    f"margin-bottom:6px;min-height:62px;text-align:center;"
+                    f"display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;'>"
+                    f"<div style='font-weight:700;font-size:0.95rem;color:#475569;'>＋ {label}</div>"
+                    f"<div style='font-size:0.8rem;color:{_e_fg};'>배정 대기</div></div>",
                     unsafe_allow_html=True,
                 )
 
@@ -16905,17 +16903,19 @@ else:
             with _tr:
                 st.markdown("<span style='display:inline-block;background:#132238;color:#fff;padding:3px 12px;border-radius:14px;font-weight:700;font-size:0.82rem;margin-bottom:4px;'>① 영업 · 매출 현황</span>", unsafe_allow_html=True)
                 st.markdown(
-                    f"<div style='display:flex;gap:8px;'>"
-                    f"<div style='flex:1;background:#3D6ED1;border-radius:10px;padding:8px 11px;box-shadow:0 2px 6px rgba(61,110,209,0.25);'>"
-                    f"<span style='display:inline-flex;width:24px;height:24px;border-radius:8px;background:rgba(255,255,255,0.22);align-items:center;justify-content:center;font-size:0.8rem;'>📊</span>"
-                    f"<div style='font-size:0.64rem;color:rgba(255,255,255,0.85);font-weight:600;margin-top:3px;'>진행 파이프라인</div>"
-                    f"<div style='font-size:1.15rem;font-weight:800;color:#ffffff;'>{len(_active_ct)}건</div>"
-                    f"<div style='font-size:0.62rem;color:rgba(255,255,255,0.75);'>{_fmt_won_ct(_sum_amt(_active_ct))}</div></div>"
-                    f"<div style='flex:1;background:#0E9469;border-radius:10px;padding:8px 11px;box-shadow:0 2px 6px rgba(14,148,105,0.25);'>"
-                    f"<span style='display:inline-flex;width:24px;height:24px;border-radius:8px;background:rgba(255,255,255,0.22);align-items:center;justify-content:center;font-size:0.8rem;'>💡</span>"
-                    f"<div style='font-size:0.64rem;color:rgba(255,255,255,0.85);font-weight:600;margin-top:3px;'>구매의사 기회</div>"
-                    f"<div style='font-size:1.15rem;font-weight:800;color:#ffffff;'>{len(_intent_ct)}건</div>"
-                    f"<div style='font-size:0.62rem;color:rgba(255,255,255,0.75);'>{_fmt_won_ct(_sum_amt(_intent_ct))}</div></div>"
+                    f"<div style='display:flex;gap:10px;margin:2px 0 8px;'>"
+                    f"<div style='flex:1;max-width:300px;background:#3D6ED1;border-radius:9px;padding:7px 12px;'>"
+                    f"<div style='display:flex;align-items:center;gap:6px;'>"
+                    f"<span style='font-size:0.85rem;line-height:1;'>📊</span>"
+                    f"<span style='font-size:0.82rem;color:rgba(255,255,255,0.9);font-weight:600;'>진행 파이프라인</span></div>"
+                    f"<div style='font-size:1.35rem;font-weight:800;color:#ffffff;line-height:1.3;'>{len(_active_ct)}건"
+                    f" <span style='font-size:0.8rem;font-weight:600;color:rgba(255,255,255,0.8);'>{_fmt_won_ct(_sum_amt(_active_ct))}</span></div></div>"
+                    f"<div style='flex:1;max-width:300px;background:#0E9469;border-radius:9px;padding:7px 12px;'>"
+                    f"<div style='display:flex;align-items:center;gap:6px;'>"
+                    f"<span style='font-size:0.85rem;line-height:1;'>💡</span>"
+                    f"<span style='font-size:0.82rem;color:rgba(255,255,255,0.9);font-weight:600;'>구매의사 기회</span></div>"
+                    f"<div style='font-size:1.35rem;font-weight:800;color:#ffffff;line-height:1.3;'>{len(_intent_ct)}건"
+                    f" <span style='font-size:0.8rem;font-weight:600;color:rgba(255,255,255,0.8);'>{_fmt_won_ct(_sum_amt(_intent_ct))}</span></div></div>"
                     f"</div>",
                     unsafe_allow_html=True,
                 )
@@ -16929,7 +16929,7 @@ else:
 
             # ── ② 총판 (1~4) 테이블 ──
             st.markdown("<span style='display:inline-block;background:#DCEAFB;color:#2F5FC4;padding:3px 12px;border-radius:14px;font-weight:700;font-size:0.86rem;margin:6px 0 4px;'>🏢 ② 총판 (1~4)</span>", unsafe_allow_html=True)
-            _dist_cols = st.columns(4)
+            _dist_cols = st.columns(4, gap="medium")
             for _i in range(4):
                 with _dist_cols[_i]:
                     if _i < len(_distributors_ct):
@@ -16938,7 +16938,7 @@ else:
                         _empty_card_ct(f"총판 {_i + 1}", kind="dist")
             # 4개 초과 총판
             if len(_distributors_ct) > 4:
-                _ex_cols = st.columns(4)
+                _ex_cols = st.columns(4, gap="medium")
                 for _j, _p in enumerate(_distributors_ct[4:]):
                     with _ex_cols[_j % 4]:
                         _slot_card_ct(_p, _j + 5, "dist")
@@ -16946,7 +16946,7 @@ else:
             # ── ③ 다이렉트 파트너 (1~3) 테이블 ──
             st.markdown("<span style='display:inline-block;background:#D6EFE3;color:#0B7A55;padding:3px 12px;border-radius:14px;font-weight:700;font-size:0.86rem;margin:6px 0 4px;'>🤝 ③ 다이렉트 파트너 (1~3)</span>", unsafe_allow_html=True)
             _dp_n = max(3, len(_direct_ct))
-            _dp_cols = st.columns(_dp_n)
+            _dp_cols = st.columns(_dp_n, gap="medium")
             for _i in range(_dp_n):
                 with _dp_cols[_i]:
                     if _i < len(_direct_ct):
