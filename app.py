@@ -15090,17 +15090,28 @@ else:
             box-shadow: none !important;
             padding: 0.25rem 0.3rem !important;
             font-size: 1.0rem !important;
-            color: #94a3b8 !important;
-            transition: color 0.2s;
+            color: #334155 !important;
+            transition: color 0.15s;
         }
-        div[data-testid="stHorizontalBlock"] button[kind="secondary"]:hover {
+        /* 호버 시 글자가 배경색과 같아져 사라지던 문제 수정 (2026-08-07) — 진한 색 + 밑줄 */
+        div[data-testid="stHorizontalBlock"] button[kind="secondary"]:hover,
+        div[data-testid="stHorizontalBlock"] button[kind="secondary"]:focus,
+        div[data-testid="stHorizontalBlock"] button[kind="secondary"]:active {
             background: transparent !important;
-            color: #f1f5f9 !important;
+            color: #0B4FA8 !important;
             border: none !important;
+            text-decoration: underline !important;
+            text-underline-offset: 3px;
         }
         div[data-testid="stHorizontalBlock"] button[kind="secondary"] p {
             font-size: 1.0rem !important;
             padding: 0 !important;
+            color: inherit !important;
+        }
+        div[data-testid="stHorizontalBlock"] button[kind="secondary"]:hover p,
+        div[data-testid="stHorizontalBlock"] button[kind="secondary"]:focus p,
+        div[data-testid="stHorizontalBlock"] button[kind="secondary"]:active p {
+            color: #0B4FA8 !important;
         }
         </style>
         """, unsafe_allow_html=True)
