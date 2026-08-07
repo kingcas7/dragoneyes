@@ -14666,9 +14666,27 @@ else:
         "surveys_management",
         "monitoring_stats",
     )
-    # ⭐ query_params.page는 'sid 복원이 default home_landing으로 덮었을 때'만 적용 — 사용자가
-    #    버튼 클릭으로 session_state를 변경하면 그게 우선 (그렇지 않으면 페이지 이동이 차단됨)
+    # ⭐ 브라우저 뒤로가기 지원 (2026-08-07) — 앱의 모든 페이지를 URL(page 파라미터)과 동기화.
+    #    Streamlit은 쿼리파라미터 변경 시 history.pushState로 항목을 남기지만 popstate를 감지하지
+    #    않으므로, 하단 JS가 popstate에서 reload → 새 세션이 page 파라미터를 읽어 그 페이지를 렌더.
+    _ALL_APP_PAGES = frozenset((
+        "agency_dashboard", "approval_requests", "campaign_consent", "campaign_landing",
+        "campaign_materials", "campaign_status", "campaign_student_dashboard", "consent_page",
+        "customer_detail", "customer_management", "distributor_sales", "doc_agency",
+        "dragon_chat", "home", "home_landing", "institution_approval", "institution_dashboard",
+        "institution_management", "lecture_schedule", "license_request", "license_status",
+        "material_view", "materials_library", "materials_management", "monitoring_stats",
+        "notices", "opportunity_detail", "parent_dashboard", "partner_admins", "partner_info",
+        "partner_order", "partner_register", "partner_sales", "payment_management",
+        "portal_home", "report_detail", "report_form", "report_stats", "sales_pipeline",
+        "support_request", "surveys_management", "teacher_training", "terms_management",
+        "user_detail", "user_management", "user_profile", "user_search", "work_page",
+    ))
     _ss_cp = st.session_state.get("current_page") or ""
+    # 새 세션(새로고침·뒤로가기 후 reload)일 때는 URL의 page를 그대로 복원
+    if (not _ss_cp) and _qp_page in _ALL_APP_PAGES:
+        st.session_state["current_page"] = _qp_page
+        _ss_cp = _qp_page
     if _qp_page and _qp_page in _qp_cmp_pages:
         # session_state가 비었거나, sid 복원이 강제로 home_landing/monitoring으로 set한 경우만 덮어쓰기
         # (이미 캠페인 페이지 안에 있고 사용자가 그 안에서 이동하는 경우엔 건드리지 않음)
@@ -14691,14 +14709,27 @@ else:
                            "terms_management", "payment_management", "notices")
             or (_cp_now == "monitoring_stats" and bool(st.session_state.get("_stats_from_campaign")))
         )
-        if _cp_cmp_pages and st.query_params.get("page") != _cp_now:
+        # 전 페이지 URL 동기화 (뒤로가기용 히스토리 항목 생성)
+        if _cp_now in _ALL_APP_PAGES and st.query_params.get("page") != _cp_now:
             st.query_params["page"] = _cp_now
-        elif (not _cp_cmp_pages) and st.query_params.get("page", "").startswith("campaign_"):
-            # 모니터링 페이지로 전환 시 query_params 정리
-            try: del st.query_params["page"]
-            except Exception: pass
     except Exception:
         pass
+
+    # ═══ ⬅️ 브라우저 뒤로가기 감지 (2026-08-07) ═══
+    #   Streamlit은 popstate를 처리하지 않아 URL만 바뀌고 화면이 그대로였음.
+    #   뒤로/앞으로 이동 시 reload → 새 세션이 URL의 page 파라미터를 읽어 해당 화면 복원.
+    _a11y_components.html("""<script>
+    (function(){
+      try {
+        const tp = window.top || window.parent;
+        if (!tp || tp.__dgeBackNavBound) return;
+        tp.__dgeBackNavBound = true;
+        tp.addEventListener('popstate', function(){
+          try { tp.location.reload(); } catch(e) {}
+        });
+      } catch(e) {}
+    })();
+    </script>""", height=0)
 
     # ═══ 🗂️ 탭 선택 유지 (전역) — 위젯 변경 rerun 시 st.tabs가 첫 탭으로 초기화되는 버그 보정 ═══
     #   탭 클릭 시 '그룹 시그니처(라벨 순서)'별로 선택 라벨을 sessionStorage에 저장,
