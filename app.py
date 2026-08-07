@@ -16838,11 +16838,11 @@ else:
             def _bar_row_ct(label, actual, target_won, accent):
                 _r = (actual / target_won * 100) if target_won > 0 else 0
                 st.markdown(
-                    f"<div style='display:flex;justify-content:space-between;font-size:0.7rem;"
-                    f"color:#334155;margin-bottom:2px;'><span>{label}</span>"
+                    f"<div style='display:flex;justify-content:space-between;font-size:1.35rem;font-weight:700;"
+                    f"color:#0f172a;margin-bottom:2px;'><span>{label}</span>"
                     f"<span>{_fmt_won_ct(actual)} · <b>{_r:.0f}%</b></span></div>"
-                    f"<div style='background:#e2e8f0;border-radius:3px;height:5px;margin-bottom:6px;'>"
-                    f"<div style='background:{accent};width:{min(_r,100)}%;height:5px;border-radius:3px;'></div></div>",
+                    f"<div style='background:#e2e8f0;border-radius:4px;height:7px;margin-bottom:8px;'>"
+                    f"<div style='background:{accent};width:{min(_r,100)}%;height:7px;border-radius:4px;'></div></div>",
                     unsafe_allow_html=True,
                 )
 
@@ -16860,12 +16860,12 @@ else:
                 _accent = "#3D6ED1" if kind == "dist" else "#0E9469"
                 st.markdown(
                     f"<div style='background:{_bg};border:1px solid {_bd};border-radius:8px;"
-                    f"padding:7px 10px 6px;margin-bottom:6px;min-height:62px;'>"
-                    f"<div style='display:flex;align-items:center;gap:6px;'>"
-                    f"<span style='display:inline-flex;width:18px;height:18px;border-radius:5px;background:{_chip};align-items:center;justify-content:center;font-size:0.7rem;line-height:1;flex:none;'>{_icon}</span>"
-                    f"<span style='font-weight:700;font-size:1.0rem;color:#0f172a;line-height:1.25;'>{idx}. {_nm}</span></div>"
-                    f"<div style='font-size:0.86rem;color:#334155;margin-top:3px;'>{_ch} · 매출 {_fmt_won_ct(_rev)} · 달성 {_rate:.0f}%</div>"
-                    f"<div style='background:#e2e8f0;border-radius:3px;height:4px;margin-top:4px;'>"
+                    f"padding:5px 12px 5px;margin-bottom:4px;display:inline-block;width:fit-content;max-width:100%;'>"
+                    f"<div style='display:flex;align-items:center;gap:5px;'>"
+                    f"<span style='font-size:0.8rem;line-height:1;'>{_icon}</span>"
+                    f"<span style='font-weight:700;font-size:0.95rem;color:#0f172a;line-height:1.25;white-space:nowrap;'>{idx}. {_nm}</span></div>"
+                    f"<div style='font-size:0.82rem;color:#334155;margin-top:2px;white-space:nowrap;'>{_ch} · 매출 {_fmt_won_ct(_rev)} · 달성 {_rate:.0f}%</div>"
+                    f"<div style='background:#e2e8f0;border-radius:3px;height:4px;margin-top:3px;'>"
                     f"<div style='background:{_accent};width:{min(_rate,100)}%;height:4px;border-radius:3px;'></div></div>"
                     f"</div>",
                     unsafe_allow_html=True,
@@ -16882,11 +16882,10 @@ else:
                 _e_chip = "#BFDBF7" if kind == "dist" else "#B7E4CF"
                 _e_fg = "#3D6ED1" if kind == "dist" else "#0E9469"
                 st.markdown(
-                    f"<div style='border:1.5px dashed {_e_bd};background:{_e_bg};border-radius:8px;padding:7px 10px;"
-                    f"margin-bottom:6px;min-height:62px;text-align:center;"
-                    f"display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;'>"
-                    f"<div style='font-weight:700;font-size:0.95rem;color:#475569;'>＋ {label}</div>"
-                    f"<div style='font-size:0.8rem;color:{_e_fg};'>배정 대기</div></div>",
+                    f"<div style='border:1.5px dashed {_e_bd};background:{_e_bg};border-radius:8px;padding:5px 12px;"
+                    f"margin-bottom:4px;display:inline-block;width:fit-content;max-width:100%;white-space:nowrap;'>"
+                    f"<span style='font-weight:700;font-size:0.9rem;color:#475569;'>＋ {label}</span>"
+                    f" <span style='font-size:0.78rem;color:{_e_fg};'>배정 대기</span></div>",
                     unsafe_allow_html=True,
                 )
 
@@ -16920,8 +16919,12 @@ else:
                     unsafe_allow_html=True,
                 )
                 _mt1, _mt2 = st.columns(2)
-                _ty_man = _mt1.number_input(f"{_year_ct} 연간 목표(만원)", min_value=0, step=1000, key=f"hq_target_year_{_year_ct}")
-                _tq_man = _mt2.number_input(f"{_q_ct}분기 목표(만원)", min_value=0, step=500, key=f"hq_target_q_{_year_ct}_{_q_ct}")
+                with _mt1:
+                    st.markdown(f"<div style='font-size:1.3rem;font-weight:800;color:#0f172a;margin:4px 0 2px;'>{_year_ct} 연간 목표(만원)</div>", unsafe_allow_html=True)
+                    _ty_man = st.number_input(f"{_year_ct} 연간 목표(만원)", min_value=0, step=1000, key=f"hq_target_year_{_year_ct}", label_visibility="collapsed")
+                with _mt2:
+                    st.markdown(f"<div style='font-size:1.3rem;font-weight:800;color:#0f172a;margin:4px 0 2px;'>{_q_ct}분기 목표(만원)</div>", unsafe_allow_html=True)
+                    _tq_man = st.number_input(f"{_q_ct}분기 목표(만원)", min_value=0, step=500, key=f"hq_target_q_{_year_ct}_{_q_ct}", label_visibility="collapsed")
                 _bar_row_ct(f"{_year_ct} 연간", _total_actual_ct, _ty_man * 10000, "#0E9469")
                 _bar_row_ct(f"{_q_ct}분기", _q_actual_ct, _tq_man * 10000, "#3D6ED1")
 
