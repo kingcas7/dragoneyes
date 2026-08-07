@@ -16868,10 +16868,10 @@ else:
                 st.markdown(
                     f"<div style='background:{_bg};border:1px solid {_bd};border-radius:8px;"
                     f"padding:5px 12px 5px;margin-bottom:4px;width:100%;box-sizing:border-box;'>"
-                    f"<div style='display:flex;align-items:center;gap:5px;'>"
+                    f"<div style='display:flex;align-items:center;justify-content:center;gap:5px;'>"
                     f"<span style='font-size:0.8rem;line-height:1;'>{_icon}</span>"
                     f"<span style='font-weight:700;font-size:0.95rem;color:#0f172a;line-height:1.25;white-space:nowrap;'>{idx}. {_nm}</span></div>"
-                    f"<div style='font-size:0.82rem;color:#334155;margin-top:2px;white-space:nowrap;'>{_ch} · 매출 {_fmt_won_ct(_rev)} · 달성 {_rate:.0f}%</div>"
+                    f"<div style='font-size:0.82rem;color:#334155;margin-top:2px;white-space:nowrap;text-align:center;'>{_ch} · 매출 {_fmt_won_ct(_rev)} · 달성 {_rate:.0f}%</div>"
                     f"<div style='background:#e2e8f0;border-radius:3px;height:4px;margin-top:3px;'>"
                     f"<div style='background:{_accent};width:{min(_rate,100)}%;height:4px;border-radius:3px;'></div></div>"
                     f"</div>",
@@ -16911,16 +16911,16 @@ else:
                 st.markdown(
                     f"<div style='display:flex;gap:10px;margin:2px 0 8px;'>"
                     f"<div style='flex:1;max-width:180px;background:#3D6ED1;border-radius:9px;padding:7px 12px;'>"
-                    f"<div style='display:flex;align-items:center;gap:6px;'>"
+                    f"<div style='display:flex;align-items:center;justify-content:center;gap:6px;'>"
                     f"<span style='font-size:0.85rem;line-height:1;'>📊</span>"
                     f"<span style='font-size:0.82rem;color:rgba(255,255,255,0.9);font-weight:600;'>진행 파이프라인</span></div>"
-                    f"<div style='font-size:1.35rem;font-weight:800;color:#ffffff;line-height:1.3;'>{len(_active_ct)}건"
+                    f"<div style='font-size:1.35rem;font-weight:800;color:#ffffff;line-height:1.3;text-align:center;'>{len(_active_ct)}건"
                     f" <span style='font-size:0.8rem;font-weight:600;color:rgba(255,255,255,0.8);'>{_fmt_won_ct(_sum_amt(_active_ct))}</span></div></div>"
                     f"<div style='flex:1;max-width:180px;background:#0E9469;border-radius:9px;padding:7px 12px;'>"
-                    f"<div style='display:flex;align-items:center;gap:6px;'>"
+                    f"<div style='display:flex;align-items:center;justify-content:center;gap:6px;'>"
                     f"<span style='font-size:0.85rem;line-height:1;'>💡</span>"
                     f"<span style='font-size:0.82rem;color:rgba(255,255,255,0.9);font-weight:600;'>구매의사 기회</span></div>"
-                    f"<div style='font-size:1.35rem;font-weight:800;color:#ffffff;line-height:1.3;'>{len(_intent_ct)}건"
+                    f"<div style='font-size:1.35rem;font-weight:800;color:#ffffff;line-height:1.3;text-align:center;'>{len(_intent_ct)}건"
                     f" <span style='font-size:0.8rem;font-weight:600;color:rgba(255,255,255,0.8);'>{_fmt_won_ct(_sum_amt(_intent_ct))}</span></div></div>"
                     f"</div>",
                     unsafe_allow_html=True,
@@ -17047,7 +17047,7 @@ else:
                 def _panel_ct(title, body):
                     return (f"<div style='flex:1;min-width:0;border:1px solid #E2E8F0;background:#FFFFFF;"
                             f"border-radius:10px;padding:7px 10px;'>"
-                            f"<div style='font-size:0.8rem;font-weight:800;color:#0f172a;margin-bottom:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>{title}</div>{body}</div>")
+                            f"<div style='font-size:0.8rem;font-weight:800;color:#0f172a;margin-bottom:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;'>{title}</div>{body}</div>")
 
                 st.markdown(
                     "<div style='display:flex;gap:10px;'>"
@@ -17124,7 +17124,7 @@ else:
 
                 def _chart_card_ct(title, body):
                     return (f"<div style='flex:1;min-width:0;border:1px solid #E2E8F0;background:#FFFFFF;border-radius:10px;"
-                            f"padding:8px 10px;'><div style='font-size:0.72rem;font-weight:800;color:#334155;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>{title}</div>{body}</div>")
+                            f"padding:6px 10px;'><div style='font-size:0.72rem;font-weight:800;color:#334155;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;'>{title}</div>{body}</div>")
 
                 st.markdown(
                     "<div style='display:flex;gap:10px;margin-top:4px;'>"
@@ -17172,8 +17172,8 @@ else:
                         st.markdown(
                             f"<div style='border:2px solid {_gbd};background:#FFFFFF;border-radius:9px;"
                             f"padding:6px 10px;margin-bottom:4px;'>"
-                            f"<div style='font-size:0.88rem;font-weight:800;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>{_gicon} {_short_nm(_gp.get('name'))}</div>"
-                            f"<div style='font-size:0.78rem;color:#334155;'>{len(_rows_g)}건 · {_fmt_won_ct(_amt_g)}</div></div>",
+                            f"<div style='font-size:0.88rem;font-weight:800;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;'>{_gicon} {_short_nm(_gp.get('name'))}</div>"
+                            f"<div style='font-size:0.78rem;color:#334155;text-align:center;'>{len(_rows_g)}건 · {_fmt_won_ct(_amt_g)}</div></div>",
                             unsafe_allow_html=True,
                         )
                         if st.button("🔍 보기", key=f"drill_g_{_gkey}", use_container_width=True):
