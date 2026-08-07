@@ -16896,8 +16896,8 @@ else:
                     unsafe_allow_html=True,
                 )
 
-            # ── 상단 행: 라이선스 버튼(좌) + 영업·매출 현황(우) ──
-            _tl, _tr = st.columns([2, 5])
+            # ── 상단 행: 발주(좌) + 목표·달성률(중) + KPI 카드(우측 상단) — 2026-08-07 재배치 ──
+            _tl, _tm, _tr2 = st.columns([1.9, 3.6, 1.7], gap="medium")
             with _tl:
                 if st.button("➕ 발주하기", type="primary",
                              use_container_width=True, key="new_license_btn"):
@@ -16906,25 +16906,8 @@ else:
                              key="license_history_btn"):
                     go_to("license_request"); st.rerun()
                 st.caption(f"운용: 총판 {len(_distributors_ct)}개 · 다이렉트 {len(_direct_ct)}개")
-            with _tr:
+            with _tm:
                 st.markdown("<span style='display:inline-block;background:#132238;color:#fff;padding:3px 12px;border-radius:14px;font-weight:700;font-size:0.82rem;margin-bottom:4px;'>① 영업 · 매출 현황</span>", unsafe_allow_html=True)
-                st.markdown(
-                    f"<div style='display:flex;gap:10px;margin:2px 0 8px;'>"
-                    f"<div style='flex:1;max-width:180px;background:#3D6ED1;border-radius:9px;padding:7px 12px;'>"
-                    f"<div style='display:flex;align-items:center;justify-content:center;gap:6px;'>"
-                    f"<span style='font-size:0.85rem;line-height:1;'>📊</span>"
-                    f"<span style='font-size:0.82rem;color:rgba(255,255,255,0.9);font-weight:600;'>진행 파이프라인</span></div>"
-                    f"<div style='font-size:1.35rem;font-weight:800;color:#ffffff;line-height:1.3;text-align:center;'>{len(_active_ct)}건"
-                    f" <span style='font-size:0.8rem;font-weight:600;color:rgba(255,255,255,0.8);'>{_fmt_won_ct(_sum_amt(_active_ct))}</span></div></div>"
-                    f"<div style='flex:1;max-width:180px;background:#0E9469;border-radius:9px;padding:7px 12px;'>"
-                    f"<div style='display:flex;align-items:center;justify-content:center;gap:6px;'>"
-                    f"<span style='font-size:0.85rem;line-height:1;'>💡</span>"
-                    f"<span style='font-size:0.82rem;color:rgba(255,255,255,0.9);font-weight:600;'>구매의사 기회</span></div>"
-                    f"<div style='font-size:1.35rem;font-weight:800;color:#ffffff;line-height:1.3;text-align:center;'>{len(_intent_ct)}건"
-                    f" <span style='font-size:0.8rem;font-weight:600;color:rgba(255,255,255,0.8);'>{_fmt_won_ct(_sum_amt(_intent_ct))}</span></div></div>"
-                    f"</div>",
-                    unsafe_allow_html=True,
-                )
                 _mc1, _mc2, _mc3, _mc4 = st.columns([1.1, 1.1, 1.1, 1.1], gap="small")
                 with _mc1:
                     st.markdown(f"<div style='font-size:1.02rem;font-weight:800;color:#0f172a;margin:4px 0 2px;white-space:nowrap;'>{_year_ct} 연간 목표(억원)</div>", unsafe_allow_html=True)
@@ -16942,6 +16925,24 @@ else:
                 with _mc4:
                     st.markdown("<div style='height:33px;'></div>", unsafe_allow_html=True)
                     _bar_row_ct(f"{_q_ct}분기", _q_actual_ct, _tq_eok * 100000000, "#3D6ED1")
+            with _tr2:
+                st.markdown(
+                    f"<div style='display:flex;flex-direction:column;gap:8px;'>"
+                    f"<div style='background:#3D6ED1;border-radius:9px;padding:6px 12px;'>"
+                    f"<div style='display:flex;align-items:center;justify-content:center;gap:6px;'>"
+                    f"<span style='font-size:0.85rem;line-height:1;'>📊</span>"
+                    f"<span style='font-size:0.8rem;color:rgba(255,255,255,0.9);font-weight:600;'>진행 파이프라인</span></div>"
+                    f"<div style='font-size:1.25rem;font-weight:800;color:#ffffff;line-height:1.25;text-align:center;'>{len(_active_ct)}건"
+                    f" <span style='font-size:0.78rem;font-weight:600;color:rgba(255,255,255,0.8);'>{_fmt_won_ct(_sum_amt(_active_ct))}</span></div></div>"
+                    f"<div style='background:#0E9469;border-radius:9px;padding:6px 12px;'>"
+                    f"<div style='display:flex;align-items:center;justify-content:center;gap:6px;'>"
+                    f"<span style='font-size:0.85rem;line-height:1;'>💡</span>"
+                    f"<span style='font-size:0.8rem;color:rgba(255,255,255,0.9);font-weight:600;'>구매의사 기회</span></div>"
+                    f"<div style='font-size:1.25rem;font-weight:800;color:#ffffff;line-height:1.25;text-align:center;'>{len(_intent_ct)}건"
+                    f" <span style='font-size:0.78rem;font-weight:600;color:rgba(255,255,255,0.8);'>{_fmt_won_ct(_sum_amt(_intent_ct))}</span></div></div>"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
 
             st.markdown("<hr style='margin:4px 0 6px;border:none;border-top:1px solid #E2E8F0;'>", unsafe_allow_html=True)
 
