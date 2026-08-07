@@ -16947,7 +16947,6 @@ else:
             st.markdown("<hr style='margin:4px 0 6px;border:none;border-top:1px solid #E2E8F0;'>", unsafe_allow_html=True)
 
             # ── 좌: 총판+다이렉트 카드 스택 / 우: 패널+차트 — 상하 압축 단일 밴드 (2026-08-07) ──
-            st.markdown("<style>div[data-testid='stVerticalBlock']{gap:0.5rem;}</style>", unsafe_allow_html=True)
             _left_ct, _right_ct = st.columns([2.05, 4.15], gap="medium")
             with _left_ct:
                 st.markdown("<span style='display:inline-block;background:#DCEAFB;color:#2F5FC4;padding:2px 12px;border-radius:14px;font-weight:700;font-size:0.86rem;margin:2px 0 2px;'>🏢 ② 총판</span>", unsafe_allow_html=True)
