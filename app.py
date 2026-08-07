@@ -19047,7 +19047,7 @@ else:
         for _c, _t in zip(_hdr, ["파트너명", "직원수", f"{_yr_ds} 목표", "실적", "달성률",
                                  "📊 영업파이프라인", "🎯 예상(FC)",
                                  "1Q 실적/PL", "2Q 실적/PL", "3Q 실적/PL", "4Q 실적/PL"]):
-            _c.markdown(f"<div style='font-size:0.68rem;font-weight:700;color:#334155;'>{_t}</div>", unsafe_allow_html=True)
+            _c.markdown(f"<div style='font-size:0.85rem;font-weight:700;color:#334155;'>{_t}</div>", unsafe_allow_html=True)
         st.markdown("<hr style='margin:2px 0;'>", unsafe_allow_html=True)
 
         # ── 그룹 분류: 총판(+산하 대리점) / 다이렉트 / 미배정 (2026-08-07 재구성) ──
@@ -19085,16 +19085,16 @@ else:
                               help=f"{_typ_ds(_p)} · 클릭하면 영업현황(고객 목록)으로 이동"):
                 st.session_state["ps_partner"] = {"id": _pid, "name": _p.get("name", "파트너")}
                 go_to("partner_sales"); st.rerun()
-            _row[1].markdown(f"<div style='font-size:0.74rem;'>{_emp}명</div>", unsafe_allow_html=True)
-            _row[2].markdown(f"<div style='font-size:0.74rem;'>{_won_fmt_ds(_tgt)}</div>", unsafe_allow_html=True)
-            _row[3].markdown(f"<div style='font-size:0.74rem;'>{_won_fmt_ds(_won)}</div>", unsafe_allow_html=True)
-            _row[4].markdown(f"<div style='font-size:0.74rem;font-weight:700;color:{'#16a34a' if _rate>=100 else '#334155'};'>{_rate:.0f}%</div>", unsafe_allow_html=True)
-            _row[5].markdown(f"<div style='font-size:0.74rem;font-weight:700;color:#2563eb;'>{_won_fmt_ds(_pl)}"
-                             f"<br><span style='font-size:0.6rem;color:#64748b;font-weight:400;'>진행 {_cnt}건</span></div>", unsafe_allow_html=True)
-            _row[6].markdown(f"<div style='font-size:0.74rem;font-weight:700;color:#7c3aed;'>{_won_fmt_ds(_fc)}</div>", unsafe_allow_html=True)
+            _row[1].markdown(f"<div style='font-size:0.92rem;'>{_emp}명</div>", unsafe_allow_html=True)
+            _row[2].markdown(f"<div style='font-size:0.92rem;'>{_won_fmt_ds(_tgt)}</div>", unsafe_allow_html=True)
+            _row[3].markdown(f"<div style='font-size:0.92rem;'>{_won_fmt_ds(_won)}</div>", unsafe_allow_html=True)
+            _row[4].markdown(f"<div style='font-size:0.92rem;font-weight:700;color:{'#16a34a' if _rate>=100 else '#334155'};'>{_rate:.0f}%</div>", unsafe_allow_html=True)
+            _row[5].markdown(f"<div style='font-size:0.92rem;font-weight:700;color:#2563eb;'>{_won_fmt_ds(_pl)}"
+                             f"<br><span style='font-size:0.76rem;color:#64748b;font-weight:400;'>진행 {_cnt}건</span></div>", unsafe_allow_html=True)
+            _row[6].markdown(f"<div style='font-size:0.92rem;font-weight:700;color:#7c3aed;'>{_won_fmt_ds(_fc)}</div>", unsafe_allow_html=True)
             for _i in range(4):
                 _row[7+_i].markdown(
-                    f"<div style='font-size:0.66rem;'>{_won_fmt_ds(_qw[_i])}"
+                    f"<div style='font-size:0.82rem;'>{_won_fmt_ds(_qw[_i])}"
                     f"<br><span style='color:#64748b;'>{_won_fmt_ds(_qp[_i])}</span></div>",
                     unsafe_allow_html=True)
             return {"won": _won, "tgt": _tgt, "emp": _emp, "pl": _pl, "fc": _fc, "cnt": _cnt}
@@ -19103,14 +19103,14 @@ else:
             _srow = st.columns(_w_ds)
             _trate = (t["won"] / t["tgt"] * 100) if t["tgt"] > 0 else 0
             _fw = "800" if strong else "700"
-            _srow[0].markdown(f"<div style='font-size:0.74rem;font-weight:{_fw};'>{label}</div>", unsafe_allow_html=True)
-            _srow[1].markdown(f"<div style='font-size:0.74rem;font-weight:{_fw};'>{t['emp']}명</div>", unsafe_allow_html=True)
-            _srow[2].markdown(f"<div style='font-size:0.74rem;font-weight:{_fw};'>{_won_fmt_ds(t['tgt'])}</div>", unsafe_allow_html=True)
-            _srow[3].markdown(f"<div style='font-size:0.74rem;font-weight:{_fw};'>{_won_fmt_ds(t['won'])}</div>", unsafe_allow_html=True)
-            _srow[4].markdown(f"<div style='font-size:0.74rem;font-weight:{_fw};'>{_trate:.0f}%</div>", unsafe_allow_html=True)
-            _srow[5].markdown(f"<div style='font-size:0.74rem;font-weight:{_fw};color:#2563eb;'>{_won_fmt_ds(t['pl'])}"
-                              f"<br><span style='font-size:0.6rem;color:#64748b;font-weight:400;'>진행 {t['cnt']}건</span></div>", unsafe_allow_html=True)
-            _srow[6].markdown(f"<div style='font-size:0.74rem;font-weight:{_fw};color:#7c3aed;'>{_won_fmt_ds(t['fc'])}</div>", unsafe_allow_html=True)
+            _srow[0].markdown(f"<div style='font-size:0.92rem;font-weight:{_fw};'>{label}</div>", unsafe_allow_html=True)
+            _srow[1].markdown(f"<div style='font-size:0.92rem;font-weight:{_fw};'>{t['emp']}명</div>", unsafe_allow_html=True)
+            _srow[2].markdown(f"<div style='font-size:0.92rem;font-weight:{_fw};'>{_won_fmt_ds(t['tgt'])}</div>", unsafe_allow_html=True)
+            _srow[3].markdown(f"<div style='font-size:0.92rem;font-weight:{_fw};'>{_won_fmt_ds(t['won'])}</div>", unsafe_allow_html=True)
+            _srow[4].markdown(f"<div style='font-size:0.92rem;font-weight:{_fw};'>{_trate:.0f}%</div>", unsafe_allow_html=True)
+            _srow[5].markdown(f"<div style='font-size:0.92rem;font-weight:{_fw};color:#2563eb;'>{_won_fmt_ds(t['pl'])}"
+                              f"<br><span style='font-size:0.76rem;color:#64748b;font-weight:400;'>진행 {t['cnt']}건</span></div>", unsafe_allow_html=True)
+            _srow[6].markdown(f"<div style='font-size:0.92rem;font-weight:{_fw};color:#7c3aed;'>{_won_fmt_ds(t['fc'])}</div>", unsafe_allow_html=True)
 
         def _acc_ds(t, r):
             for _k in r:
@@ -19126,7 +19126,7 @@ else:
         # 🏢 총판별 섹션
         if _ds_view in ("전체", "총판별"):
             for _di, _d in enumerate(_dists_ds):
-                st.markdown(f"<span style='display:inline-block;background:#DCEAFB;color:#2F5FC4;padding:2px 12px;border-radius:14px;font-weight:700;font-size:0.8rem;margin:6px 0 2px;'>🏢 총판 {_di+1} · {_d.get('name','-')}</span>", unsafe_allow_html=True)
+                st.markdown(f"<span style='display:inline-block;background:#DCEAFB;color:#2F5FC4;padding:2px 12px;border-radius:14px;font-weight:700;font-size:0.95rem;margin:6px 0 2px;'>🏢 총판 {_di+1} · {_d.get('name','-')}</span>", unsafe_allow_html=True)
                 _g = _zero_ds()
                 _acc_ds(_g, _row_ds(_d))
                 for _c in _children_ds.get(_d["id"], []):
@@ -19139,7 +19139,7 @@ else:
 
         # 🤝 다이렉트 파트너 섹션
         if _ds_view in ("전체", "다이렉트 파트너"):
-            st.markdown("<span style='display:inline-block;background:#D6EFE3;color:#0B7A55;padding:2px 12px;border-radius:14px;font-weight:700;font-size:0.8rem;margin:6px 0 2px;'>🤝 다이렉트 파트너</span>", unsafe_allow_html=True)
+            st.markdown("<span style='display:inline-block;background:#D6EFE3;color:#0B7A55;padding:2px 12px;border-radius:14px;font-weight:700;font-size:0.95rem;margin:6px 0 2px;'>🤝 다이렉트 파트너</span>", unsafe_allow_html=True)
             _g = _zero_ds()
             for _p in _directs_ds:
                 _acc_ds(_g, _row_ds(_p))
@@ -19152,7 +19152,7 @@ else:
 
         # ⏳ 미배정 파트너 섹션 (총판 미배정 — 추후 배정 시 소멸 예정)
         if _ds_view in ("전체", "미배정 파트너"):
-            st.markdown("<span style='display:inline-block;background:#FDE9D9;color:#B45309;padding:2px 12px;border-radius:14px;font-weight:700;font-size:0.8rem;margin:6px 0 2px;'>⏳ 미배정 파트너 — 총판 배정 대기</span>", unsafe_allow_html=True)
+            st.markdown("<span style='display:inline-block;background:#FDE9D9;color:#B45309;padding:2px 12px;border-radius:14px;font-weight:700;font-size:0.95rem;margin:6px 0 2px;'>⏳ 미배정 파트너 — 총판 배정 대기</span>", unsafe_allow_html=True)
             _g = _zero_ds()
             for _p in _unassigned_ds:
                 _acc_ds(_g, _row_ds(_p))
