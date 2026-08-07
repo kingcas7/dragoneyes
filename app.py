@@ -14683,15 +14683,15 @@ else:
         "user_detail", "user_management", "user_profile", "user_search", "work_page",
     ))
     _ss_cp = st.session_state.get("current_page") or ""
-    # 새 세션(새로고침·뒤로가기 후 reload)일 때는 URL의 page를 그대로 복원
-    if (not _ss_cp) and _qp_page in _ALL_APP_PAGES:
+    # URL(page)과 세션의 우선순위 — 2026-08-07 재정리
+    #   · URL 값이 '우리가 마지막으로 쓴 값'과 다르면 = 외부 변경(첫 진입·새로고침·뒤로가기) → URL 우선
+    #   · 같으면 = 사용자가 앱 안에서 클릭해 이동한 상태 → 세션(current_page) 우선
+    #     (예전 로직은 후자에서도 URL이 세션을 덮어써 모니터링 통계 등에서 메뉴 이동이 막혔음)
+    _url_synced = st.session_state.get("_url_page_sync")
+    if _qp_page in _ALL_APP_PAGES and _qp_page != _url_synced:
         st.session_state["current_page"] = _qp_page
+        st.session_state["_url_page_sync"] = _qp_page
         _ss_cp = _qp_page
-    if _qp_page and _qp_page in _qp_cmp_pages:
-        # session_state가 비었거나, sid 복원이 강제로 home_landing/monitoring으로 set한 경우만 덮어쓰기
-        # (이미 캠페인 페이지 안에 있고 사용자가 그 안에서 이동하는 경우엔 건드리지 않음)
-        if (not _ss_cp) or (_ss_cp in ("home_landing", "monitoring_dashboard")) or (_ss_cp not in _qp_cmp_pages):
-            st.session_state["current_page"] = _qp_page
     elif not _ss_cp:
         # current_page가 비어있을 때만 캠페인 사용자 default 적용
         if _is_cmp_persist:
@@ -14710,8 +14710,11 @@ else:
             or (_cp_now == "monitoring_stats" and bool(st.session_state.get("_stats_from_campaign")))
         )
         # 전 페이지 URL 동기화 (뒤로가기용 히스토리 항목 생성)
-        if _cp_now in _ALL_APP_PAGES and st.query_params.get("page") != _cp_now:
-            st.query_params["page"] = _cp_now
+        if _cp_now in _ALL_APP_PAGES:
+            if st.query_params.get("page") != _cp_now:
+                st.query_params["page"] = _cp_now
+            # 우리가 쓴 값 기록 — 다음 런에서 '외부 변경' 판별 기준
+            st.session_state["_url_page_sync"] = _cp_now
     except Exception:
         pass
 
