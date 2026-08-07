@@ -16764,7 +16764,8 @@ else:
         if _hq_tower:
             _today_ct = date.today()
             _year_ct = _today_ct.year
-            _q_ct = (_today_ct.month - 1) // 3 + 1
+            # 목표 분기: 현재 분기가 절반 이상 지났으면 다음 분기를 목표로 (2026-08-07 지시 — 3분기 지남→4분기)
+            _q_ct = min((_today_ct.month - 1) // 3 + 2, 4)
             _q_start_m = (_q_ct - 1) * 3 + 1
 
             _th_l, _th_r = st.columns([4, 2])
@@ -16786,6 +16787,9 @@ else:
             except Exception:
                 _all_partners_ct = []
             _distributors_ct = [p for p in _all_partners_ct if p.get("is_distributor")]
+            # 표시 순서 지정 (2026-08-07): 1 해당씨엔에이 → 2 집집공인중개사 → 나머지 이름순
+            _dist_priority = {"주식회사 해당씨엔에이": 0, "집집공인중개사 (테스트)": 1}
+            _distributors_ct.sort(key=lambda p: (_dist_priority.get(p.get("name"), 99), p.get("name") or ""))
             # 다이렉트 = 직접계약 채널 + 영업계약 체결 + 관계기관 아님 (2026-08-07 기준: 포유솔루션)
             _direct_ct = [p for p in _all_partners_ct
                           if not p.get("is_distributor")
@@ -16951,10 +16955,27 @@ else:
                     else:
                         _empty_card_ct(f"총판 {_i + 1}", kind="dist")
             with _dist_cols[-1]:
+                # 📊 2026 파트너별 목표 그래프 (가상 목표 — 확정 시 실데이터 연동)
+                _g_goals = [
+                    ("주식회사 해당씨엔에이", 50, "#3D6ED1"),
+                    ("집집공인중개사", 20, "#6C8FE0"),
+                    ("포유솔루션", 10, "#0E9469"),
+                ]
+                _g_max = max(g[1] for g in _g_goals)
+                _g_rows = "".join(
+                    f"<div style='display:flex;align-items:center;gap:8px;margin-bottom:7px;'>"
+                    f"<span style='flex:none;width:118px;font-size:0.78rem;font-weight:600;color:#334155;"
+                    f"white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>{_gn}</span>"
+                    f"<div style='flex:1;background:#EEF2F7;border-radius:4px;height:16px;'>"
+                    f"<div style='background:{_gc};width:{_gv/_g_max*100:.0f}%;height:16px;border-radius:4px;'></div></div>"
+                    f"<span style='flex:none;width:40px;font-size:0.82rem;font-weight:800;color:#0f172a;text-align:right;'>{_gv}억</span></div>"
+                    for _gn, _gv, _gc in _g_goals
+                )
                 st.markdown(
-                    "<div style='border:1.5px dashed #CBD5E1;background:#F8FAFC;border-radius:10px;"
-                    "min-height:120px;display:flex;align-items:center;justify-content:center;"
-                    "color:#94A3B8;font-size:0.9rem;font-weight:600;'>📈 그래프·대시보드 영역 (예정)</div>",
+                    f"<div style='border:1px solid #E2E8F0;background:#FFFFFF;border-radius:10px;padding:10px 14px;'>"
+                    f"<div style='font-size:0.88rem;font-weight:800;color:#0f172a;margin-bottom:8px;'>"
+                    f"📊 2026 파트너별 목표 <span style='font-weight:600;color:#94A3B8;font-size:0.72rem;'>(가상 목표 — 확정 전)</span></div>"
+                    f"{_g_rows}</div>",
                     unsafe_allow_html=True,
                 )
 
