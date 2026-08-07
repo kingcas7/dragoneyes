@@ -18979,6 +18979,8 @@ else:
         _partner_back_btn("back_distributor_sales", target="agency_dashboard")
         st.markdown("### 📊 총판 영업현황")
         st.caption("총판 산하 전체 파트너의 연간 목표·실적·달성률·분기별 현황입니다. **파트너명을 클릭**하면 그 파트너의 고객 영업현황으로 이동합니다.")
+        _ds_view = st.radio("보기", ["전체", "총판별", "다이렉트 파트너", "미배정 파트너"],
+                             horizontal=True, key="ds_view_mode", label_visibility="collapsed")
 
         _yr_ds = date.today().year
         try:
@@ -19048,21 +19050,39 @@ else:
             _c.markdown(f"<div style='font-size:0.68rem;font-weight:700;color:#334155;'>{_t}</div>", unsafe_allow_html=True)
         st.markdown("<hr style='margin:2px 0;'>", unsafe_allow_html=True)
 
-        _tot = {"won": 0.0, "tgt": 0.0, "emp": 0, "pl": 0.0, "fc": 0.0, "cnt": 0}
-        if not _parts_ds:
-            st.info("등록된 파트너가 없습니다. 신규 파트너 등록 후 표시됩니다.")
-        for _p in _parts_ds:
+        # ── 그룹 분류: 총판(+산하 대리점) / 다이렉트 / 미배정 (2026-08-07 재구성) ──
+        _dists_ds = [p for p in _parts_ds if p.get("is_distributor")]
+        _dists_ds.sort(key=lambda p: ({"주식회사 해당씨엔에이": 0, "집집공인중개사 (테스트)": 1}.get(p.get("name"), 99), p.get("name") or ""))
+        _directs_ds = [p for p in _parts_ds
+                       if not p.get("is_distributor") and not p.get("is_related_org")
+                       and p.get("business_channel") == "direct_partnership"
+                       and p.get("has_sales_contract")]
+        _children_ds = {d["id"]: sorted([p for p in _parts_ds if p.get("parent_partner_id") == d["id"]],
+                                          key=lambda x: x.get("name") or "") for d in _dists_ds}
+        _grouped_ids = ({d["id"] for d in _dists_ds} | {p["id"] for p in _directs_ds}
+                        | {c["id"] for lst in _children_ds.values() for c in lst})
+        _unassigned_ds = sorted([p for p in _parts_ds if p.get("id") not in _grouped_ids],
+                                 key=lambda x: x.get("name") or "")
+
+        def _typ_ds(p):
+            if p.get("is_distributor"):
+                return "총판"
+            if p.get("is_related_org"):
+                return "관계기관"
+            if p.get("business_channel") == "direct_partnership":
+                return "직접계약파트너"
+            return "대리점"
+
+        def _row_ds(_p, _prefix=""):
             _pid = _p.get("id")
             _won, _pl, _fc, _cnt, _qw, _qp = _agg_ds(_pid)
             _tgt = float(st.session_state.get(f"hq_ptgt_{_pid}", 0) or 0) * 10000
             _rate = (_won / _tgt * 100) if _tgt > 0 else 0
             _emp = _emp_by_pid.get(_pid, 0)
-            _tot["won"] += _won; _tot["tgt"] += _tgt; _tot["emp"] += _emp
-            _tot["pl"] += _pl; _tot["fc"] += _fc; _tot["cnt"] += _cnt
             _row = st.columns(_w_ds)
-            _typ = "총판" if _p.get("is_distributor") else ("대리점" if _p.get("is_reseller") else "파트너")
-            if _row[0].button(f"🤝 {_p.get('name','-')}", key=f"ds_open_{_pid}", use_container_width=True,
-                              help=f"{_typ} · 클릭하면 영업현황(고객 목록)으로 이동"):
+            _icn = "🏢" if _p.get("is_distributor") else "🤝"
+            if _row[0].button(f"{_prefix}{_icn} {_p.get('name','-')}", key=f"ds_open_{_pid}", use_container_width=True,
+                              help=f"{_typ_ds(_p)} · 클릭하면 영업현황(고객 목록)으로 이동"):
                 st.session_state["ps_partner"] = {"id": _pid, "name": _p.get("name", "파트너")}
                 go_to("partner_sales"); st.rerun()
             _row[1].markdown(f"<div style='font-size:0.74rem;'>{_emp}명</div>", unsafe_allow_html=True)
@@ -19077,18 +19097,74 @@ else:
                     f"<div style='font-size:0.66rem;'>{_won_fmt_ds(_qw[_i])}"
                     f"<br><span style='color:#64748b;'>{_won_fmt_ds(_qp[_i])}</span></div>",
                     unsafe_allow_html=True)
-        if _parts_ds:
-            st.markdown("<hr style='margin:2px 0;'>", unsafe_allow_html=True)
+            return {"won": _won, "tgt": _tgt, "emp": _emp, "pl": _pl, "fc": _fc, "cnt": _cnt}
+
+        def _sum_rows_ds(label, t, strong=False):
             _srow = st.columns(_w_ds)
-            _trate = (_tot["won"]/_tot["tgt"]*100) if _tot["tgt"] > 0 else 0
-            _srow[0].markdown("<div style='font-size:0.74rem;font-weight:700;'>소계</div>", unsafe_allow_html=True)
-            _srow[1].markdown(f"<div style='font-size:0.74rem;font-weight:700;'>{_tot['emp']}명</div>", unsafe_allow_html=True)
-            _srow[2].markdown(f"<div style='font-size:0.74rem;font-weight:700;'>{_won_fmt_ds(_tot['tgt'])}</div>", unsafe_allow_html=True)
-            _srow[3].markdown(f"<div style='font-size:0.74rem;font-weight:700;'>{_won_fmt_ds(_tot['won'])}</div>", unsafe_allow_html=True)
-            _srow[4].markdown(f"<div style='font-size:0.74rem;font-weight:700;'>{_trate:.0f}%</div>", unsafe_allow_html=True)
-            _srow[5].markdown(f"<div style='font-size:0.74rem;font-weight:700;color:#2563eb;'>{_won_fmt_ds(_tot['pl'])}"
-                              f"<br><span style='font-size:0.6rem;color:#64748b;font-weight:400;'>진행 {_tot['cnt']}건</span></div>", unsafe_allow_html=True)
-            _srow[6].markdown(f"<div style='font-size:0.74rem;font-weight:700;color:#7c3aed;'>{_won_fmt_ds(_tot['fc'])}</div>", unsafe_allow_html=True)
+            _trate = (t["won"] / t["tgt"] * 100) if t["tgt"] > 0 else 0
+            _fw = "800" if strong else "700"
+            _srow[0].markdown(f"<div style='font-size:0.74rem;font-weight:{_fw};'>{label}</div>", unsafe_allow_html=True)
+            _srow[1].markdown(f"<div style='font-size:0.74rem;font-weight:{_fw};'>{t['emp']}명</div>", unsafe_allow_html=True)
+            _srow[2].markdown(f"<div style='font-size:0.74rem;font-weight:{_fw};'>{_won_fmt_ds(t['tgt'])}</div>", unsafe_allow_html=True)
+            _srow[3].markdown(f"<div style='font-size:0.74rem;font-weight:{_fw};'>{_won_fmt_ds(t['won'])}</div>", unsafe_allow_html=True)
+            _srow[4].markdown(f"<div style='font-size:0.74rem;font-weight:{_fw};'>{_trate:.0f}%</div>", unsafe_allow_html=True)
+            _srow[5].markdown(f"<div style='font-size:0.74rem;font-weight:{_fw};color:#2563eb;'>{_won_fmt_ds(t['pl'])}"
+                              f"<br><span style='font-size:0.6rem;color:#64748b;font-weight:400;'>진행 {t['cnt']}건</span></div>", unsafe_allow_html=True)
+            _srow[6].markdown(f"<div style='font-size:0.74rem;font-weight:{_fw};color:#7c3aed;'>{_won_fmt_ds(t['fc'])}</div>", unsafe_allow_html=True)
+
+        def _acc_ds(t, r):
+            for _k in r:
+                t[_k] += r[_k]
+
+        def _zero_ds():
+            return {"won": 0.0, "tgt": 0.0, "emp": 0, "pl": 0.0, "fc": 0.0, "cnt": 0}
+
+        _grand_ds = _zero_ds()
+        if not _parts_ds:
+            st.info("등록된 파트너가 없습니다. 신규 파트너 등록 후 표시됩니다.")
+
+        # 🏢 총판별 섹션
+        if _ds_view in ("전체", "총판별"):
+            for _di, _d in enumerate(_dists_ds):
+                st.markdown(f"<span style='display:inline-block;background:#DCEAFB;color:#2F5FC4;padding:2px 12px;border-radius:14px;font-weight:700;font-size:0.8rem;margin:6px 0 2px;'>🏢 총판 {_di+1} · {_d.get('name','-')}</span>", unsafe_allow_html=True)
+                _g = _zero_ds()
+                _acc_ds(_g, _row_ds(_d))
+                for _c in _children_ds.get(_d["id"], []):
+                    _acc_ds(_g, _row_ds(_c, _prefix="└ "))
+                if not _children_ds.get(_d["id"]):
+                    st.caption("　└ 소속 대리점 없음 — 파트너 배정 시 이 아래에 표시됩니다.")
+                _sum_rows_ds(f"{_d.get('name','-')} 소계", _g)
+                _acc_ds(_grand_ds, _g)
+                st.markdown("<hr style='margin:2px 0;'>", unsafe_allow_html=True)
+
+        # 🤝 다이렉트 파트너 섹션
+        if _ds_view in ("전체", "다이렉트 파트너"):
+            st.markdown("<span style='display:inline-block;background:#D6EFE3;color:#0B7A55;padding:2px 12px;border-radius:14px;font-weight:700;font-size:0.8rem;margin:6px 0 2px;'>🤝 다이렉트 파트너</span>", unsafe_allow_html=True)
+            _g = _zero_ds()
+            for _p in _directs_ds:
+                _acc_ds(_g, _row_ds(_p))
+            if not _directs_ds:
+                st.caption("　등록된 다이렉트 파트너가 없습니다.")
+            else:
+                _sum_rows_ds("다이렉트 소계", _g)
+            _acc_ds(_grand_ds, _g)
+            st.markdown("<hr style='margin:2px 0;'>", unsafe_allow_html=True)
+
+        # ⏳ 미배정 파트너 섹션 (총판 미배정 — 추후 배정 시 소멸 예정)
+        if _ds_view in ("전체", "미배정 파트너"):
+            st.markdown("<span style='display:inline-block;background:#FDE9D9;color:#B45309;padding:2px 12px;border-radius:14px;font-weight:700;font-size:0.8rem;margin:6px 0 2px;'>⏳ 미배정 파트너 — 총판 배정 대기</span>", unsafe_allow_html=True)
+            _g = _zero_ds()
+            for _p in _unassigned_ds:
+                _acc_ds(_g, _row_ds(_p))
+            if not _unassigned_ds:
+                st.caption("　미배정 파트너가 없습니다. 🎉")
+            else:
+                _sum_rows_ds("미배정 소계", _g)
+            _acc_ds(_grand_ds, _g)
+            st.markdown("<hr style='margin:2px 0;'>", unsafe_allow_html=True)
+
+        if _ds_view == "전체" and _parts_ds:
+            _sum_rows_ds("전체 합계", _grand_ds, strong=True)
         st.caption("💡 목표는 관제 타워 입력값 연동. **영업파이프라인**=진행 중 영업기회 예상금액 합계, "
                    "**예상(FC)**=Forecast(예상금액×성공확률) — 영업 파이프라인 페이지와 동일 기준입니다.")
         st.divider()
