@@ -17055,6 +17055,74 @@ else:
                         st.session_state["tower_drill"] = {"view": "pipeline", "group": None}
                         st.rerun()
 
+                # ── 📉 미니 차트 (막대/도넛 토글) — 3패널 데이터 시각화, 단위 억원 (2026-08-07) ──
+                _chart_mode = st.radio("차트 형태", ["📊 막대", "🍩 도넛"], horizontal=True,
+                                        key="tower_chart_mode", label_visibility="collapsed")
+
+                def _mini_bars_ct(items):
+                    _items = [x for x in items if x[1] > 0]
+                    if not _items:
+                        return "<div style='font-size:0.68rem;color:#94A3B8;height:104px;display:flex;align-items:center;justify-content:center;'>데이터 없음</div>"
+                    _vmax = max(v for _, v, _ in _items) or 1
+                    _cols_h = "".join(
+                        f"<div style='flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;min-width:0;'>"
+                        f"<span style='font-size:0.62rem;font-weight:800;color:#0f172a;'>{v:g}</span>"
+                        f"<div style='width:70%;max-width:34px;height:{max(v/_vmax*70, 3):.0f}px;background:{c};border-radius:3px 3px 0 0;'></div>"
+                        f"<span style='font-size:0.6rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;'>{l}</span></div>"
+                        for l, v, c in _items
+                    )
+                    return f"<div style='display:flex;align-items:flex-end;gap:4px;height:104px;'>{_cols_h}</div>"
+
+                def _mini_donut_ct(items):
+                    _items = [x for x in items if x[1] > 0]
+                    _tot = sum(v for _, v, _ in _items)
+                    if _tot <= 0:
+                        return "<div style='font-size:0.68rem;color:#94A3B8;height:104px;display:flex;align-items:center;justify-content:center;'>데이터 없음</div>"
+                    _stops = []
+                    _acc = 0.0
+                    for _l, _v, _c in _items:
+                        _p0 = _acc / _tot * 100
+                        _acc += _v
+                        _p1 = _acc / _tot * 100
+                        _stops.append(f"{_c} {_p0:.1f}% {_p1:.1f}%")
+                    _legend = "".join(
+                        f"<div style='display:flex;align-items:center;gap:4px;'>"
+                        f"<span style='width:8px;height:8px;border-radius:2px;background:{_c};flex:none;'></span>"
+                        f"<span style='font-size:0.6rem;color:#334155;white-space:nowrap;'>{_l} {_v:g}억</span></div>"
+                        for _l, _v, _c in _items
+                    )
+                    return (
+                        f"<div style='display:flex;align-items:center;gap:10px;height:104px;'>"
+                        f"<div style='width:84px;height:84px;border-radius:50%;flex:none;"
+                        f"background:conic-gradient({', '.join(_stops)});display:flex;align-items:center;justify-content:center;'>"
+                        f"<div style='width:52px;height:52px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;"
+                        f"font-size:0.62rem;font-weight:800;color:#0f172a;'>{_tot:g}억</div></div>"
+                        f"<div style='display:flex;flex-direction:column;gap:3px;min-width:0;'>{_legend}</div></div>"
+                    )
+
+                _eok_ct = lambda w: round(w / 100000000, 1)
+                _items_goal = [(_short_nm(_gn), float(_gv), _gc) for _gn, _gv, _gc in _g_goals]
+                _items_fc = [(_k, _eok_ct(_fc_cls[_k][1]), _fc_colors[_k])
+                             for _k in ("IN", "Commit", "Best Case", "Pipeline")]
+                _pipe_palette = ["#8B5CF6", "#6366F1", "#A78BFA", "#C4B5FD", "#DDD6FE"]
+                _items_pipe = [(_short_nm(_pname_by_id_ct.get(_pid)), _eok_ct(_a), _pipe_palette[_pi % len(_pipe_palette)])
+                               for _pi, (_pid, (_c0, _a)) in enumerate(sorted(_pipe_ct.items(), key=lambda x: -x[1][1]))]
+
+                _fn_chart = _mini_bars_ct if "막대" in _chart_mode else _mini_donut_ct
+
+                def _chart_card_ct(title, body):
+                    return (f"<div style='flex:1;min-width:0;border:1px solid #E2E8F0;background:#FFFFFF;border-radius:10px;"
+                            f"padding:8px 10px;'><div style='font-size:0.72rem;font-weight:800;color:#334155;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>{title}</div>{body}</div>")
+
+                st.markdown(
+                    "<div style='display:flex;gap:10px;margin-top:6px;'>"
+                    + _chart_card_ct("🎯 목표 규모(억) — 가상", _fn_chart(_items_goal))
+                    + _chart_card_ct(f"🔮 {_q_ct}분기 Forecast 분류(억)", _fn_chart(_items_fc))
+                    + _chart_card_ct("📊 파이프라인 그룹별(억)", _fn_chart(_items_pipe))
+                    + "</div>",
+                    unsafe_allow_html=True,
+                )
+
             st.markdown("<span style='display:inline-block;background:#D6EFE3;color:#0B7A55;padding:3px 12px;border-radius:14px;font-weight:700;font-size:0.86rem;margin:6px 0 4px;'>🤝 ③ 다이렉트 파트너</span>", unsafe_allow_html=True)
             _dp_n = max(2, len(_direct_ct))
             _dp_cols = st.columns([1] * _dp_n + [max(2.0, 6.2 - _dp_n)], gap="medium")
