@@ -16947,7 +16947,7 @@ else:
             # ── ② 총판 1행 + ③ 다이렉트 1행 — 좌측 밀착, 우측은 그래프·대시보드 예약 공간 ──
             st.markdown("<span style='display:inline-block;background:#DCEAFB;color:#2F5FC4;padding:3px 12px;border-radius:14px;font-weight:700;font-size:0.86rem;margin:6px 0 4px;'>🏢 ② 총판</span>", unsafe_allow_html=True)
             _dist_n = max(2, len(_distributors_ct))
-            _dist_cols = st.columns([1] * _dist_n + [max(2, 4 - _dist_n)], gap="medium")
+            _dist_cols = st.columns([1] * _dist_n + [max(2.0, 6.2 - _dist_n)], gap="medium")
             for _i in range(_dist_n):
                 with _dist_cols[_i]:
                     if _i < len(_distributors_ct):
@@ -16955,33 +16955,76 @@ else:
                     else:
                         _empty_card_ct(f"총판 {_i + 1}", kind="dist")
             with _dist_cols[-1]:
-                # 📊 2026 파트너별 목표 그래프 (가상 목표 — 확정 시 실데이터 연동)
-                _g_goals = [
-                    ("주식회사 해당씨엔에이", 50, "#3D6ED1"),
-                    ("집집공인중개사", 20, "#6C8FE0"),
-                    ("포유솔루션", 10, "#0E9469"),
-                ]
-                _g_max = max(g[1] for g in _g_goals)
-                _g_rows = "".join(
-                    f"<div style='display:flex;align-items:center;gap:8px;margin-bottom:7px;'>"
-                    f"<span style='flex:none;width:118px;font-size:0.78rem;font-weight:600;color:#334155;"
-                    f"white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>{_gn}</span>"
-                    f"<div style='flex:1;background:#EEF2F7;border-radius:4px;height:16px;'>"
-                    f"<div style='background:{_gc};width:{_gv/_g_max*100:.0f}%;height:16px;border-radius:4px;'></div></div>"
-                    f"<span style='flex:none;width:40px;font-size:0.82rem;font-weight:800;color:#0f172a;text-align:right;'>{_gv}억</span></div>"
-                    for _gn, _gv, _gc in _g_goals
+                # 📊 그래프 3종: ①목표 대비 달성률 ②그룹별 파이프라인 ③분기 포캐스트 (2026-08-07)
+                _name_to_id_ct = {p.get("name"): p.get("id") for p in _all_partners_ct}
+                _pname_by_id_ct = {p.get("id"): p.get("name") for p in _all_partners_ct}
+                _short_nm = lambda n: (n or "미배정").replace("주식회사 ", "").replace(" 주식회사", "").replace(" (테스트)", "")
+
+                # ① 목표 대비 달성률 (가상 목표 50/20/10억 — 확정 시 실목표 연동)
+                _g_goals = [("주식회사 해당씨엔에이", 50, "#3D6ED1"),
+                            ("집집공인중개사 (테스트)", 20, "#6C8FE0"),
+                            ("포유솔루션 주식회사", 10, "#0E9469")]
+                _rows_a = ""
+                for _gn, _gv, _gc in _g_goals:
+                    _grev = _rev_by_partner.get(_name_to_id_ct.get(_gn), 0)
+                    _grate = _grev / (_gv * 100000000) * 100 if _gv else 0
+                    _rows_a += (
+                        f"<div style='display:flex;align-items:center;gap:6px;margin-bottom:6px;'>"
+                        f"<span style='flex:none;width:84px;font-size:0.72rem;font-weight:600;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>{_short_nm(_gn)}</span>"
+                        f"<div style='flex:1;background:#EEF2F7;border-radius:3px;height:12px;'>"
+                        f"<div style='background:{_gc};width:{min(_grate,100):.0f}%;height:12px;border-radius:3px;'></div></div>"
+                        f"<span style='flex:none;width:58px;font-size:0.72rem;font-weight:800;color:#0f172a;text-align:right;'>{_grate:.0f}% <span style=\'font-weight:600;color:#94A3B8;\'>/{_gv}억</span></span></div>"
+                    )
+
+                # ② 그룹별 진행 파이프라인 (실데이터)
+                _pipe_ct = {}
+                for _o in _active_ct:
+                    _pid = _o.get("assigned_partner_id")
+                    _c, _a = _pipe_ct.get(_pid, (0, 0.0))
+                    _pipe_ct[_pid] = (_c + 1, _a + float(_o.get("expected_amount") or 0))
+                _pipe_max = max((a for _c, a in _pipe_ct.values()), default=1) or 1
+                _rows_b = ""
+                for _pid, (_c, _a) in sorted(_pipe_ct.items(), key=lambda x: -x[1][1]):
+                    _rows_b += (
+                        f"<div style='display:flex;align-items:center;gap:6px;margin-bottom:6px;'>"
+                        f"<span style='flex:none;width:84px;font-size:0.72rem;font-weight:600;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>{_short_nm(_pname_by_id_ct.get(_pid))}</span>"
+                        f"<div style='flex:1;background:#EEF2F7;border-radius:3px;height:12px;'>"
+                        f"<div style='background:#8B5CF6;width:{_a/_pipe_max*100:.0f}%;height:12px;border-radius:3px;'></div></div>"
+                        f"<span style='flex:none;width:70px;font-size:0.72rem;font-weight:800;color:#0f172a;text-align:right;'>{_c}건 {_fmt_won_ct(_a)}</span></div>"
+                    )
+                if not _rows_b:
+                    _rows_b = "<div style='font-size:0.74rem;color:#94A3B8;'>진행 중 파이프라인 없음</div>"
+
+                # ③ 이번 목표분기 포캐스트 (성사확률 가중)
+                _fc_rows = [_o for _o in _active_ct
+                            if str(_o.get("expected_close_date") or "")[:4] == str(_year_ct)
+                            and _o.get("expected_close_date")
+                            and ((int(str(_o.get("expected_close_date"))[5:7]) - 1) // 3 + 1) == _q_ct]
+                _fc_w = sum(float(_o.get("expected_amount") or 0) * float(_o.get("win_probability") or 0) / 100 for _o in _fc_rows)
+                _fc_t = sum(float(_o.get("expected_amount") or 0) for _o in _fc_rows)
+                _panel_c = (
+                    f"<div style='font-size:1.35rem;font-weight:800;color:#0f172a;margin:2px 0;'>{_fmt_won_ct(_fc_w)}</div>"
+                    f"<div style='font-size:0.72rem;color:#64748b;'>성사확률 가중 · 대상 {len(_fc_rows)}건</div>"
+                    f"<div style='font-size:0.72rem;color:#64748b;'>파이프라인 총액 {_fmt_won_ct(_fc_t)}</div>"
                 )
+
+                def _panel_ct(title, body):
+                    return (f"<div style='flex:1;min-width:0;border:1px solid #E2E8F0;background:#FFFFFF;"
+                            f"border-radius:10px;padding:9px 12px;'>"
+                            f"<div style='font-size:0.8rem;font-weight:800;color:#0f172a;margin-bottom:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>{title}</div>{body}</div>")
+
                 st.markdown(
-                    f"<div style='border:1px solid #E2E8F0;background:#FFFFFF;border-radius:10px;padding:10px 14px;'>"
-                    f"<div style='font-size:0.88rem;font-weight:800;color:#0f172a;margin-bottom:8px;'>"
-                    f"📊 2026 파트너별 목표 <span style='font-weight:600;color:#94A3B8;font-size:0.72rem;'>(가상 목표 — 확정 전)</span></div>"
-                    f"{_g_rows}</div>",
+                    "<div style='display:flex;gap:10px;'>"
+                    + _panel_ct("🎯 목표 대비 달성률 <span style='font-weight:600;color:#94A3B8;font-size:0.68rem;'>(가상 목표)</span>", _rows_a)
+                    + _panel_ct("📊 그룹별 파이프라인", _rows_b)
+                    + _panel_ct(f"🔮 {_q_ct}분기 포캐스트", _panel_c)
+                    + "</div>",
                     unsafe_allow_html=True,
                 )
 
             st.markdown("<span style='display:inline-block;background:#D6EFE3;color:#0B7A55;padding:3px 12px;border-radius:14px;font-weight:700;font-size:0.86rem;margin:6px 0 4px;'>🤝 ③ 다이렉트 파트너</span>", unsafe_allow_html=True)
             _dp_n = max(2, len(_direct_ct))
-            _dp_cols = st.columns([1] * _dp_n + [max(2, 4 - _dp_n)], gap="medium")
+            _dp_cols = st.columns([1] * _dp_n + [max(2.0, 6.2 - _dp_n)], gap="medium")
             for _i in range(_dp_n):
                 with _dp_cols[_i]:
                     if _i < len(_direct_ct):
