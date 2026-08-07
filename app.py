@@ -16943,19 +16943,31 @@ else:
                     st.markdown("<div style='height:33px;'></div>", unsafe_allow_html=True)
                     _bar_row_ct(f"{_q_ct}분기", _q_actual_ct, _tq_eok * 100000000, "#3D6ED1")
 
-            st.divider()
+            st.markdown("<hr style='margin:4px 0 6px;border:none;border-top:1px solid #E2E8F0;'>", unsafe_allow_html=True)
 
-            # ── ② 총판 1행 + ③ 다이렉트 1행 — 좌측 밀착, 우측은 그래프·대시보드 예약 공간 ──
-            st.markdown("<span style='display:inline-block;background:#DCEAFB;color:#2F5FC4;padding:3px 12px;border-radius:14px;font-weight:700;font-size:0.86rem;margin:6px 0 4px;'>🏢 ② 총판</span>", unsafe_allow_html=True)
-            _dist_n = max(2, len(_distributors_ct))
-            _dist_cols = st.columns([1] * _dist_n + [max(2.0, 6.2 - _dist_n)], gap="medium")
-            for _i in range(_dist_n):
-                with _dist_cols[_i]:
-                    if _i < len(_distributors_ct):
-                        _slot_card_ct(_distributors_ct[_i], _i + 1, "dist")
-                    else:
-                        _empty_card_ct(f"총판 {_i + 1}", kind="dist")
-            with _dist_cols[-1]:
+            # ── 좌: 총판+다이렉트 카드 스택 / 우: 패널+차트 — 상하 압축 단일 밴드 (2026-08-07) ──
+            st.markdown("<style>div[data-testid='stVerticalBlock']{gap:0.5rem;}</style>", unsafe_allow_html=True)
+            _left_ct, _right_ct = st.columns([2.05, 4.15], gap="medium")
+            with _left_ct:
+                st.markdown("<span style='display:inline-block;background:#DCEAFB;color:#2F5FC4;padding:2px 12px;border-radius:14px;font-weight:700;font-size:0.86rem;margin:2px 0 2px;'>🏢 ② 총판</span>", unsafe_allow_html=True)
+                _dist_n = max(2, len(_distributors_ct))
+                _dist_cols = st.columns(_dist_n, gap="small")
+                for _i in range(_dist_n):
+                    with _dist_cols[_i]:
+                        if _i < len(_distributors_ct):
+                            _slot_card_ct(_distributors_ct[_i], _i + 1, "dist")
+                        else:
+                            _empty_card_ct(f"총판 {_i + 1}", kind="dist")
+                st.markdown("<span style='display:inline-block;background:#D6EFE3;color:#0B7A55;padding:2px 12px;border-radius:14px;font-weight:700;font-size:0.86rem;margin:2px 0 2px;'>🤝 ③ 다이렉트 파트너</span>", unsafe_allow_html=True)
+                _dp_n = max(2, len(_direct_ct))
+                _dp_cols = st.columns(_dp_n, gap="small")
+                for _i in range(_dp_n):
+                    with _dp_cols[_i]:
+                        if _i < len(_direct_ct):
+                            _slot_card_ct(_direct_ct[_i], _i + 1, "direct")
+                        else:
+                            _empty_card_ct(f"다이렉트 파트너 {_i + 1}", kind="direct")
+            with _right_ct:
                 # 📊 대시보드 3패널: ①목표 대비 달성률 ②Forecast(가운데) ③전체 파이프라인 (2026-08-07 개편)
                 _name_to_id_ct = {p.get("name"): p.get("id") for p in _all_partners_ct}
                 _pname_by_id_ct = {p.get("id"): p.get("name") for p in _all_partners_ct}
@@ -17034,7 +17046,7 @@ else:
 
                 def _panel_ct(title, body):
                     return (f"<div style='flex:1;min-width:0;border:1px solid #E2E8F0;background:#FFFFFF;"
-                            f"border-radius:10px;padding:9px 12px;'>"
+                            f"border-radius:10px;padding:7px 10px;'>"
                             f"<div style='font-size:0.8rem;font-weight:800;color:#0f172a;margin-bottom:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>{title}</div>{body}</div>")
 
                 st.markdown(
@@ -17045,7 +17057,10 @@ else:
                     + "</div>",
                     unsafe_allow_html=True,
                 )
-                _pbsp, _pb1, _pb2 = st.columns([1.05, 1, 1], gap="small")
+                _pbt, _pb1, _pb2 = st.columns([1.05, 1, 1], gap="small")
+                with _pbt:
+                    _chart_mode = st.radio("차트 형태", ["📊 막대", "🍩 도넛"], horizontal=True,
+                                            key="tower_chart_mode", label_visibility="collapsed")
                 with _pb1:
                     if st.button(f"🔮 {_q_ct}분기 Forecast 상세", key="open_drill_fc", use_container_width=True):
                         st.session_state["tower_drill"] = {"view": "forecast", "group": None}
@@ -17055,29 +17070,26 @@ else:
                         st.session_state["tower_drill"] = {"view": "pipeline", "group": None}
                         st.rerun()
 
-                # ── 📉 미니 차트 (막대/도넛 토글) — 3패널 데이터 시각화, 단위 억원 (2026-08-07) ──
-                _chart_mode = st.radio("차트 형태", ["📊 막대", "🍩 도넛"], horizontal=True,
-                                        key="tower_chart_mode", label_visibility="collapsed")
-
+                # ── 📉 미니 차트 — 3패널 데이터 시각화, 단위 억원 ──
                 def _mini_bars_ct(items):
                     _items = [x for x in items if x[1] > 0]
                     if not _items:
-                        return "<div style='font-size:0.68rem;color:#94A3B8;height:104px;display:flex;align-items:center;justify-content:center;'>데이터 없음</div>"
+                        return "<div style='font-size:0.68rem;color:#94A3B8;height:84px;display:flex;align-items:center;justify-content:center;'>데이터 없음</div>"
                     _vmax = max(v for _, v, _ in _items) or 1
                     _cols_h = "".join(
                         f"<div style='flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;min-width:0;'>"
                         f"<span style='font-size:0.62rem;font-weight:800;color:#0f172a;'>{v:g}</span>"
-                        f"<div style='width:70%;max-width:34px;height:{max(v/_vmax*70, 3):.0f}px;background:{c};border-radius:3px 3px 0 0;'></div>"
+                        f"<div style='width:70%;max-width:34px;height:{max(v/_vmax*54, 3):.0f}px;background:{c};border-radius:3px 3px 0 0;'></div>"
                         f"<span style='font-size:0.6rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;'>{l}</span></div>"
                         for l, v, c in _items
                     )
-                    return f"<div style='display:flex;align-items:flex-end;gap:4px;height:104px;'>{_cols_h}</div>"
+                    return f"<div style='display:flex;align-items:flex-end;gap:4px;height:84px;'>{_cols_h}</div>"
 
                 def _mini_donut_ct(items):
                     _items = [x for x in items if x[1] > 0]
                     _tot = sum(v for _, v, _ in _items)
                     if _tot <= 0:
-                        return "<div style='font-size:0.68rem;color:#94A3B8;height:104px;display:flex;align-items:center;justify-content:center;'>데이터 없음</div>"
+                        return "<div style='font-size:0.68rem;color:#94A3B8;height:84px;display:flex;align-items:center;justify-content:center;'>데이터 없음</div>"
                     _stops = []
                     _acc = 0.0
                     for _l, _v, _c in _items:
@@ -17092,10 +17104,10 @@ else:
                         for _l, _v, _c in _items
                     )
                     return (
-                        f"<div style='display:flex;align-items:center;gap:10px;height:104px;'>"
-                        f"<div style='width:84px;height:84px;border-radius:50%;flex:none;"
+                        f"<div style='display:flex;align-items:center;gap:10px;height:84px;'>"
+                        f"<div style='width:72px;height:72px;border-radius:50%;flex:none;"
                         f"background:conic-gradient({', '.join(_stops)});display:flex;align-items:center;justify-content:center;'>"
-                        f"<div style='width:52px;height:52px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;"
+                        f"<div style='width:44px;height:44px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;"
                         f"font-size:0.62rem;font-weight:800;color:#0f172a;'>{_tot:g}억</div></div>"
                         f"<div style='display:flex;flex-direction:column;gap:3px;min-width:0;'>{_legend}</div></div>"
                     )
@@ -17115,7 +17127,7 @@ else:
                             f"padding:8px 10px;'><div style='font-size:0.72rem;font-weight:800;color:#334155;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>{title}</div>{body}</div>")
 
                 st.markdown(
-                    "<div style='display:flex;gap:10px;margin-top:6px;'>"
+                    "<div style='display:flex;gap:10px;margin-top:4px;'>"
                     + _chart_card_ct("🎯 목표 규모(억) — 가상", _fn_chart(_items_goal))
                     + _chart_card_ct(f"🔮 {_q_ct}분기 Forecast 분류(억)", _fn_chart(_items_fc))
                     + _chart_card_ct("📊 파이프라인 그룹별(억)", _fn_chart(_items_pipe))
@@ -17123,26 +17135,16 @@ else:
                     unsafe_allow_html=True,
                 )
 
-            st.markdown("<span style='display:inline-block;background:#D6EFE3;color:#0B7A55;padding:3px 12px;border-radius:14px;font-weight:700;font-size:0.86rem;margin:6px 0 4px;'>🤝 ③ 다이렉트 파트너</span>", unsafe_allow_html=True)
-            _dp_n = max(2, len(_direct_ct))
-            _dp_cols = st.columns([1] * _dp_n + [max(2.0, 6.2 - _dp_n)], gap="medium")
-            for _i in range(_dp_n):
-                with _dp_cols[_i]:
-                    if _i < len(_direct_ct):
-                        _slot_card_ct(_direct_ct[_i], _i + 1, "direct")
-                    else:
-                        _empty_card_ct(f"다이렉트 파트너 {_i + 1}", kind="direct")
-
             # ── 🔍 드릴다운: Forecast / 파이프라인 → 그룹 → 세부내역 (2026-08-07) ──
             _drill_ct = st.session_state.get("tower_drill")
             if _drill_ct:
-                st.divider()
+                st.markdown("<hr style='margin:4px 0 6px;border:none;border-top:1px solid #E2E8F0;'>", unsafe_allow_html=True)
                 _dv_ct = _drill_ct.get("view")
                 _st_kr_ct = {"lead": "리드", "consult": "상담", "demo": "시연", "proposal": "제안",
                              "negotiation": "협상", "contract": "계약진행"}
                 _dh1, _dh2 = st.columns([6, 1])
                 with _dh1:
-                    st.markdown("### " + (f"🔮 {_q_ct}분기 Forecast — 그룹별 현황" if _dv_ct == "forecast"
+                    st.markdown("#### " + (f"🔮 {_q_ct}분기 Forecast — 그룹별 현황" if _dv_ct == "forecast"
                                             else "📊 전체 파이프라인 — 그룹별 현황"))
                 with _dh2:
                     if st.button("✖ 닫기", key="tower_drill_close", use_container_width=True):
