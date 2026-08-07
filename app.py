@@ -16736,6 +16736,43 @@ else:
         #   하단: 총판 1~4 / 다이렉트 파트너 1~3 테이블
         # ══════════════════════════════════════════════════════════════
         _is_hq_ct = not user.get("partner_id")
+
+        # ── 공용: 영업기회 공동 수정 폼 (파트너 입력 → 총판·본부 공동 수정, 2026-08-07) ──
+        _OPP_ST_KR = {"lead": "리드", "consult": "상담", "demo": "시연", "proposal": "제안",
+                      "negotiation": "협상", "contract": "계약진행",
+                      "closed_won": "수주 확정", "closed_lost": "실패 종결"}
+
+        def _opp_edit_form_ct(o, keyp):
+            with st.form(f"oppedit_{keyp}_{o.get('id')}"):
+                st.caption("✏️ 공동 관리 — 파트너가 기본 데이터를 입력하고, 총판·본부가 함께 수정합니다.")
+                _e1, _e2 = st.columns(2)
+                with _e1:
+                    _st_keys = list(_OPP_ST_KR.keys())
+                    _cur_st = o.get("status") if o.get("status") in _OPP_ST_KR else "lead"
+                    _ns = st.selectbox("영업 단계", _st_keys, index=_st_keys.index(_cur_st),
+                                        format_func=lambda k: _OPP_ST_KR[k])
+                    _np = st.number_input("계약 확률(%)", min_value=0, max_value=100,
+                                           value=int(float(o.get("win_probability") or 0)), step=5)
+                with _e2:
+                    _na = st.number_input("예상 금액(원)", min_value=0,
+                                           value=int(float(o.get("expected_amount") or 0)), step=1000000)
+                    try:
+                        _dv = datetime.strptime(str(o.get("expected_close_date"))[:10], "%Y-%m-%d").date()
+                    except Exception:
+                        _dv = date.today()
+                    _nd = st.date_input("예상 마감일", value=_dv)
+                if st.form_submit_button("💾 저장", type="primary", use_container_width=True):
+                    try:
+                        supabase.table("opportunities").update({
+                            "status": _ns,
+                            "win_probability": _np,
+                            "expected_amount": _na,
+                            "expected_close_date": str(_nd),
+                        }).eq("id", o.get("id")).execute()
+                        st.success("✅ 저장 완료")
+                        st.rerun()
+                    except Exception as _ee:
+                        st.error(f"저장 실패: {_ee}")
         _sel_partner = st.session_state.get("hq_selected_partner")
         # 전체 보기: 상단 '전체 영업현황·서비스' 진입 — 모든 대리점 고객사 한 번에
         _show_all_detail = bool(st.session_state.get("hq_show_all_detail"))
@@ -16759,6 +16796,143 @@ else:
                 else:
                     if st.button("📋 발주 이력 보기", use_container_width=True, key="license_history_btn"):
                         go_to("license_request"); st.rerun()
+            st.divider()
+
+        # ══════════════════════════════════════════════════════════════
+        # 🤝 파트너 관제 타워 (2026-08-07)
+        #    총판: 산하 대리점별 전체·개별 관리 / 다이렉트: 전체 숫자 → 고객별 관리
+        #    데이터 입력은 파트너가 먼저, 총판·본부도 공동 수정 (opportunities 공유)
+        # ══════════════════════════════════════════════════════════════
+        if user.get("partner_id") and is_agency_admin(user):
+            _pt_pid = user.get("partner_id")
+            try:
+                _pt_row2 = supabase.table("partners").select("id,name,is_distributor").eq(
+                    "id", _pt_pid).limit(1).execute().data or []
+            except Exception:
+                _pt_row2 = []
+            _pt_me = _pt_row2[0] if _pt_row2 else {"id": _pt_pid, "name": "내 파트너", "is_distributor": False}
+            _pt_is_dist = bool(_pt_me.get("is_distributor"))
+
+            _today_pt = date.today()
+            _year_pt = _today_pt.year
+            _q_pt = min((_today_pt.month - 1) // 3 + 2, 4)
+
+            def _fmt_pt(v):
+                if v >= 100000000:
+                    return f"{v/100000000:.1f}억"
+                if v >= 10000:
+                    return f"{v/10000:,.0f}만"
+                return f"{v:,.0f}원"
+
+            try:
+                _subs_pt = (supabase.table("partners").select("id,name,channel_type")
+                            .eq("parent_partner_id", _pt_pid)
+                            .is_("terminated_at", "null").execute().data or []) if _pt_is_dist else []
+            except Exception:
+                _subs_pt = []
+            _scope_ids_pt = [_pt_pid] + [p["id"] for p in _subs_pt]
+            _pname_pt = {p["id"]: p.get("name") for p in _subs_pt}
+            _pname_pt[_pt_pid] = (_pt_me.get("name") or "") + (" (본사 직접)" if _pt_is_dist else "")
+
+            try:
+                _opps_pt = supabase.table("opportunities").select(
+                    "id,customer_name,status,expected_amount,win_probability,assigned_partner_id,"
+                    "approval_status,expected_close_date,primary_owner,origin_channel,"
+                    "license_tier,expected_seats,created_at"
+                ).in_("assigned_partner_id", _scope_ids_pt).execute().data or []
+            except Exception:
+                _opps_pt = []
+            _opps_pt = [o for o in _opps_pt
+                        if (o.get("approval_status") or "approved") in ("approved", "auto_approved")]
+            _act_pt = [o for o in _opps_pt if o.get("status") not in ("closed_won", "closed_lost")]
+            _won_pt = [o for o in _opps_pt if o.get("status") == "closed_won"]
+
+            def _amt_pt(rows):
+                return sum(float(r.get("expected_amount") or 0) for r in rows)
+
+            def _q4_pt(rows):
+                return [o for o in rows if o.get("expected_close_date")
+                        and str(o.get("expected_close_date"))[:4] == str(_year_pt)
+                        and ((int(str(o.get("expected_close_date"))[5:7]) - 1) // 3 + 1) == _q_pt]
+
+            _fc_pt = sum(float(o.get("expected_amount") or 0) * float(o.get("win_probability") or 0) / 100
+                          for o in _q4_pt(_act_pt))
+
+            st.markdown("#### " + ("🏢 총판 관제 타워" if _pt_is_dist else "🤝 파트너 영업 관리")
+                        + f" — {_pt_me.get('name') or ''}")
+            _pm1, _pm2, _pm3, _pm4 = st.columns(4)
+            _pm1.metric("진행 파이프라인", f"{len(_act_pt)}건", _fmt_pt(_amt_pt(_act_pt)))
+            _pm2.metric(f"{_q_pt}분기 Forecast(가중)", _fmt_pt(_fc_pt))
+            _pm3.metric("수주 매출", _fmt_pt(_amt_pt(_won_pt)), f"{len(_won_pt)}건")
+            _pm4.metric("영업 고객 수", f"{len({o.get('customer_name') for o in _act_pt})}곳")
+            if st.button("➕ 신규 영업기회 등록 (기본 데이터 입력)", key="pt_new_opp"):
+                go_to("sales_pipeline"); st.rerun()
+
+            if _pt_is_dist:
+                st.markdown("##### 🤝 산하 대리점별 현황 — 행의 '관리'를 누르면 개별 관리로 들어갑니다")
+                with st.container(height=300, border=True):
+                    _hd = st.columns([2.4, 1.6, 1.6, 1.4, 1])
+                    for _c, _t in zip(_hd, ["대리점", "파이프라인", f"{_q_pt}분기 Forecast", "수주 매출", ""]):
+                        _c.markdown(f"**{_t}**")
+                    for _rid in _scope_ids_pt:
+                        _ro = [o for o in _act_pt if o.get("assigned_partner_id") == _rid]
+                        _rw = [o for o in _won_pt if o.get("assigned_partner_id") == _rid]
+                        _rf = sum(float(o.get("expected_amount") or 0) * float(o.get("win_probability") or 0) / 100
+                                   for o in _q4_pt(_ro))
+                        _rc = st.columns([2.4, 1.6, 1.6, 1.4, 1])
+                        _rc[0].markdown(_pname_pt.get(_rid) or "-")
+                        _rc[1].markdown(f"{len(_ro)}건 · {_fmt_pt(_amt_pt(_ro))}")
+                        _rc[2].markdown(_fmt_pt(_rf))
+                        _rc[3].markdown(f"{len(_rw)}건 · {_fmt_pt(_amt_pt(_rw))}")
+                        if _rc[4].button("관리", key=f"pt_sel_{_rid}", use_container_width=True):
+                            st.session_state["pt_tower_sel"] = _rid
+                            st.rerun()
+                    if not _subs_pt:
+                        st.caption("등록된 산하 대리점이 없습니다. 대리점 등록 시 이 표에 자동 추가됩니다.")
+                _pt_sel = st.session_state.get("pt_tower_sel")
+            else:
+                _pt_sel = _pt_pid  # 다이렉트: 바로 본인 고객 현황
+
+            if _pt_sel and _pt_sel in _scope_ids_pt:
+                _sel_opps = [o for o in _opps_pt if o.get("assigned_partner_id") == _pt_sel]
+                _hd2l, _hd2r = st.columns([5, 1.4])
+                with _hd2l:
+                    st.markdown(f"##### 📋 {_pname_pt.get(_pt_sel) or '-'} — 고객별 영업 현황 ({len(_sel_opps)}건)")
+                with _hd2r:
+                    if _sel_opps:
+                        try:
+                            import io as _io_pt
+                            _df_pt = pd.DataFrame([{
+                                "고객명": o.get("customer_name"),
+                                "단계": _OPP_ST_KR.get(o.get("status"), o.get("status")),
+                                "확률(%)": o.get("win_probability"),
+                                "예상금액(원)": o.get("expected_amount"),
+                                "예상마감": o.get("expected_close_date"),
+                                "담당": o.get("primary_owner"),
+                            } for o in _sel_opps])
+                            _buf_pt = _io_pt.BytesIO()
+                            _df_pt.to_excel(_buf_pt, index=False)
+                            st.download_button("📥 엑셀 보고", data=_buf_pt.getvalue(),
+                                                file_name=f"영업현황_{(_pname_pt.get(_pt_sel) or '파트너')}_{date.today().isoformat()}.xlsx",
+                                                key="pt_xlsx_dl", use_container_width=True)
+                        except Exception:
+                            pass
+                if not _sel_opps:
+                    st.info("등록된 영업 건이 없습니다. '신규 영업기회 등록'으로 기본 데이터를 먼저 입력해주세요.")
+                for _o in sorted(_sel_opps, key=lambda x: -float(x.get("expected_amount") or 0)):
+                    _wp_pt = float(_o.get("win_probability") or 0)
+                    _hdr_pt = (f"{_o.get('customer_name') or '-'} · "
+                               f"{_OPP_ST_KR.get(_o.get('status'), _o.get('status') or '-')} · "
+                               f"진행 {_wp_pt:.0f}% · {_fmt_pt(float(_o.get('expected_amount') or 0))}")
+                    with st.expander(_hdr_pt, expanded=False):
+                        _pd1, _pd2 = st.columns(2)
+                        with _pd1:
+                            st.markdown(f"- **예상 마감**: {_o.get('expected_close_date') or '-'}")
+                            st.markdown(f"- **담당**: {_o.get('primary_owner') or '-'}")
+                        with _pd2:
+                            st.markdown(f"- **유입 채널**: {_o.get('origin_channel') or '-'}")
+                            st.markdown(f"- **라이선스**: {_o.get('license_tier') or '-'} · {_o.get('expected_seats') or '-'}명")
+                        _opp_edit_form_ct(_o, f"pt_{_pt_sel}")
             st.divider()
 
         if _hq_tower:
@@ -17224,6 +17398,7 @@ else:
                                     st.markdown(f"- **유입 채널**: {_o.get('origin_channel') or '-'}")
                                     st.markdown(f"- **라이선스**: {_o.get('license_tier') or '-'} · {_o.get('expected_seats') or '-'}명")
                                     st.markdown(f"- **등록일**: {str(_o.get('created_at') or '')[:10]}")
+                                _opp_edit_form_ct(_o, "hq")
 
             st.caption("💡 카드의 '▶ 들어가기'를 누르면 해당 총판·파트너의 세부 영업·서비스 페이지로 이동합니다.")
             st.stop()  # 관제 타워(개요)에서는 아래 세부 페이지를 렌더링하지 않음
