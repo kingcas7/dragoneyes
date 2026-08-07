@@ -16847,7 +16847,7 @@ else:
                 st.markdown(
                     f"<div style='display:flex;justify-content:space-between;gap:8px;font-size:0.95rem;font-weight:700;"
                     f"color:#0f172a;margin-bottom:2px;white-space:nowrap;'><span>{label}</span>"
-                    f"<span>{_fmt_won_ct(actual)} · <b>{_r:.0f}%</b></span></div>"
+                    f"<span>{round(actual / 100000000, 1):g}억 · <b>{_r:.0f}%</b></span></div>"
                     f"<div style='background:#e2e8f0;border-radius:3px;height:6px;margin-bottom:4px;'>"
                     f"<div style='background:{accent};width:{min(_r,100)}%;height:6px;border-radius:3px;'></div></div>",
                     unsafe_allow_html=True,
