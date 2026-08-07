@@ -16786,10 +16786,12 @@ else:
             except Exception:
                 _all_partners_ct = []
             _distributors_ct = [p for p in _all_partners_ct if p.get("is_distributor")]
+            # 다이렉트 = 직접계약 채널 + 영업계약 체결 + 관계기관 아님 (2026-08-07 기준: 포유솔루션)
             _direct_ct = [p for p in _all_partners_ct
                           if not p.get("is_distributor")
-                          and not p.get("is_reseller")
-                          and not p.get("is_related_org")]
+                          and not p.get("is_related_org")
+                          and p.get("business_channel") == "direct_partnership"
+                          and p.get("has_sales_contract")]
 
             # ── 영업 기회 로드 (승인된 건만) ──
             try:
@@ -16860,7 +16862,7 @@ else:
                 _accent = "#3D6ED1" if kind == "dist" else "#0E9469"
                 st.markdown(
                     f"<div style='background:{_bg};border:1px solid {_bd};border-radius:8px;"
-                    f"padding:5px 12px 5px;margin-bottom:4px;display:inline-block;width:fit-content;max-width:100%;'>"
+                    f"padding:5px 12px 5px;margin-bottom:4px;width:100%;box-sizing:border-box;'>"
                     f"<div style='display:flex;align-items:center;gap:5px;'>"
                     f"<span style='font-size:0.8rem;line-height:1;'>{_icon}</span>"
                     f"<span style='font-weight:700;font-size:0.95rem;color:#0f172a;line-height:1.25;white-space:nowrap;'>{idx}. {_nm}</span></div>"
@@ -16930,26 +16932,27 @@ else:
 
             st.divider()
 
-            # ── ② 총판 (1~4) 테이블 ──
-            st.markdown("<span style='display:inline-block;background:#DCEAFB;color:#2F5FC4;padding:3px 12px;border-radius:14px;font-weight:700;font-size:0.86rem;margin:6px 0 4px;'>🏢 ② 총판 (1~4)</span>", unsafe_allow_html=True)
-            _dist_cols = st.columns(4, gap="medium")
-            for _i in range(4):
+            # ── ② 총판 1행 + ③ 다이렉트 1행 — 좌측 밀착, 우측은 그래프·대시보드 예약 공간 ──
+            st.markdown("<span style='display:inline-block;background:#DCEAFB;color:#2F5FC4;padding:3px 12px;border-radius:14px;font-weight:700;font-size:0.86rem;margin:6px 0 4px;'>🏢 ② 총판</span>", unsafe_allow_html=True)
+            _dist_n = max(2, len(_distributors_ct))
+            _dist_cols = st.columns([1] * _dist_n + [max(2, 4 - _dist_n)], gap="medium")
+            for _i in range(_dist_n):
                 with _dist_cols[_i]:
                     if _i < len(_distributors_ct):
                         _slot_card_ct(_distributors_ct[_i], _i + 1, "dist")
                     else:
                         _empty_card_ct(f"총판 {_i + 1}", kind="dist")
-            # 4개 초과 총판
-            if len(_distributors_ct) > 4:
-                _ex_cols = st.columns(4, gap="medium")
-                for _j, _p in enumerate(_distributors_ct[4:]):
-                    with _ex_cols[_j % 4]:
-                        _slot_card_ct(_p, _j + 5, "dist")
+            with _dist_cols[-1]:
+                st.markdown(
+                    "<div style='border:1.5px dashed #CBD5E1;background:#F8FAFC;border-radius:10px;"
+                    "min-height:120px;display:flex;align-items:center;justify-content:center;"
+                    "color:#94A3B8;font-size:0.9rem;font-weight:600;'>📈 그래프·대시보드 영역 (예정)</div>",
+                    unsafe_allow_html=True,
+                )
 
-            # ── ③ 다이렉트 파트너 (1~3) 테이블 ──
-            st.markdown("<span style='display:inline-block;background:#D6EFE3;color:#0B7A55;padding:3px 12px;border-radius:14px;font-weight:700;font-size:0.86rem;margin:6px 0 4px;'>🤝 ③ 다이렉트 파트너 (1~3)</span>", unsafe_allow_html=True)
-            _dp_n = max(3, len(_direct_ct))
-            _dp_cols = st.columns(_dp_n, gap="medium")
+            st.markdown("<span style='display:inline-block;background:#D6EFE3;color:#0B7A55;padding:3px 12px;border-radius:14px;font-weight:700;font-size:0.86rem;margin:6px 0 4px;'>🤝 ③ 다이렉트 파트너</span>", unsafe_allow_html=True)
+            _dp_n = max(2, len(_direct_ct))
+            _dp_cols = st.columns([1] * _dp_n + [max(2, 4 - _dp_n)], gap="medium")
             for _i in range(_dp_n):
                 with _dp_cols[_i]:
                     if _i < len(_direct_ct):
