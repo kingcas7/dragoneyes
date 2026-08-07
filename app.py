@@ -16750,14 +16750,14 @@ else:
                     if st.button("🧾 발주하기", type="primary", use_container_width=True, key="new_license_btn"):
                         go_to("partner_order"); st.rerun()
                 else:
-                    if st.button("➕ 신규 라이선스 신청", type="primary", use_container_width=True, key="new_license_btn"):
+                    if st.button("➕ 발주하기", type="primary", use_container_width=True, key="new_license_btn"):
                         go_to("license_request"); st.rerun()
             with ab2:
                 if user.get("partner_id"):
                     if st.button("📋 발주 이력 보기", use_container_width=True, key="license_history_btn"):
                         go_to("partner_order"); st.rerun()
                 else:
-                    if st.button("📋 신청 이력 보기", use_container_width=True, key="license_history_btn"):
+                    if st.button("📋 발주 이력 보기", use_container_width=True, key="license_history_btn"):
                         go_to("license_request"); st.rerun()
             st.divider()
 
@@ -16893,10 +16893,10 @@ else:
             # ── 상단 행: 라이선스 버튼(좌) + 영업·매출 현황(우) ──
             _tl, _tr = st.columns([2, 5])
             with _tl:
-                if st.button("➕ 신규 라이선스 신청", type="primary",
+                if st.button("➕ 발주하기", type="primary",
                              use_container_width=True, key="new_license_btn"):
                     go_to("license_request"); st.rerun()
-                if st.button("📋 신청 이력 보기", use_container_width=True,
+                if st.button("📋 발주 이력 보기", use_container_width=True,
                              key="license_history_btn"):
                     go_to("license_request"); st.rerun()
                 st.caption(f"운용: 총판 {len(_distributors_ct)}개 · 다이렉트 {len(_direct_ct)}개")
