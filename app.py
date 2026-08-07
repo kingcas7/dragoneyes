@@ -23795,6 +23795,12 @@ else:
         _c3_s3 = "✅" if _c3_report_ok else ("🔵" if (_c3_quiz_ok and _c3_survey_done) else "🔒")
         st.caption(f"{_c3_s1} 1단계 학습하기 → {_c3_s2} 2단계 설문조사·토론 → {_c3_s3} 3단계 보고서 제출")
 
+        _c3_band_icon = {"elementary": "🎒", "middle": "📚", "high": "🎓"}.get(_c3_band, "📚")
+        if _c3_band:
+            st.caption(f"내 학년대: {_c3_band_icon} **{_c3_kr}** — 학교 정보(학년) 기준 자동 배정 · 목표 {_c3_thr}명 → 봉사 {_c3_hr}시간")
+        else:
+            st.warning("⚠️ 학년 정보가 없어 임시로 중학생 기준이 적용 중이에요. 위의 🏫 학교 정보를 먼저 등록하면 내 학년에 맞는 자료·설문·목표가 자동 적용됩니다.")
+
         with st.expander(
             ("✅ 1단계 · 학습하기 — 이수 완료" if _c3_quiz_ok
              else "📖 1단계 · 학습하기 — 학습자료 공부 + 이수 테스트 (5문항)"),
