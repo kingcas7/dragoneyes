@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0f1220">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>보이스 클로드 — 음성 대화</title>
+<style>
+  :root {
+    --bg: #0f1220;
+    --panel: #1a1e32;
+    --panel2: #232848;
+    --text: #eef0fa;
+    --sub: #9aa2c5;
+    --accent: #7c8cff;
+    --accent2: #4ade80;
+    --danger: #f87171;
+    --user-bubble: #34406e;
+    --ai-bubble: #232848;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: "Pretendard", "Noto Sans KR", -apple-system, sans-serif;
+    display: flex; flex-direction: column; overflow: hidden;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0;
+  }
+
+  /* ── 헤더 ── */
+  header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px; background: var(--panel); flex-shrink: 0;
+    border-bottom: 1px solid #2b3050;
+  }
+  header .title { font-size: 1.05rem; font-weight: 700; flex: 1; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  header button {
+    background: var(--panel2); color: var(--text); border: none; border-radius: 10px;
+    padding: 10px 12px; font-size: 1rem; cursor: pointer; flex-shrink: 0;
+  }
+
+  /* ── 채팅 영역 ── */
+  #chat {
+    flex: 1; overflow-y: auto; padding: 14px 12px 8px; display: flex;
+    flex-direction: column; gap: 10px; scroll-behavior: smooth;
+  }
+  .msg { max-width: 86%; padding: 11px 14px; border-radius: 16px;
+    font-size: 1.02rem; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+  .msg.user { align-self: flex-end; background: var(--user-bubble); border-bottom-right-radius: 5px; }
+  .msg.ai   { align-self: flex-start; background: var(--ai-bubble); border-bottom-left-radius: 5px; }
+  .msg.ai .replay { display: inline-block; margin-top: 6px; color: var(--accent);
+    font-size: .88rem; cursor: pointer; }
+  .hint { align-self: center; color: var(--sub); font-size: .9rem; text-align: center;
+    padding: 20px 16px; line-height: 1.7; }
+
+  /* ── 상태 바 ── */
+  #statusBar {
+    text-align: center; padding: 6px 12px; font-size: .95rem; color: var(--sub);
+    min-height: 30px; flex-shrink: 0;
+  }
+  #statusBar.listening { color: var(--accent2); }
+  #statusBar.speaking { color: var(--accent); }
+  #statusBar.error { color: var(--danger); }
+
+  /* ── 하단 컨트롤 ── */
+  #controls {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px 16px;
+    background: var(--panel); flex-shrink: 0; border-top: 1px solid #2b3050;
+  }
+  #textInput {
+    flex: 1; background: var(--panel2); border: 1px solid #343a63; color: var(--text);
+    border-radius: 22px; padding: 12px 16px; font-size: 1rem; outline: none; min-width: 0;
+  }
+  #sendBtn {
+    background: var(--panel2); color: var(--text); border: none; border-radius: 50%;
+    width: 46px; height: 46px; font-size: 1.15rem; cursor: pointer; flex-shrink: 0;
+  }
+  #micBtn {
+    width: 62px; height: 62px; border-radius: 50%; border: none; cursor: pointer;
+    background: var(--accent); color: #fff; font-size: 1.7rem; flex-shrink: 0;
+    box-shadow: 0 4px 16px rgba(124,140,255,.45); transition: background .25s;
+  }
+  #micBtn.on { background: #16a34a; animation: pulse 1.4s ease-in-out infinite; }
+  #micBtn.speaking { background: #d97706; }
+  @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.09); } }
+
+  /* ── 오버레이 공통 ── */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(8,10,20,.72); display: none;
+    z-index: 50; align-items: flex-end; justify-content: center;
+  }
+  .overlay.show { display: flex; }
+  .sheet {
+    background: var(--panel); width: 100%; max-width: 560px; max-height: 88vh;
+    border-radius: 20px 20px 0 0; padding: 20px 18px calc(20px + env(safe-area-inset-bottom));
+    overflow-y: auto;
+  }
+  .sheet h2 { font-size: 1.15rem; margin-bottom: 14px; }
+  .sheet label { display: block; color: var(--sub); font-size: .92rem; margin: 14px 0 6px; }
+  .sheet input, .sheet select {
+    width: 100%; background: var(--panel2); border: 1px solid #343a63; color: var(--text);
+    border-radius: 10px; padding: 12px; font-size: 1rem; outline: none;
+  }
+  .sheet .btnRow { display: flex; gap: 10px; margin-top: 20px; }
+  .sheet .btnRow button {
+    flex: 1; border: none; border-radius: 12px; padding: 14px; font-size: 1.02rem;
+    cursor: pointer; font-weight: 600;
+  }
+  .btnPrimary { background: var(--accent); color: #fff; }
+  .btnGhost { background: var(--panel2); color: var(--text); }
+  .note { color: var(--sub); font-size: .85rem; line-height: 1.6; margin-top: 12px; }
+  .note b { color: var(--text); }
+
+  /* ── 방 목록 ── */
+  .roomItem {
+    display: flex; align-items: center; gap: 10px; padding: 13px 10px;
+    border-bottom: 1px solid #2b3050; cursor: pointer; border-radius: 8px;
+  }
+  .roomItem:active { background: var(--panel2); }
+  .roomItem .rname { flex: 1; min-width: 0; }
+  .roomItem .rname .t { font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .roomItem .rname .s { font-size: .82rem; color: var(--sub); margin-top: 3px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .roomItem .del { color: var(--danger); font-size: 1.05rem; padding: 8px; background: none; border: none; cursor: pointer; }
+  #newRoomBtn { width: 100%; margin-top: 14px; background: var(--accent); color: #fff;
+    border: none; border-radius: 12px; padding: 14px; font-size: 1.02rem; font-weight: 600; cursor: pointer; }
+
+  .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--sub);
+    border-top-color: transparent; border-radius: 50%; animation: spin .8s linear infinite;
+    vertical-align: -3px; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<header>
+  <button id="roomsBtn" aria-label="대화방 목록">☰</button>
+  <div class="title" id="roomTitle">보이스 클로드</div>
+  <button id="voiceModeBtn" aria-label="연속 음성 대화 켜기">🔊</button>
+  <button id="settingsBtn" aria-label="설정">⚙️</button>
+</header>
+
+<div id="chat"></div>
+<div id="statusBar"></div>
+
+<div id="controls">
+  <input id="textInput" type="text" placeholder="메시지 입력 또는 마이크를 누르세요"
+         autocomplete="off" enterkeyhint="send">
+  <button id="sendBtn" aria-label="전송">➤</button>
+  <button id="micBtn" aria-label="음성으로 말하기">🎤</button>
+</div>
+
+<!-- 설정 시트 -->
+<div class="overlay" id="settingsOverlay">
+  <div class="sheet">
+    <h2>⚙️ 설정</h2>
+    <label for="apiKeyInput">Claude API 키</label>
+    <input id="apiKeyInput" type="password" placeholder="sk-ant-api03-..." autocomplete="off">
+    <label for="modelSelect">모델</label>
+    <select id="modelSelect">
+      <option value="claude-opus-5">Claude Opus 5 — 가장 똑똑함 (기본)</option>
+      <option value="claude-sonnet-5">Claude Sonnet 5 — 빠르고 저렴</option>
+      <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 — 가장 저렴</option>
+    </select>
+    <label for="speedSelect">응답 속도</label>
+    <select id="speedSelect">
+      <option value="low">빠른 답변 (일상 대화 추천)</option>
+      <option value="high">깊게 생각한 답변 (조금 느림)</option>
+    </select>
+    <label for="rateSelect">읽기 속도</label>
+    <select id="rateSelect">
+      <option value="0.9">느리게</option>
+      <option value="1.0" selected>보통</option>
+      <option value="1.2">빠르게</option>
+      <option value="1.4">아주 빠르게</option>
+    </select>
+    <div class="note">
+      <b>API 키는 이 폰에만 저장</b>되고 Anthropic 서버 외에는 어디에도 전송되지 않습니다.
+      대화 내용도 이 폰에만 저장됩니다. 사용한 만큼 API 요금이 부과되니
+      공용 기기에서는 사용 후 키를 지워주세요.
+      <span id="usageNote"></span>
+    </div>
+    <div class="btnRow">
+      <button class="btnGhost" id="clearKeyBtn">키 삭제</button>
+      <button class="btnPrimary" id="saveSettingsBtn">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 대화방 목록 시트 -->
+<div class="overlay" id="roomsOverlay">
+  <div class="sheet">
+    <h2>💬 대화방</h2>
+    <div id="roomList"></div>
+    <button id="newRoomBtn">＋ 새 대화방</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ════════════════ 저장소 ════════════════ */
+  var LS = window.localStorage;
+  function getJSON(k, d) { try { var v = LS.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
+  function setJSON(k, v) { try { LS.setItem(k, JSON.stringify(v)); } catch (e) {} }
+
+  var settings = getJSON("vc_settings", { apiKey: "", model: "claude-opus-5", effort: "low", rate: 1.0, totalTokens: 0 });
+  var rooms = getJSON("vc_rooms", []);
+  var currentRoomId = LS.getItem("vc_current_room") || null;
+
+  function saveSettings() { setJSON("vc_settings", settings); }
+  function saveRooms() { setJSON("vc_rooms", rooms); }
+  function msgsKey(id) { return "vc_msgs_" + id; }
+  function loadMsgs(id) { return getJSON(msgsKey(id), []); }
+  function saveMsgs(id, msgs) { setJSON(msgsKey(id), msgs); }
+
+  function newRoom() {
+    var id = "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    var room = { id: id, name: "새 대화", createdAt: Date.now() };
+    rooms.unshift(room); saveRooms();
+    currentRoomId = id; LS.setItem("vc_current_room", id);
+    return room;
+  }
+  function currentRoom() {
+    var r = rooms.find(function (x) { return x.id === currentRoomId; });
+    if (!r) { r = rooms[0] || newRoom(); currentRoomId = r.id; LS.setItem("vc_current_room", r.id); }
+    return r;
+  }
+
+  /* ════════════════ 상태 ════════════════ */
+  var IS_ANDROID = /Android/i.test(navigator.userAgent || "");
+  var voiceMode = false;        // 연속 음성 대화 모드
+  var busy = false;             // API 호출 중
+  var recognizing = false;
+  var recog = null;
+  var wakeLock = null;
+  var messages = [];            // 현재 방 메시지 [{role, content}]
+
+  var $ = function (id) { return document.getElementById(id); };
+  var chatEl = $("chat"), statusEl = $("statusBar"), micBtn = $("micBtn"),
+      inputEl = $("textInput"), voiceModeBtn = $("voiceModeBtn");
+
+  function setStatus(text, cls) {
+    statusEl.textContent = text || "";
+    statusEl.className = cls || "";
+  }
+
+  /* ════════════════ TTS — 문장 청크 발화 엔진 (끊김 방지) ════════════════ */
+  var ttsSeq = 0, ttsActive = false, utterKeep = [];
+
+  // 데스크톱 Chrome 15초 자동 정지 우회 (Android는 pause()가 발화를 죽이므로 제외)
+  if (!IS_ANDROID) {
+    setInterval(function () {
+      try {
+        if (speechSynthesis.speaking) { speechSynthesis.pause(); speechSynthesis.resume(); }
+      } catch (e) {}
+    }, 14000);
+  }
+
+  function splitChunks(text, maxLen) {
+    var out = [], rest = String(text).replace(/\s+/g, " ").trim();
+    while (rest.length > maxLen) {
+      var cut = -1, marks = [". ", "! ", "? ", "。", "… ", "; "];
+      for (var i = 0; i < marks.length; i++) {
+        var p = rest.lastIndexOf(marks[i], maxLen);
+        if (p > cut) cut = p + marks[i].length - 1;
+      }
+      if (cut < 30) {
+        var p2 = rest.lastIndexOf(", ", maxLen);
+        if (p2 < 30) p2 = rest.lastIndexOf(" ", maxLen);
+        cut = (p2 >= 30) ? p2 : maxLen - 1;
+      }
+      out.push(rest.substring(0, cut + 1).trim());
+      rest = rest.substring(cut + 1).trim();
+    }
+    if (rest) out.push(rest);
+    return out;
+  }
+
+  function stopSpeaking() {
+    ttsSeq++; ttsActive = false; utterKeep = [];
+    try { speechSynthesis.cancel(); } catch (e) {}
+  }
+
+  function speak(text, onDone) {
+    if (!("speechSynthesis" in window)) { if (onDone) onDone(); return; }
+    var seq = ++ttsSeq;
+    var chunks = splitChunks(text, IS_ANDROID ? 140 : 200);
+    if (!chunks.length) { if (onDone) onDone(); return; }
+    try { speechSynthesis.cancel(); } catch (e) {}
+    ttsActive = true; utterKeep = [];
+    micBtn.classList.add("speaking");
+    setStatus("🔊 답변을 읽는 중… (탭하면 중단)", "speaking");
+    var idx = 0;
+    var finish = function () {
+      if (seq !== ttsSeq) return;
+      ttsActive = false; utterKeep = [];
+      micBtn.classList.remove("speaking");
+      if (onDone) onDone();
+    };
+    var next = function () {
+      if (seq !== ttsSeq) return;
+      if (idx >= chunks.length) { finish(); return; }
+      var part = chunks[idx++];
+      var u = new SpeechSynthesisUtterance(part);
+      u.lang = "ko-KR"; u.rate = settings.rate || 1.0; u.pitch = 1.0; u.volume = 1.0;
+      utterKeep.push(u);   // GC로 발화가 끊기는 Chrome 버그 방지
+      var advanced = false, started = false, t0 = Date.now();
+      var maxMs = Math.max(6000, part.length * 350 + 4000);
+      var wd = null;
+      var advance = function () {
+        if (advanced) return; advanced = true;
+        if (wd) clearInterval(wd);
+        setTimeout(next, IS_ANDROID ? 250 : 60);
+      };
+      u.onstart = function () { started = true; };
+      u.onend = advance;
+      u.onerror = function (e) {
+        if (e && (e.error === "canceled" || e.error === "interrupted")) {
+          if (!advanced) { advanced = true; if (wd) clearInterval(wd); if (seq === ttsSeq) finish(); }
+          return;
+        }
+        advance();
+      };
+      wd = setInterval(function () {   // onend 유실(모바일) 대비 watchdog
+        if (seq !== ttsSeq) { clearInterval(wd); return; }
+        var el = Date.now() - t0;
+        try {
+          var sp = speechSynthesis.speaking;
+          if (started && !sp) advance();
+          else if (!started && !sp && el > 4000) advance();
+          else if (el > maxMs) { try { speechSynthesis.cancel(); } catch (e2) {} advance(); }
+        } catch (e3) { advance(); }
+      }, 400);
+      try { if (speechSynthesis.paused) speechSynthesis.resume(); } catch (e4) {}
+      speechSynthesis.speak(u);
+    };
+    setTimeout(next, 120);
+  }
+
+  /* ════════════════ STT — 음성 인식 ════════════════ */
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  function startListening() {
+    if (!SR) {
+      setStatus("이 브라우저는 음성 인식을 지원하지 않아요. Chrome을 사용해주세요.", "error");
+      return;
+    }
+    if (recognizing || busy || ttsActive) return;
+    try {
+      recog = new SR();
+      recog.lang = "ko-KR";
+      recog.continuous = false;
+      recog.interimResults = true;
+      recog.maxAlternatives = 1;
+      recog.onstart = function () {
+        recognizing = true;
+        micBtn.classList.add("on");
+        setStatus("🎤 듣고 있어요… 말씀하세요", "listening");
+      };
+      recog.onresult = function (ev) {
+        var res = ev.results[ev.resultIndex];
+        var text = (res[0].transcript || "").trim();
+        if (!res.isFinal) { setStatus("🎤 " + text, "listening"); return; }
+        if (!text) return;
+        // 종료 명령
+        var stopWords = ["대화 종료", "대화종료", "그만하자", "그만할래", "대화 그만", "이제 그만"];
+        var lower = text.replace(/\s+/g, "");
+        for (var i = 0; i < stopWords.length; i++) {
+          if (lower.indexOf(stopWords[i].replace(/\s+/g, "")) >= 0) {
+            setVoiceMode(false);
+            speak("네, 대화를 마칠게요. 또 불러주세요.");
+            return;
+          }
+        }
+        sendMessage(text);
+      };
+      recog.onerror = function (e) {
+        recognizing = false; micBtn.classList.remove("on");
+        if (e.error === "not-allowed") {
+          setVoiceMode(false);
+          setStatus("마이크 권한이 거부되었어요. 주소창 자물쇠 → 마이크 허용 후 새로고침해주세요.", "error");
+        } else if (e.error === "no-speech") {
+          if (voiceMode && !busy && !ttsActive) setTimeout(startListening, 350);
+          else setStatus("");
+        } else if (e.error !== "aborted") {
+          setStatus("음성 인식 오류: " + e.error, "error");
+          if (voiceMode && !busy && !ttsActive) setTimeout(startListening, 1200);
+        }
+      };
+      recog.onend = function () {
+        recognizing = false; micBtn.classList.remove("on");
+        // 연속 모드: 침묵으로 끝났으면 다시 듣기 (전송 중/발화 중이면 그 흐름이 재개함)
+        if (voiceMode && !busy && !ttsActive) setTimeout(startListening, 350);
+        else if (!busy && !ttsActive) setStatus("");
+      };
+      recog.start();
+    } catch (e) {
+      recognizing = false;
+      setStatus("마이크를 시작하지 못했어요: " + e.message, "error");
+    }
+  }
+
+  function stopListening() {
+    try { if (recog) recog.abort(); } catch (e) {}
+    recognizing = false; micBtn.classList.remove("on");
+  }
+
+  /* ════════════════ 화면 꺼짐 방지 ════════════════ */
+  function acquireWakeLock() {
+    if (!("wakeLock" in navigator)) return;
+    navigator.wakeLock.request("screen").then(function (wl) {
+      wakeLock = wl;
+      wl.addEventListener("release", function () { wakeLock = null; });
+    }).catch(function () {});
+  }
+  function releaseWakeLock() {
+    if (wakeLock) { try { wakeLock.release(); } catch (e) {} wakeLock = null; }
+  }
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && voiceMode) acquireWakeLock();
+  });
+
+  /* ════════════════ Claude API ════════════════ */
+  var SYSTEM_PROMPT =
+    "당신은 사용자의 다정한 음성 대화 친구입니다. 사용자는 음성으로 말하고, " +
+    "당신의 답변은 휴대폰의 음성 합성(TTS)으로 읽힙니다. 따라서:\n" +
+    "- 반드시 한국어로, 자연스러운 구어체로 대답하세요.\n" +
+    "- 마크다운, 목록 기호, 이모지, 특수문자, 표를 절대 쓰지 마세요. 순수한 문장으로만 답하세요.\n" +
+    "- 짧은 문장 여러 개로 끊어 말하세요. 기본 2~5문장이면 충분하고, 사용자가 자세히 원할 때만 길게 답하세요.\n" +
+    "- 핵심을 먼저 말하고 부연은 뒤에 하세요.\n" +
+    "- 음성 인식 오류로 어색한 단어가 있으면 문맥으로 자연스럽게 이해하고 답하세요. 정말 알아듣기 어려울 때만 되물어보세요.\n" +
+    "- 신변잡기, 관심사, 고민, 업무 등 어떤 주제든 편하게 대화하세요.";
+
+  function callClaude(history, cb) {
+    var model = settings.model || "claude-opus-5";
+    var body = {
+      model: model,
+      max_tokens: 2048,
+      system: SYSTEM_PROMPT,
+      output_config: { effort: settings.effort || "low" },
+      messages: history
+    };
+    var headers = {
+      "content-type": "application/json",
+      "x-api-key": settings.apiKey,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"
+    };
+    // Opus 5: 안전 분류기 거절 시 서버측 폴백으로 자동 재시도
+    if (model === "claude-opus-5") {
+      headers["anthropic-beta"] = "server-side-fallback-2026-07-01";
+      body.fallbacks = "default";
+    }
+    fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST", headers: headers, body: JSON.stringify(body)
+    }).then(function (res) {
+      return res.json().then(function (data) { return { status: res.status, data: data }; });
+    }).then(function (r) {
+      if (r.status === 200) {
+        if (r.data.stop_reason === "refusal") {
+          cb(null, "죄송해요, 그 주제는 답변해 드리기 어려워요. 다른 이야기를 나눠볼까요?");
+          return;
+        }
+        var text = "";
+        (r.data.content || []).forEach(function (b) { if (b.type === "text") text += b.text; });
+        if (r.data.usage) {
+          settings.totalTokens = (settings.totalTokens || 0) +
+            (r.data.usage.input_tokens || 0) + (r.data.usage.output_tokens || 0);
+          saveSettings();
+        }
+        cb(null, text || "답변을 만들지 못했어요. 다시 한 번 말씀해 주세요.");
+      } else if (r.status === 401) {
+        cb("API 키가 올바르지 않아요. 설정에서 키를 다시 확인해주세요.");
+      } else if (r.status === 429) {
+        cb("요청이 너무 많아요. 잠시 후 다시 말씀해주세요.");
+      } else if (r.status === 529 || r.status >= 500) {
+        cb("클로드 서버가 혼잡해요. 잠시 후 다시 시도해주세요.");
+      } else {
+        var msg = (r.data && r.data.error && r.data.error.message) || ("오류 " + r.status);
+        cb("오류가 발생했어요: " + msg);
+      }
+    }).catch(function () {
+      cb("네트워크 연결을 확인해주세요.");
+    });
+  }
+
+  /* ════════════════ 대화 흐름 ════════════════ */
+  function sendMessage(text) {
+    text = (text || "").trim();
+    if (!text || busy) return;
+    if (!settings.apiKey) { openSettings(); return; }
+    stopListening();
+    busy = true;
+    messages.push({ role: "user", content: text });
+    renderMessage("user", text);
+    persistCurrent(text);
+    setStatus("생각하는 중…");
+    statusEl.innerHTML = '<span class="spinner"></span>생각하는 중…';
+
+    var history = messages.slice(-24).map(function (m) { return { role: m.role, content: m.content }; });
+    callClaude(history, function (err, answer) {
+      busy = false;
+      if (err) {
+        messages.pop();   // 실패한 user 턴 롤백
+        var arr = loadMsgs(currentRoomId); arr.pop(); saveMsgs(currentRoomId, arr);
+        setStatus(err, "error");
+        if (voiceMode) speak(err, function () { setTimeout(startListening, 300); });
+        return;
+      }
+      messages.push({ role: "assistant", content: answer });
+      var arr2 = loadMsgs(currentRoomId);
+      arr2.push({ role: "assistant", content: answer, t: Date.now() });
+      saveMsgs(currentRoomId, arr2);
+      renderMessage("ai", answer);
+      setStatus("");
+      if (voiceMode) {
+        speak(answer, function () {
+          if (voiceMode) { setStatus(""); setTimeout(startListening, 350); }
+        });
+      }
+    });
+  }
+
+  function persistCurrent(userText) {
+    var arr = loadMsgs(currentRoomId);
+    arr.push({ role: "user", content: userText, t: Date.now() });
+    saveMsgs(currentRoomId, arr);
+    var room = currentRoom();
+    if (room.name === "새 대화") {
+      room.name = userText.length > 24 ? userText.slice(0, 24) + "…" : userText;
+      saveRooms(); $("roomTitle").textContent = room.name;
+    }
+  }
+
+  /* ════════════════ 렌더링 ════════════════ */
+  function renderMessage(kind, text) {
+    var div = document.createElement("div");
+    div.className = "msg " + kind;
+    div.textContent = text;
+    if (kind === "ai") {
+      var rp = document.createElement("span");
+      rp.className = "replay"; rp.textContent = "🔊 다시 듣기";
+      rp.addEventListener("click", function () { stopSpeaking(); stopListening(); speak(text); });
+      div.appendChild(document.createElement("br"));
+      div.appendChild(rp);
+    }
+    chatEl.appendChild(div);
+    chatEl.scrollTop = chatEl.scrollHeight;
+  }
+
+  function renderRoom() {
+    var room = currentRoom();
+    $("roomTitle").textContent = room.name === "새 대화" ? "보이스 클로드" : room.name;
+    chatEl.innerHTML = "";
+    var stored = loadMsgs(room.id);
+    messages = stored.map(function (m) { return { role: m.role, content: m.content }; });
+    if (!stored.length) {
+      var h = document.createElement("div");
+      h.className = "hint";
+      h.innerHTML = "🎤 마이크 버튼을 누르고 편하게 말을 걸어보세요.<br>" +
+        "🔊 상단 스피커 버튼을 켜면 <b>손 안 대고 연속 대화</b>가 됩니다.<br>" +
+        "답변이 끝나면 자동으로 다시 들어요. \"대화 종료\"라고 말하면 멈춥니다.";
+      chatEl.appendChild(h);
+    } else {
+      stored.forEach(function (m) { renderMessage(m.role === "user" ? "user" : "ai", m.content); });
+    }
+  }
+
+  function renderRoomList() {
+    var list = $("roomList");
+    list.innerHTML = "";
+    if (!rooms.length) {
+      var e = document.createElement("div");
+      e.className = "note"; e.textContent = "대화방이 없어요. 새 대화방을 만들어보세요.";
+      list.appendChild(e);
+      return;
+    }
+    rooms.forEach(function (room) {
+      var item = document.createElement("div");
+      item.className = "roomItem";
+      var last = loadMsgs(room.id).slice(-1)[0];
+      item.innerHTML = '<div class="rname"><div class="t"></div><div class="s"></div></div>';
+      item.querySelector(".t").textContent = room.name;
+      item.querySelector(".s").textContent = last ? last.content.slice(0, 40) : "대화 없음";
+      var del = document.createElement("button");
+      del.className = "del"; del.textContent = "🗑"; del.setAttribute("aria-label", "삭제");
+      del.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        if (!confirm('"' + room.name + '" 대화방을 삭제할까요?')) return;
+        rooms = rooms.filter(function (x) { return x.id !== room.id; });
+        LS.removeItem(msgsKey(room.id)); saveRooms();
+        if (currentRoomId === room.id) { currentRoomId = null; renderRoom(); }
+        renderRoomList();
+      });
+      item.appendChild(del);
+      item.addEventListener("click", function () {
+        currentRoomId = room.id; LS.setItem("vc_current_room", room.id);
+        $("roomsOverlay").classList.remove("show");
+        stopSpeaking(); stopListening(); renderRoom();
+      });
+      list.appendChild(item);
+    });
+  }
+
+  /* ════════════════ 음성 모드 토글 ════════════════ */
+  function setVoiceMode(on) {
+    voiceMode = on;
+    voiceModeBtn.textContent = on ? "🔴" : "🔊";
+    voiceModeBtn.setAttribute("aria-label", on ? "연속 음성 대화 끄기" : "연속 음성 대화 켜기");
+    if (on) {
+      acquireWakeLock();
+      stopSpeaking();
+      startListening();
+    } else {
+      releaseWakeLock();
+      stopSpeaking(); stopListening();
+      setStatus("");
+    }
+  }
+
+  /* ════════════════ 설정 ════════════════ */
+  function openSettings() {
+    $("apiKeyInput").value = settings.apiKey || "";
+    $("modelSelect").value = settings.model || "claude-opus-5";
+    $("speedSelect").value = settings.effort || "low";
+    $("rateSelect").value = String(settings.rate || 1.0);
+    $("usageNote").textContent = settings.totalTokens
+      ? " 지금까지 사용한 토큰: 약 " + settings.totalTokens.toLocaleString() + "개."
+      : "";
+    $("settingsOverlay").classList.add("show");
+  }
+
+  /* ════════════════ 이벤트 바인딩 ════════════════ */
+  micBtn.addEventListener("click", function () {
+    if (ttsActive) { stopSpeaking(); if (voiceMode) setTimeout(startListening, 200); else setStatus(""); return; }
+    if (recognizing) { stopListening(); setStatus(""); return; }
+    startListening();
+  });
+  voiceModeBtn.addEventListener("click", function () { setVoiceMode(!voiceMode); });
+  $("sendBtn").addEventListener("click", function () {
+    var t = inputEl.value; inputEl.value = ""; sendMessage(t);
+  });
+  inputEl.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { var t = inputEl.value; inputEl.value = ""; sendMessage(t); }
+  });
+  $("settingsBtn").addEventListener("click", openSettings);
+  $("saveSettingsBtn").addEventListener("click", function () {
+    settings.apiKey = $("apiKeyInput").value.trim();
+    settings.model = $("modelSelect").value;
+    settings.effort = $("speedSelect").value;
+    settings.rate = parseFloat($("rateSelect").value) || 1.0;
+    saveSettings();
+    $("settingsOverlay").classList.remove("show");
+    if (!settings.apiKey) setStatus("API 키를 입력해야 대화할 수 있어요.", "error");
+    else setStatus("설정을 저장했어요.");
+  });
+  $("clearKeyBtn").addEventListener("click", function () {
+    if (!confirm("저장된 API 키를 삭제할까요?")) return;
+    settings.apiKey = ""; saveSettings(); $("apiKeyInput").value = "";
+  });
+  $("roomsBtn").addEventListener("click", function () {
+    renderRoomList(); $("roomsOverlay").classList.add("show");
+  });
+  $("newRoomBtn").addEventListener("click", function () {
+    newRoom(); $("roomsOverlay").classList.remove("show");
+    stopSpeaking(); stopListening(); renderRoom();
+  });
+  [$("settingsOverlay"), $("roomsOverlay")].forEach(function (ov) {
+    ov.addEventListener("click", function (e) { if (e.target === ov) ov.classList.remove("show"); });
+  });
+
+  /* ════════════════ 시작 ════════════════ */
+  if (!rooms.length) newRoom();
+  renderRoom();
+  if (!settings.apiKey) {
+    setTimeout(function () {
+      openSettings();
+      setStatus("처음 오셨네요! Claude API 키를 입력하면 시작할 수 있어요.");
+    }, 400);
+  }
+})();
+</script>
+</body>
+</html>
