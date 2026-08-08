@@ -111,6 +111,13 @@ def _a11y_announce(text, *, lang=None, interrupt=True):
                     return;
                 }}
                 if (!('speechSynthesis' in w)) return;
+                try {{
+                    const _twA = window.top || w;
+                    if (String({js_text}).length >= 120 && typeof _twA.__a11ySpeakLong === 'function') {{
+                        _twA.__a11ySpeakLong({js_text}, {js_lang}, {speed});
+                        return;
+                    }}
+                }} catch(_){{}}
                 if ({js_interrupt}) {{ w.speechSynthesis.cancel(); }}
                 const u = new w.SpeechSynthesisUtterance({js_text});
                 u.lang = {js_lang}; u.rate = {speed}; u.pitch = 1.0; u.volume = 1.0;
@@ -182,6 +189,8 @@ def _a11y_main_install_once():
                             if (!text || !('speechSynthesis' in window)) return false;
                             // ⭐ 마이크가 듣는 동안엔 안내 발화 금지 — 마이크가 자기 음성을 명령으로 오인 방지
                             try { if ((window.top||window).__a11yMicListening) return false; } catch(_){}
+                            // ⭐ 긴 답변(청크 발화) 진행 중엔 짧은 안내가 답변을 끊지 않도록 무시
+                            try { if (window.__a11ySpeakLongActive) return false; } catch(_){}
                             // ⭐ 같은 텍스트 즉시 재요청 무시 (focusin이 빠르게 반복될 때)
                             if (text === __a11yTtsLastText) return false;
                             __a11yTtsLastText = text;
@@ -213,16 +222,136 @@ def _a11y_main_install_once():
                             return true;
                         };
 
+                        // ⭐ 모바일(Android/갤럭시) 감지 — Android에서는 pause()가 발화를
+                        //   재개 불가능하게 죽이는 기기가 많음 (Samsung TTS / Google TTS 공통)
+                        var __a11yIsAndroid = /Android/i.test(navigator.userAgent || '');
+
                         // ⭐ Chrome speechSynthesis 자동 정지 버그 우회 — 14초마다 resume
-                        //   (Chrome은 15초 이상 발화 시 자동 정지하는 버그)
-                        setInterval(function() {
-                            try {
-                                if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
-                                    window.speechSynthesis.pause();
-                                    window.speechSynthesis.resume();
+                        //   (데스크톱 Chrome 전용. Android는 pause()가 발화를 끊는 원인이라 제외)
+                        if (!__a11yIsAndroid) {
+                            setInterval(function() {
+                                try {
+                                    if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
+                                        window.speechSynthesis.pause();
+                                        window.speechSynthesis.resume();
+                                    }
+                                } catch(_){}
+                            }, 14000);
+                        }
+
+                        // ─── 긴 텍스트 끊김 없는 발화 엔진 (문장 단위 청크 큐) ───
+                        //   긴 답변을 utterance 하나로 읽으면 모바일 내장 TTS가 중간에
+                        //   끊기는 문제 → 문장 단위로 잘라 순차 발화.
+                        //   utterance 참조를 전역 배열에 유지해 Streamlit rerun 시
+                        //   GC로 발화가 죽는 Chrome 버그도 함께 회피.
+                        window.__a11yUtterKeep = [];
+                        window.__a11ySpeakLongActive = false;
+                        window.__a11ySpeakLongSeq = 0;
+                        function __a11ySplitChunks(text, maxLen) {
+                            maxLen = maxLen || 160;
+                            var out = [];
+                            var rest = String(text).replace(/\\s+/g, ' ').trim();
+                            while (rest.length > maxLen) {
+                                var cut = -1;
+                                var marks = ['. ', '! ', '? ', '。', '… ', '; '];
+                                for (var i = 0; i < marks.length; i++) {
+                                    var p = rest.lastIndexOf(marks[i], maxLen);
+                                    if (p > cut) cut = p + marks[i].length - 1;
                                 }
-                            } catch(_){}
-                        }, 14000);
+                                if (cut < 40) {
+                                    var p2 = rest.lastIndexOf(', ', maxLen);
+                                    if (p2 < 40) p2 = rest.lastIndexOf(' ', maxLen);
+                                    cut = (p2 >= 40) ? p2 : maxLen - 1;
+                                }
+                                out.push(rest.substring(0, cut + 1).trim());
+                                rest = rest.substring(cut + 1).trim();
+                            }
+                            if (rest) out.push(rest);
+                            return out;
+                        }
+                        window.__a11ySpeakLong = function(text, lang, rate) {
+                            if (!text || !('speechSynthesis' in window)) return false;
+                            try { if ((window.top||window).__a11yMicListening) return false; } catch(_){}
+                            var seq = ++window.__a11ySpeakLongSeq;
+                            var chunks = __a11ySplitChunks(text, __a11yIsAndroid ? 140 : 200);
+                            if (!chunks.length) return false;
+                            lang = lang || 'ko-KR';
+                            rate = (typeof rate === 'number' && rate > 0) ? rate : 1.0;
+                            try { window.speechSynthesis.cancel(); } catch(_){}
+                            window.__a11ySpeakLongActive = true;
+                            window._dragoneyesTtsSpeaking = true;   // 받아쓰기 마이크가 자기 목소리 오인 방지
+                            window.__a11yUtterKeep = [];
+                            var idx = 0;
+                            var _extendSuppress = function(len) {
+                                try {
+                                    var exp = Date.now() + Math.max(6000, len * 220 + 4000);
+                                    var set = function(w){ try { w.__a11ySuppressFocusUntil = Math.max(w.__a11ySuppressFocusUntil || 0, exp); } catch(_){} };
+                                    set(window);
+                                    try { set(window.top); } catch(_){}
+                                } catch(_){}
+                            };
+                            var _finish = function() {
+                                if (seq !== window.__a11ySpeakLongSeq) return;
+                                window.__a11ySpeakLongActive = false;
+                                window.__a11yUtterKeep = [];
+                                setTimeout(function() {
+                                    if (!window.__a11ySpeakLongActive) window._dragoneyesTtsSpeaking = false;
+                                }, 700);
+                                console.log('[A11y speakLong] done (' + chunks.length + ' chunks)');
+                            };
+                            var _next = function() {
+                                if (seq !== window.__a11ySpeakLongSeq) return;   // 새 발화로 대체됨
+                                if (idx >= chunks.length) { _finish(); return; }
+                                var part = chunks[idx++];
+                                var u = new SpeechSynthesisUtterance(part);
+                                u.lang = lang; u.rate = rate; u.pitch = 1.0; u.volume = 1.0;
+                                window.__a11yUtterKeep.push(u);   // GC 방지
+                                var advanced = false;
+                                var startedSpeaking = false;
+                                var started = Date.now();
+                                var maxMs = Math.max(6000, part.length * 350 + 4000);
+                                var watchdog = null;
+                                var advance = function() {
+                                    if (advanced) return;
+                                    advanced = true;
+                                    if (watchdog) clearInterval(watchdog);
+                                    // 청크 사이 짧은 간격 — 모바일 엔진이 연속 speak를 삼키는 문제 방지
+                                    setTimeout(_next, __a11yIsAndroid ? 250 : 60);
+                                };
+                                u.onstart = function() { startedSpeaking = true; };
+                                u.onend = advance;
+                                u.onerror = function(e) {
+                                    if (e && (e.error === 'canceled' || e.error === 'interrupted')) {
+                                        // 외부 cancel(마이크 시작 등) — 전체 중단
+                                        if (advanced) return;
+                                        advanced = true;
+                                        if (watchdog) clearInterval(watchdog);
+                                        if (seq === window.__a11ySpeakLongSeq) _finish();
+                                        return;
+                                    }
+                                    console.warn('[A11y speakLong] chunk error', e && e.error);
+                                    advance();
+                                };
+                                // watchdog — 모바일에서 onend 미수신 시 종료 감지로 다음 청크 진행
+                                watchdog = setInterval(function() {
+                                    if (seq !== window.__a11ySpeakLongSeq) { clearInterval(watchdog); return; }
+                                    var el = Date.now() - started;
+                                    try {
+                                        var sp = window.speechSynthesis.speaking;
+                                        if (startedSpeaking && !sp) { advance(); }
+                                        else if (!startedSpeaking && !sp && el > 4000) { advance(); }
+                                        else if (el > maxMs) { try { window.speechSynthesis.cancel(); } catch(_){} advance(); }
+                                    } catch(_) { advance(); }
+                                }, 400);
+                                _extendSuppress(part.length);
+                                try { if (window.speechSynthesis.paused) window.speechSynthesis.resume(); } catch(_){}
+                                window.speechSynthesis.speak(u);
+                            };
+                            console.log('[A11y speakLong] start — ' + String(text).length + '자, ' + chunks.length + ' chunks');
+                            // cancel 직후 speak가 무시되는 엔진 대비 약간 지연 후 시작
+                            setTimeout(_next, 150);
+                            return true;
+                        };
 
                         // ─── user-action gate ─────────────────────────────────────
                         // 사용자가 직접 Tab/방향키/클릭한 직후 1.5초 동안만 focusin 발화.
@@ -299,7 +428,7 @@ def _a11y_main_install_once():
                             // ⭐ Gate 0: 답변 발화 중에는 focusin 안내 suppress
                             try {
                                 const _sup = (window.top || window).__a11ySuppressFocusUntil || 0;
-                                if (now < _sup) {
+                                if (now < _sup || (window.top || window).__a11ySpeakLongActive) {
                                     console.log('[A11y main focusin] SKIP — chat answer in progress');
                                     return;
                                 }
@@ -499,6 +628,18 @@ def _a11y_force_announce(text, *, lang=None, once_key=None, speed=1.0):
                             try {{ window.__a11ySuppressFocusUntil = 0; }} catch(_){{}}
                             try {{ w.__a11ySuppressFocusUntil = 0; }} catch(_){{}}
                             try {{ window.top.__a11ySuppressFocusUntil = 0; }} catch(_){{}}
+                            // 사용자 키 입력 = 발화 중단 의도 — 청크 발화 엔진도 함께 정지
+                            const _stopLong = function(ww){{
+                                try {{
+                                    if (ww && ww.__a11ySpeakLongActive) {{
+                                        ww.__a11ySpeakLongSeq++;
+                                        ww.__a11ySpeakLongActive = false;
+                                        ww.speechSynthesis && ww.speechSynthesis.cancel();
+                                    }}
+                                }} catch(_){{}}
+                            }};
+                            try {{ _stopLong(window.top); }} catch(_){{}}
+                            _stopLong(w);
                             console.log('[A11y] force_announce suppress released by user');
                         }}
                     }};
@@ -511,6 +652,16 @@ def _a11y_force_announce(text, *, lang=None, once_key=None, speed=1.0):
                 // 0.5초 지연으로 다른 announce의 cancel과 충돌 회피
                 setTimeout(function() {{
                     try {{
+                        // ⭐ 긴 텍스트(답변 등)는 top의 청크 발화 엔진으로 — 모바일 중간 끊김 방지
+                        //   (utterance를 top window에 유지해 Streamlit rerun GC로 죽는 문제도 회피)
+                        try {{
+                            const _twF = window.top || w;
+                            if (String({js_text}).length >= 120 && typeof _twF.__a11ySpeakLong === 'function') {{
+                                console.log('[A11y] force_announce → speakLong: ' + tag);
+                                _twF.__a11ySpeakLong({js_text}, {js_lang}, {speed});
+                                return;
+                            }}
+                        }} catch(_){{}}
                         w.speechSynthesis.cancel();
                         const u = new w.SpeechSynthesisUtterance({js_text});
                         u.lang = {js_lang}; u.rate = {speed}; u.pitch = 1.0; u.volume = 1.0;
@@ -586,6 +737,17 @@ def _a11y_inject_shortcuts():
                         if (!('speechSynthesis' in w)) return;
                         // ⭐ 마이크가 듣는 동안엔 안내 발화 금지 (피드백 루프 차단)
                         try {{ if ((w.top||w).__a11yMicListening) return; }} catch(_){{}}
+                        // ⭐ 긴 텍스트(답변 등)는 top의 청크 발화 엔진으로 — 모바일 중간 끊김 방지
+                        try {{
+                            const _twL = w.top || w;
+                            if (String(text || '').length >= 180 && typeof _twL.__a11ySpeakLong === 'function') {{
+                                _twL.__a11ySpeakLong(String(text), lang || w.__a11yLang || 'ko-KR',
+                                    (typeof rate === 'number' && rate > 0) ? rate : (w.__a11ySpeed || 1.0));
+                                return;
+                            }}
+                            // 답변 청크 발화 중엔 짧은 안내(터치/호버 등)가 끼어들어 끊지 않도록 무시
+                            if (_twL.__a11ySpeakLongActive) return;
+                        }} catch(_){{}}
                         if (interrupt !== false) {{ w.speechSynthesis.cancel(); }}
                         const u = new w.SpeechSynthesisUtterance(text);
                         u.lang = lang || w.__a11yLang || 'ko-KR';
@@ -700,7 +862,7 @@ def _a11y_inject_shortcuts():
                     // ⭐ Gate 0: 답변 발화 중에는 focusin 안내 suppress
                     try {{
                         const _sup = (w.top || w).__a11ySuppressFocusUntil || 0;
-                        if (now < _sup) {{
+                        if (now < _sup || (w.top || w).__a11ySpeakLongActive) {{
                             console.log('[A11y focusin] SKIP — chat answer in progress');
                             return;
                         }}
@@ -15802,8 +15964,9 @@ else:
                 import re as _re_ans2
                 _ans_clean2 = _re_ans2.sub(r'<[^>]+>', '', str(_pending_answer_dc))
                 _ans_clean2 = _re_ans2.sub(r'\s+', ' ', _ans_clean2).strip()
-                if len(_ans_clean2) > 600:
-                    _ans_clean2 = _ans_clean2[:600] + " ... 이하 생략. 화면에서 전체 답변을 확인해주세요."
+                # 청크 발화 엔진이 문장 단위로 나눠 읽으므로 1500자까지 허용
+                if len(_ans_clean2) > 1500:
+                    _ans_clean2 = _ans_clean2[:1500] + " ... 이하 생략. 화면에서 전체 답변을 확인해주세요."
                 accessibility.force_announce(
                     "드래곤파더 답변입니다. " + _ans_clean2,
                     once_key=None, speed=1.0,
@@ -32568,9 +32731,9 @@ else:
                 import re as _re_ans
                 _ans_clean = _re_ans.sub(r'<[^>]+>', '', str(_pending_answer))
                 _ans_clean = _re_ans.sub(r'\s+', ' ', _ans_clean).strip()
-                # 너무 길면 600자로 자르기 (TTS 안정성)
-                if len(_ans_clean) > 600:
-                    _ans_clean = _ans_clean[:600] + " ... 이하 생략. 화면에서 전체 답변을 확인해주세요."
+                # 청크 발화 엔진이 문장 단위로 나눠 읽으므로 1500자까지 허용
+                if len(_ans_clean) > 1500:
+                    _ans_clean = _ans_clean[:1500] + " ... 이하 생략. 화면에서 전체 답변을 확인해주세요."
                 accessibility.force_announce(
                     "드래곤파더 답변입니다. " + _ans_clean,
                     once_key=None,
