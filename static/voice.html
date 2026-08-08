@@ -177,6 +177,24 @@
       <option value="1.2">빠르게</option>
       <option value="1.4">아주 빠르게</option>
     </select>
+
+    <h2 style="margin-top:22px">☁️ 기기 간 동기화 (선택)</h2>
+    <div class="note" style="margin-top:0">
+      아래 3칸을 PC와 폰에 <b>똑같이</b> 입력하면 대화방과 대화 내역이 기기끼리 공유됩니다.
+      대화 내용은 동기화 암호로 <b>암호화되어</b> 저장됩니다.
+    </div>
+    <label for="syncUrlInput">Supabase URL</label>
+    <input id="syncUrlInput" type="text" placeholder="https://xxxx.supabase.co" autocomplete="off">
+    <label for="syncAnonInput">Supabase anon 키</label>
+    <input id="syncAnonInput" type="password" placeholder="eyJhbGciOi..." autocomplete="off">
+    <label for="syncPassInput">동기화 암호 (직접 정하는 비밀 문구)</label>
+    <input id="syncPassInput" type="password" placeholder="예: 우리집드래곤7" autocomplete="off">
+    <button class="btnPrimary" id="syncNowBtn"
+      style="width:100%;margin-top:14px;border:none;border-radius:12px;padding:13px;font-size:1rem;font-weight:600;cursor:pointer">
+      ☁️ 지금 동기화
+    </button>
+    <div class="note" id="syncStatus"></div>
+
     <div class="note">
       <b>API 키는 이 폰에만 저장</b>되고 Anthropic 서버 외에는 어디에도 전송되지 않습니다.
       대화 내용도 이 폰에만 저장됩니다. 사용한 만큼 API 요금이 부과되니
@@ -208,8 +226,10 @@
   function getJSON(k, d) { try { var v = LS.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
   function setJSON(k, v) { try { LS.setItem(k, JSON.stringify(v)); } catch (e) {} }
 
-  var settings = getJSON("vc_settings", { apiKey: "", model: "claude-opus-5", effort: "low", rate: 1.0, totalTokens: 0 });
+  var settings = getJSON("vc_settings", { apiKey: "", model: "claude-opus-5", effort: "low", rate: 1.0, totalTokens: 0,
+    syncUrl: "", syncAnon: "", syncPass: "" });
   var rooms = getJSON("vc_rooms", []);
+  var deletedRooms = getJSON("vc_deleted", []);   // 삭제 전파용 tombstone
   var currentRoomId = LS.getItem("vc_current_room") || null;
 
   function saveSettings() { setJSON("vc_settings", settings); }
@@ -489,6 +509,153 @@
     });
   }
 
+  /* ════════════════ 기기 간 동기화 (Supabase + AES-GCM 암호화) ════════════════ */
+  function syncConfigured() {
+    return !!(settings.syncUrl && settings.syncAnon && settings.syncPass && window.crypto && crypto.subtle);
+  }
+  var pushTimer = null, syncBusy = false;
+
+  function bufToB64(buf) {
+    var bytes = new Uint8Array(buf), s = "";
+    for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+    return btoa(s);
+  }
+  function b64ToBuf(b64) {
+    var s = atob(b64), bytes = new Uint8Array(s.length);
+    for (var i = 0; i < s.length; i++) bytes[i] = s.charCodeAt(i);
+    return bytes.buffer;
+  }
+  function sha256Hex(str) {
+    return crypto.subtle.digest("SHA-256", new TextEncoder().encode(str)).then(function (buf) {
+      return Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+    });
+  }
+  function deriveAesKey(pass) {
+    var enc = new TextEncoder();
+    return crypto.subtle.importKey("raw", enc.encode(pass), "PBKDF2", false, ["deriveKey"])
+      .then(function (k) {
+        return crypto.subtle.deriveKey(
+          { name: "PBKDF2", salt: enc.encode("voice-claude-sync-v1"), iterations: 100000, hash: "SHA-256" },
+          k, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+      });
+  }
+  function encryptJSON(obj, pass) {
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    return deriveAesKey(pass).then(function (key) {
+      return crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key,
+        new TextEncoder().encode(JSON.stringify(obj)));
+    }).then(function (cipher) { return bufToB64(iv) + "." + bufToB64(cipher); });
+  }
+  function decryptJSON(str, pass) {
+    var parts = String(str).split(".");
+    if (parts.length !== 2) return Promise.reject(new Error("bad payload"));
+    return deriveAesKey(pass).then(function (key) {
+      return crypto.subtle.decrypt({ name: "AES-GCM", iv: new Uint8Array(b64ToBuf(parts[0])) }, key, b64ToBuf(parts[1]));
+    }).then(function (plain) { return JSON.parse(new TextDecoder().decode(plain)); });
+  }
+
+  function localState() {
+    // 대화가 없는 빈 방은 동기화에서 제외 (기기마다 빈 "새 대화" 방이 퍼지는 것 방지)
+    var syncRooms = rooms.filter(function (r) { return loadMsgs(r.id).length > 0; });
+    var msgs = {};
+    syncRooms.forEach(function (r) { msgs[r.id] = loadMsgs(r.id); });
+    return { rooms: syncRooms, msgs: msgs, deleted: deletedRooms, t: Date.now() };
+  }
+  function applyState(state) {
+    rooms = state.rooms; saveRooms();
+    setJSON("vc_deleted", state.deleted || []);
+    deletedRooms = state.deleted || [];
+    Object.keys(state.msgs || {}).forEach(function (id) { saveMsgs(id, state.msgs[id]); });
+  }
+  // 병합 규칙: 삭제 목록은 합집합, 방은 합집합(삭제된 방 제외), 메시지는 더 긴 쪽 우선
+  function mergeStates(remote, local) {
+    var deleted = {};
+    (remote.deleted || []).concat(local.deleted || []).forEach(function (id) { deleted[id] = 1; });
+    var byId = {};
+    (remote.rooms || []).forEach(function (r) { if (!deleted[r.id]) byId[r.id] = r; });
+    (local.rooms || []).forEach(function (r) { if (!deleted[r.id]) byId[r.id] = Object.assign({}, byId[r.id] || {}, r); });
+    var msgs = {};
+    Object.keys(byId).forEach(function (id) {
+      var rm = (remote.msgs && remote.msgs[id]) || [];
+      var lm = (local.msgs && local.msgs[id]) || [];
+      msgs[id] = (rm.length > lm.length) ? rm : lm;
+      // "새 대화" 이름은 대화가 있는 쪽 이름으로
+      if (byId[id].name === "새 대화") {
+        var other = (remote.rooms || []).find(function (r) { return r.id === id; });
+        if (other && other.name !== "새 대화") byId[id].name = other.name;
+      }
+    });
+    var mergedRooms = Object.keys(byId).map(function (id) { return byId[id]; })
+      .sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+    return { rooms: mergedRooms, msgs: msgs, deleted: Object.keys(deleted), t: Date.now() };
+  }
+
+  function syncHeaders() {
+    return {
+      "apikey": settings.syncAnon,
+      "Authorization": "Bearer " + settings.syncAnon,
+      "content-type": "application/json"
+    };
+  }
+  function syncBase() { return settings.syncUrl.replace(/\/+$/, "") + "/rest/v1/voice_sync"; }
+
+  function pullRemote() {
+    return sha256Hex("vc:" + settings.syncPass).then(function (key) {
+      return fetch(syncBase() + "?sync_key=eq." + key + "&select=data", { headers: syncHeaders() })
+        .then(function (res) {
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return res.json();
+        }).then(function (rows) {
+          if (!rows.length) return null;
+          return decryptJSON(rows[0].data, settings.syncPass).catch(function () { return null; });
+        });
+    });
+  }
+  function pushRemote(state) {
+    return Promise.all([sha256Hex("vc:" + settings.syncPass), encryptJSON(state, settings.syncPass)])
+      .then(function (r) {
+        var headers = syncHeaders();
+        headers["Prefer"] = "resolution=merge-duplicates";
+        return fetch(syncBase(), {
+          method: "POST", headers: headers,
+          body: JSON.stringify([{ sync_key: r[0], data: r[1], updated_at: new Date().toISOString() }])
+        });
+      }).then(function (res) { if (!res.ok) throw new Error("HTTP " + res.status); });
+  }
+
+  function fullSync(manual) {
+    if (!syncConfigured() || syncBusy) return Promise.resolve();
+    syncBusy = true;
+    var report = function (msg, isErr) {
+      var el = $("syncStatus");
+      if (el) el.textContent = msg;
+      if (manual) setStatus(msg, isErr ? "error" : "");
+    };
+    if (manual) report("동기화 중…");
+    return pullRemote().then(function (remote) {
+      var merged = remote ? mergeStates(remote, localState()) : localState();
+      applyState(merged);
+      renderRoom();
+      return pushRemote(merged);
+    }).then(function () {
+      report("☁️ 동기화 완료 (" + new Date().toLocaleTimeString("ko-KR") + ")");
+    }).catch(function (e) {
+      report("동기화 실패: " + e.message + " — URL/키/표 설정을 확인해주세요.", true);
+    }).then(function () { syncBusy = false; });
+  }
+
+  function schedulePush() {
+    if (!syncConfigured()) return;
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(function () {
+      pushRemote(localState()).catch(function (e) { console.warn("[sync push]", e.message); });
+    }, 2500);
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && !busy) fullSync(false);
+  });
+
   /* ════════════════ 대화 흐름 ════════════════ */
   function sendMessage(text) {
     text = (text || "").trim();
@@ -516,6 +683,7 @@
       var arr2 = loadMsgs(currentRoomId);
       arr2.push({ role: "assistant", content: answer, t: Date.now() });
       saveMsgs(currentRoomId, arr2);
+      schedulePush();
       renderMessage("ai", answer);
       setStatus("");
       if (voiceMode) {
@@ -535,6 +703,7 @@
       room.name = userText.length > 24 ? userText.slice(0, 24) + "…" : userText;
       saveRooms(); $("roomTitle").textContent = room.name;
     }
+    schedulePush();
   }
 
   /* ════════════════ 렌더링 ════════════════ */
@@ -594,6 +763,8 @@
         if (!confirm('"' + room.name + '" 대화방을 삭제할까요?')) return;
         rooms = rooms.filter(function (x) { return x.id !== room.id; });
         LS.removeItem(msgsKey(room.id)); saveRooms();
+        deletedRooms.push(room.id); setJSON("vc_deleted", deletedRooms);
+        schedulePush();
         if (currentRoomId === room.id) { currentRoomId = null; renderRoom(); }
         renderRoomList();
       });
@@ -629,6 +800,9 @@
     $("modelSelect").value = settings.model || "claude-opus-5";
     $("speedSelect").value = settings.effort || "low";
     $("rateSelect").value = String(settings.rate || 1.0);
+    $("syncUrlInput").value = settings.syncUrl || "";
+    $("syncAnonInput").value = settings.syncAnon || "";
+    $("syncPassInput").value = settings.syncPass || "";
     $("usageNote").textContent = settings.totalTokens
       ? " 지금까지 사용한 토큰: 약 " + settings.totalTokens.toLocaleString() + "개."
       : "";
@@ -654,10 +828,25 @@
     settings.model = $("modelSelect").value;
     settings.effort = $("speedSelect").value;
     settings.rate = parseFloat($("rateSelect").value) || 1.0;
+    settings.syncUrl = $("syncUrlInput").value.trim();
+    settings.syncAnon = $("syncAnonInput").value.trim();
+    settings.syncPass = $("syncPassInput").value;
     saveSettings();
     $("settingsOverlay").classList.remove("show");
     if (!settings.apiKey) setStatus("API 키를 입력해야 대화할 수 있어요.", "error");
     else setStatus("설정을 저장했어요.");
+    if (syncConfigured()) fullSync(true);
+  });
+  $("syncNowBtn").addEventListener("click", function () {
+    settings.syncUrl = $("syncUrlInput").value.trim();
+    settings.syncAnon = $("syncAnonInput").value.trim();
+    settings.syncPass = $("syncPassInput").value;
+    saveSettings();
+    if (!syncConfigured()) {
+      $("syncStatus").textContent = "동기화 3칸(URL, anon 키, 암호)을 모두 입력해주세요.";
+      return;
+    }
+    fullSync(true);
   });
   $("clearKeyBtn").addEventListener("click", function () {
     if (!confirm("저장된 API 키를 삭제할까요?")) return;
@@ -677,6 +866,7 @@
   /* ════════════════ 시작 ════════════════ */
   if (!rooms.length) newRoom();
   renderRoom();
+  if (syncConfigured()) fullSync(false);   // 앱 열 때 다른 기기의 변경사항 가져오기
   if (!settings.apiKey) {
     setTimeout(function () {
       openSettings();
