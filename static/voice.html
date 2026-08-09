@@ -460,9 +460,10 @@
     var model = settings.model || "claude-opus-5";
     var body = {
       model: model,
-      max_tokens: 2048,
+      max_tokens: 4096,                        // thinking(내부 사고)+답변 합산 상한 — 부족하면 답변이 잘림
       system: SYSTEM_PROMPT,
       output_config: { effort: settings.effort || "low" },
+      cache_control: { type: "ephemeral" },    // 프롬프트 캐싱 — 반복 전송되는 히스토리 입력비 최대 90% 절감
       messages: history
     };
     var headers = {
@@ -488,6 +489,9 @@
         }
         var text = "";
         (r.data.content || []).forEach(function (b) { if (b.type === "text") text += b.text; });
+        if (r.data.stop_reason === "max_tokens") {
+          text += " 답변이 길어서 여기까지만 말씀드렸어요. 이어서 듣고 싶으시면 계속이라고 말해주세요.";
+        }
         if (r.data.usage) {
           settings.totalTokens = (settings.totalTokens || 0) +
             (r.data.usage.input_tokens || 0) + (r.data.usage.output_tokens || 0);
@@ -799,7 +803,7 @@
     $("apiKeyInput").value = settings.apiKey || "";
     $("modelSelect").value = settings.model || "claude-opus-5";
     $("speedSelect").value = settings.effort || "low";
-    $("rateSelect").value = String(settings.rate || 1.0);
+    $("rateSelect").value = (parseFloat(settings.rate) || 1.0).toFixed(1);
     $("syncUrlInput").value = settings.syncUrl || "";
     $("syncAnonInput").value = settings.syncAnon || "";
     $("syncPassInput").value = settings.syncPass || "";
