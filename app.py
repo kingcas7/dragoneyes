@@ -1362,13 +1362,18 @@ def _a11y_inject_shortcuts():
                 }};
 
                 // 모든 등록된 window에 MutationObserver 설정
-                _a11yWindows.forEach(tw => {{
+                const _installA11yObserver = (tw, attempt) => {{
                     try {{
                         if (tw.__a11yObserverInstalled) return;
-                        tw.__a11yObserverInstalled = true;
+                        const root = tw.document.body || tw.document.documentElement;
+                        if (!root) {{
+                            // srcdoc iframe은 body 생성 전일 수 있음 — rAF로 최대 5회 재시도
+                            if (attempt < 5) tw.requestAnimationFrame(() => _installA11yObserver(tw, attempt + 1));
+                            return;
+                        }}
 
                         // 초기 스캔 (페이지 로드 시 이미 있는 element)
-                        if (tw.document.body) _scanAndAttach(tw.document.body);
+                        _scanAndAttach(root);
 
                         // 동적 추가 감지
                         const observer = new tw.MutationObserver((mutations) => {{
@@ -1380,14 +1385,16 @@ def _a11y_inject_shortcuts():
                                 }});
                             }});
                         }});
-                        observer.observe(tw.document.body, {{
+                        observer.observe(root, {{
                             childList: true, subtree: true,
                         }});
+                        tw.__a11yObserverInstalled = true;  // observe 성공 후에만 설정 (실패 시 재시도 허용)
                         console.log('[DragonEyes A11y] MutationObserver installed at', tw.location?.href || '?');
                     }} catch (e) {{
                         console.warn('[A11y] observer failed:', e.message);
                     }}
-                }});
+                }};
+                _a11yWindows.forEach(tw => _installA11yObserver(tw, 0));
 
                 // ════════════════════════════════════════════════════════
                 // 음성 명령 — Web Speech Recognition (Chrome / Safari 지원)
@@ -4975,7 +4982,7 @@ LANG = {
         "login_help_link":"계정 문제? 관리자에게 이메일 문의 →",
         "login_kakao_btn":"💬 카카오 로그인","login_kakao_soon":"Coming Soon",
         "login_lang_label":"언어 선택",
-        "login_footer_label":"📡 함동함답 모니터링 포트폴리오",
+        "login_footer_label":"📡 합동대응 모니터링 포트폴리오",
         "greeting":"👋 안녕하세요, {}님!","month_report":"📅 이번달 보고서","goal":"목표 {}건",
         "achievement":"🎯 달성률","dragon_token":"🐉 드래곤 토큰","token_remain":"{}회 남음",
         "pending_list":"건 대기중","shortcut":"📌 바로가기",
