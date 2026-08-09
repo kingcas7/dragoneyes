@@ -139,6 +139,8 @@
 <header>
   <button id="roomsBtn" aria-label="대화방 목록">☰</button>
   <div class="title" id="roomTitle">보이스 클로드</div>
+  <button id="newChatBtn" aria-label="새 대화방 만들기">➕</button>
+  <button id="clearChatBtn" aria-label="현재 대화 비우기">🧹</button>
   <button id="voiceModeBtn" aria-label="연속 음성 대화 켜기">🔊</button>
   <button id="settingsBtn" aria-label="설정">⚙️</button>
 </header>
@@ -255,6 +257,7 @@
   var IS_ANDROID = /Android/i.test(navigator.userAgent || "");
   var voiceMode = false;        // 연속 음성 대화 모드
   var busy = false;             // API 호출 중
+  var currentAbort = null;      // 진행 중인 답변 요청 취소용
   var recognizing = false;
   var recog = null;
   var wakeLock = null;
@@ -267,6 +270,15 @@
   function setStatus(text, cls) {
     statusEl.textContent = text || "";
     statusEl.className = cls || "";
+  }
+
+  function fallbackCopy(text) {
+    try {
+      var ta = document.createElement("textarea");
+      ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      document.execCommand("copy"); document.body.removeChild(ta);
+    } catch (e) {}
   }
 
   /* ════════════════ TTS — 문장 청크 발화 엔진 (끊김 방지) ════════════════ */
@@ -477,8 +489,9 @@
       headers["anthropic-beta"] = "server-side-fallback-2026-07-01";
       body.fallbacks = "default";
     }
+    currentAbort = new AbortController();
     fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST", headers: headers, body: JSON.stringify(body)
+      method: "POST", headers: headers, body: JSON.stringify(body), signal: currentAbort.signal
     }).then(function (res) {
       return res.json().then(function (data) { return { status: res.status, data: data }; });
     }).then(function (r) {
@@ -508,8 +521,9 @@
         var msg = (r.data && r.data.error && r.data.error.message) || ("오류 " + r.status);
         cb("오류가 발생했어요: " + msg);
       }
-    }).catch(function () {
-      cb("네트워크 연결을 확인해주세요.");
+    }).catch(function (e) {
+      if (e && e.name === "AbortError") cb("__ABORTED__");
+      else cb("네트워크 연결을 확인해주세요.");
     });
   }
 
@@ -577,7 +591,15 @@
     (remote.deleted || []).concat(local.deleted || []).forEach(function (id) { deleted[id] = 1; });
     var byId = {};
     (remote.rooms || []).forEach(function (r) { if (!deleted[r.id]) byId[r.id] = r; });
-    (local.rooms || []).forEach(function (r) { if (!deleted[r.id]) byId[r.id] = Object.assign({}, byId[r.id] || {}, r); });
+    (local.rooms || []).forEach(function (r) {
+      if (deleted[r.id]) return;
+      var ex = byId[r.id];
+      if (!ex) { byId[r.id] = r; return; }
+      var merged = Object.assign({}, ex, r);
+      // 이름은 더 최근에 바꾼 쪽이 이김 (renamedAt 기준)
+      if ((ex.renamedAt || 0) > (r.renamedAt || 0)) { merged.name = ex.name; merged.renamedAt = ex.renamedAt; }
+      byId[r.id] = merged;
+    });
     var msgs = {};
     Object.keys(byId).forEach(function (id) {
       var rm = (remote.msgs && remote.msgs[id]) || [];
@@ -667,18 +689,29 @@
     if (!settings.apiKey) { openSettings(); return; }
     stopListening();
     busy = true;
+    $("sendBtn").textContent = "⏹";
+    $("sendBtn").setAttribute("aria-label", "답변 중지");
     messages.push({ role: "user", content: text });
     renderMessage("user", text);
     persistCurrent(text);
-    setStatus("생각하는 중…");
-    statusEl.innerHTML = '<span class="spinner"></span>생각하는 중…';
+    statusEl.innerHTML = '<span class="spinner"></span>생각하는 중… (⏹를 누르면 중지)';
 
     var history = messages.slice(-24).map(function (m) { return { role: m.role, content: m.content }; });
     callClaude(history, function (err, answer) {
       busy = false;
+      currentAbort = null;
+      $("sendBtn").textContent = "➤";
+      $("sendBtn").setAttribute("aria-label", "전송");
       if (err) {
-        messages.pop();   // 실패한 user 턴 롤백
+        messages.pop();   // 실패/중지된 user 턴 롤백
         var arr = loadMsgs(currentRoomId); arr.pop(); saveMsgs(currentRoomId, arr);
+        var lastMsg = chatEl.lastElementChild;
+        if (lastMsg && lastMsg.classList.contains("user")) chatEl.removeChild(lastMsg);
+        if (err === "__ABORTED__") {
+          setStatus("답변을 중지했어요. 다시 말씀해주세요.");
+          if (voiceMode) setTimeout(startListening, 400);
+          return;
+        }
         setStatus(err, "error");
         if (voiceMode) speak(err, function () { setTimeout(startListening, 300); });
         return;
@@ -719,8 +752,17 @@
       var rp = document.createElement("span");
       rp.className = "replay"; rp.textContent = "🔊 다시 듣기";
       rp.addEventListener("click", function () { stopSpeaking(); stopListening(); speak(text); });
+      var cp = document.createElement("span");
+      cp.className = "replay"; cp.style.marginLeft = "14px"; cp.textContent = "📋 복사";
+      cp.addEventListener("click", function () {
+        var done = function () { cp.textContent = "✅ 복사됨"; setTimeout(function () { cp.textContent = "📋 복사"; }, 1500); };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done).catch(function () { fallbackCopy(text); done(); });
+        } else { fallbackCopy(text); done(); }
+      });
       div.appendChild(document.createElement("br"));
       div.appendChild(rp);
+      div.appendChild(cp);
     }
     chatEl.appendChild(div);
     chatEl.scrollTop = chatEl.scrollHeight;
@@ -760,6 +802,19 @@
       item.innerHTML = '<div class="rname"><div class="t"></div><div class="s"></div></div>';
       item.querySelector(".t").textContent = room.name;
       item.querySelector(".s").textContent = last ? last.content.slice(0, 40) : "대화 없음";
+      var ren = document.createElement("button");
+      ren.className = "del"; ren.style.color = "var(--accent)"; ren.textContent = "✏️";
+      ren.setAttribute("aria-label", "이름 바꾸기");
+      ren.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        var newName = prompt("새 대화방 이름을 입력하세요", room.name);
+        if (!newName || !newName.trim()) return;
+        room.name = newName.trim().slice(0, 30);
+        room.renamedAt = Date.now();   // 동기화 시 최신 이름이 이기도록 시각 기록
+        saveRooms(); renderRoomList(); schedulePush();
+        if (room.id === currentRoomId) $("roomTitle").textContent = room.name;
+      });
+      item.appendChild(ren);
       var del = document.createElement("button");
       del.className = "del"; del.textContent = "🗑"; del.setAttribute("aria-label", "삭제");
       del.addEventListener("click", function (ev) {
@@ -815,13 +870,31 @@
 
   /* ════════════════ 이벤트 바인딩 ════════════════ */
   micBtn.addEventListener("click", function () {
+    if (busy && currentAbort) { currentAbort.abort(); return; }   // 답변 생성 중 → 중지
     if (ttsActive) { stopSpeaking(); if (voiceMode) setTimeout(startListening, 200); else setStatus(""); return; }
     if (recognizing) { stopListening(); setStatus(""); return; }
     startListening();
   });
   voiceModeBtn.addEventListener("click", function () { setVoiceMode(!voiceMode); });
   $("sendBtn").addEventListener("click", function () {
+    if (busy && currentAbort) { currentAbort.abort(); return; }   // ⏹ 답변 중지
     var t = inputEl.value; inputEl.value = ""; sendMessage(t);
+  });
+  $("newChatBtn").addEventListener("click", function () {
+    stopSpeaking(); stopListening();
+    newRoom(); renderRoom();
+    setStatus("새 대화방을 만들었어요.");
+  });
+  $("clearChatBtn").addEventListener("click", function () {
+    if (!messages.length) { setStatus("비울 대화가 없어요."); return; }
+    if (!confirm("현재 대화를 모두 지울까요?")) return;
+    stopSpeaking(); stopListening();
+    // 동기화 전파를 위해 방을 삭제(tombstone) 처리하고 새 방으로 시작
+    deletedRooms.push(currentRoomId); setJSON("vc_deleted", deletedRooms);
+    rooms = rooms.filter(function (x) { return x.id !== currentRoomId; });
+    LS.removeItem(msgsKey(currentRoomId)); saveRooms();
+    newRoom(); renderRoom(); schedulePush();
+    setStatus("대화를 비웠어요.");
   });
   inputEl.addEventListener("keydown", function (e) {
     if (e.key === "Enter") { var t = inputEl.value; inputEl.value = ""; sendMessage(t); }
