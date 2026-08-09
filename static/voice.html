@@ -179,6 +179,11 @@
       <option value="1.2">빠르게</option>
       <option value="1.4">아주 빠르게</option>
     </select>
+    <label for="bargeSelect">말 끼어들기 (바지인) — 실험 기능</label>
+    <select id="bargeSelect">
+      <option value="off">사용 안 함 (기본)</option>
+      <option value="on">사용 — 낭독 중 말을 시작하면 즉시 멈추고 들어요</option>
+    </select>
 
     <h2 style="margin-top:22px">☁️ 기기 간 동기화 (선택)</h2>
     <div class="note" style="margin-top:0">
@@ -214,8 +219,27 @@
 <div class="overlay" id="roomsOverlay">
   <div class="sheet">
     <h2>💬 대화방</h2>
+    <button id="memoOpenBtn" class="btnGhost"
+      style="width:100%;border:none;border-radius:12px;padding:13px;font-size:1rem;cursor:pointer;margin-bottom:12px;text-align:left">
+      💡 아이디어 메모함 <span id="memoCount"></span>
+    </button>
     <div id="roomList"></div>
     <button id="newRoomBtn">＋ 새 대화방</button>
+  </div>
+</div>
+
+<!-- 아이디어 메모함 시트 -->
+<div class="overlay" id="memoOverlay">
+  <div class="sheet">
+    <h2>💡 아이디어 메모</h2>
+    <div class="note" style="margin-top:0">
+      대화 중 <b>"메모해줘, ..."</b> 라고 말하면 여기에 즉시 저장됩니다 (API 비용 없음).
+    </div>
+    <div id="memoList" style="margin-top:10px"></div>
+    <div class="btnRow">
+      <button class="btnGhost" id="memoAddBtn">＋ 직접 추가</button>
+      <button class="btnPrimary" id="memoExportBtn">📄 전체 워드 저장</button>
+    </div>
   </div>
 </div>
 
@@ -281,6 +305,76 @@
     } catch (e) {}
   }
 
+  /* ── 문서 저장 (워드 .doc / 엑셀 .csv) ── */
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+  function fileStamp() {
+    var d = new Date();
+    return d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0") +
+      "_" + String(d.getHours()).padStart(2, "0") + String(d.getMinutes()).padStart(2, "0");
+  }
+  function downloadBlob(blob, filename) {
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+  function saveAsWord(text, title) {
+    var today = new Date().toLocaleDateString("ko-KR");
+    var html = "<html xmlns:w='urn:schemas-microsoft-com:office:word'><head><meta charset='utf-8'>" +
+      "<title>" + escapeHtml(title || "보이스 클로드") + "</title></head>" +
+      "<body style='font-family:Malgun Gothic,\"맑은 고딕\",sans-serif;font-size:11pt;line-height:1.7'>" +
+      "<h2>" + escapeHtml(title || "보이스 클로드 정리") + " (" + today + ")</h2>" +
+      String(text).split(/\n+/).map(function (p) { return "<p>" + escapeHtml(p) + "</p>"; }).join("") +
+      "</body></html>";
+    downloadBlob(new Blob(["\ufeff", html], { type: "application/msword" }), "보이스클로드_" + fileStamp() + ".doc");
+  }
+  function saveAsExcel(text, btnEl) {
+    if (!settings.apiKey) { openSettings(); return; }
+    var orig = btnEl.textContent;
+    btnEl.textContent = "⏳ 표로 변환 중…";
+    var model = settings.model || "claude-opus-5";
+    var body = {
+      model: model, max_tokens: 2048,
+      output_config: { effort: "low" },
+      messages: [{
+        role: "user",
+        content: "다음 내용을 엑셀에서 열 수 있는 표로 정리하라. 적절한 열 제목을 첫 줄에 두고, CSV 형식 텍스트만 출력하라. 설명 문장이나 코드블록 없이 CSV만 출력한다. 셀 안에 쉼표가 있으면 그 셀을 큰따옴표로 감싸라.\n\n" + text
+      }]
+    };
+    if (model === "claude-opus-5") body.fallbacks = "default";
+    fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST", headers: apiHeaders(model), body: JSON.stringify(body)
+    }).then(function (res) { return res.json(); }).then(function (data) {
+      var csv = "";
+      (data.content || []).forEach(function (b) { if (b.type === "text") csv += b.text; });
+      csv = csv.replace(/^```[a-z]*\n?/i, "").replace(/```\s*$/, "").trim();
+      if (!csv) throw new Error("empty");
+      if (data.usage) {
+        settings.totalTokens = (settings.totalTokens || 0) +
+          (data.usage.input_tokens || 0) + (data.usage.output_tokens || 0);
+        saveSettings();
+      }
+      downloadBlob(new Blob(["\ufeff", csv], { type: "text/csv;charset=utf-8" }), "보이스클로드_" + fileStamp() + ".csv");
+      btnEl.textContent = "✅ 저장됨";
+      setTimeout(function () { btnEl.textContent = orig; }, 2000);
+    }).catch(function () {
+      btnEl.textContent = "⚠️ 실패";
+      setTimeout(function () { btnEl.textContent = orig; }, 2000);
+    });
+  }
+
+  /* ── 아이디어 메모 ── */
+  var memos = getJSON("vc_memos", []);
+  var memoDeleted = getJSON("vc_memo_deleted", []);
+  function saveMemos() { setJSON("vc_memos", memos); setJSON("vc_memo_deleted", memoDeleted); }
+  function addMemo(text) {
+    memos.unshift({ id: "m" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), text: text, t: Date.now() });
+    saveMemos(); schedulePush();
+  }
+
   /* ════════════════ TTS — 문장 청크 발화 엔진 (끊김 방지) ════════════════ */
   var ttsSeq = 0, ttsActive = false, utterKeep = [];
 
@@ -315,8 +409,66 @@
 
   function stopSpeaking() {
     ttsSeq++; ttsActive = false; utterKeep = [];
+    stopVAD();
     try { speechSynthesis.cancel(); } catch (e) {}
   }
+
+  /* ── 바지인(말 끼어들기) — 발화 중 음성 감지 시 낭독 중단 ── */
+  var vadStream = null, vadCtx = null, vadTimer = null;
+  function startVAD(onBarge) {
+    if (vadStream || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+    navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+    }).then(function (stream) {
+      vadStream = stream;
+      var AC = window.AudioContext || window.webkitAudioContext;
+      vadCtx = new AC();
+      var src = vadCtx.createMediaStreamSource(stream);
+      var an = vadCtx.createAnalyser(); an.fftSize = 512;
+      src.connect(an);
+      var buf = new Uint8Array(an.fftSize);
+      var voiceMs = 0;
+      vadTimer = setInterval(function () {
+        try {
+          an.getByteTimeDomainData(buf);
+          var sum = 0;
+          for (var i = 0; i < buf.length; i++) { var d = (buf[i] - 128) / 128; sum += d * d; }
+          var rms = Math.sqrt(sum / buf.length);
+          // 에코 제거된 마이크에서 0.3초 이상 지속되는 목소리만 끼어들기로 인정 (잡음 오작동 방지)
+          if (rms > 0.06) voiceMs += 60; else voiceMs = Math.max(0, voiceMs - 120);
+          if (voiceMs >= 300) { stopVAD(); onBarge(); }
+        } catch (e) {}
+      }, 60);
+    }).catch(function () {});
+  }
+  function stopVAD() {
+    if (vadTimer) { clearInterval(vadTimer); vadTimer = null; }
+    if (vadStream) { try { vadStream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {} vadStream = null; }
+    if (vadCtx) { try { vadCtx.close(); } catch (e) {} vadCtx = null; }
+  }
+  function handleBargeIn() {
+    var spoken = currentSpokenParts.join(" ");
+    stopSpeaking();
+    truncateLastAssistant(spoken);
+    setStatus("🎤 네, 말씀하세요!", "listening");
+    setTimeout(startListening, 150);
+  }
+  // 끼어들기 시 대화 기록을 "실제 들은 데까지"로 잘라 저장
+  function truncateLastAssistant(spoken) {
+    if (!messages.length) return;
+    var last = messages[messages.length - 1];
+    if (last.role !== "assistant" || !spoken || !spoken.trim()) return;
+    var t = spoken.trim() + " …(사용자가 끼어들어 여기까지만 말함)";
+    last.content = t;
+    var arr = loadMsgs(currentRoomId);
+    if (arr.length && arr[arr.length - 1].role === "assistant") {
+      arr[arr.length - 1].content = t;
+      saveMsgs(currentRoomId, arr);
+      schedulePush();
+    }
+  }
+
+  var currentSpokenParts = [];   // 이번 발화에서 실제로 읽은 청크들
 
   function speak(text, onDone) {
     if (!("speechSynthesis" in window)) { if (onDone) onDone(); return; }
@@ -325,12 +477,15 @@
     if (!chunks.length) { if (onDone) onDone(); return; }
     try { speechSynthesis.cancel(); } catch (e) {}
     ttsActive = true; utterKeep = [];
+    currentSpokenParts = [];
     micBtn.classList.add("speaking");
     setStatus("🔊 답변을 읽는 중… (탭하면 중단)", "speaking");
+    if (voiceMode && settings.barge === "on") startVAD(handleBargeIn);
     var idx = 0;
     var finish = function () {
       if (seq !== ttsSeq) return;
       ttsActive = false; utterKeep = [];
+      stopVAD();
       micBtn.classList.remove("speaking");
       if (onDone) onDone();
     };
@@ -347,6 +502,7 @@
       var advance = function () {
         if (advanced) return; advanced = true;
         if (wd) clearInterval(wd);
+        currentSpokenParts.push(part);   // 이 청크는 읽은 것으로 기록 (바지인 시 잘라내기 기준)
         setTimeout(next, IS_ANDROID ? 250 : 60);
       };
       u.onstart = function () { started = true; };
@@ -397,19 +553,16 @@
       recog.onresult = function (ev) {
         var res = ev.results[ev.resultIndex];
         var text = (res[0].transcript || "").trim();
-        if (!res.isFinal) { setStatus("🎤 " + text, "listening"); return; }
-        if (!text) return;
-        // 종료 명령
-        var stopWords = ["대화 종료", "대화종료", "그만하자", "그만할래", "대화 그만", "이제 그만"];
-        var lower = text.replace(/\s+/g, "");
-        for (var i = 0; i < stopWords.length; i++) {
-          if (lower.indexOf(stopWords[i].replace(/\s+/g, "")) >= 0) {
-            setVoiceMode(false);
-            speak("네, 대화를 마칠게요. 또 불러주세요.");
-            return;
-          }
+        if (!res.isFinal) {
+          setStatus("🎤 " + (pendingText ? pendingText + " " : "") + text, "listening");
+          resetPendingTimer();   // 아직 말하는 중 → 전송 대기 연장
+          return;
         }
-        sendMessage(text);
+        if (!text) return;
+        // ⭐ 바로 전송하지 않고 모아둠 — 2초간 말이 없을 때만 전송 (말 끊김 방지)
+        pendingText = (pendingText ? pendingText + " " : "") + text;
+        setStatus("🎤 " + pendingText + " ⏳", "listening");
+        resetPendingTimer();
       };
       recog.onerror = function (e) {
         recognizing = false; micBtn.classList.remove("on");
@@ -417,7 +570,7 @@
           setVoiceMode(false);
           setStatus("마이크 권한이 거부되었어요. 주소창 자물쇠 → 마이크 허용 후 새로고침해주세요.", "error");
         } else if (e.error === "no-speech") {
-          if (voiceMode && !busy && !ttsActive) setTimeout(startListening, 350);
+          if ((voiceMode || pendingText) && !busy && !ttsActive) setTimeout(startListening, 350);
           else setStatus("");
         } else if (e.error !== "aborted") {
           setStatus("음성 인식 오류: " + e.error, "error");
@@ -426,7 +579,8 @@
       };
       recog.onend = function () {
         recognizing = false; micBtn.classList.remove("on");
-        // 연속 모드: 침묵으로 끝났으면 다시 듣기 (전송 중/발화 중이면 그 흐름이 재개함)
+        // 전송 대기 중이면 이어 듣기 재시작 (한 호흡 쉬어도 계속 수집)
+        if (pendingText && !busy && !ttsActive) { setTimeout(startListening, 150); return; }
         if (voiceMode && !busy && !ttsActive) setTimeout(startListening, 350);
         else if (!busy && !ttsActive) setStatus("");
       };
@@ -440,6 +594,33 @@
   function stopListening() {
     try { if (recog) recog.abort(); } catch (e) {}
     recognizing = false; micBtn.classList.remove("on");
+  }
+
+  // ⭐ 발화 수집 버퍼 — 마지막 말 이후 2초가 지나야 전송 (말하는 중에 끊고 답하던 문제 해결)
+  var pendingText = "", pendingTimer = null;
+  var SEND_SILENCE_MS = 2000;
+  function cancelPending() {
+    pendingText = ""; clearTimeout(pendingTimer); pendingTimer = null;
+  }
+  function resetPendingTimer() {
+    clearTimeout(pendingTimer);
+    pendingTimer = setTimeout(function () {
+      var t = pendingText.trim();
+      pendingText = "";
+      if (!t) return;
+      stopListening();
+      // 종료 명령 검사
+      var stopWords = ["대화 종료", "대화종료", "그만하자", "그만할래", "대화 그만", "이제 그만"];
+      var lower = t.replace(/\s+/g, "");
+      for (var i = 0; i < stopWords.length; i++) {
+        if (lower.indexOf(stopWords[i].replace(/\s+/g, "")) >= 0) {
+          setVoiceMode(false);
+          speak("네, 대화를 마칠게요. 또 불러주세요.");
+          return;
+        }
+      }
+      sendMessage(t);
+    }, SEND_SILENCE_MS);
   }
 
   /* ════════════════ 화면 꺼짐 방지 ════════════════ */
@@ -466,65 +647,84 @@
     "- 짧은 문장 여러 개로 끊어 말하세요. 기본 2~5문장이면 충분하고, 사용자가 자세히 원할 때만 길게 답하세요.\n" +
     "- 핵심을 먼저 말하고 부연은 뒤에 하세요.\n" +
     "- 음성 인식 오류로 어색한 단어가 있으면 문맥으로 자연스럽게 이해하고 답하세요. 정말 알아듣기 어려울 때만 되물어보세요.\n" +
-    "- 신변잡기, 관심사, 고민, 업무 등 어떤 주제든 편하게 대화하세요.";
+    "- 신변잡기, 관심사, 고민, 업무 등 어떤 주제든 편하게 대화하세요.\n" +
+    "- 오늘 날씨, 뉴스, 환율, 시세, 경기 결과처럼 최신 정보가 필요하면 웹 검색 도구로 확인한 뒤 답하세요.\n" +
+    "- 검색 출처를 언급할 때 URL 주소는 절대 읽지 말고 매체 이름만 짧게 말하세요.";
 
-  function callClaude(history, cb) {
-    var model = settings.model || "claude-opus-5";
-    var body = {
-      model: model,
-      max_tokens: 4096,                        // thinking(내부 사고)+답변 합산 상한 — 부족하면 답변이 잘림
-      system: SYSTEM_PROMPT,
-      output_config: { effort: settings.effort || "low" },
-      cache_control: { type: "ephemeral" },    // 프롬프트 캐싱 — 반복 전송되는 히스토리 입력비 최대 90% 절감
-      messages: history
-    };
+  function apiHeaders(model) {
     var headers = {
       "content-type": "application/json",
       "x-api-key": settings.apiKey,
       "anthropic-version": "2023-06-01",
       "anthropic-dangerous-direct-browser-access": "true"
     };
-    // Opus 5: 안전 분류기 거절 시 서버측 폴백으로 자동 재시도
-    if (model === "claude-opus-5") {
-      headers["anthropic-beta"] = "server-side-fallback-2026-07-01";
-      body.fallbacks = "default";
+    if (model === "claude-opus-5") headers["anthropic-beta"] = "server-side-fallback-2026-07-01";
+    return headers;
+  }
+
+  function callClaude(history, cb) {
+    var model = settings.model || "claude-opus-5";
+    // 웹 검색 (서버측 도구) — 구형 모델은 기본 버전 사용
+    var wsVer = model.indexOf("haiku") >= 0 ? "web_search_20250305" : "web_search_20260209";
+    var continuations = 0;
+    var textAcc = "";
+
+    function attempt(msgs) {
+      var body = {
+        model: model,
+        max_tokens: 4096,                        // thinking(내부 사고)+답변 합산 상한 — 부족하면 답변이 잘림
+        system: SYSTEM_PROMPT,
+        output_config: { effort: settings.effort || "low" },
+        tools: [{ type: wsVer, name: "web_search", max_uses: 3 }],
+        messages: msgs
+      };
+      if (model === "claude-opus-5") body.fallbacks = "default";   // 안전 분류기 거절 시 서버측 폴백
+      currentAbort = new AbortController();
+      fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST", headers: apiHeaders(model), body: JSON.stringify(body), signal: currentAbort.signal
+      }).then(function (res) {
+        return res.json().then(function (data) { return { status: res.status, data: data }; });
+      }).then(function (r) {
+        if (r.status === 200) {
+          if (r.data.usage) {
+            settings.totalTokens = (settings.totalTokens || 0) +
+              (r.data.usage.input_tokens || 0) + (r.data.usage.output_tokens || 0);
+            saveSettings();
+          }
+          if (r.data.stop_reason === "refusal") {
+            cb(null, "죄송해요, 그 주제는 답변해 드리기 어려워요. 다른 이야기를 나눠볼까요?");
+            return;
+          }
+          var text = "";
+          (r.data.content || []).forEach(function (b) { if (b.type === "text") text += b.text; });
+          // 서버측 웹 검색이 길어지면 pause_turn으로 멈춤 → 이어서 계속
+          if (r.data.stop_reason === "pause_turn" && continuations < 3) {
+            continuations++;
+            textAcc += text;
+            attempt(msgs.concat([{ role: "assistant", content: r.data.content }]));
+            return;
+          }
+          text = textAcc + text;
+          if (r.data.stop_reason === "max_tokens") {
+            text += " 답변이 길어서 여기까지만 말씀드렸어요. 이어서 듣고 싶으시면 계속이라고 말해주세요.";
+          }
+          cb(null, text || "답변을 만들지 못했어요. 다시 한 번 말씀해 주세요.");
+        } else if (r.status === 401) {
+          cb("API 키가 올바르지 않아요. 설정에서 키를 다시 확인해주세요.");
+        } else if (r.status === 429) {
+          cb("요청이 너무 많아요. 잠시 후 다시 말씀해주세요.");
+        } else if (r.status === 529 || r.status >= 500) {
+          cb("클로드 서버가 혼잡해요. 잠시 후 다시 시도해주세요.");
+        } else {
+          var msg = (r.data && r.data.error && r.data.error.message) || ("오류 " + r.status);
+          cb("오류가 발생했어요: " + msg);
+        }
+      }).catch(function (e) {
+        if (e && e.name === "AbortError") cb("__ABORTED__");
+        else cb("네트워크 연결을 확인해주세요.");
+      });
     }
-    currentAbort = new AbortController();
-    fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST", headers: headers, body: JSON.stringify(body), signal: currentAbort.signal
-    }).then(function (res) {
-      return res.json().then(function (data) { return { status: res.status, data: data }; });
-    }).then(function (r) {
-      if (r.status === 200) {
-        if (r.data.stop_reason === "refusal") {
-          cb(null, "죄송해요, 그 주제는 답변해 드리기 어려워요. 다른 이야기를 나눠볼까요?");
-          return;
-        }
-        var text = "";
-        (r.data.content || []).forEach(function (b) { if (b.type === "text") text += b.text; });
-        if (r.data.stop_reason === "max_tokens") {
-          text += " 답변이 길어서 여기까지만 말씀드렸어요. 이어서 듣고 싶으시면 계속이라고 말해주세요.";
-        }
-        if (r.data.usage) {
-          settings.totalTokens = (settings.totalTokens || 0) +
-            (r.data.usage.input_tokens || 0) + (r.data.usage.output_tokens || 0);
-          saveSettings();
-        }
-        cb(null, text || "답변을 만들지 못했어요. 다시 한 번 말씀해 주세요.");
-      } else if (r.status === 401) {
-        cb("API 키가 올바르지 않아요. 설정에서 키를 다시 확인해주세요.");
-      } else if (r.status === 429) {
-        cb("요청이 너무 많아요. 잠시 후 다시 말씀해주세요.");
-      } else if (r.status === 529 || r.status >= 500) {
-        cb("클로드 서버가 혼잡해요. 잠시 후 다시 시도해주세요.");
-      } else {
-        var msg = (r.data && r.data.error && r.data.error.message) || ("오류 " + r.status);
-        cb("오류가 발생했어요: " + msg);
-      }
-    }).catch(function (e) {
-      if (e && e.name === "AbortError") cb("__ABORTED__");
-      else cb("네트워크 연결을 확인해주세요.");
-    });
+    attempt(history);
   }
 
   /* ════════════════ 기기 간 동기화 (Supabase + AES-GCM 암호화) ════════════════ */
@@ -577,13 +777,17 @@
     var syncRooms = rooms.filter(function (r) { return loadMsgs(r.id).length > 0; });
     var msgs = {};
     syncRooms.forEach(function (r) { msgs[r.id] = loadMsgs(r.id); });
-    return { rooms: syncRooms, msgs: msgs, deleted: deletedRooms, t: Date.now() };
+    return { rooms: syncRooms, msgs: msgs, deleted: deletedRooms,
+             memos: memos, memoDeleted: memoDeleted, t: Date.now() };
   }
   function applyState(state) {
     rooms = state.rooms; saveRooms();
     setJSON("vc_deleted", state.deleted || []);
     deletedRooms = state.deleted || [];
     Object.keys(state.msgs || {}).forEach(function (id) { saveMsgs(id, state.msgs[id]); });
+    memos = state.memos || [];
+    memoDeleted = state.memoDeleted || [];
+    saveMemos();
   }
   // 병합 규칙: 삭제 목록은 합집합, 방은 합집합(삭제된 방 제외), 메시지는 더 긴 쪽 우선
   function mergeStates(remote, local) {
@@ -613,7 +817,17 @@
     });
     var mergedRooms = Object.keys(byId).map(function (id) { return byId[id]; })
       .sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
-    return { rooms: mergedRooms, msgs: msgs, deleted: Object.keys(deleted), t: Date.now() };
+    // 메모 병합: 합집합 (삭제 목록 제외)
+    var memoDel = {};
+    (remote.memoDeleted || []).concat(local.memoDeleted || []).forEach(function (id) { memoDel[id] = 1; });
+    var memoById = {};
+    (remote.memos || []).concat(local.memos || []).forEach(function (m) {
+      if (m && m.id && !memoDel[m.id]) memoById[m.id] = m;
+    });
+    var mergedMemos = Object.keys(memoById).map(function (id) { return memoById[id]; })
+      .sort(function (a, b) { return (b.t || 0) - (a.t || 0); });
+    return { rooms: mergedRooms, msgs: msgs, deleted: Object.keys(deleted),
+             memos: mergedMemos, memoDeleted: Object.keys(memoDel), t: Date.now() };
   }
 
   function syncHeaders() {
@@ -686,6 +900,14 @@
   function sendMessage(text) {
     text = (text || "").trim();
     if (!text || busy) return;
+    // ⭐ "메모해줘 ..." — 클로드 호출 없이 아이디어 메모함에 즉시 저장 (무료)
+    var mm = text.match(/^(메모해줘|메모 해줘|메모해 줘|메모)[,.:! ]+(.+)$/);
+    if (mm && mm[2].trim()) {
+      addMemo(mm[2].trim());
+      setStatus("💡 메모했어요. (☰ → 아이디어 메모함에서 확인)");
+      if (voiceMode) speak("메모했어요.", function () { if (voiceMode) setTimeout(startListening, 300); });
+      return;
+    }
     if (!settings.apiKey) { openSettings(); return; }
     stopListening();
     busy = true;
@@ -760,9 +982,17 @@
           navigator.clipboard.writeText(text).then(done).catch(function () { fallbackCopy(text); done(); });
         } else { fallbackCopy(text); done(); }
       });
+      var wd2 = document.createElement("span");
+      wd2.className = "replay"; wd2.style.marginLeft = "14px"; wd2.textContent = "📄 워드";
+      wd2.addEventListener("click", function () { saveAsWord(text, "보이스 클로드 정리"); });
+      var xl = document.createElement("span");
+      xl.className = "replay"; xl.style.marginLeft = "14px"; xl.textContent = "📊 엑셀";
+      xl.addEventListener("click", function () { saveAsExcel(text, xl); });
       div.appendChild(document.createElement("br"));
       div.appendChild(rp);
       div.appendChild(cp);
+      div.appendChild(wd2);
+      div.appendChild(xl);
     }
     chatEl.appendChild(div);
     chatEl.scrollTop = chatEl.scrollHeight;
@@ -837,6 +1067,44 @@
     });
   }
 
+  function renderMemoList() {
+    var list = $("memoList");
+    list.innerHTML = "";
+    if (!memos.length) {
+      var e = document.createElement("div");
+      e.className = "note"; e.textContent = "저장된 메모가 없어요. 대화 중 \"메모해줘, ...\"라고 말해보세요.";
+      list.appendChild(e);
+      return;
+    }
+    memos.forEach(function (m) {
+      var item = document.createElement("div");
+      item.className = "roomItem";
+      item.style.cursor = "default";
+      item.innerHTML = '<div class="rname"><div class="t" style="white-space:normal"></div><div class="s"></div></div>';
+      item.querySelector(".t").textContent = m.text;
+      item.querySelector(".s").textContent = new Date(m.t).toLocaleString("ko-KR");
+      var cp = document.createElement("button");
+      cp.className = "del"; cp.style.color = "var(--accent)"; cp.textContent = "📋";
+      cp.setAttribute("aria-label", "메모 복사");
+      cp.addEventListener("click", function () {
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(m.text).catch(function () { fallbackCopy(m.text); });
+        else fallbackCopy(m.text);
+        cp.textContent = "✅"; setTimeout(function () { cp.textContent = "📋"; }, 1500);
+      });
+      var del = document.createElement("button");
+      del.className = "del"; del.textContent = "🗑";
+      del.setAttribute("aria-label", "메모 삭제");
+      del.addEventListener("click", function () {
+        if (!confirm("이 메모를 삭제할까요?")) return;
+        memoDeleted.push(m.id);
+        memos = memos.filter(function (x) { return x.id !== m.id; });
+        saveMemos(); schedulePush(); renderMemoList();
+      });
+      item.appendChild(cp); item.appendChild(del);
+      list.appendChild(item);
+    });
+  }
+
   /* ════════════════ 음성 모드 토글 ════════════════ */
   function setVoiceMode(on) {
     voiceMode = on;
@@ -859,6 +1127,7 @@
     $("modelSelect").value = settings.model || "claude-opus-5";
     $("speedSelect").value = settings.effort || "low";
     $("rateSelect").value = (parseFloat(settings.rate) || 1.0).toFixed(1);
+    $("bargeSelect").value = settings.barge || "off";
     $("syncUrlInput").value = settings.syncUrl || "";
     $("syncAnonInput").value = settings.syncAnon || "";
     $("syncPassInput").value = settings.syncPass || "";
@@ -872,7 +1141,7 @@
   micBtn.addEventListener("click", function () {
     if (busy && currentAbort) { currentAbort.abort(); return; }   // 답변 생성 중 → 중지
     if (ttsActive) { stopSpeaking(); if (voiceMode) setTimeout(startListening, 200); else setStatus(""); return; }
-    if (recognizing) { stopListening(); setStatus(""); return; }
+    if (recognizing) { cancelPending(); stopListening(); setStatus(""); return; }
     startListening();
   });
   voiceModeBtn.addEventListener("click", function () { setVoiceMode(!voiceMode); });
@@ -905,6 +1174,7 @@
     settings.model = $("modelSelect").value;
     settings.effort = $("speedSelect").value;
     settings.rate = parseFloat($("rateSelect").value) || 1.0;
+    settings.barge = $("bargeSelect").value;
     settings.syncUrl = $("syncUrlInput").value.trim();
     settings.syncAnon = $("syncAnonInput").value.trim();
     settings.syncPass = $("syncPassInput").value;
@@ -930,13 +1200,31 @@
     settings.apiKey = ""; saveSettings(); $("apiKeyInput").value = "";
   });
   $("roomsBtn").addEventListener("click", function () {
-    renderRoomList(); $("roomsOverlay").classList.add("show");
+    renderRoomList();
+    $("memoCount").textContent = memos.length ? "(" + memos.length + "개)" : "";
+    $("roomsOverlay").classList.add("show");
+  });
+  $("memoOpenBtn").addEventListener("click", function () {
+    $("roomsOverlay").classList.remove("show");
+    renderMemoList();
+    $("memoOverlay").classList.add("show");
+  });
+  $("memoAddBtn").addEventListener("click", function () {
+    var t = prompt("메모할 내용을 입력하세요");
+    if (t && t.trim()) { addMemo(t.trim()); renderMemoList(); }
+  });
+  $("memoExportBtn").addEventListener("click", function () {
+    if (!memos.length) { alert("저장된 메모가 없어요."); return; }
+    var body = memos.map(function (m) {
+      return new Date(m.t).toLocaleString("ko-KR") + "\n" + m.text;
+    }).join("\n\n");
+    saveAsWord(body, "아이디어 메모 모음");
   });
   $("newRoomBtn").addEventListener("click", function () {
     newRoom(); $("roomsOverlay").classList.remove("show");
     stopSpeaking(); stopListening(); renderRoom();
   });
-  [$("settingsOverlay"), $("roomsOverlay")].forEach(function (ov) {
+  [$("settingsOverlay"), $("roomsOverlay"), $("memoOverlay")].forEach(function (ov) {
     ov.addEventListener("click", function (e) { if (e.target === ov) ov.classList.remove("show"); });
   });
 
