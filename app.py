@@ -10,6 +10,7 @@ def _esc(s):
     return _html.escape(str(s if s is not None else "")).replace("\n", "<br>")
 from dotenv import load_dotenv
 from googleapiclient.discovery import build
+import httplib2
 from supabase import create_client
 from datetime import date, datetime, timedelta
 
@@ -3972,9 +3973,25 @@ def _render_a11y_popover(user):
 # v2026.06.08 — 시각장애인 접근성 — accessibility.py 모듈 + users.preferences JSONB
 load_dotenv()
 
-client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-youtube = build("youtube", "v3", developerKey=os.getenv("YOUTUBE_API_KEY"))
-supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
+# ── HTTP 클라이언트 수명 관리 (2026-08-10 전체 점검 후속) ──
+#  Streamlit은 인터랙션마다 스크립트를 재실행하므로, rerun마다 커넥션 풀을 새로 만들면
+#  소켓/FD가 close 없이 누적되어 장시간 가동 시 서버 전체가 굳는다(간헐 무응답의 근본 원인).
+#  - anthropic: 사용자 상태 없음 → 프로세스당 1개 공유. timeout 미지정 시 기본 600초×재시도로
+#    스레드가 최대 30분 묶이므로 60초로 제한
+#  - supabase(anon): 로그인 세션을 담으므로 프로세스 공유 금지 → 브라우저 세션당 1개 재사용
+#  - youtube: httplib2가 스레드 안전하지 않아 공유 금지 → rerun마다 생성하되 무한 블로킹만 차단
+@st.cache_resource(show_spinner=False)
+def _shared_anthropic():
+    return anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"), timeout=60.0, max_retries=1)
+
+def _session_supabase():
+    if "_sb_client" not in st.session_state:
+        st.session_state["_sb_client"] = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
+    return st.session_state["_sb_client"]
+
+client = _shared_anthropic()
+youtube = build("youtube", "v3", developerKey=os.getenv("YOUTUBE_API_KEY"), http=httplib2.Http(timeout=15))
+supabase = _session_supabase()
 
 
 # 🔍 부팅 시 1회 — 실제 배포 프로세스가 보는 키 환경변수 (Railway 로그로 ground truth 확인)
@@ -4048,11 +4065,17 @@ def _set_session_param(refresh_token, email, old_sid=None):
 #  SUPABASE_KEY는 일반적으로 anon 키 — auth.admin.* 등 일부 엔드포인트는
 #  service_role 키가 필요하다. SUPABASE_SERVICE_ROLE_KEY가 .env에 있으면
 #  별도 클라이언트로 캐싱하고, 없으면 일반 supabase 폴백(실패 가능).
-_sb_admin_cached = None
 def _service_role_key():
     """service_role 키 읽기 — 새 이름 DRAGON_SR_KEY 우선, 구 SUPABASE_SERVICE_ROLE_KEY 폴백.
     ※ Railway의 Supabase 연동이 SUPABASE_* 네임스페이스를 관리/덮어쓸 수 있어 접두사 없는 새 이름 사용."""
     return (os.getenv("DRAGON_SR_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "").strip()
+
+@st.cache_resource(show_spinner=False)
+def _sb_admin_client(_url, _key):
+    # service_role 클라이언트는 사용자 로그인 상태를 담지 않으므로 프로세스 공유 안전.
+    # (전역변수 캐싱은 rerun마다 리셋되어 매 호출 create_client가 실행되던 것을 교체)
+    return create_client(_url, _key)
+
 def sb_admin():
     """관리자 작업 전용 Supabase 클라이언트 (auth.admin.create_user 등).
 
@@ -4060,18 +4083,13 @@ def sb_admin():
     별도 클라이언트를 캐싱·반환. 없으면 anon 클라이언트 폴백 (admin 엔드포인트
     호출 시 'requires a valid Bearer token' 에러 발생할 수 있음).
     """
-    global _sb_admin_cached
-    if _sb_admin_cached is not None:
-        return _sb_admin_cached
     _srk = _service_role_key()
     if _srk:
         try:
-            _sb_admin_cached = create_client((os.getenv("SUPABASE_URL") or "").strip(), _srk)
+            return _sb_admin_client((os.getenv("SUPABASE_URL") or "").strip(), _srk)
         except Exception:
-            _sb_admin_cached = supabase
-    else:
-        _sb_admin_cached = supabase
-    return _sb_admin_cached
+            return supabase
+    return supabase
 # ════════════════════════════════════════════════════════════════════
 # Phase 3 마이그레이션 헬퍼 (5/10 추가)
 # 듀얼 리드: partner_id 우선, agency_id 폴백

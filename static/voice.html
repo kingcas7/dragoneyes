@@ -1166,6 +1166,7 @@
     setStatus("대화를 비웠어요.");
   });
   inputEl.addEventListener("keydown", function (e) {
+    if (e.isComposing || e.keyCode === 229) return;  // 한글 IME 조합 중 Enter로 미완성 텍스트 전송 방지
     if (e.key === "Enter") { var t = inputEl.value; inputEl.value = ""; sendMessage(t); }
   });
   $("settingsBtn").addEventListener("click", openSettings);
