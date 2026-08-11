@@ -34131,6 +34131,14 @@ else:
                 except Exception:
                     hist_popup_d = next((x for x in data if x["id"] == st.session_state.hist_popup_id), None)
                 if hist_popup_d:
+                    # ⚡ 팝업은 목록 위(상단)에 렌더링되므로, 아래쪽에서 '열기'를 누른 사용자에게
+                    #    아무 변화가 없어 보이던 문제 수정 — 팝업이 새로 열릴 때 한 번만 상단으로 스크롤.
+                    if st.session_state.get("_hist_popup_scrolled_for") != st.session_state.hist_popup_id:
+                        st.session_state["_hist_popup_scrolled_for"] = st.session_state.hist_popup_id
+                        _a11y_components.html(
+                            "<script>try{(window.top||window).scrollTo({top:0,behavior:'smooth'});}catch(e){}</script>",
+                            height=0,
+                        )
                     # ⭐ Phase 6: 동영상 정보 음성 안내 → 재생 (2단계 분리)
                     _vp_id = hist_popup_d.get("id", "")
                     _vp_announce_key = f"_a11y_video_announced_{_vp_id}"
@@ -34406,7 +34414,17 @@ else:
                                         st.toast("👔 매니저 검토 대기로 전달됨", icon="✅")
                                         st.rerun()
 
-            for d in data:
+            # ⚡ 페이지네이션 — 최대 1,000건 전체 렌더링으로 위젯 수천 개가 생겨
+            #    스크립트 실행이 수십 초씩 걸리고 실행 중 클릭('열기'/'작성')이 무시되던 문제 수정.
+            _HIST_PER_PAGE = 20
+            _hist_total_pages = max(1, (len(data) + _HIST_PER_PAGE - 1) // _HIST_PER_PAGE)
+            _hist_pg = min(max(st.session_state.get("hist_page_num", 0), 0), _hist_total_pages - 1)
+            st.session_state.hist_page_num = _hist_pg
+            _hist_paged = data[_hist_pg * _HIST_PER_PAGE:(_hist_pg + 1) * _HIST_PER_PAGE]
+            if _hist_total_pages > 1:
+                st.caption(f"📄 {_hist_pg + 1} / {_hist_total_pages} 페이지 — {_hist_pg * _HIST_PER_PAGE + 1}~{min((_hist_pg + 1) * _HIST_PER_PAGE, len(data))}번째 표시")
+
+            for d in _hist_paged:
                 stype = search_type_label(d.get("search_type",""))
                 reported_badge = "✅ 보고서 작성" if d.get("reported") else "⏳ 미작성"
                 assigned_name = user_map.get(d.get("assigned_to",""), t("unassigned"))
@@ -34438,8 +34456,20 @@ else:
                                 pass
                     elif not d.get("reported"):
                         if st.button(t("write_btn"), key=f"hist_{d['id']}"):
-                            open_report_form(d["url"], "", 1, "안전", "YouTube", from_tab=4); st.rerun()
+                            # au_id 전달 — 목록에서 바로 '작성' 시에도 완료 후 reported 플래그가 찍히도록
+                            open_report_form(d["url"], "", 1, "안전", "YouTube", from_tab=4, au_id=d.get("id")); st.rerun()
                 st.divider()
+
+            if _hist_total_pages > 1:
+                _hpn1, _hpn2, _hpn3 = st.columns([1, 2, 1])
+                with _hpn1:
+                    if st.button("⬅️ 이전", disabled=_hist_pg == 0, use_container_width=True, key="hist_page_prev"):
+                        st.session_state.hist_page_num = _hist_pg - 1; st.rerun()
+                with _hpn2:
+                    st.markdown(f"<div style='text-align:center;padding-top:8px;color:#94a3b8;font-size:0.85rem;'>{_hist_pg + 1} / {_hist_total_pages}</div>", unsafe_allow_html=True)
+                with _hpn3:
+                    if st.button("다음 ➡️", disabled=_hist_pg >= _hist_total_pages - 1, use_container_width=True, key="hist_page_next"):
+                        st.session_state.hist_page_num = _hist_pg + 1; st.rerun()
 
         # ── 보고서 목록 ──
         with tab6:
