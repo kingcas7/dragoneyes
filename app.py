@@ -10663,6 +10663,25 @@ def get_video_durations(video_ids_tuple):
     return out
 
 @st.cache_data(ttl=3600, show_spinner=False)
+def get_age_restricted_ids(video_ids_tuple):
+    """이미 18+ 연령제한이 걸린 영상 ID 배치 조회 — 1시간 캐시.
+    연령제한 영상은 청소년 접근이 이미 차단된 상태라 모니터링 후보에서 제외
+    (요원 작업량을 일반 등급으로 노출 중인 사각지대 영상에 집중)."""
+    out = set()
+    ids = [v for v in video_ids_tuple if v]
+    for i in range(0, len(ids), 50):
+        chunk = ids[i:i + 50]
+        try:
+            resp = youtube.videos().list(part="contentDetails", id=",".join(chunk)).execute()
+            for item in resp.get("items", []):
+                rating = (item.get("contentDetails", {}) or {}).get("contentRating", {}) or {}
+                if rating.get("ytRating") == "ytAgeRestricted":
+                    out.add(item["id"])
+        except Exception:
+            pass
+    return out
+
+@st.cache_data(ttl=3600, show_spinner=False)
 def get_video_categories(video_ids_tuple):
     """YouTube 영상 카테고리 ID 배치 조회 — 뉴스(25) 필터용, 1시간 캐시."""
     out = {}
@@ -10788,9 +10807,12 @@ def scan_watched_channel(channel_id, channel_name, max_results=5, assigned_to=No
                         if (it.get("id") or {}).get("videoId"))
         _ch_durs = get_video_durations(_ch_ids) if _ch_ids else {}
         _ch_cats = get_video_categories(_ch_ids) if _ch_ids else {}
+        _ch_restr = get_age_restricted_ids(_ch_ids) if _ch_ids else set()
         results = []
         for item in sr.get("items", []):
             vid = item["id"]["videoId"]
+            if vid in _ch_restr:
+                continue  # 이미 18+ 연령제한 — 청소년 접근 차단됨, 모니터링 대상 아님
             _cd = _ch_durs.get(vid)
             if _cd is not None and _cd < 120:
                 continue  # 2분 미만 영상 제외 (광고·쇼츠 과다 방지)
@@ -12992,6 +13014,7 @@ def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="
                       if (it.get("id") or {}).get("videoId"))
     _durs = get_video_durations(_cand_ids) if _cand_ids else {}
     _cats = get_video_categories(_cand_ids) if _cand_ids else {}
+    _restr = get_age_restricted_ids(_cand_ids) if _cand_ids else set()
 
     results = []
     for item in sr.get("items", []):
@@ -13001,6 +13024,8 @@ def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="
         url = f"https://www.youtube.com/watch?v={vid}"
         if url in analyzed_urls:
             continue
+        if vid in _restr:
+            continue  # 이미 18+ 연령제한 — 청소년 접근 차단됨, 모니터링 대상 아님
         _dsec = _durs.get(vid)
         if _dsec is not None and _dsec < 120:
             continue  # 2분 미만 영상 제외 (광고·쇼츠 과다 방지)
@@ -33554,12 +33579,16 @@ else:
                         analyzed_urls = get_analyzed_urls()
                         with st.spinner(f"'{keyword}' 검색 중..."):
                             sr = youtube.search().list(part="snippet",q=keyword,type="video",maxResults=max_r,relevanceLanguage="ko").execute()
+                            _kw_ids = tuple(it["id"]["videoId"] for it in sr.get("items",[]) if (it.get("id") or {}).get("videoId"))
+                            _kw_restr = get_age_restricted_ids(_kw_ids) if _kw_ids else set()
                             videos = []; skipped = 0
                             for item in sr.get("items",[]):
                                 v = item["id"]["videoId"]
                                 u = f"https://www.youtube.com/watch?v={v}"
                                 if u in analyzed_urls:
                                     skipped += 1; continue
+                                if v in _kw_restr:
+                                    continue  # 이미 18+ 연령제한 — 청소년 접근 차단됨, 모니터링 대상 아님
                                 videos.append({"id":v,"title":item["snippet"]["title"],
                                     "description":item["snippet"].get("description","")[:200],
                                     "channel":item["snippet"]["channelTitle"],"url":u})
@@ -33886,9 +33915,13 @@ else:
                                 regionCode="KR", safeSearch="none"
                             ).execute()
 
+                            _dc_ids = tuple(it["id"]["videoId"] for it in sr.get("items", []) if (it.get("id") or {}).get("videoId"))
+                            _dc_restr = get_age_restricted_ids(_dc_ids) if _dc_ids else set()
                             results = []
                             for item in sr.get("items", []):
                                 vid = item["id"]["videoId"]
+                                if vid in _dc_restr:
+                                    continue  # 이미 18+ 연령제한 — 청소년 접근 차단됨, 모니터링 대상 아님
                                 title = item["snippet"]["title"]
                                 desc = item["snippet"].get("description","")[:300]
                                 channel = item["snippet"]["channelTitle"]
