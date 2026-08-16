@@ -148,7 +148,11 @@
 <div id="chat"></div>
 <div id="statusBar"></div>
 
+<div id="attachBar" style="display:none;padding:6px 12px 0;background:var(--panel)"></div>
 <div id="controls">
+  <button id="attachBtn" aria-label="파일 첨부"
+    style="background:var(--panel2);color:var(--text);border:none;border-radius:50%;width:46px;height:46px;font-size:1.1rem;cursor:pointer;flex-shrink:0">📎</button>
+  <input type="file" id="fileInput" accept="image/*,application/pdf,.pdf,.txt,.md,.csv,.log,.json" style="display:none">
   <input id="textInput" type="text" placeholder="메시지 입력 또는 마이크를 누르세요"
          autocomplete="off" enterkeyhint="send">
   <button id="sendBtn" aria-label="전송">➤</button>
@@ -220,11 +224,45 @@
   <div class="sheet">
     <h2>💬 대화방</h2>
     <button id="memoOpenBtn" class="btnGhost"
-      style="width:100%;border:none;border-radius:12px;padding:13px;font-size:1rem;cursor:pointer;margin-bottom:12px;text-align:left">
+      style="width:100%;border:none;border-radius:12px;padding:13px;font-size:1rem;cursor:pointer;margin-bottom:8px;text-align:left">
       💡 아이디어 메모함 <span id="memoCount"></span>
+    </button>
+    <button id="memoryOpenBtn" class="btnGhost"
+      style="width:100%;border:none;border-radius:12px;padding:13px;font-size:1rem;cursor:pointer;margin-bottom:12px;text-align:left">
+      🧠 클로드 기억 <span id="memoryCount"></span>
     </button>
     <div id="roomList"></div>
     <button id="newRoomBtn">＋ 새 대화방</button>
+  </div>
+</div>
+
+<!-- 메시지 입력 팝업 -->
+<div class="overlay" id="composeOverlay">
+  <div class="sheet">
+    <h2>✍️ 메시지 입력</h2>
+    <textarea id="composeInput" rows="6" placeholder="내용을 입력하거나 수정하세요"
+      style="width:100%;background:var(--panel2);border:1px solid #343a63;color:var(--text);border-radius:10px;padding:12px;font-size:1.05rem;line-height:1.6;outline:none;resize:vertical"></textarea>
+    <div class="btnRow">
+      <button class="btnGhost" id="composeCancelBtn">닫기</button>
+      <button class="btnPrimary" id="composeSendBtn">전송 ➤</button>
+    </div>
+  </div>
+</div>
+
+<!-- 클로드 기억 시트 -->
+<div class="overlay" id="memoryOverlay">
+  <div class="sheet">
+    <h2>🧠 클로드 기억</h2>
+    <div class="note" style="margin-top:0">
+      <b>필수 기억</b>은 번호 순서대로 모든 대화에 항상 반영됩니다.
+      대화 중 <b>"기억해줘, 나는 ..."</b>라고 말해도 추가됩니다.<br>
+      오래된 대화는 방마다 자동으로 <b>요약 기억</b>되어 유지됩니다.
+    </div>
+    <div id="memoryList" style="margin-top:10px"></div>
+    <div class="btnRow">
+      <button class="btnGhost" id="memoryAddBtn">＋ 필수 기억 추가</button>
+    </div>
+    <div class="note" id="roomSummaryView"></div>
   </div>
 </div>
 
@@ -366,6 +404,33 @@
     });
   }
 
+  // PDF 저장: 인쇄용 화면을 띄우고 브라우저의 "PDF로 저장"을 이용 (한글 폰트 완벽 지원)
+  // 용도: 영어 문장/단어 시험지 등 인쇄물 — A4 여백, 줄바꿈 그대로 유지
+  function saveAsPdf(text, title) {
+    var today = new Date().toLocaleDateString("ko-KR");
+    var html = "<!doctype html><html><head><meta charset='utf-8'>" +
+      "<title>" + escapeHtml(title || "보이스 클로드") + "</title>" +
+      "<style>@page{size:A4;margin:18mm}" +
+      "body{font-family:'Malgun Gothic','맑은 고딕','Apple SD Gothic Neo',sans-serif;font-size:12pt;line-height:1.9;color:#111;margin:0}" +
+      "h2{font-size:15pt;border-bottom:2px solid #333;padding-bottom:6px;margin:0 0 14px}" +
+      "p{margin:0 0 8px;white-space:pre-wrap;word-break:keep-all}</style></head><body>" +
+      "<h2>" + escapeHtml(title || "보이스 클로드") + " <small style='font-size:10pt;font-weight:normal'>(" + today + ")</small></h2>" +
+      String(text).split(/\n/).map(function (p) { return "<p>" + (escapeHtml(p) || "&nbsp;") + "</p>"; }).join("") +
+      "</body></html>";
+    var f = document.createElement("iframe");
+    f.setAttribute("aria-hidden", "true");
+    f.style.position = "fixed"; f.style.right = "0"; f.style.bottom = "0";
+    f.style.width = "0"; f.style.height = "0"; f.style.border = "0";
+    document.body.appendChild(f);
+    var doc = f.contentWindow.document;
+    doc.open(); doc.write(html); doc.close();
+    setStatus("인쇄 창이 뜨면 프린터 대상에서 \"PDF로 저장\"을 선택하세요.");
+    setTimeout(function () {
+      try { f.contentWindow.focus(); f.contentWindow.print(); } catch (e) {}
+      setTimeout(function () { f.remove(); }, 60000);   // 인쇄 창이 닫힌 뒤 정리
+    }, 250);
+  }
+
   /* ── 아이디어 메모 ── */
   var memos = getJSON("vc_memos", []);
   var memoDeleted = getJSON("vc_memo_deleted", []);
@@ -373,6 +438,138 @@
   function addMemo(text) {
     memos.unshift({ id: "m" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), text: text, t: Date.now() });
     saveMemos(); schedulePush();
+  }
+
+  /* ── 📎 파일 첨부 (사진·PDF·텍스트) ── */
+  var attachment = null;   // {kind:"image"|"pdf"|"text", name, mediaType?, data?(base64), text?}
+
+  function handleFile(f) {
+    var name = f.name || "파일";
+    if (f.type.indexOf("image/") === 0) {
+      // 토큰 비용 절약을 위해 긴 변 1568px로 축소 후 JPEG 변환
+      var url = URL.createObjectURL(f);
+      var img = new Image();
+      img.onload = function () {
+        URL.revokeObjectURL(url);
+        var maxSide = 1568;
+        var scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+        var cw = Math.max(1, Math.round(img.width * scale));
+        var ch = Math.max(1, Math.round(img.height * scale));
+        var cv = document.createElement("canvas");
+        cv.width = cw; cv.height = ch;
+        cv.getContext("2d").drawImage(img, 0, 0, cw, ch);
+        var dataUrl = cv.toDataURL("image/jpeg", 0.85);
+        attachment = { kind: "image", name: name, mediaType: "image/jpeg", data: dataUrl.split(",")[1] };
+        renderAttachBar();
+        setStatus("📷 사진이 첨부됐어요. 질문을 말하거나 입력한 뒤 전송하세요.");
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); setStatus("이미지를 읽지 못했어요.", "error"); };
+      img.src = url;
+    } else if (f.type === "application/pdf" || /\.pdf$/i.test(name)) {
+      if (f.size > 10 * 1024 * 1024) { setStatus("PDF가 너무 커요. 10MB 이하만 가능해요.", "error"); return; }
+      var r = new FileReader();
+      r.onload = function () {
+        attachment = { kind: "pdf", name: name, mediaType: "application/pdf", data: String(r.result).split(",")[1] };
+        renderAttachBar();
+        setStatus("📕 PDF가 첨부됐어요. 요약이나 질문을 요청해보세요. (페이지가 많으면 비용이 커져요)");
+      };
+      r.readAsDataURL(f);
+    } else if (f.type.indexOf("text/") === 0 || /\.(txt|md|csv|log|json)$/i.test(name)) {
+      var r2 = new FileReader();
+      r2.onload = function () {
+        var t = String(r2.result);
+        if (t.length > 30000) t = t.slice(0, 30000) + "\n...(길어서 이하 생략)";
+        attachment = { kind: "text", name: name, text: t };
+        renderAttachBar();
+        setStatus("📄 파일이 첨부됐어요. 질문을 이어서 하세요.");
+      };
+      r2.readAsText(f);
+    } else {
+      setStatus("지원하지 않는 형식이에요. 사진·PDF·텍스트 파일만 가능해요. 워드/한글 문서는 PDF로 변환해서 올려주세요.", "error");
+    }
+  }
+  function renderAttachBar() {
+    var bar = $("attachBar");
+    if (!attachment) { bar.style.display = "none"; bar.innerHTML = ""; return; }
+    bar.style.display = "block";
+    bar.innerHTML = "";
+    var chip = document.createElement("span");
+    chip.style.cssText = "display:inline-flex;align-items:center;gap:8px;background:var(--panel2);border-radius:14px;padding:7px 12px;font-size:.9rem;max-width:100%;overflow:hidden";
+    var icon = attachment.kind === "image" ? "📷 " : attachment.kind === "pdf" ? "📕 " : "📄 ";
+    var label = document.createElement("span");
+    label.style.cssText = "white-space:nowrap;overflow:hidden;text-overflow:ellipsis";
+    label.textContent = icon + attachment.name;
+    var x = document.createElement("button");
+    x.textContent = "✕";
+    x.setAttribute("aria-label", "첨부 제거");
+    x.style.cssText = "background:none;border:none;color:var(--danger);cursor:pointer;font-size:1rem;flex-shrink:0";
+    x.addEventListener("click", function () { attachment = null; renderAttachBar(); setStatus(""); });
+    chip.appendChild(label); chip.appendChild(x);
+    bar.appendChild(chip);
+  }
+
+  /* ── 🧠 필수 기억 (번호순, 모든 대화에 항상 반영) ── */
+  var coreMemories = getJSON("vc_core", []);
+  var coreDeleted = getJSON("vc_core_deleted", []);
+  function saveCore() { setJSON("vc_core", coreMemories); setJSON("vc_core_deleted", coreDeleted); }
+  function addCoreMemory(text) {
+    coreMemories.push({ id: "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), text: text, t: Date.now() });
+    saveCore(); schedulePush();
+  }
+
+  /* ── 시스템 프롬프트 조립: 기본 + 필수 기억 + 방 요약 기억 ── */
+  function buildSystemPrompt() {
+    var s = SYSTEM_PROMPT;
+    if (coreMemories.length) {
+      s += "\n\n[사용자가 직접 등록한 필수 기억 — 모든 답변에서 번호 순서대로 항상 반영하라]";
+      coreMemories.forEach(function (m, i) { s += "\n" + (i + 1) + ". " + m.text; });
+    }
+    var room = currentRoom();
+    if (room && room.summary) {
+      s += "\n\n[이 대화방의 이전 대화 요약 — 최근 메시지에는 없는 과거 맥락이다]\n" + room.summary;
+    }
+    return s;
+  }
+
+  /* ── 📝 요약 기억: 24개 창을 벗어난 오래된 대화를 자동 요약해 유지 ── */
+  var HISTORY_WINDOW = 24;   // 매 요청에 포함하는 최근 메시지 수
+  var SUM_TRIGGER = 8;       // 창 밖으로 밀려난 미요약 메시지가 이만큼 쌓이면 요약 갱신
+  function maybeUpdateSummary() {
+    if (!settings.apiKey) return;
+    var room = currentRoom();
+    var all = loadMsgs(room.id);
+    var cutoff = all.length - HISTORY_WINDOW;
+    var covered = room.sumUpto || 0;
+    if (cutoff - covered < SUM_TRIGGER) return;
+    var chunk = all.slice(covered, cutoff).map(function (m) {
+      return (m.role === "user" ? "사용자: " : "클로드: ") + m.content;
+    }).join("\n").slice(0, 8000);
+    var model = settings.model || "claude-opus-5";
+    var body = {
+      model: model, max_tokens: 1024,
+      output_config: { effort: "low" },
+      messages: [{
+        role: "user",
+        content: "다음은 어느 대화방의 기존 요약과 그 이후 이어진 대화다. 두 정보를 합쳐 이 대화방의 맥락 요약을 새로 작성하라. 사용자에 대한 사실, 진행 중인 주제, 결정된 내용 위주로 5문장 이내. 요약문만 출력하라.\n\n[기존 요약]\n" +
+          (room.summary || "(없음)") + "\n\n[이어진 대화]\n" + chunk
+      }]
+    };
+    if (model === "claude-opus-5") body.fallbacks = "default";
+    fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST", headers: apiHeaders(model), body: JSON.stringify(body)
+    }).then(function (res) { return res.json(); }).then(function (data) {
+      var t = "";
+      (data.content || []).forEach(function (b) { if (b.type === "text") t += b.text; });
+      if (!t.trim()) return;
+      room.summary = t.trim();
+      room.sumUpto = cutoff;
+      saveRooms(); schedulePush();
+      if (data.usage) {
+        settings.totalTokens = (settings.totalTokens || 0) +
+          (data.usage.input_tokens || 0) + (data.usage.output_tokens || 0);
+        saveSettings();
+      }
+    }).catch(function () {});   // 요약 실패는 다음 기회에 재시도 (조용히)
   }
 
   /* ════════════════ TTS — 문장 청크 발화 엔진 (끊김 방지) ════════════════ */
@@ -559,7 +756,7 @@
           return;
         }
         if (!text) return;
-        // ⭐ 바로 전송하지 않고 모아둠 — 2초간 말이 없을 때만 전송 (말 끊김 방지)
+        // ⭐ 바로 전송하지 않고 모아둠 — 3.5초간 말이 없을 때만 전송 (말 끊김 방지)
         pendingText = (pendingText ? pendingText + " " : "") + text;
         setStatus("🎤 " + pendingText + " ⏳", "listening");
         resetPendingTimer();
@@ -596,9 +793,9 @@
     recognizing = false; micBtn.classList.remove("on");
   }
 
-  // ⭐ 발화 수집 버퍼 — 마지막 말 이후 2초가 지나야 전송 (말하는 중에 끊고 답하던 문제 해결)
+  // ⭐ 발화 수집 버퍼 — 마지막 말 이후 3.5초가 지나야 전송 (3초쯤 쉬었다 이어 말해도 안 끊김)
   var pendingText = "", pendingTimer = null;
-  var SEND_SILENCE_MS = 2000;
+  var SEND_SILENCE_MS = 3500;
   function cancelPending() {
     pendingText = ""; clearTimeout(pendingTimer); pendingTimer = null;
   }
@@ -619,7 +816,13 @@
           return;
         }
       }
-      sendMessage(t);
+      if (voiceMode) {
+        sendMessage(t);   // 연속 대화 모드: 손 안 대는 흐름 유지 — 바로 전송
+      } else {
+        // 단발 마이크: 인식 결과를 팝업에 띄워 오타 수정 후 전송
+        openCompose(t);
+        setStatus("🎤 인식 결과를 확인·수정한 뒤 전송을 누르세요.");
+      }
     }, SEND_SILENCE_MS);
   }
 
@@ -673,7 +876,7 @@
       var body = {
         model: model,
         max_tokens: 4096,                        // thinking(내부 사고)+답변 합산 상한 — 부족하면 답변이 잘림
-        system: SYSTEM_PROMPT,
+        system: buildSystemPrompt(),             // 기본 + 필수 기억(번호순) + 이 방의 요약 기억
         output_config: { effort: settings.effort || "low" },
         tools: [{ type: wsVer, name: "web_search", max_uses: 3 }],
         messages: msgs
@@ -778,7 +981,8 @@
     var msgs = {};
     syncRooms.forEach(function (r) { msgs[r.id] = loadMsgs(r.id); });
     return { rooms: syncRooms, msgs: msgs, deleted: deletedRooms,
-             memos: memos, memoDeleted: memoDeleted, t: Date.now() };
+             memos: memos, memoDeleted: memoDeleted,
+             core: coreMemories, coreDeleted: coreDeleted, t: Date.now() };
   }
   function applyState(state) {
     rooms = state.rooms; saveRooms();
@@ -788,6 +992,9 @@
     memos = state.memos || [];
     memoDeleted = state.memoDeleted || [];
     saveMemos();
+    coreMemories = state.core || [];
+    coreDeleted = state.coreDeleted || [];
+    saveCore();
   }
   // 병합 규칙: 삭제 목록은 합집합, 방은 합집합(삭제된 방 제외), 메시지는 더 긴 쪽 우선
   function mergeStates(remote, local) {
@@ -802,6 +1009,8 @@
       var merged = Object.assign({}, ex, r);
       // 이름은 더 최근에 바꾼 쪽이 이김 (renamedAt 기준)
       if ((ex.renamedAt || 0) > (r.renamedAt || 0)) { merged.name = ex.name; merged.renamedAt = ex.renamedAt; }
+      // 요약 기억은 더 많은 대화를 커버한 쪽이 이김 (sumUpto 기준)
+      if ((ex.sumUpto || 0) > (r.sumUpto || 0)) { merged.summary = ex.summary; merged.sumUpto = ex.sumUpto; }
       byId[r.id] = merged;
     });
     var msgs = {};
@@ -826,8 +1035,18 @@
     });
     var mergedMemos = Object.keys(memoById).map(function (id) { return memoById[id]; })
       .sort(function (a, b) { return (b.t || 0) - (a.t || 0); });
+    // 필수 기억 병합: 합집합 (삭제 제외), 등록 순서(오름차순) 유지 → 번호 안정
+    var coreDel = {};
+    (remote.coreDeleted || []).concat(local.coreDeleted || []).forEach(function (id) { coreDel[id] = 1; });
+    var coreById = {};
+    (remote.core || []).concat(local.core || []).forEach(function (m) {
+      if (m && m.id && !coreDel[m.id]) coreById[m.id] = m;
+    });
+    var mergedCore = Object.keys(coreById).map(function (id) { return coreById[id]; })
+      .sort(function (a, b) { return (a.t || 0) - (b.t || 0); });
     return { rooms: mergedRooms, msgs: msgs, deleted: Object.keys(deleted),
-             memos: mergedMemos, memoDeleted: Object.keys(memoDel), t: Date.now() };
+             memos: mergedMemos, memoDeleted: Object.keys(memoDel),
+             core: mergedCore, coreDeleted: Object.keys(coreDel), t: Date.now() };
   }
 
   function syncHeaders() {
@@ -899,7 +1118,7 @@
   /* ════════════════ 대화 흐름 ════════════════ */
   function sendMessage(text) {
     text = (text || "").trim();
-    if (!text || busy) return;
+    if ((!text && !attachment) || busy) return;
     // ⭐ "메모해줘 ..." — 클로드 호출 없이 아이디어 메모함에 즉시 저장 (무료)
     var mm = text.match(/^(메모해줘|메모 해줘|메모해 줘|메모)[,.:! ]+(.+)$/);
     if (mm && mm[2].trim()) {
@@ -908,17 +1127,53 @@
       if (voiceMode) speak("메모했어요.", function () { if (voiceMode) setTimeout(startListening, 300); });
       return;
     }
+    // ⭐ "기억해줘 ..." — 필수 기억(번호순)으로 등록, 모든 대화에 항상 반영 (무료)
+    var rm = text.match(/^(기억해줘|기억 해줘|기억해 줘)[,.:! ]+(.+)$/);
+    if (rm && rm[2].trim()) {
+      addCoreMemory(rm[2].trim());
+      setStatus("🧠 " + coreMemories.length + "번 기억으로 등록했어요. (☰ → 클로드 기억)");
+      if (voiceMode) speak("네, " + coreMemories.length + "번으로 기억했어요.", function () { if (voiceMode) setTimeout(startListening, 300); });
+      return;
+    }
     if (!settings.apiKey) { openSettings(); return; }
     stopListening();
     busy = true;
     $("sendBtn").textContent = "⏹";
     $("sendBtn").setAttribute("aria-label", "답변 중지");
-    messages.push({ role: "user", content: text });
-    renderMessage("user", text);
-    persistCurrent(text);
+    // 📎 첨부 파일 → 이번 턴의 content 블록으로 변환 (저장소에는 자리표시 텍스트만)
+    if (!text) text = "이 파일 내용을 확인하고 설명해줘.";
+    var userContent = text;
+    var displayText = text;
+    if (attachment) {
+      displayText = "📎 " + attachment.name + "\n" + text;
+      if (attachment.kind === "image") {
+        userContent = [
+          { type: "image", source: { type: "base64", media_type: attachment.mediaType, data: attachment.data } },
+          { type: "text", text: text }
+        ];
+      } else if (attachment.kind === "pdf") {
+        userContent = [
+          { type: "document", source: { type: "base64", media_type: "application/pdf", data: attachment.data } },
+          { type: "text", text: text }
+        ];
+      } else {
+        userContent = "[첨부 파일 \"" + attachment.name + "\" 내용]\n" + attachment.text + "\n\n" + text;
+      }
+      attachment = null; renderAttachBar();
+    }
+    messages.push({ role: "user", content: userContent });
+    renderMessage("user", displayText);
+    persistCurrent(displayText);
     statusEl.innerHTML = '<span class="spinner"></span>생각하는 중… (⏹를 누르면 중지)';
 
-    var history = messages.slice(-24).map(function (m) { return { role: m.role, content: m.content }; });
+    // 파일 블록은 최근 4개 메시지까지만 원본 전송 — 그 이전 것은 텍스트로 대체 (비용 폭증 방지)
+    var history = messages.slice(-HISTORY_WINDOW).map(function (m, idx, arr) {
+      if (typeof m.content === "string") return { role: m.role, content: m.content };
+      if (idx >= arr.length - 4) return { role: m.role, content: m.content };
+      var txt = "";
+      m.content.forEach(function (b) { if (b.type === "text") txt += b.text; });
+      return { role: m.role, content: "[이전에 첨부했던 파일 — 내용 다시 필요하면 재첨부 요청] " + txt };
+    });
     callClaude(history, function (err, answer) {
       busy = false;
       currentAbort = null;
@@ -945,6 +1200,7 @@
       schedulePush();
       renderMessage("ai", answer);
       setStatus("");
+      maybeUpdateSummary();   // 창 밖으로 밀려난 오래된 대화를 백그라운드에서 요약 기억으로 전환
       if (voiceMode) {
         speak(answer, function () {
           if (voiceMode) { setStatus(""); setTimeout(startListening, 350); }
@@ -988,11 +1244,18 @@
       var xl = document.createElement("span");
       xl.className = "replay"; xl.style.marginLeft = "14px"; xl.textContent = "📊 엑셀";
       xl.addEventListener("click", function () { saveAsExcel(text, xl); });
+      var pf = document.createElement("span");
+      pf.className = "replay"; pf.style.marginLeft = "14px"; pf.textContent = "📕 PDF";
+      pf.addEventListener("click", function () {
+        var room = currentRoom();
+        saveAsPdf(text, room && room.name !== "새 대화" ? room.name : "보이스 클로드");
+      });
       div.appendChild(document.createElement("br"));
       div.appendChild(rp);
       div.appendChild(cp);
       div.appendChild(wd2);
       div.appendChild(xl);
+      div.appendChild(pf);
     }
     chatEl.appendChild(div);
     chatEl.scrollTop = chatEl.scrollHeight;
@@ -1105,6 +1368,38 @@
     });
   }
 
+  function renderMemoryList() {
+    var list = $("memoryList");
+    list.innerHTML = "";
+    if (!coreMemories.length) {
+      var e = document.createElement("div");
+      e.className = "note"; e.textContent = "등록된 필수 기억이 없어요. \"기억해줘, 나는 ...\"라고 말해보세요.";
+      list.appendChild(e);
+    }
+    coreMemories.forEach(function (m, i) {
+      var item = document.createElement("div");
+      item.className = "roomItem";
+      item.style.cursor = "default";
+      item.innerHTML = '<div class="rname"><div class="t" style="white-space:normal"></div></div>';
+      item.querySelector(".t").textContent = (i + 1) + ". " + m.text;
+      var del = document.createElement("button");
+      del.className = "del"; del.textContent = "🗑";
+      del.setAttribute("aria-label", "기억 삭제");
+      del.addEventListener("click", function () {
+        if (!confirm((i + 1) + "번 기억을 삭제할까요?\n\"" + m.text + "\"")) return;
+        coreDeleted.push(m.id);
+        coreMemories = coreMemories.filter(function (x) { return x.id !== m.id; });
+        saveCore(); schedulePush(); renderMemoryList();
+      });
+      item.appendChild(del);
+      list.appendChild(item);
+    });
+    var room = currentRoom();
+    $("roomSummaryView").innerHTML = room && room.summary
+      ? "<b>📝 현재 방의 요약 기억:</b><br>" + escapeHtml(room.summary)
+      : "📝 현재 방은 아직 요약 기억이 없어요. 대화가 " + (HISTORY_WINDOW + SUM_TRIGGER) + "개를 넘으면 자동으로 만들어집니다.";
+  }
+
   /* ════════════════ 음성 모드 토글 ════════════════ */
   function setVoiceMode(on) {
     voiceMode = on;
@@ -1138,6 +1433,34 @@
   }
 
   /* ════════════════ 이벤트 바인딩 ════════════════ */
+  /* ── ✍️ 큰 입력 팝업 ── */
+  function openCompose(text) {
+    if (text) $("composeInput").value = text;   // 빈 호출이면 기존 초안 유지
+    $("composeOverlay").classList.add("show");
+    setTimeout(function () { $("composeInput").focus(); }, 120);
+  }
+  $("composeSendBtn").addEventListener("click", function () {
+    var t = $("composeInput").value;
+    $("composeOverlay").classList.remove("show");
+    $("composeInput").value = "";
+    sendMessage(t);
+  });
+  $("composeCancelBtn").addEventListener("click", function () {
+    $("composeOverlay").classList.remove("show");   // 초안은 유지 — 다시 열면 이어서 수정
+  });
+  $("composeInput").addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) $("composeSendBtn").click();
+  });
+  // 터치 기기(폰)에서는 작은 입력창을 탭하면 큰 팝업으로 전환
+  if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) {
+    inputEl.addEventListener("focus", function () {
+      var v = inputEl.value;
+      inputEl.value = "";
+      inputEl.blur();
+      openCompose(v);
+    });
+  }
+
   micBtn.addEventListener("click", function () {
     if (busy && currentAbort) { currentAbort.abort(); return; }   // 답변 생성 중 → 중지
     if (ttsActive) { stopSpeaking(); if (voiceMode) setTimeout(startListening, 200); else setStatus(""); return; }
@@ -1147,7 +1470,15 @@
   voiceModeBtn.addEventListener("click", function () { setVoiceMode(!voiceMode); });
   $("sendBtn").addEventListener("click", function () {
     if (busy && currentAbort) { currentAbort.abort(); return; }   // ⏹ 답변 중지
-    var t = inputEl.value; inputEl.value = ""; sendMessage(t);
+    var t = inputEl.value;
+    if (!t.trim() && !attachment) { openCompose(""); return; }    // 빈 상태 → 큰 입력 팝업
+    inputEl.value = ""; sendMessage(t);
+  });
+  $("attachBtn").addEventListener("click", function () { $("fileInput").click(); });
+  $("fileInput").addEventListener("change", function () {
+    var f = this.files && this.files[0];
+    this.value = "";
+    if (f) handleFile(f);
   });
   $("newChatBtn").addEventListener("click", function () {
     stopSpeaking(); stopListening();
@@ -1203,12 +1534,22 @@
   $("roomsBtn").addEventListener("click", function () {
     renderRoomList();
     $("memoCount").textContent = memos.length ? "(" + memos.length + "개)" : "";
+    $("memoryCount").textContent = coreMemories.length ? "(" + coreMemories.length + "개)" : "";
     $("roomsOverlay").classList.add("show");
   });
   $("memoOpenBtn").addEventListener("click", function () {
     $("roomsOverlay").classList.remove("show");
     renderMemoList();
     $("memoOverlay").classList.add("show");
+  });
+  $("memoryOpenBtn").addEventListener("click", function () {
+    $("roomsOverlay").classList.remove("show");
+    renderMemoryList();
+    $("memoryOverlay").classList.add("show");
+  });
+  $("memoryAddBtn").addEventListener("click", function () {
+    var t = prompt("클로드가 항상 기억할 내용을 입력하세요\n(예: 나는 드래곤아이즈 대표다)");
+    if (t && t.trim()) { addCoreMemory(t.trim()); renderMemoryList(); }
   });
   $("memoAddBtn").addEventListener("click", function () {
     var t = prompt("메모할 내용을 입력하세요");
@@ -1225,7 +1566,7 @@
     newRoom(); $("roomsOverlay").classList.remove("show");
     stopSpeaking(); stopListening(); renderRoom();
   });
-  [$("settingsOverlay"), $("roomsOverlay"), $("memoOverlay")].forEach(function (ov) {
+  [$("settingsOverlay"), $("roomsOverlay"), $("memoOverlay"), $("memoryOverlay"), $("composeOverlay")].forEach(function (ov) {
     ov.addEventListener("click", function (e) { if (e.target === ov) ov.classList.remove("show"); });
   });
 
