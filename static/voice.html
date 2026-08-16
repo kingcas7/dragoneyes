@@ -236,6 +236,19 @@
   </div>
 </div>
 
+<!-- 메시지 입력 팝업 -->
+<div class="overlay" id="composeOverlay">
+  <div class="sheet">
+    <h2>✍️ 메시지 입력</h2>
+    <textarea id="composeInput" rows="6" placeholder="내용을 입력하거나 수정하세요"
+      style="width:100%;background:var(--panel2);border:1px solid #343a63;color:var(--text);border-radius:10px;padding:12px;font-size:1.05rem;line-height:1.6;outline:none;resize:vertical"></textarea>
+    <div class="btnRow">
+      <button class="btnGhost" id="composeCancelBtn">닫기</button>
+      <button class="btnPrimary" id="composeSendBtn">전송 ➤</button>
+    </div>
+  </div>
+</div>
+
 <!-- 클로드 기억 시트 -->
 <div class="overlay" id="memoryOverlay">
   <div class="sheet">
@@ -389,6 +402,33 @@
       btnEl.textContent = "⚠️ 실패";
       setTimeout(function () { btnEl.textContent = orig; }, 2000);
     });
+  }
+
+  // PDF 저장: 인쇄용 화면을 띄우고 브라우저의 "PDF로 저장"을 이용 (한글 폰트 완벽 지원)
+  // 용도: 영어 문장/단어 시험지 등 인쇄물 — A4 여백, 줄바꿈 그대로 유지
+  function saveAsPdf(text, title) {
+    var today = new Date().toLocaleDateString("ko-KR");
+    var html = "<!doctype html><html><head><meta charset='utf-8'>" +
+      "<title>" + escapeHtml(title || "보이스 클로드") + "</title>" +
+      "<style>@page{size:A4;margin:18mm}" +
+      "body{font-family:'Malgun Gothic','맑은 고딕','Apple SD Gothic Neo',sans-serif;font-size:12pt;line-height:1.9;color:#111;margin:0}" +
+      "h2{font-size:15pt;border-bottom:2px solid #333;padding-bottom:6px;margin:0 0 14px}" +
+      "p{margin:0 0 8px;white-space:pre-wrap;word-break:keep-all}</style></head><body>" +
+      "<h2>" + escapeHtml(title || "보이스 클로드") + " <small style='font-size:10pt;font-weight:normal'>(" + today + ")</small></h2>" +
+      String(text).split(/\n/).map(function (p) { return "<p>" + (escapeHtml(p) || "&nbsp;") + "</p>"; }).join("") +
+      "</body></html>";
+    var f = document.createElement("iframe");
+    f.setAttribute("aria-hidden", "true");
+    f.style.position = "fixed"; f.style.right = "0"; f.style.bottom = "0";
+    f.style.width = "0"; f.style.height = "0"; f.style.border = "0";
+    document.body.appendChild(f);
+    var doc = f.contentWindow.document;
+    doc.open(); doc.write(html); doc.close();
+    setStatus("인쇄 창이 뜨면 프린터 대상에서 \"PDF로 저장\"을 선택하세요.");
+    setTimeout(function () {
+      try { f.contentWindow.focus(); f.contentWindow.print(); } catch (e) {}
+      setTimeout(function () { f.remove(); }, 60000);   // 인쇄 창이 닫힌 뒤 정리
+    }, 250);
   }
 
   /* ── 아이디어 메모 ── */
@@ -716,7 +756,7 @@
           return;
         }
         if (!text) return;
-        // ⭐ 바로 전송하지 않고 모아둠 — 2초간 말이 없을 때만 전송 (말 끊김 방지)
+        // ⭐ 바로 전송하지 않고 모아둠 — 3.5초간 말이 없을 때만 전송 (말 끊김 방지)
         pendingText = (pendingText ? pendingText + " " : "") + text;
         setStatus("🎤 " + pendingText + " ⏳", "listening");
         resetPendingTimer();
@@ -753,9 +793,9 @@
     recognizing = false; micBtn.classList.remove("on");
   }
 
-  // ⭐ 발화 수집 버퍼 — 마지막 말 이후 2초가 지나야 전송 (말하는 중에 끊고 답하던 문제 해결)
+  // ⭐ 발화 수집 버퍼 — 마지막 말 이후 3.5초가 지나야 전송 (3초쯤 쉬었다 이어 말해도 안 끊김)
   var pendingText = "", pendingTimer = null;
-  var SEND_SILENCE_MS = 2000;
+  var SEND_SILENCE_MS = 3500;
   function cancelPending() {
     pendingText = ""; clearTimeout(pendingTimer); pendingTimer = null;
   }
@@ -776,7 +816,13 @@
           return;
         }
       }
-      sendMessage(t);
+      if (voiceMode) {
+        sendMessage(t);   // 연속 대화 모드: 손 안 대는 흐름 유지 — 바로 전송
+      } else {
+        // 단발 마이크: 인식 결과를 팝업에 띄워 오타 수정 후 전송
+        openCompose(t);
+        setStatus("🎤 인식 결과를 확인·수정한 뒤 전송을 누르세요.");
+      }
     }, SEND_SILENCE_MS);
   }
 
@@ -1198,11 +1244,18 @@
       var xl = document.createElement("span");
       xl.className = "replay"; xl.style.marginLeft = "14px"; xl.textContent = "📊 엑셀";
       xl.addEventListener("click", function () { saveAsExcel(text, xl); });
+      var pf = document.createElement("span");
+      pf.className = "replay"; pf.style.marginLeft = "14px"; pf.textContent = "📕 PDF";
+      pf.addEventListener("click", function () {
+        var room = currentRoom();
+        saveAsPdf(text, room && room.name !== "새 대화" ? room.name : "보이스 클로드");
+      });
       div.appendChild(document.createElement("br"));
       div.appendChild(rp);
       div.appendChild(cp);
       div.appendChild(wd2);
       div.appendChild(xl);
+      div.appendChild(pf);
     }
     chatEl.appendChild(div);
     chatEl.scrollTop = chatEl.scrollHeight;
@@ -1380,6 +1433,34 @@
   }
 
   /* ════════════════ 이벤트 바인딩 ════════════════ */
+  /* ── ✍️ 큰 입력 팝업 ── */
+  function openCompose(text) {
+    if (text) $("composeInput").value = text;   // 빈 호출이면 기존 초안 유지
+    $("composeOverlay").classList.add("show");
+    setTimeout(function () { $("composeInput").focus(); }, 120);
+  }
+  $("composeSendBtn").addEventListener("click", function () {
+    var t = $("composeInput").value;
+    $("composeOverlay").classList.remove("show");
+    $("composeInput").value = "";
+    sendMessage(t);
+  });
+  $("composeCancelBtn").addEventListener("click", function () {
+    $("composeOverlay").classList.remove("show");   // 초안은 유지 — 다시 열면 이어서 수정
+  });
+  $("composeInput").addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) $("composeSendBtn").click();
+  });
+  // 터치 기기(폰)에서는 작은 입력창을 탭하면 큰 팝업으로 전환
+  if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) {
+    inputEl.addEventListener("focus", function () {
+      var v = inputEl.value;
+      inputEl.value = "";
+      inputEl.blur();
+      openCompose(v);
+    });
+  }
+
   micBtn.addEventListener("click", function () {
     if (busy && currentAbort) { currentAbort.abort(); return; }   // 답변 생성 중 → 중지
     if (ttsActive) { stopSpeaking(); if (voiceMode) setTimeout(startListening, 200); else setStatus(""); return; }
@@ -1389,7 +1470,9 @@
   voiceModeBtn.addEventListener("click", function () { setVoiceMode(!voiceMode); });
   $("sendBtn").addEventListener("click", function () {
     if (busy && currentAbort) { currentAbort.abort(); return; }   // ⏹ 답변 중지
-    var t = inputEl.value; inputEl.value = ""; sendMessage(t);
+    var t = inputEl.value;
+    if (!t.trim() && !attachment) { openCompose(""); return; }    // 빈 상태 → 큰 입력 팝업
+    inputEl.value = ""; sendMessage(t);
   });
   $("attachBtn").addEventListener("click", function () { $("fileInput").click(); });
   $("fileInput").addEventListener("change", function () {
@@ -1483,7 +1566,7 @@
     newRoom(); $("roomsOverlay").classList.remove("show");
     stopSpeaking(); stopListening(); renderRoom();
   });
-  [$("settingsOverlay"), $("roomsOverlay"), $("memoOverlay"), $("memoryOverlay")].forEach(function (ov) {
+  [$("settingsOverlay"), $("roomsOverlay"), $("memoOverlay"), $("memoryOverlay"), $("composeOverlay")].forEach(function (ov) {
     ov.addEventListener("click", function (e) { if (e.target === ov) ov.classList.remove("show"); });
   });
 
