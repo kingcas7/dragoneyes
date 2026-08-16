@@ -148,7 +148,11 @@
 <div id="chat"></div>
 <div id="statusBar"></div>
 
+<div id="attachBar" style="display:none;padding:6px 12px 0;background:var(--panel)"></div>
 <div id="controls">
+  <button id="attachBtn" aria-label="파일 첨부"
+    style="background:var(--panel2);color:var(--text);border:none;border-radius:50%;width:46px;height:46px;font-size:1.1rem;cursor:pointer;flex-shrink:0">📎</button>
+  <input type="file" id="fileInput" accept="image/*,application/pdf,.pdf,.txt,.md,.csv,.log,.json" style="display:none">
   <input id="textInput" type="text" placeholder="메시지 입력 또는 마이크를 누르세요"
          autocomplete="off" enterkeyhint="send">
   <button id="sendBtn" aria-label="전송">➤</button>
@@ -394,6 +398,74 @@
   function addMemo(text) {
     memos.unshift({ id: "m" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), text: text, t: Date.now() });
     saveMemos(); schedulePush();
+  }
+
+  /* ── 📎 파일 첨부 (사진·PDF·텍스트) ── */
+  var attachment = null;   // {kind:"image"|"pdf"|"text", name, mediaType?, data?(base64), text?}
+
+  function handleFile(f) {
+    var name = f.name || "파일";
+    if (f.type.indexOf("image/") === 0) {
+      // 토큰 비용 절약을 위해 긴 변 1568px로 축소 후 JPEG 변환
+      var url = URL.createObjectURL(f);
+      var img = new Image();
+      img.onload = function () {
+        URL.revokeObjectURL(url);
+        var maxSide = 1568;
+        var scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+        var cw = Math.max(1, Math.round(img.width * scale));
+        var ch = Math.max(1, Math.round(img.height * scale));
+        var cv = document.createElement("canvas");
+        cv.width = cw; cv.height = ch;
+        cv.getContext("2d").drawImage(img, 0, 0, cw, ch);
+        var dataUrl = cv.toDataURL("image/jpeg", 0.85);
+        attachment = { kind: "image", name: name, mediaType: "image/jpeg", data: dataUrl.split(",")[1] };
+        renderAttachBar();
+        setStatus("📷 사진이 첨부됐어요. 질문을 말하거나 입력한 뒤 전송하세요.");
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); setStatus("이미지를 읽지 못했어요.", "error"); };
+      img.src = url;
+    } else if (f.type === "application/pdf" || /\.pdf$/i.test(name)) {
+      if (f.size > 10 * 1024 * 1024) { setStatus("PDF가 너무 커요. 10MB 이하만 가능해요.", "error"); return; }
+      var r = new FileReader();
+      r.onload = function () {
+        attachment = { kind: "pdf", name: name, mediaType: "application/pdf", data: String(r.result).split(",")[1] };
+        renderAttachBar();
+        setStatus("📕 PDF가 첨부됐어요. 요약이나 질문을 요청해보세요. (페이지가 많으면 비용이 커져요)");
+      };
+      r.readAsDataURL(f);
+    } else if (f.type.indexOf("text/") === 0 || /\.(txt|md|csv|log|json)$/i.test(name)) {
+      var r2 = new FileReader();
+      r2.onload = function () {
+        var t = String(r2.result);
+        if (t.length > 30000) t = t.slice(0, 30000) + "\n...(길어서 이하 생략)";
+        attachment = { kind: "text", name: name, text: t };
+        renderAttachBar();
+        setStatus("📄 파일이 첨부됐어요. 질문을 이어서 하세요.");
+      };
+      r2.readAsText(f);
+    } else {
+      setStatus("지원하지 않는 형식이에요. 사진·PDF·텍스트 파일만 가능해요. 워드/한글 문서는 PDF로 변환해서 올려주세요.", "error");
+    }
+  }
+  function renderAttachBar() {
+    var bar = $("attachBar");
+    if (!attachment) { bar.style.display = "none"; bar.innerHTML = ""; return; }
+    bar.style.display = "block";
+    bar.innerHTML = "";
+    var chip = document.createElement("span");
+    chip.style.cssText = "display:inline-flex;align-items:center;gap:8px;background:var(--panel2);border-radius:14px;padding:7px 12px;font-size:.9rem;max-width:100%;overflow:hidden";
+    var icon = attachment.kind === "image" ? "📷 " : attachment.kind === "pdf" ? "📕 " : "📄 ";
+    var label = document.createElement("span");
+    label.style.cssText = "white-space:nowrap;overflow:hidden;text-overflow:ellipsis";
+    label.textContent = icon + attachment.name;
+    var x = document.createElement("button");
+    x.textContent = "✕";
+    x.setAttribute("aria-label", "첨부 제거");
+    x.style.cssText = "background:none;border:none;color:var(--danger);cursor:pointer;font-size:1rem;flex-shrink:0";
+    x.addEventListener("click", function () { attachment = null; renderAttachBar(); setStatus(""); });
+    chip.appendChild(label); chip.appendChild(x);
+    bar.appendChild(chip);
   }
 
   /* ── 🧠 필수 기억 (번호순, 모든 대화에 항상 반영) ── */
@@ -1000,7 +1072,7 @@
   /* ════════════════ 대화 흐름 ════════════════ */
   function sendMessage(text) {
     text = (text || "").trim();
-    if (!text || busy) return;
+    if ((!text && !attachment) || busy) return;
     // ⭐ "메모해줘 ..." — 클로드 호출 없이 아이디어 메모함에 즉시 저장 (무료)
     var mm = text.match(/^(메모해줘|메모 해줘|메모해 줘|메모)[,.:! ]+(.+)$/);
     if (mm && mm[2].trim()) {
@@ -1022,12 +1094,40 @@
     busy = true;
     $("sendBtn").textContent = "⏹";
     $("sendBtn").setAttribute("aria-label", "답변 중지");
-    messages.push({ role: "user", content: text });
-    renderMessage("user", text);
-    persistCurrent(text);
+    // 📎 첨부 파일 → 이번 턴의 content 블록으로 변환 (저장소에는 자리표시 텍스트만)
+    if (!text) text = "이 파일 내용을 확인하고 설명해줘.";
+    var userContent = text;
+    var displayText = text;
+    if (attachment) {
+      displayText = "📎 " + attachment.name + "\n" + text;
+      if (attachment.kind === "image") {
+        userContent = [
+          { type: "image", source: { type: "base64", media_type: attachment.mediaType, data: attachment.data } },
+          { type: "text", text: text }
+        ];
+      } else if (attachment.kind === "pdf") {
+        userContent = [
+          { type: "document", source: { type: "base64", media_type: "application/pdf", data: attachment.data } },
+          { type: "text", text: text }
+        ];
+      } else {
+        userContent = "[첨부 파일 \"" + attachment.name + "\" 내용]\n" + attachment.text + "\n\n" + text;
+      }
+      attachment = null; renderAttachBar();
+    }
+    messages.push({ role: "user", content: userContent });
+    renderMessage("user", displayText);
+    persistCurrent(displayText);
     statusEl.innerHTML = '<span class="spinner"></span>생각하는 중… (⏹를 누르면 중지)';
 
-    var history = messages.slice(-HISTORY_WINDOW).map(function (m) { return { role: m.role, content: m.content }; });
+    // 파일 블록은 최근 4개 메시지까지만 원본 전송 — 그 이전 것은 텍스트로 대체 (비용 폭증 방지)
+    var history = messages.slice(-HISTORY_WINDOW).map(function (m, idx, arr) {
+      if (typeof m.content === "string") return { role: m.role, content: m.content };
+      if (idx >= arr.length - 4) return { role: m.role, content: m.content };
+      var txt = "";
+      m.content.forEach(function (b) { if (b.type === "text") txt += b.text; });
+      return { role: m.role, content: "[이전에 첨부했던 파일 — 내용 다시 필요하면 재첨부 요청] " + txt };
+    });
     callClaude(history, function (err, answer) {
       busy = false;
       currentAbort = null;
@@ -1290,6 +1390,12 @@
   $("sendBtn").addEventListener("click", function () {
     if (busy && currentAbort) { currentAbort.abort(); return; }   // ⏹ 답변 중지
     var t = inputEl.value; inputEl.value = ""; sendMessage(t);
+  });
+  $("attachBtn").addEventListener("click", function () { $("fileInput").click(); });
+  $("fileInput").addEventListener("change", function () {
+    var f = this.files && this.files[0];
+    this.value = "";
+    if (f) handleFile(f);
   });
   $("newChatBtn").addEventListener("click", function () {
     stopSpeaking(); stopListening();
