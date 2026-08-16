@@ -11347,7 +11347,7 @@ def topup_recommendation_inventory(max_generate=300):
                 if gen >= to_make:
                     break
                 try:
-                    res = search_and_analyze(kw, max_results=3, analyzed_urls=seen,
+                    res = search_and_analyze(kw, max_results=15, analyzed_urls=seen,
                                              search_type=f"dragon_{plat}", assigned_to=None)
                     for rr in res:
                         seen.add(rr["url"])
@@ -11418,7 +11418,7 @@ def run_weekly_assignment_all_users(limit_users=None):
                                 break
                             try:
                                 res = search_and_analyze(
-                                    kw, max_results=3, analyzed_urls=assigned_urls,
+                                    kw, max_results=15, analyzed_urls=assigned_urls,
                                     search_type=f"dragon_{plat}", assigned_to=uid)
                                 for rr in res:
                                     assigned_urls.add(rr["url"])
@@ -33805,7 +33805,7 @@ else:
                                     break
                                 with st.spinner(f"'{kw}' 탐색 중..."):
                                     try:
-                                        results = search_and_analyze(kw, max_results=3, analyzed_urls=analyzed_urls,
+                                        results = search_and_analyze(kw, max_results=15, analyzed_urls=analyzed_urls,
                                                                      search_type=selected_type, assigned_to=user["id"])
                                         all_results.extend(results)
                                         for r in results:
