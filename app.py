@@ -3993,6 +3993,17 @@ client = _shared_anthropic()
 youtube = build("youtube", "v3", developerKey=os.getenv("YOUTUBE_API_KEY"), http=httplib2.Http(timeout=15))
 supabase = _session_supabase()
 
+# 📊 YouTube API 쿼터(units) 실사용 카운터 — 일일 10,000 한도 대비 자동 중단용.
+#    search.list=100, videos.list=1, commentThreads.list=1 (공식 단가).
+#    캐시 적중 시에는 증가하지 않음(실제 호출분만 집계).
+_YT_UNITS = {"used": 0}
+
+def yt_units_used():
+    return _YT_UNITS["used"]
+
+def yt_units_add(n):
+    _YT_UNITS["used"] += int(n)
+
 
 # 🔍 부팅 시 1회 — 실제 배포 프로세스가 보는 키 환경변수 (Railway 로그로 ground truth 확인)
 try:
@@ -10650,6 +10661,7 @@ def get_video_durations(video_ids_tuple):
         chunk = ids[i:i + 50]
         try:
             resp = youtube.videos().list(part="contentDetails", id=",".join(chunk)).execute()
+            yt_units_add(1)
             for item in resp.get("items", []):
                 dur = (item.get("contentDetails", {}) or {}).get("duration", "")
                 m = _re_dur.match(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', dur or "")
@@ -10673,6 +10685,7 @@ def get_age_restricted_ids(video_ids_tuple):
         chunk = ids[i:i + 50]
         try:
             resp = youtube.videos().list(part="contentDetails", id=",".join(chunk)).execute()
+            yt_units_add(1)
             for item in resp.get("items", []):
                 rating = (item.get("contentDetails", {}) or {}).get("contentRating", {}) or {}
                 if rating.get("ytRating") == "ytAgeRestricted":
@@ -10690,6 +10703,7 @@ def get_video_categories(video_ids_tuple):
         chunk = ids[i:i + 50]
         try:
             resp = youtube.videos().list(part="snippet", id=",".join(chunk)).execute()
+            yt_units_add(1)
             for item in resp.get("items", []):
                 out[item["id"]] = (item.get("snippet", {}) or {}).get("categoryId", "")
         except Exception:
@@ -10799,6 +10813,7 @@ def get_watched_channels():
 def scan_watched_channel(channel_id, channel_name, max_results=5, assigned_to=None):
     """모니터링 채널의 최신 영상을 자동 스캔"""
     try:
+        yt_units_add(100)   # search.list = 100 units
         sr = youtube.search().list(
             part="snippet", channelId=channel_id, type="video",
             maxResults=max_results, order="date", safeSearch="none"
@@ -11322,7 +11337,7 @@ def claim_from_inventory(user_id, search_type, n):
         })
     return out
 
-def topup_recommendation_inventory(max_generate=5000, units_limit=10000):
+def topup_recommendation_inventory(max_generate=5000, units_limit=10000, ignore_target=False):
     inventory_unclaimed_count.clear(); get_user_pending_count.clear()
     """추천 인벤토리를 (모니터링사용자수 × PER_USER_WEEKLY_TARGET) 까지 보충(부족분만).
     1회 max_generate건으로 상한(폭주 방지). YouTube API units 한도 도달 시 중단. 4개 플랫폼 라운드로빈. 반환: 요약 dict."""
@@ -11333,23 +11348,26 @@ def topup_recommendation_inventory(max_generate=5000, units_limit=10000):
         target = n_users * PER_USER_WEEKLY_TARGET; summary["target"] = target
         current = inventory_unclaimed_count(None); summary["current"] = current
         shortfall = max(0, target - current); summary["shortfall"] = shortfall
-        if shortfall <= 0:
+        if shortfall <= 0 and not ignore_target:
             return summary
-        to_make = min(shortfall, max_generate)
+        # ignore_target=True면 목표치와 무관하게 units 한도까지 계속 생성(쿼터 실사용 축적용)
+        to_make = max_generate if ignore_target else min(shortfall, max_generate)
         seen = get_analyzed_urls()       # 최근 분석 url(중복 회피용)
         plats = ["general", "roblox", "minecraft", "gambling", "deepfake",
                  "sextortion", "school_violence", "runaway", "illegal_job",
                  "crime", "suicide", "abuse", "hate"]
-        gen = 0; rounds = 0; empty = 0; units_used = 0
-        while gen < to_make and rounds < 300 and units_used < units_limit:
+        # 실측 카운터 기준(검색 100 + videos.list + 댓글). 이번 실행분만 세도록 시작점 기록.
+        _u0 = yt_units_used()
+        _spent = lambda: yt_units_used() - _u0
+        gen = 0; rounds = 0; empty = 0
+        while gen < to_make and rounds < 300 and _spent() < units_limit:
             plat = plats[rounds % len(plats)]; rounds += 1; before = gen
             for kw in generate_recommend_keywords(plat):
-                if gen >= to_make:
-                    break
+                if gen >= to_make or _spent() >= units_limit:
+                    break   # 라운드 도중에도 한도 도달 시 즉시 중단(초과 호출 방지)
                 try:
                     res = search_and_analyze(kw, max_results=15, analyzed_urls=seen,
                                              search_type=f"dragon_{plat}", assigned_to=None)
-                    units_used += 100  # search.list = 100 units
                     for rr in res:
                         seen.add(rr["url"])
                         try:
@@ -11367,7 +11385,11 @@ def topup_recommendation_inventory(max_generate=5000, units_limit=10000):
             empty = empty + 1 if gen == before else 0
             if empty >= len(plats) * 2:   # 연속 8라운드 0건 → 키워드 고갈, 중단
                 break
-        summary["generated"] = gen; summary["units_used"] = units_used
+        summary["generated"] = gen; summary["units_used"] = _spent()
+        summary["units_limit"] = units_limit
+        summary["stopped_by"] = ("units" if _spent() >= units_limit
+                                 else "target" if gen >= to_make
+                                 else "keywords")
     except Exception:
         summary["errors"] += 1
     return summary
@@ -12871,6 +12893,7 @@ def generate_recommend_keywords(platform="general"):
 def get_video_comments(video_id, max_comments=30):
     """유튜브 영상 댓글 수집 — 위험 패턴 탐지용"""
     try:
+        yt_units_add(1)   # 실패(댓글 비활성)해도 쿼터는 차감되므로 호출 전에 집계
         res = youtube.commentThreads().list(
             part="snippet",
             videoId=video_id,
@@ -13001,6 +13024,7 @@ def search_and_analyze(keyword, max_results=5, analyzed_urls=None, search_type="
     if analyzed_urls is None:
         analyzed_urls = set()
 
+    yt_units_add(100)   # search.list = 100 units (호출 전 집계)
     sr = youtube.search().list(
         part="snippet", q=keyword, type="video",
         maxResults=max_results + 15,
@@ -13311,8 +13335,14 @@ if params.get("cron") == "fill_inventory":
             _mx = int(params.get("max", "1000"))
         except Exception:
             _mx = 1000
+        try:
+            _ul = int(params.get("units", "10000"))   # 이번 호출에서 쓸 units 상한
+        except Exception:
+            _ul = 10000
+        _ign = params.get("force", "") == "1"          # 목표치 무시하고 units 한도까지 생성
         with st.spinner("🏭 추천 인벤토리 채우는 중..."):
-            _isum = topup_recommendation_inventory(max_generate=_mx)
+            _isum = topup_recommendation_inventory(
+                max_generate=_mx, units_limit=_ul, ignore_target=_ign)
         st.success(f"인벤토리 보충 완료: {_isum}")
     else:
         st.error("unauthorized (CRON_SECRET 불일치)")
