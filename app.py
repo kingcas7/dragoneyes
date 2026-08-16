@@ -11322,12 +11322,12 @@ def claim_from_inventory(user_id, search_type, n):
         })
     return out
 
-def topup_recommendation_inventory(max_generate=300):
+def topup_recommendation_inventory(max_generate=5000, units_limit=10000):
     inventory_unclaimed_count.clear(); get_user_pending_count.clear()
     """추천 인벤토리를 (모니터링사용자수 × PER_USER_WEEKLY_TARGET) 까지 보충(부족분만).
-    1회 max_generate건으로 상한(폭주 방지). 4개 플랫폼 라운드로빈. 반환: 요약 dict."""
+    1회 max_generate건으로 상한(폭주 방지). YouTube API units 한도 도달 시 중단. 4개 플랫폼 라운드로빈. 반환: 요약 dict."""
     summary = {"monitoring_users": 0, "target": 0, "current": 0,
-               "shortfall": 0, "generated": 0, "errors": 0}
+               "shortfall": 0, "generated": 0, "errors": 0, "units_used": 0}
     try:
         n_users = count_monitoring_users(); summary["monitoring_users"] = n_users
         target = n_users * PER_USER_WEEKLY_TARGET; summary["target"] = target
@@ -11340,8 +11340,8 @@ def topup_recommendation_inventory(max_generate=300):
         plats = ["general", "roblox", "minecraft", "gambling", "deepfake",
                  "sextortion", "school_violence", "runaway", "illegal_job",
                  "crime", "suicide", "abuse", "hate"]
-        gen = 0; rounds = 0; empty = 0
-        while gen < to_make and rounds < 300:
+        gen = 0; rounds = 0; empty = 0; units_used = 0
+        while gen < to_make and rounds < 300 and units_used < units_limit:
             plat = plats[rounds % len(plats)]; rounds += 1; before = gen
             for kw in generate_recommend_keywords(plat):
                 if gen >= to_make:
@@ -11349,6 +11349,7 @@ def topup_recommendation_inventory(max_generate=300):
                 try:
                     res = search_and_analyze(kw, max_results=15, analyzed_urls=seen,
                                              search_type=f"dragon_{plat}", assigned_to=None)
+                    units_used += 100  # search.list = 100 units
                     for rr in res:
                         seen.add(rr["url"])
                         try:
@@ -11366,7 +11367,7 @@ def topup_recommendation_inventory(max_generate=300):
             empty = empty + 1 if gen == before else 0
             if empty >= len(plats) * 2:   # 연속 8라운드 0건 → 키워드 고갈, 중단
                 break
-        summary["generated"] = gen
+        summary["generated"] = gen; summary["units_used"] = units_used
     except Exception:
         summary["errors"] += 1
     return summary
